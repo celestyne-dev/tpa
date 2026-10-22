@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
+import { createBuilderFake } from "./builderFake";
 
 // Mirrors backend/app/auth/permissions.py (available permissions only, plus sensitive ones).
 const ARTICLES = ["articles.view", "articles.create", "articles.edit_own", "articles.edit_any"];
@@ -24,10 +25,19 @@ const ALL = [
   "articles.view_revisions",
   "articles.restore_revisions",
   "articles.preview",
+  "homepage.view",
+  "homepage.edit",
+  "homepage.publish",
   "pages.view",
   "pages.edit",
+  "pages.create",
+  "pages.publish",
+  "reusable_sections.manage",
+  "branding.manage",
+  "announcements.manage",
   "navigation.manage",
   "settings.manage",
+  "settings.technical",
   "seo.manage",
   "seo.view",
   "redirects.manage",
@@ -64,6 +74,8 @@ export const ROLE_PERMS = {
     "publishing.view",
     "pages.view",
     "pages.edit",
+    "homepage.view",
+    "homepage.edit",
   ],
   moderator: [
     "dashboard.view",
@@ -72,6 +84,7 @@ export const ROLE_PERMS = {
     "articles.archive",
     "media.view",
     "pages.view",
+    "homepage.view",
     "articles.view_revisions",
     "articles.preview",
     "publishing.view",
@@ -107,7 +120,28 @@ export const ROLE_PERMS = {
     "articles.restore_revisions",
     "articles.preview",
   ],
-  administrator: ALL.filter((p) => !["roles.manage", "roles.assign"].includes(p)),
+  administrator: ALL.filter(
+    (p) => !["roles.manage", "roles.assign", "settings.technical"].includes(p),
+  ),
+  website_manager: [
+    "dashboard.view",
+    "homepage.view",
+    "homepage.edit",
+    "homepage.publish",
+    "pages.view",
+    "pages.edit",
+    "pages.create",
+    "pages.publish",
+    "reusable_sections.manage",
+    "branding.manage",
+    "announcements.manage",
+    "navigation.manage",
+    "settings.manage",
+    "media.view",
+    "media.upload",
+    "publishing.view",
+  ],
+  marketing_manager: ["dashboard.view", "analytics.view", "homepage.view", "announcements.manage"],
   // A specialised role without dashboard access, used to test landing routes.
   pages_only: ["pages.view"],
 };
@@ -419,12 +453,63 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
             is_default: true,
           },
           {
+            key: "branding.logo_media_id",
+            label: "Logo image",
+            type: "media",
+            max_length: 200,
+            help: "Optional.",
+            value: null,
+            is_default: true,
+          },
+          {
+            key: "branding.palette",
+            label: "Colour palette",
+            type: "choice",
+            max_length: 40,
+            help: "",
+            value: "classic",
+            is_default: true,
+            choices: [
+              { value: "classic", label: "Classic: ivory, sage and gold" },
+              { value: "evergreen", label: "Evergreen: deeper greens" },
+              { value: "golden_hour", label: "Golden hour: warmer gold accents" },
+            ],
+          },
+        ],
+      },
+      {
+        name: "Footer",
+        settings: [
+          {
             key: "footer.text",
             label: "Footer introduction",
             type: "text",
             max_length: 400,
             help: "",
             value: "Encouragement.",
+            is_default: true,
+          },
+          {
+            key: "footer.copyright",
+            label: "Copyright line",
+            type: "string",
+            max_length: 160,
+            help: "{year} and {site_name} are filled in automatically.",
+            value: "© {year} {site_name}. All rights reserved.",
+            is_default: true,
+          },
+        ],
+      },
+      {
+        name: "Header",
+        settings: [
+          {
+            key: "header.cta_label",
+            label: "Header button label",
+            type: "string",
+            max_length: 30,
+            help: "",
+            value: "Newsletter",
             is_default: true,
           },
         ],
@@ -956,14 +1041,80 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
       updateSection: vi.fn(),
       reorder: vi.fn(),
     },
-    navigation: { list: vi.fn(() => ok([])), save: vi.fn() },
+    navigation: {
+      list: vi.fn(() =>
+        ok([
+          {
+            key: "primary",
+            name: "Header navigation",
+            help: "",
+            is_default: false,
+            allows_groups: true,
+            warnings: ["/old-page does not point to a published page yet."],
+            items: [
+              {
+                label: "Home",
+                link_type: "internal",
+                url: "/",
+                open_in_new_tab: false,
+                is_visible: true,
+                visibility: "all",
+                children: [],
+              },
+              {
+                label: "Old",
+                link_type: "internal",
+                url: "/old-page",
+                open_in_new_tab: false,
+                is_visible: true,
+                visibility: "all",
+                children: [],
+              },
+            ],
+          },
+          {
+            key: "mobile",
+            name: "Mobile navigation",
+            help: "Leave empty to use the header navigation on mobile.",
+            is_default: true,
+            allows_groups: true,
+            warnings: [],
+            items: [],
+          },
+          {
+            key: "legal",
+            name: "Footer legal links",
+            help: "",
+            is_default: true,
+            allows_groups: false,
+            warnings: [],
+            items: [],
+          },
+        ]),
+      ),
+      save: vi.fn((key, items) =>
+        ok({
+          key,
+          name: key,
+          help: "",
+          is_default: false,
+          allows_groups: key !== "legal",
+          warnings: [],
+          items,
+        }),
+      ),
+    },
     settings: {
-      get: vi.fn(() => ok(settings)),
-      save: vi.fn((values) => {
+      get: vi.fn((groups) =>
+        ok({
+          groups: settings.groups.filter((g) => !groups || groups.includes(g.name)),
+        }),
+      ),
+      save: vi.fn((values, groups) => {
         settings.groups.forEach((g) =>
           g.settings.forEach((s) => s.key in values && (s.value = values[s.key])),
         );
-        return ok(settings);
+        return ok({ groups: settings.groups.filter((g) => !groups || groups.includes(g.name)) });
       }),
     },
     users: {
@@ -1132,6 +1283,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
       resend: vi.fn(() => ok({ id: 11, status: "pending", delivery: "development_console" })),
     },
     audit: { list: vi.fn(() => ok([], { pagination: null })) },
+    ...createBuilderFake(() => user),
   };
 }
 

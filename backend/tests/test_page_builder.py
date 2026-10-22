@@ -764,3 +764,28 @@ def test_public_api_never_returns_drafts(seeded, as_role, client):
     with seeded.app_context():
         page_row = db.session.get(Page, page["id"])
         assert page_row.published_snapshot is None
+
+
+def test_builder_options_for_pickers_respect_permissions(seeded, as_role):
+    api = as_role("website_manager")
+    data = api.get("/api/v1/admin/builder-options").get_json()["data"]
+    assert len(data["articles"]) == 6 and {"id", "title", "slug"} <= set(data["articles"][0])
+    assert data["topics"] and data["authors"]
+    assert as_role("analyst").get("/api/v1/admin/builder-options").status_code == 403
+    links = api.get("/api/v1/admin/link-options?q=about").get_json()["data"]
+    assert any(item["url"] == "/about" for item in links)
+
+
+def test_frontend_section_schema_fixture_is_current(app):
+    """frontend/src/test/sectionTypes.json mirrors GET /admin/section-types (regenerate if this fails)."""
+    import json
+    from pathlib import Path
+
+    from app.cms.sections import section_types_schema
+
+    fixture = (
+        Path(__file__).resolve().parents[2] / "frontend" / "src" / "test" / "sectionTypes.json"
+    )
+    assert json.loads(fixture.read_text(encoding="utf-8")) == json.loads(
+        json.dumps(section_types_schema())
+    )

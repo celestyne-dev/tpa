@@ -210,11 +210,14 @@ describe("settings", () => {
     const { adminApi } = renderApp("/admin/settings");
     const email = await screen.findByLabelText("Contact email");
     await user.type(email, "hello@example.org");
-    await user.click(screen.getByRole("button", { name: "Save settings" }));
+    await user.click(screen.getByRole("button", { name: "Save and publish" }));
     await waitFor(() =>
-      expect(adminApi.settings.save).toHaveBeenCalledWith({ "contact.email": "hello@example.org" }),
+      expect(adminApi.settings.save).toHaveBeenCalledWith(
+        { "contact.email": "hello@example.org" },
+        null,
+      ),
     );
-    expect(await screen.findByText(/Settings saved/)).toBeInTheDocument();
+    expect(await screen.findByText(/website updates after the queued rebuild/)).toBeInTheDocument();
   });
 });
 

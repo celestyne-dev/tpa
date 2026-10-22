@@ -299,6 +299,38 @@ class PageSectionShareResource(Resource):
         return success(shared_admin.reusable_dict(shared), status=201)
 
 
+# ---- pickers -------------------------------------------------------------------------------------
+
+
+class BuilderOptionsResource(Resource):
+    """Published articles, active topics and authors for section pickers (ids and titles only)."""
+
+    @require_any_permission(*ANY_PAGE_EDIT, P.REUSABLE_SECTIONS_MANAGE)
+    def get(self):
+        from ...models import Author
+        from ...services.article_service import published_filter
+
+        articles = db.session.scalars(
+            select(Article).where(published_filter()).order_by(Article.published_at.desc())
+        )
+        topics = db.session.scalars(
+            select(Topic).where(Topic.status == "active").order_by(Topic.display_order, Topic.name)
+        )
+        authors = db.session.scalars(
+            select(Author).where(Author.status == "active").order_by(Author.display_name)
+        )
+        return success(
+            {
+                "articles": [{"id": a.id, "title": a.title, "slug": a.slug} for a in articles],
+                "topics": [
+                    {"id": t.id, "name": t.name, "slug": t.slug, "featured": t.featured}
+                    for t in topics
+                ],
+                "authors": [{"id": a.id, "name": a.display_name} for a in authors],
+            }
+        )
+
+
 # ---- link picker -------------------------------------------------------------------------------
 
 

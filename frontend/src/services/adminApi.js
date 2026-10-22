@@ -173,21 +173,69 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       exportUrl: () => `${baseURL}/redirects/export`,
     },
     pages: {
-      list: () => get("/pages"),
+      list: (params) => get("/pages", params),
       get: (id) => get(`/pages/${id}`),
+      homepage: () => get("/homepage"),
+      create: (body) => post("/pages", body),
       update: (id, body) => patch(`/pages/${id}`, body),
+      saveDraft: (id, body) => put(`/pages/${id}/draft`, body),
+      publish: (id, lockVersion) => post(`/pages/${id}/publish`, { lock_version: lockVersion }),
+      schedule: (id, scheduledAt, lockVersion) =>
+        post(`/pages/${id}/schedule`, { scheduled_at: scheduledAt, lock_version: lockVersion }),
+      unschedule: (id) => del(`/pages/${id}/schedule`),
+      unpublish: (id) => post(`/pages/${id}/unpublish`),
+      archive: (id) => post(`/pages/${id}/archive`),
+      restore: (id) => post(`/pages/${id}/restore`),
+      discard: (id) => post(`/pages/${id}/discard`),
+      duplicate: (id) => post(`/pages/${id}/duplicate`),
+      preview: (id, body) =>
+        body ? post(`/pages/${id}/preview`, body) : get(`/pages/${id}/preview`),
+      seoChecks: (id) => get(`/pages/${id}/seo-checks`),
+      revisions: (id) => get(`/pages/${id}/revisions`),
+      revision: (id, revisionId) => get(`/pages/${id}/revisions/${revisionId}`),
+      restoreRevision: (id, revisionId, lockVersion) =>
+        post(`/pages/${id}/revisions/${revisionId}/restore`, { lock_version: lockVersion }),
+      slugCheck: (params) => get("/pages/slug-check", params),
+      templates: () => get("/page-templates"),
       sectionTypes: () => get("/section-types"),
+      shareSection: (id, sectionId, name) =>
+        post(`/pages/${id}/sections/${sectionId}/share`, { name }),
       updateSection: (pageId, sectionId, body) =>
         patch(`/pages/${pageId}/sections/${sectionId}`, body),
       reorder: (pageId, order) => put(`/pages/${pageId}/sections/order`, { order }),
     },
+    shared: {
+      list: () => get("/shared-sections"),
+      get: (id) => get(`/shared-sections/${id}`),
+      create: (body) => post("/shared-sections", body),
+      update: (id, body) => put(`/shared-sections/${id}`, body),
+      remove: (id) => del(`/shared-sections/${id}`),
+    },
+    ctas: {
+      list: () => get("/ctas"),
+      create: (body) => post("/ctas", body),
+      update: (id, body) => patch(`/ctas/${id}`, body),
+      remove: (id) => del(`/ctas/${id}`),
+    },
+    announcements: {
+      list: () => get("/announcements"),
+      create: (body) => post("/announcements", body),
+      update: (id, body) => patch(`/announcements/${id}`, body),
+      remove: (id) => del(`/announcements/${id}`),
+      reorder: (order) => put("/announcements/order", { order }),
+    },
+    linkOptions: (q) => get("/link-options", { q }),
+    builderOptions: () => get("/builder-options"),
     navigation: {
       list: () => get("/navigation"),
       save: (key, items) => put(`/navigation/${key}`, { items }),
     },
     settings: {
-      get: () => get("/settings"),
-      save: (values) => patch("/settings", { values }),
+      get: (groups) => get("/settings", groups ? { groups: groups.join(",") } : undefined),
+      save: (values, groups) =>
+        patch(groups ? `/settings?groups=${encodeURIComponent(groups.join(","))}` : "/settings", {
+          values,
+        }),
     },
     users: {
       list: (params) => get("/users", params),

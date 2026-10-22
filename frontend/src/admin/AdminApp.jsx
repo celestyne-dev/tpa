@@ -7,6 +7,13 @@ import { AdminLayout } from "./components/AdminLayout";
 import { RequireAuth, RequirePermission } from "./components/Guards";
 import { NotificationProvider } from "./components/Notifications";
 import { AccountPage } from "./pages/AccountPage";
+import { AnnouncementsPage } from "./pages/AnnouncementsPage";
+import { BrandingPage } from "./pages/BrandingPage";
+import { FooterPage } from "./pages/FooterPage";
+import { HomepageBuilderPage } from "./pages/HomepageBuilderPage";
+import { PagePreviewPage } from "./pages/PagePreviewPage";
+import { PreviewFramePage } from "./pages/PreviewFramePage";
+import { SharedSectionsPage } from "./pages/SharedSectionsPage";
 import { ActivatePage } from "./pages/ActivatePage";
 import { ArticleEditorPage } from "./pages/ArticleEditorPage";
 import { ArticlePreviewPage } from "./pages/ArticlePreviewPage";
@@ -29,10 +36,12 @@ import { TaxonomyPage } from "./pages/TaxonomyPage";
 import { UsersPage } from "./pages/UsersPage";
 import {
   ARTICLE_ACCESS,
+  PAGE_READ,
   REDIRECT_READ,
   ROLE_READ,
   SEO_READ,
   SETTINGS_ACCESS,
+  SHARED_ACCESS,
   TAXONOMY_READ,
 } from "./permissions";
 
@@ -59,6 +68,15 @@ export default function AdminApp() {
         <Route path="login" element={<LoginPage />} />
         <Route path="activate" element={<ActivatePage />} />
         <Route path="reset-password" element={<ResetPasswordPage />} />
+        {/* Full-screen private previews (no admin chrome; still require a session). */}
+        <Route
+          path="pages/:id/preview"
+          element={<RequireAuth>{guarded(PAGE_READ, <PagePreviewPage />)}</RequireAuth>}
+        />
+        <Route
+          path="preview-frame/:id"
+          element={<RequireAuth>{guarded(PAGE_READ, <PreviewFramePage />)}</RequireAuth>}
+        />
         <Route
           element={
             <RequireAuth>
@@ -85,9 +103,17 @@ export default function AdminApp() {
           <Route path="topics" element={guarded(TAXONOMY_READ, <TaxonomyPage kind="topics" />)} />
           <Route path="tags" element={guarded(TAXONOMY_READ, <TaxonomyPage kind="tags" />)} />
           <Route path="authors" element={guarded(TAXONOMY_READ, <TaxonomyPage kind="authors" />)} />
+          <Route path="homepage" element={guarded("homepage.view", <HomepageBuilderPage />)} />
           <Route path="pages" element={guarded("pages.view", <PagesPage />)} />
-          <Route path="pages/:id" element={guarded("pages.view", <PageEditorPage />)} />
+          <Route path="pages/:id" element={guarded(PAGE_READ, <PageEditorPage />)} />
+          <Route path="shared-sections" element={guarded(SHARED_ACCESS, <SharedSectionsPage />)} />
           <Route path="navigation" element={guarded("navigation.manage", <NavigationPage />)} />
+          <Route path="footer" element={guarded("settings.manage", <FooterPage />)} />
+          <Route path="branding" element={guarded("branding.manage", <BrandingPage />)} />
+          <Route
+            path="announcements"
+            element={guarded("announcements.manage", <AnnouncementsPage />)}
+          />
           <Route path="settings" element={guarded(SETTINGS_ACCESS, <SettingsPage />)} />
           <Route path="users" element={guarded("users.view", <UsersPage />)} />
           <Route path="roles" element={guarded(ROLE_READ, <RolesPage />)} />

@@ -1,0 +1,3561 @@
+[
+  {
+    "type": "hero",
+    "label": "Hero banner",
+    "category": "Introductions",
+    "description": "The large opening section with the main headline and buttons.",
+    "reusable_only": false,
+    "single_use": true,
+    "variants": [
+      {
+        "value": "split",
+        "label": "Text with illustration or image"
+      },
+      {
+        "value": "centered",
+        "label": "Centred text"
+      },
+      {
+        "value": "full_width",
+        "label": "Full-width background image"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Headline",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "highlight",
+        "type": "text",
+        "label": "Highlighted second line",
+        "max": 120,
+        "help": "Shown in italic sage."
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Supporting text",
+        "max": 400
+      },
+      {
+        "name": "media",
+        "type": "media",
+        "label": "Image",
+        "required_for": ["full_width"],
+        "show_for": ["split", "full_width"],
+        "help": "Optional for the split layout: the brand illustration is used when empty."
+      },
+      {
+        "name": "primary_cta",
+        "type": "cta",
+        "label": "Main button"
+      },
+      {
+        "name": "secondary_cta",
+        "type": "cta",
+        "label": "Second button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      },
+      {
+        "name": "heading_size",
+        "label": "Heading size",
+        "choices": [
+          {
+            "value": "small",
+            "label": "Smaller"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "large",
+            "label": "Larger"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "split",
+      "content": {
+        "eyebrow": "",
+        "heading": "A clear, encouraging headline",
+        "highlight": "",
+        "body": "",
+        "media": null,
+        "primary_cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        },
+        "secondary_cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "lg",
+        "align": "left"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "brand_intro",
+    "label": "Brand mission",
+    "category": "Introductions",
+    "description": "Who we are and why we exist, with an optional verified community figure.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "with_stat",
+        "label": "With community figure"
+      },
+      {
+        "value": "with_image",
+        "label": "With image"
+      },
+      {
+        "value": "text_only",
+        "label": "Text only"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Text",
+        "max": 1500,
+        "help": "Separate paragraphs with a blank line."
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Button"
+      },
+      {
+        "name": "stat_caption",
+        "type": "textarea",
+        "label": "Community figure caption",
+        "max": 300,
+        "show_for": ["with_stat"],
+        "help": "The figure itself comes from Settings › LinkedIn follower count (verified)."
+      },
+      {
+        "name": "media",
+        "type": "media",
+        "label": "Image",
+        "required_for": ["with_image"],
+        "show_for": ["with_image"]
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "aspect_ratio",
+        "label": "Image shape",
+        "choices": [
+          {
+            "value": "landscape",
+            "label": "Landscape (3:2)"
+          },
+          {
+            "value": "wide",
+            "label": "Wide (16:9)"
+          },
+          {
+            "value": "square",
+            "label": "Square"
+          },
+          {
+            "value": "portrait",
+            "label": "Portrait (4:5)"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "text_only",
+      "content": {
+        "eyebrow": "",
+        "heading": "Our mission",
+        "body": "",
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        },
+        "stat_caption": "",
+        "media": null
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "featured_articles",
+    "label": "Featured articles",
+    "category": "Articles",
+    "description": "Articles marked as featured, or a hand-picked selection.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "lead_and_grid",
+        "label": "Large lead article and grid"
+      },
+      {
+        "value": "grid_3",
+        "label": "Three-column cards"
+      },
+      {
+        "value": "carousel",
+        "label": "Horizontal scrolling row"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "mode",
+        "type": "select",
+        "label": "Which articles",
+        "choices": [
+          {
+            "value": "featured",
+            "label": "Articles marked as featured"
+          },
+          {
+            "value": "manual",
+            "label": "Choose articles"
+          }
+        ],
+        "default": "featured"
+      },
+      {
+        "name": "articles",
+        "type": "articles",
+        "label": "Articles",
+        "max_items": 12,
+        "show_for_mode": "manual",
+        "help": "In this order."
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "label": "Number of articles",
+        "min": 1,
+        "max": 12,
+        "default": 3
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Link button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "grid_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "Featured articles",
+        "description": "",
+        "mode": "featured",
+        "articles": [],
+        "count": 3,
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "latest_articles",
+    "label": "Latest articles",
+    "category": "Articles",
+    "description": "The most recently published articles, optionally from one topic.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "grid_3",
+        "label": "Three-column cards"
+      },
+      {
+        "value": "grid_4",
+        "label": "Four-column cards"
+      },
+      {
+        "value": "list",
+        "label": "List"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "topic",
+        "type": "topics",
+        "label": "Only from this topic",
+        "max_items": 1,
+        "help": "Optional."
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "label": "Number of articles",
+        "min": 1,
+        "max": 12,
+        "default": 6
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Link button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "grid_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "Latest articles",
+        "description": "",
+        "topic": [],
+        "count": 6,
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "article_collection",
+    "label": "Selected article collection",
+    "category": "Articles",
+    "description": "A hand-picked reading list in your chosen order.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "grid_3",
+        "label": "Three-column cards"
+      },
+      {
+        "value": "grid_2",
+        "label": "Two-column cards"
+      },
+      {
+        "value": "list",
+        "label": "List"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "articles",
+        "type": "articles",
+        "label": "Articles",
+        "max_items": 12,
+        "required": true
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Link button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "grid_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "Recommended reading",
+        "description": "",
+        "articles": [],
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "topics_grid",
+    "label": "Topic cards",
+    "category": "Articles",
+    "description": "Cards linking to topic pages: featured topics, all topics or a selection.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "cards_3",
+        "label": "Three-column cards"
+      },
+      {
+        "value": "cards_4",
+        "label": "Four-column cards"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "mode",
+        "type": "select",
+        "label": "Which topics",
+        "choices": [
+          {
+            "value": "featured",
+            "label": "Featured topics"
+          },
+          {
+            "value": "all",
+            "label": "All active topics"
+          },
+          {
+            "value": "manual",
+            "label": "Choose topics"
+          }
+        ],
+        "default": "featured"
+      },
+      {
+        "name": "topics",
+        "type": "topics",
+        "label": "Topics",
+        "max_items": 12,
+        "show_for_mode": "manual"
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Link button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "cards_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "Explore by topic",
+        "description": "",
+        "mode": "featured",
+        "topics": [],
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "quote",
+    "label": "Motivational quote",
+    "category": "Inspiration",
+    "description": "A short quote with an optional attribution.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "minimal",
+        "label": "Minimal"
+      },
+      {
+        "value": "highlighted",
+        "label": "Highlighted card"
+      },
+      {
+        "value": "large",
+        "label": "Large"
+      }
+    ],
+    "fields": [
+      {
+        "name": "quote",
+        "type": "textarea",
+        "label": "Quote",
+        "max": 400,
+        "required": true
+      },
+      {
+        "name": "attribution",
+        "type": "text",
+        "label": "Attribution",
+        "max": 120,
+        "help": "Only quote real people accurately."
+      },
+      {
+        "name": "attribution_role",
+        "type": "text",
+        "label": "Attribution detail",
+        "max": 120
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "minimal",
+      "content": {
+        "quote": "Small steps, taken consistently, change everything.",
+        "attribution": "",
+        "attribution_role": ""
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md",
+        "align": "center"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "inspirational_message",
+    "label": "Inspirational message",
+    "category": "Inspiration",
+    "description": "A short encouraging message with an optional button.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "centered",
+        "label": "Centred"
+      },
+      {
+        "value": "banner",
+        "label": "Banner"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "message",
+        "type": "textarea",
+        "label": "Message",
+        "max": 300,
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Supporting text",
+        "max": 500
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "heading_size",
+        "label": "Heading size",
+        "choices": [
+          {
+            "value": "small",
+            "label": "Smaller"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "large",
+            "label": "Larger"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "centered",
+      "content": {
+        "eyebrow": "",
+        "message": "You are allowed to grow at your own pace.",
+        "body": "",
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "sage",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "image_text",
+    "label": "Image and text feature",
+    "category": "Content",
+    "description": "An image beside a heading, text and buttons.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "image_left",
+        "label": "Image left, text right"
+      },
+      {
+        "value": "image_right",
+        "label": "Text left, image right"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Text",
+        "max": 1500,
+        "help": "Separate paragraphs with a blank line."
+      },
+      {
+        "name": "bullets",
+        "type": "string_list",
+        "label": "Bullet points",
+        "max": 160,
+        "max_items": 8
+      },
+      {
+        "name": "media",
+        "type": "media",
+        "label": "Image",
+        "required": true
+      },
+      {
+        "name": "primary_cta",
+        "type": "cta",
+        "label": "Main button"
+      },
+      {
+        "name": "secondary_cta",
+        "type": "cta",
+        "label": "Second button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "aspect_ratio",
+        "label": "Image shape",
+        "choices": [
+          {
+            "value": "landscape",
+            "label": "Landscape (3:2)"
+          },
+          {
+            "value": "wide",
+            "label": "Wide (16:9)"
+          },
+          {
+            "value": "square",
+            "label": "Square"
+          },
+          {
+            "value": "portrait",
+            "label": "Portrait (4:5)"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "image_left",
+      "content": {
+        "eyebrow": "",
+        "heading": "A feature worth highlighting",
+        "body": "",
+        "bullets": [],
+        "media": null,
+        "primary_cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        },
+        "secondary_cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md",
+        "aspect_ratio": "landscape"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "newsletter_cta",
+    "label": "Newsletter signup",
+    "category": "Engagement",
+    "description": "The Positive Reset panel. It shows an honest “opening soon” notice until a real email provider is connected; it never collects addresses.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "panel",
+        "label": "Panel"
+      },
+      {
+        "value": "compact",
+        "label": "Compact"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label",
+        "max": 80,
+        "default": "Weekly newsletter"
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "help": "Leave empty to use the newsletter name."
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 300
+      },
+      {
+        "name": "show_learn_more",
+        "type": "boolean",
+        "label": "Show “What to expect” link",
+        "default": true
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "width",
+        "label": "Content width",
+        "choices": [
+          {
+            "value": "narrow",
+            "label": "Narrow"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "wide",
+            "label": "Wide"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "panel",
+      "content": {
+        "eyebrow": "Weekly newsletter",
+        "heading": "",
+        "description": "One thoughtful email each week to help you reset your mindset, find perspective, and keep moving forward.",
+        "show_learn_more": true
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "sm",
+        "width": "wide"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "product_previews",
+    "label": "Digital product showcase",
+    "category": "Engagement",
+    "description": "Upcoming eBooks and resources as honest “coming soon” previews. Purchasing stays disabled until the shop launches.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "grid",
+        "label": "Grid"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "label": "Number of products",
+        "min": 1,
+        "max": 6,
+        "default": 3
+      },
+      {
+        "name": "footnote",
+        "type": "text",
+        "label": "Footnote",
+        "max": 200
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Link button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "grid",
+      "content": {
+        "eyebrow": "",
+        "heading": "Coming soon",
+        "description": "",
+        "count": 3,
+        "footnote": "These titles are in development and not yet available to purchase.",
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "promo_banner",
+    "label": "Promotional banner",
+    "category": "Engagement",
+    "description": "A bold banner for a campaign, series or upcoming release.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "full_width",
+        "label": "Full width"
+      },
+      {
+        "value": "card",
+        "label": "Card"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Text",
+        "max": 400
+      },
+      {
+        "name": "media",
+        "type": "media",
+        "label": "Image (optional)"
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "button_style",
+        "label": "Button style",
+        "choices": [
+          {
+            "value": "primary",
+            "label": "Sage (primary)"
+          },
+          {
+            "value": "secondary",
+            "label": "Charcoal"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "light",
+            "label": "Light"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "card",
+      "content": {
+        "eyebrow": "",
+        "heading": "Something new is on the way",
+        "body": "",
+        "media": null,
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "sage_dark",
+        "spacing": "md",
+        "button_style": "light"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "call_to_action",
+    "label": "Call to action",
+    "category": "Engagement",
+    "description": "A focused invitation with one or two buttons.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "centered",
+        "label": "Centred with ornament"
+      },
+      {
+        "value": "banner",
+        "label": "Full-width banner"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Text",
+        "max": 400
+      },
+      {
+        "name": "primary_cta",
+        "type": "cta",
+        "label": "Main button"
+      },
+      {
+        "name": "secondary_cta",
+        "type": "cta",
+        "label": "Second button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "width",
+        "label": "Content width",
+        "choices": [
+          {
+            "value": "narrow",
+            "label": "Narrow"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "wide",
+            "label": "Wide"
+          }
+        ]
+      },
+      {
+        "name": "heading_size",
+        "label": "Heading size",
+        "choices": [
+          {
+            "value": "small",
+            "label": "Smaller"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "large",
+            "label": "Larger"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "centered",
+      "content": {
+        "heading": "Ready for your next step?",
+        "body": "",
+        "primary_cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        },
+        "secondary_cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "lg",
+        "width": "narrow"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "testimonials",
+    "label": "Testimonials",
+    "category": "Engagement",
+    "description": "Genuine words from readers or partners, shared with permission.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "cards_3",
+        "label": "Three columns"
+      },
+      {
+        "value": "cards_2",
+        "label": "Two columns"
+      },
+      {
+        "value": "single",
+        "label": "Large, one per row"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120
+      },
+      {
+        "name": "items",
+        "type": "items",
+        "label": "Testimonials",
+        "max_items": 9,
+        "required": true,
+        "help": "Only publish genuine testimonials you have permission to share.",
+        "fields": [
+          {
+            "name": "quote",
+            "type": "textarea",
+            "label": "Quote",
+            "max": 500,
+            "required": true
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Name",
+            "max": 80,
+            "required": true
+          },
+          {
+            "name": "role",
+            "type": "text",
+            "label": "Role or location",
+            "max": 120
+          },
+          {
+            "name": "media",
+            "type": "media",
+            "label": "Photo (optional)"
+          }
+        ]
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "cards_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "Kind words",
+        "items": []
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "statistics",
+    "label": "Statistics",
+    "category": "Engagement",
+    "description": "A row of key figures.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "row",
+        "label": "Row"
+      },
+      {
+        "value": "cards",
+        "label": "Cards"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120
+      },
+      {
+        "name": "items",
+        "type": "items",
+        "label": "Figures",
+        "max_items": 6,
+        "required": true,
+        "help": "Use verified figures only.",
+        "fields": [
+          {
+            "name": "value",
+            "type": "text",
+            "label": "Figure",
+            "max": 24,
+            "required": true
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "label": "Label",
+            "max": 120,
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "footnote",
+        "type": "text",
+        "label": "Footnote",
+        "max": 200,
+        "help": "e.g. the source and date of the figures."
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "row",
+      "content": {
+        "eyebrow": "",
+        "heading": "",
+        "items": [],
+        "footnote": ""
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md",
+        "align": "center"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "faq",
+    "label": "FAQ",
+    "category": "Content",
+    "description": "Questions and answers in an accessible expandable list.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "accordion",
+        "label": "Expandable list"
+      },
+      {
+        "value": "two_column",
+        "label": "Intro beside questions"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "default": "Frequently asked questions"
+      },
+      {
+        "name": "intro",
+        "type": "textarea",
+        "label": "Introduction",
+        "max": 400
+      },
+      {
+        "name": "items",
+        "type": "items",
+        "label": "Questions",
+        "max_items": 20,
+        "required": true,
+        "fields": [
+          {
+            "name": "question",
+            "type": "text",
+            "label": "Question",
+            "max": 200,
+            "required": true
+          },
+          {
+            "name": "answer",
+            "type": "textarea",
+            "label": "Answer",
+            "max": 1500,
+            "required": true
+          }
+        ]
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "width",
+        "label": "Content width",
+        "choices": [
+          {
+            "value": "narrow",
+            "label": "Narrow"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "wide",
+            "label": "Wide"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "accordion",
+      "content": {
+        "eyebrow": "",
+        "heading": "Frequently asked questions",
+        "intro": "",
+        "items": []
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md",
+        "width": "narrow"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "rich_text",
+    "label": "Custom content",
+    "category": "Content",
+    "description": "Free-form content built from text, headings, lists, images and quotes.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "default",
+        "label": "Standard width"
+      },
+      {
+        "value": "narrow",
+        "label": "Narrow reading width"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120
+      },
+      {
+        "name": "body",
+        "type": "rich",
+        "label": "Content",
+        "required": true
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "narrow",
+      "content": {
+        "heading": "",
+        "body": [
+          {
+            "type": "paragraph",
+            "text": "Write your content here."
+          }
+        ]
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "feature_list",
+    "label": "Feature list",
+    "category": "Content",
+    "description": "Short benefits or principles, each with an icon.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "sticky_intro",
+        "label": "Introduction beside features"
+      },
+      {
+        "value": "grid_3",
+        "label": "Three-column grid"
+      },
+      {
+        "value": "grid_4",
+        "label": "Four-column grid"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 600
+      },
+      {
+        "name": "quote",
+        "type": "textarea",
+        "label": "Highlighted quote",
+        "max": 300
+      },
+      {
+        "name": "items",
+        "type": "items",
+        "label": "Features",
+        "max_items": 8,
+        "required": true,
+        "fields": [
+          {
+            "name": "title",
+            "type": "text",
+            "label": "Title",
+            "max": 80,
+            "required": true
+          },
+          {
+            "name": "text",
+            "type": "textarea",
+            "label": "Text",
+            "max": 300
+          },
+          {
+            "name": "icon",
+            "type": "select",
+            "label": "Icon",
+            "choices": [
+              {
+                "value": "heart-handshake",
+                "label": "Heart handshake"
+              },
+              {
+                "value": "compass",
+                "label": "Compass"
+              },
+              {
+                "value": "notebook-pen",
+                "label": "Notebook pen"
+              },
+              {
+                "value": "footprints",
+                "label": "Footprints"
+              },
+              {
+                "value": "sun",
+                "label": "Sun"
+              },
+              {
+                "value": "sprout",
+                "label": "Sprout"
+              },
+              {
+                "value": "gem",
+                "label": "Gem"
+              },
+              {
+                "value": "sunrise",
+                "label": "Sunrise"
+              },
+              {
+                "value": "leaf",
+                "label": "Leaf"
+              },
+              {
+                "value": "lightbulb",
+                "label": "Lightbulb"
+              },
+              {
+                "value": "book-open",
+                "label": "Book open"
+              },
+              {
+                "value": "shield-check",
+                "label": "Shield check"
+              },
+              {
+                "value": "sparkles",
+                "label": "Sparkles"
+              },
+              {
+                "value": "handshake",
+                "label": "Handshake"
+              },
+              {
+                "value": "mail-check",
+                "label": "Mail check"
+              },
+              {
+                "value": "calendar-check",
+                "label": "Calendar check"
+              }
+            ],
+            "default": "sun"
+          }
+        ]
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "grid_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "Why it helps",
+        "description": "",
+        "quote": "",
+        "items": []
+      },
+      "design": {
+        "background": "beige",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "partnership_cta",
+    "label": "Partnership invitation",
+    "category": "Engagement",
+    "description": "An invitation for brands and organisations with a list of opportunities.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "dark",
+        "label": "Dark"
+      },
+      {
+        "value": "light",
+        "label": "Light"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Text",
+        "max": 800
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Button"
+      },
+      {
+        "name": "list_heading",
+        "type": "text",
+        "label": "List heading",
+        "max": 80
+      },
+      {
+        "name": "items",
+        "type": "string_list",
+        "label": "Opportunities",
+        "max": 80,
+        "max_items": 10
+      }
+    ],
+    "design": [
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "dark",
+      "content": {
+        "eyebrow": "",
+        "heading": "Partner with us",
+        "body": "",
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        },
+        "list_heading": "",
+        "items": []
+      },
+      "design": {
+        "spacing": "lg"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "author_intro",
+    "label": "Author introduction",
+    "category": "Content",
+    "description": "Introduce an author using their profile (portrait, name and bio).",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "card",
+        "label": "Card"
+      },
+      {
+        "value": "split",
+        "label": "Portrait beside text"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label",
+        "max": 80,
+        "default": "About the author"
+      },
+      {
+        "name": "author",
+        "type": "author",
+        "label": "Author",
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Extra text",
+        "max": 800,
+        "help": "Optional. The author's bio is shown first."
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "card",
+      "content": {
+        "eyebrow": "About the author",
+        "author": null,
+        "body": "",
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "resource_list",
+    "label": "Resource recommendations",
+    "category": "Content",
+    "description": "Recommended resources, guides or pages, each with a link.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "cards",
+        "label": "Cards"
+      },
+      {
+        "value": "list",
+        "label": "List"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "items",
+        "type": "items",
+        "label": "Resources",
+        "max_items": 9,
+        "required": true,
+        "fields": [
+          {
+            "name": "title",
+            "type": "text",
+            "label": "Title",
+            "max": 120,
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "textarea",
+            "label": "Description",
+            "max": 300
+          },
+          {
+            "name": "url",
+            "type": "link",
+            "label": "Link",
+            "required": true
+          },
+          {
+            "name": "link_label",
+            "type": "text",
+            "label": "Link text",
+            "max": 60,
+            "default": "Learn more"
+          },
+          {
+            "name": "media",
+            "type": "media",
+            "label": "Image (optional)"
+          }
+        ]
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      },
+      {
+        "name": "aspect_ratio",
+        "label": "Image shape",
+        "choices": [
+          {
+            "value": "landscape",
+            "label": "Landscape (3:2)"
+          },
+          {
+            "value": "wide",
+            "label": "Wide (16:9)"
+          },
+          {
+            "value": "square",
+            "label": "Square"
+          },
+          {
+            "value": "portrait",
+            "label": "Portrait (4:5)"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "cards",
+      "content": {
+        "eyebrow": "",
+        "heading": "Helpful resources",
+        "description": "",
+        "items": []
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md",
+        "aspect_ratio": "landscape"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "contact_details",
+    "label": "Contact details",
+    "category": "Engagement",
+    "description": "Contact email addresses from Settings. There is no contact form, so nothing is collected on the website.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "default",
+        "label": "Standard"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Text",
+        "max": 800
+      },
+      {
+        "name": "show_email",
+        "type": "boolean",
+        "label": "Show the contact email",
+        "default": true
+      },
+      {
+        "name": "show_partnerships_email",
+        "type": "boolean",
+        "label": "Show the partnerships email",
+        "default": false
+      },
+      {
+        "name": "note",
+        "type": "text",
+        "label": "Small print",
+        "max": 200
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "width",
+        "label": "Content width",
+        "choices": [
+          {
+            "value": "narrow",
+            "label": "Narrow"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "wide",
+            "label": "Wide"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "default",
+      "content": {
+        "heading": "Get in touch",
+        "body": "",
+        "show_email": true,
+        "show_partnerships_email": false,
+        "note": ""
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md",
+        "width": "narrow"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "page_header",
+    "label": "Page header",
+    "category": "Introductions",
+    "description": "The title area at the top of a page, with breadcrumbs for sub-pages.",
+    "reusable_only": false,
+    "single_use": true,
+    "variants": [
+      {
+        "value": "default",
+        "label": "Standard"
+      },
+      {
+        "value": "centered",
+        "label": "Centred"
+      },
+      {
+        "value": "with_image",
+        "label": "With image"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "help": "Leave empty to use the page title."
+      },
+      {
+        "name": "intro",
+        "type": "textarea",
+        "label": "Introduction",
+        "max": 500
+      },
+      {
+        "name": "media",
+        "type": "media",
+        "label": "Image",
+        "required_for": ["with_image"],
+        "show_for": ["with_image"]
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "heading_size",
+        "label": "Heading size",
+        "choices": [
+          {
+            "value": "small",
+            "label": "Smaller"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "large",
+            "label": "Larger"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "default",
+      "content": {
+        "eyebrow": "",
+        "heading": "",
+        "intro": "",
+        "media": null
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "section_group",
+    "label": "Shared section group",
+    "category": "Shared",
+    "description": "Several shared sections shown together, in order.",
+    "reusable_only": true,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "default",
+        "label": "In order"
+      }
+    ],
+    "fields": [
+      {
+        "name": "items",
+        "type": "reusables",
+        "label": "Shared sections",
+        "max_items": 6,
+        "required": true
+      }
+    ],
+    "design": [],
+    "defaults": {
+      "variant": "default",
+      "content": {
+        "items": []
+      },
+      "design": {},
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  }
+]

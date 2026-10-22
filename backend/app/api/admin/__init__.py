@@ -84,6 +84,7 @@ ADMIN_ROUTES = [
     ),
     (builder.SectionTypesResource, "/admin/section-types"),
     (builder.LinkOptionsResource, "/admin/link-options"),
+    (builder.BuilderOptionsResource, "/admin/builder-options"),
     (builder.SharedSectionListResource, "/admin/shared-sections"),
     (builder.SharedSectionResource, "/admin/shared-sections/<int:shared_id>"),
     (builder.CtaListResource, "/admin/ctas"),

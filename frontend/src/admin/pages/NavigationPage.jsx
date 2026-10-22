@@ -5,8 +5,11 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useAdminApi } from "../adminApiContext";
 import { AdminPageHeader } from "../components/AdminPageHeader";
+import { BuilderLookups } from "../components/builder/BuilderLookups";
+import { LinkField } from "../components/builder/SectionFields";
 import { CheckboxField, SelectField, TextField } from "../components/Fields";
 import { useNotify } from "../components/notifyContext";
+import { SettingsForm } from "../components/SettingsForm";
 import { useAdminQuery } from "../hooks/useAdminQuery";
 
 const blankLink = () => ({
@@ -15,8 +18,11 @@ const blankLink = () => ({
   url: "/",
   open_in_new_tab: false,
   is_visible: true,
+  visibility: "all",
   children: [],
 });
+// Header menus can target devices; footer links always show everywhere.
+const DEVICE_MENUS = new Set(["primary", "mobile"]);
 
 function moveItem(list, index, delta) {
   const next = [...list];
@@ -25,7 +31,18 @@ function moveItem(list, index, delta) {
   return next;
 }
 
-function ItemRow({ item, index, count, path, errors, onChange, onMove, onRemove, allowHeading }) {
+function ItemRow({
+  item,
+  index,
+  count,
+  path,
+  errors,
+  onChange,
+  onMove,
+  onRemove,
+  allowHeading,
+  allowDevices,
+}) {
   const label = item.label || `Item ${index + 1}`;
   return (
     <div className="grid gap-3 rounded-lg border border-charcoal/10 bg-white p-3 md:grid-cols-[1fr_9rem_1fr_auto] md:items-end">
@@ -53,11 +70,15 @@ function ItemRow({ item, index, count, path, errors, onChange, onMove, onRemove,
       {item.link_type === "heading" ? (
         <p className="text-sm text-muted md:pb-2">Groups the links below it.</p>
       ) : (
-        <TextField
+        <LinkField
           label="Link"
-          placeholder={item.link_type === "external" ? "https://" : "/articles"}
+          hint={
+            item.link_type === "external"
+              ? "A full https:// address."
+              : "A site path, e.g. /articles"
+          }
           value={item.url ?? ""}
-          onChange={(e) => onChange({ ...item, url: e.target.value })}
+          onChange={(url) => onChange({ ...item, url })}
         />
       )}
       <div className="flex items-center gap-1 md:pb-1">
@@ -100,6 +121,20 @@ function ItemRow({ item, index, count, path, errors, onChange, onMove, onRemove,
             checked={item.open_in_new_tab}
             onChange={(e) => onChange({ ...item, open_in_new_tab: e.target.checked })}
           />
+        )}
+        {allowDevices && (
+          <label className="flex items-center gap-2 text-sm">
+            <span className="font-medium">Show on</span>
+            <select
+              value={item.visibility ?? "all"}
+              onChange={(e) => onChange({ ...item, visibility: e.target.value })}
+              className="rounded-lg border border-charcoal/20 bg-white px-2 py-1"
+            >
+              <option value="all">All devices</option>
+              <option value="desktop">Desktop header only</option>
+              <option value="mobile">Mobile menu only</option>
+            </select>
+          </label>
         )}
       </div>
       {errors?.[path] && (
@@ -145,15 +180,23 @@ function MenuEditor({ menu, onSaved }) {
           <h2 id={`menu-${menu.key}`} className="font-sans text-lg font-semibold">
             {menu.name}
           </h2>
-          {menu.is_default && (
+          {menu.help && <p className="text-sm text-muted">{menu.help}</p>}
+          {menu.is_default && menu.items.length > 0 && (
             <p className="text-sm text-muted">Using built-in defaults until you save.</p>
           )}
         </div>
         <Button size="sm" onClick={save} disabled={busy}>
           <Save aria-hidden />
-          {busy ? "Saving…" : "Save menu"}
+          {busy ? "Saving…" : "Save and publish"}
         </Button>
       </div>
+      {menu.warnings?.length > 0 && (
+        <ul className="mb-3 space-y-1 rounded-lg bg-gold-100/70 px-4 py-2 text-sm text-charcoal">
+          {menu.warnings.map((w) => (
+            <li key={w}>⚠ {w}</li>
+          ))}
+        </ul>
+      )}
       <ol className="space-y-3">
         {items.map((item, i) => (
           <li key={i} className="space-y-2">
@@ -164,6 +207,7 @@ function MenuEditor({ menu, onSaved }) {
               path={String(i)}
               errors={errors}
               allowHeading={menu.allows_groups}
+              allowDevices={DEVICE_MENUS.has(menu.key)}
               onChange={(v) => setItem(i, v)}
               onMove={(d) => setItems(moveItem(items, i, d))}
               onRemove={() => setItems(items.filter((_, idx) => idx !== i))}
@@ -179,6 +223,7 @@ function MenuEditor({ menu, onSaved }) {
                     path={`${i}.${ci}`}
                     errors={errors}
                     allowHeading={false}
+                    allowDevices={DEVICE_MENUS.has(menu.key)}
                     onChange={(v) =>
                       setItem(i, {
                         ...item,
@@ -208,20 +253,24 @@ function MenuEditor({ menu, onSaved }) {
           </li>
         ))}
       </ol>
-      <Button
-        variant="outline"
-        size="sm"
-        className="mt-3"
-        onClick={() =>
-          setItems([
-            ...items,
-            menu.allows_groups ? { ...blankLink(), link_type: "heading", url: "" } : blankLink(),
-          ])
-        }
-      >
-        <Plus aria-hidden />
-        {menu.allows_groups ? "Add group" : "Add link"}
-      </Button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {menu.key !== "footer" && (
+          <Button variant="outline" size="sm" onClick={() => setItems([...items, blankLink()])}>
+            <Plus aria-hidden />
+            Add link
+          </Button>
+        )}
+        {menu.allows_groups && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setItems([...items, { ...blankLink(), link_type: "heading", url: "" }])}
+          >
+            <Plus aria-hidden />
+            {menu.key === "footer" ? "Add column" : "Add dropdown group"}
+          </Button>
+        )}
+      </div>
     </section>
   );
 }
@@ -229,13 +278,22 @@ function MenuEditor({ menu, onSaved }) {
 export function NavigationPage() {
   const api = useAdminApi();
   const { data, error, reload, setData } = useAdminQuery(() => api.navigation.list(), []);
+  const [header, setHeader] = useState(false);
   return (
-    <>
+    <BuilderLookups>
       <AdminPageHeader
         title="Navigation"
-        description="Primary header links and footer link groups. Internal links start with /; external links must use https://."
+        description="Header menu (with dropdown groups), mobile menu, footer columns and legal links. Internal links start with /; external links must use https://."
         breadcrumbs={[{ label: "Navigation" }]}
       />
+      <details
+        className="mb-6 rounded-xl border border-charcoal/10 bg-white p-4"
+        open={header}
+        onToggle={(e) => setHeader(e.currentTarget.open)}
+      >
+        <summary className="cursor-pointer font-sans font-semibold">Header button</summary>
+        <div className="mt-4">{header && <SettingsForm groups={["Header"]} />}</div>
+      </details>
       {error && <ErrorState title="We couldn't load navigation" onRetry={reload} />}
       {!data && !error && <Skeleton className="h-64 w-full" />}
       <div className="space-y-6">
@@ -249,6 +307,6 @@ export function NavigationPage() {
           />
         ))}
       </div>
-    </>
+    </BuilderLookups>
   );
 }

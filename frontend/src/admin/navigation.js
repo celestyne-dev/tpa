@@ -25,6 +25,11 @@ import {
   KanbanSquare,
   Rocket,
   Signpost,
+  Home,
+  Blocks,
+  PanelBottom,
+  Palette,
+  Bell,
 } from "lucide-react";
 import {
   ARTICLE_ACCESS,
@@ -32,6 +37,7 @@ import {
   ROLE_READ,
   SEO_READ,
   SETTINGS_ACCESS,
+  SHARED_ACCESS,
   TAXONOMY_READ,
 } from "./permissions";
 
@@ -71,8 +77,23 @@ export const adminSections = [
   {
     title: "Website",
     items: [
+      { label: "Homepage", to: "/admin/homepage", icon: Home, permission: "homepage.view" },
       { label: "Pages", to: "/admin/pages", icon: LayoutTemplate, permission: "pages.view" },
+      {
+        label: "Shared sections",
+        to: "/admin/shared-sections",
+        icon: Blocks,
+        anyOf: SHARED_ACCESS,
+      },
       { label: "Navigation", to: "/admin/navigation", icon: Menu, permission: "navigation.manage" },
+      { label: "Footer", to: "/admin/footer", icon: PanelBottom, permission: "settings.manage" },
+      { label: "Branding", to: "/admin/branding", icon: Palette, permission: "branding.manage" },
+      {
+        label: "Announcements",
+        to: "/admin/announcements",
+        icon: Bell,
+        permission: "announcements.manage",
+      },
       { label: "SEO", to: "/admin/seo", icon: Search, anyOf: SEO_READ },
       { label: "Redirects", to: "/admin/redirects", icon: Signpost, anyOf: REDIRECT_READ },
       { label: "Settings", to: "/admin/settings", icon: Settings, anyOf: SETTINGS_ACCESS },
