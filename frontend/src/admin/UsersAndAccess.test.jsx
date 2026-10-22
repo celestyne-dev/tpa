@@ -56,7 +56,7 @@ describe("users and invitations", () => {
     const { adminApi } = renderApp("/admin/users");
     const table = await screen.findByRole("table", { name: "Administrators" });
     expect(within(table).getByText("Ngozi Writer")).toBeInTheDocument();
-    expect(within(table).getByText("super admin")).toBeInTheDocument();
+    expect(within(table).getByText("Super Admin")).toBeInTheDocument();
     expect(within(table).getByText("disabled")).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Account status"), "disabled");
@@ -190,9 +190,11 @@ describe("users and invitations", () => {
     renderApp("/admin/users");
     await user.click(await screen.findByRole("button", { name: "View details for Ngozi Writer" }));
     const dialog = await screen.findByRole("dialog", { name: "Administrator details" });
-    expect(await within(dialog).findByText("taxonomy.manage")).toBeInTheDocument();
+    // Server-resolved permissions, shown with catalogue labels.
+    expect(await within(dialog).findByText("Edit any article")).toBeInTheDocument();
+    expect(within(dialog).getByText("topics.manage")).toBeInTheDocument();
     expect(within(dialog).getByText("auth.login")).toBeInTheDocument();
-    expect(within(dialog).queryByText("users.manage")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("View users")).not.toBeInTheDocument();
   });
 
   it("revokes pending invitations after confirmation", async () => {

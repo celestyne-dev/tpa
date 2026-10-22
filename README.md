@@ -112,6 +112,24 @@ The Vite dev server proxies `/api` to Flask, so the admin's HttpOnly cookies are
 - Migrations so far:
   - `746bd93e2089`: initial schema plus the four roles.
   - `5e0cca7bc654`: adds the `account_tokens` table for invitations and password reset links. It is incremental and leaves existing data untouched.
+  - `7cf88d33a308`: dynamic roles. It adds the `permissions` and `role_permissions` tables, new role columns (`label`, `kind`, `is_active`, `grants_all`, timestamps) and article review columns. It changes tables with `ALTER TABLE … ADD COLUMN` only, so nothing is dropped or rebuilt. It then seeds the permission catalogue and the 14 role templates, marks the four existing roles as protected system roles and maps their permissions. Users, roles, role assignments and invitations are preserved. Downgrade removes the new tables and columns, plus any template role nobody holds, and keeps every user and assignment.
+
+Upgrading an existing installation to dynamic roles:
+
+```bash
+# 1. back up (see above), then:
+flask --app wsgi db upgrade        # applies 7cf88d33a308
+flask --app wsgi rbac sync         # idempotent; should report all zeros right after the upgrade
+```
+
+`flask --app wsgi rbac sync` reconciles the database with the catalogue in `backend/app/auth/permissions.py`. Run it after deploying code that adds permissions or templates. It:
+
+- inserts new permissions; permissions removed from code are marked unavailable, never deleted;
+- resets the built-in roles to their definitions;
+- creates missing templates and leaves edited templates alone;
+- strips sensitive or unavailable grants from non-system roles.
+
+It never deletes users, roles or assignments.
 
 PostgreSQL (development or production):
 
@@ -125,12 +143,12 @@ flask --app wsgi db upgrade
 
 ### Database model overview
 
-| Area       | Tables                                                                                                                                                                      |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Access     | `users`, `roles`, `user_roles` (who assigned, when), `refresh_tokens` (rotation and revocation), `account_tokens` (hashed, single-use invitation and reset tokens)          |
-| Editorial  | `articles` (JSON/JSONB blocks, status, SEO, canonical, provenance), `topics`, `tags`, `authors`, `article_topics`, `article_tags`, `media_assets` (public/private metadata) |
-| CMS        | `site_settings` (registered, validated keys), `navigation_menus`, `navigation_items`, `pages`, `page_sections` (approved types and variants)                                |
-| Operations | `audit_logs` (sanitised), `content_revisions` (public-affecting changes, drives the rebuild indicator)                                                                      |
+| Area       | Tables                                                                                                                                                                                                |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access     | `users`, `roles`, `user_roles` (who assigned, when), `permissions`, `role_permissions`, `refresh_tokens` (rotation and revocation), `account_tokens` (hashed, single-use invitation and reset tokens) |
+| Editorial  | `articles` (JSON/JSONB blocks, status, SEO, canonical, provenance), `topics`, `tags`, `authors`, `article_topics`, `article_tags`, `media_assets` (public/private metadata)                           |
+| CMS        | `site_settings` (registered, validated keys), `navigation_menus`, `navigation_items`, `pages`, `page_sections` (approved types and variants)                                                          |
+| Operations | `audit_logs` (sanitised), `content_revisions` (public-affecting changes, drives the rebuild indicator)                                                                                                |
 
 All timestamps are timezone-aware UTC. Statuses are enforced with check constraints. Slugs are unique, and foreign keys use `RESTRICT` where deletion would orphan content.
 
@@ -173,30 +191,54 @@ There are no default credentials and no development backdoor. The command refuse
 
 ## 8. Roles and permissions
 
-Roles are stored in the database. What each role may do is defined centrally in `backend/app/auth/permissions.py`, and the frontend receives the resolved permission list.
+Roles, permissions and their links live in the database. The permission catalogue is defined in `backend/app/auth/permissions.py` and synchronised into the `permissions` table (see `flask rbac sync`). A user may hold **several roles**. Their effective permissions are the union of the permissions of their **active** roles, resolved on every request, so changes apply immediately. The frontend receives the resolved list and the API enforces it on every endpoint.
 
-| Permission                                                                      | Super admin | Editor | Moderator | Analyst |
-| ------------------------------------------------------------------------------- | :---------: | :----: | :-------: | :-----: |
-| dashboard.view, content.read                                                    |      ✓      |   ✓    |     ✓     |    ✓    |
-| content.write (create and edit articles)                                        |      ✓      |   ✓    |           |         |
-| taxonomy.manage (topics, tags, authors)                                         |      ✓      |   ✓    |           |         |
-| content.publish (publish, schedule)                                             |      ✓      |   ✓    |           |         |
-| content.moderate (unpublish, archive)                                           |      ✓      |   ✓    |     ✓     |         |
-| pages.read                                                                      |      ✓      |   ✓    |     ✓     |         |
-| pages.write                                                                     |      ✓      |   ✓    |           |         |
-| navigation.manage, settings.manage                                              |      ✓      |        |           |         |
-| users.manage (accounts, invitations, password resets), roles.assign, audit.read |      ✓      |        |           |         |
-| analytics.view (content analytics)                                              |      ✓      |        |           |    ✓    |
+**Role kinds**
 
-The last active super administrator cannot be demoted or disabled, and administrators cannot disable their own account. Nobody can grant a role whose permissions they do not hold themselves, which keeps future delegated roles safe. Role changes take effect on the next request. Every admin endpoint is enforced in Flask, whatever the UI shows.
+- **Built-in (system)**: Super Admin, Editor, Moderator and Analyst. They are protected and cannot be edited, deactivated or deleted. Super Admin (`grants_all`) resolves to every permission, including sensitive ones and those of future modules.
+- **Templates**: Administrator, Editor-in-Chief, Content Editor, Content Writer, Product Manager, Orders Manager, Customer Support, Partnerships Manager, Affiliate Manager, Marketing Manager, Newsletter Manager, SEO Manager, Website Manager and Finance Manager. They are seeded once and editable afterwards. Templates for modules that do not exist yet (products, orders, customers, partnerships, affiliates, newsletters, finance) grant only `dashboard.view`. Their intended permissions are shown as _Planned_ and stay locked until the module ships.
+- **Custom**: roles a Super Admin creates at `/admin/roles`.
 
-To add a specialised role later, add a `RoleDefinition` in `permissions.py` and a data migration inserting the role row. The UI reads roles, labels and permissions from `/api/v1/admin/roles`.
+**Permission catalogue** (✓ = built-in role holds it; templates are listed at `/admin/roles`)
+
+| Permission                                                                    | Super Admin | Editor | Moderator | Analyst |
+| ----------------------------------------------------------------------------- | :---------: | :----: | :-------: | :-----: |
+| dashboard.view                                                                |      ✓      |   ✓    |     ✓     |    ✓    |
+| analytics.view                                                                |      ✓      |        |           |    ✓    |
+| articles.view (all articles, including others' drafts)                        |      ✓      |   ✓    |     ✓     |    ✓    |
+| articles.create, articles.edit_own, articles.edit_any                         |      ✓      |   ✓    |           |         |
+| articles.submit_review, articles.approve, articles.publish                    |      ✓      |   ✓    |           |         |
+| articles.unpublish, articles.archive                                          |      ✓      |   ✓    |     ✓     |         |
+| articles.delete (never-published drafts only)                                 |      ✓      |        |           |         |
+| topics.manage, tags.manage, authors.manage                                    |      ✓      |   ✓    |           |         |
+| media.view                                                                    |      ✓      |   ✓    |     ✓     |    ✓    |
+| pages.view                                                                    |      ✓      |   ✓    |     ✓     |         |
+| pages.edit                                                                    |      ✓      |   ✓    |           |         |
+| navigation.manage, settings.manage, seo.manage (the "SEO defaults" settings)  |      ✓      |        |           |         |
+| users.view, users.manage, audit.view                                          |      ✓      |        |           |         |
+| roles.manage, roles.assign, settings.security, payments.configure (sensitive) |      ✓      |        |           |         |
+
+Future-module permissions are also in the catalogue but marked **unavailable** and cannot be granted: media upload and delete, products, orders, refunds, customers, partnerships, advertising, affiliates, newsletters, subscribers, courses, memberships and finance.
+
+**Rules enforced by the API**
+
+- **Least privilege.** Endpoints check specific actions such as `articles.publish`, never a role name.
+- **Ownership.** Users with `articles.edit_own` but not `articles.view` only see articles they created. Other articles return 404. They can edit their own articles only while they are drafts, and submit them for review. `articles.edit_any` edits any article. Each article response includes `can` flags computed on the server.
+- **Review workflow.** `submit` and then `approve`. An edit by someone without `articles.approve` withdraws a pending or granted approval.
+- **Sensitive permissions** (`roles.manage`, `roles.assign`, `settings.security`, `payments.configure`) cannot be granted to any role. In practice only Super Admin holds them.
+- **No escalation.**
+  - Granting roles (create, invite, change roles) needs `roles.assign` and every permission those roles grant.
+  - Creating or editing a role only allows permissions the actor holds.
+  - Accounts can only be managed by someone holding a superset of their permissions. For example, an Administrator can manage Editors but not a Super Admin.
+- **Safeguards.**
+  - The last active Super Admin cannot be demoted, disabled or locked out.
+  - A role assigned to users or to pending invitations cannot be deleted. Deactivate it instead: it then grants nothing immediately and cannot be newly assigned, and an invitation carrying it cannot be accepted.
 
 `/admin` opens the dashboard for users with `dashboard.view`. Users without it go to their first permitted area, or see an access-denied page.
 
 ## 9. Admin routes
 
-`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/pages` (and `/admin/pages/:id`), `/admin/navigation`, `/admin/settings`, `/admin/users`, `/admin/audit-log`, `/admin/account` (change password).
+`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/pages` (and `/admin/pages/:id`), `/admin/navigation`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`: Roles & Permissions), `/admin/audit-log`, `/admin/account` (change password).
 
 Future modules (products, orders, customers, newsletter, partnerships, advertising, affiliates, courses, memberships, analytics, SEO tools, media library, licensing) are listed in the sidebar as **Planned**, without links.
 

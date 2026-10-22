@@ -28,6 +28,8 @@ import { useNotify } from "../components/notifyContext";
 import { RoleBadges } from "../components/RoleBadges";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAdminQuery } from "../hooks/useAdminQuery";
+import { usePermissions } from "../hooks/usePermissions";
+import { previewPermissions } from "../permissions";
 
 const DELIVERY_MESSAGES = {
   development_console:
@@ -40,47 +42,87 @@ function deliveryMessage(prefix, delivery) {
   return `${prefix} ${DELIVERY_MESSAGES[delivery] ?? ""}`.trim();
 }
 
-function RolePicker({ roles, value, onChange, error }) {
+const KIND_GROUPS = [
+  ["system", "Built-in roles"],
+  ["template", "Role templates"],
+  ["custom", "Custom roles"],
+];
+
+function RolePicker({ roles, value, initial = [], labels, onChange, error }) {
+  const effective = previewPermissions(roles, value);
   return (
     <fieldset>
       <legend className="text-sm font-medium text-charcoal">Roles</legend>
-      <div className="mt-2 space-y-2">
-        {roles.map((r) => (
-          <label
-            key={r.name}
-            className="flex items-start gap-3 rounded-lg border border-charcoal/10 p-3 text-sm"
-          >
-            <input
-              type="checkbox"
-              className="mt-0.5 accent-sage-700"
-              checked={value.includes(r.name)}
-              onChange={(e) =>
-                onChange(e.target.checked ? [...value, r.name] : value.filter((v) => v !== r.name))
-              }
-            />
-            <span>
-              <span className="font-medium">{r.label ?? r.name}</span>
-              <span className="block text-muted">{r.description}</span>
-            </span>
-          </label>
-        ))}
-      </div>
+      <p className="mt-0.5 text-xs text-muted">
+        Choose one or more. People receive every permission of their active roles.
+      </p>
+      {KIND_GROUPS.map(([kind, title]) => {
+        // Inactive roles can't be newly assigned, but an existing assignment stays visible.
+        const items = roles.filter(
+          (r) => r.kind === kind && (r.is_active !== false || initial.includes(r.name)),
+        );
+        if (!items.length) return null;
+        return (
+          <div key={kind} className="mt-3">
+            <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">{title}</h3>
+            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+              {items.map((r) => (
+                <label
+                  key={r.name}
+                  className="flex items-start gap-3 rounded-lg border border-charcoal/10 p-3 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 accent-sage-700"
+                    checked={value.includes(r.name)}
+                    onChange={(e) =>
+                      onChange(
+                        e.target.checked ? [...value, r.name] : value.filter((v) => v !== r.name),
+                      )
+                    }
+                  />
+                  <span className="min-w-0">
+                    <span className="font-medium">{r.label ?? r.name}</span>
+                    {r.is_active === false && (
+                      <span className="ml-1.5 text-xs text-muted">(inactive)</span>
+                    )}
+                    <span className="block text-xs text-muted">{r.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+      })}
       {error && (
         <p role="alert" className="mt-1 text-sm text-red-800">
           {error}
         </p>
       )}
+      <div
+        aria-live="polite"
+        className="mt-3 rounded-lg bg-cream/70 px-3 py-2 text-sm"
+        data-testid="effective-preview"
+      >
+        <p className="font-medium">
+          Effective permissions:{" "}
+          {effective === null ? "all permissions (Super Admin)" : `${effective.length}`}
+        </p>
+        {effective?.length > 0 && (
+          <p className="mt-1 text-xs text-muted">
+            {effective.map((k) => labels[k] ?? k).join(" · ")}
+          </p>
+        )}
+      </div>
     </fieldset>
   );
 }
 
-function UserDetails({ userId, roles, onClose }) {
+function UserDetails({ userId, roleLabels, labels, onClose }) {
   const api = useAdminApi();
   const { data, error, loading } = useAdminQuery(() => api.users.get(userId), [userId]);
-  const roleMap = Object.fromEntries((roles ?? []).map((r) => [r.name, r]));
-  const permissions = [
-    ...new Set((data?.roles ?? []).flatMap((r) => roleMap[r]?.permissions ?? [])),
-  ].sort();
+  // Resolved by the server from the user's active roles.
+  const permissions = data?.permissions ?? [];
   return (
     <Modal open onClose={onClose} title="Administrator details" description={data?.email} size="lg">
       {loading && !data && <Skeleton className="h-40 w-full" />}
@@ -105,7 +147,7 @@ function UserDetails({ userId, roles, onClose }) {
             <div>
               <dt className="text-muted">Roles</dt>
               <dd className="mt-1">
-                <RoleBadges roles={data.roles} />
+                <RoleBadges roles={data.roles} labels={roleLabels} />
               </dd>
             </div>
             <div>
@@ -134,8 +176,8 @@ function UserDetails({ userId, roles, onClose }) {
             </h3>
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {permissions.map((p) => (
-                <li key={p} className="rounded bg-cream px-2 py-0.5 font-mono text-xs">
-                  {p}
+                <li key={p} className="rounded bg-cream px-2 py-0.5 text-xs" title={p}>
+                  {labels[p] ?? p}
                 </li>
               ))}
             </ul>
@@ -201,6 +243,10 @@ export function UsersPage() {
   const api = useAdminApi();
   const notify = useNotify();
   const { user: me } = useSelector(selectAuth);
+  const { can } = usePermissions();
+  const canManage = can("users.manage");
+  // Assigning roles (create, invite, change roles) also needs roles.assign.
+  const canAssign = canManage && can("roles.assign");
   const [tab, setTab] = useState("users");
   const [filters, setFilters] = useState({ q: "", role: "", status: "" });
   const [search, setSearch] = useState("");
@@ -220,6 +266,11 @@ export function UsersPage() {
     [inviteStatus],
   );
   const roles = useAdminQuery(() => api.users.roles(), []);
+  const catalogue = useAdminQuery(() => api.users.permissions(), []);
+  const labels = Object.fromEntries(
+    (catalogue.data ?? []).flatMap((g) => g.permissions.map((p) => [p.key, p.label])),
+  );
+  const roleLabels = Object.fromEntries((roles.data ?? []).map((r) => [r.name, r.label]));
 
   const [dialog, setDialog] = useState(null); // {mode: invite|create|edit|password, user?, form}
   const [details, setDetails] = useState(null);
@@ -232,7 +283,9 @@ export function UsersPage() {
     const forms = {
       invite: { email: "", display_name: "", roles: ["editor"] },
       create: { email: "", display_name: "", password: "", roles: ["editor"] },
-      edit: { display_name: user?.display_name, roles: user?.roles },
+      edit: canAssign
+        ? { display_name: user?.display_name, roles: user?.roles }
+        : { display_name: user?.display_name },
       password: { password: "" },
     };
     setDialog({ mode, user, form: forms[mode] });
@@ -347,19 +400,21 @@ export function UsersPage() {
     <>
       <AdminPageHeader
         title="Users"
-        description="Administrator accounts, roles and invitations. Only super administrators can manage users."
+        description="Administrator accounts, roles and invitations."
         breadcrumbs={[{ label: "Users" }]}
         actions={
-          <>
-            <Button size="sm" onClick={() => open("invite")}>
-              <Send aria-hidden />
-              Invite user
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => open("create")}>
-              <UserPlus aria-hidden />
-              Create user
-            </Button>
-          </>
+          canAssign && (
+            <>
+              <Button size="sm" onClick={() => open("invite")}>
+                <Send aria-hidden />
+                Invite user
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => open("create")}>
+                <UserPlus aria-hidden />
+                Create user
+              </Button>
+            </>
+          )
         }
       />
 
@@ -455,7 +510,11 @@ export function UsersPage() {
                     </div>
                   ),
                 },
-                { key: "roles", header: "Roles", render: (u) => <RoleBadges roles={u.roles} /> },
+                {
+                  key: "roles",
+                  header: "Roles",
+                  render: (u) => <RoleBadges roles={u.roles} labels={roleLabels} />,
+                },
                 {
                   key: "status",
                   header: "Status",
@@ -477,24 +536,29 @@ export function UsersPage() {
                         icon={Eye}
                         onClick={() => setDetails(u.id)}
                       />
-                      <IconAction
-                        label={`Edit ${u.display_name}`}
-                        icon={Pencil}
-                        onClick={() => open("edit", u)}
-                      />
-                      {u.status === "active" && (
+                      {canManage && (
+                        <IconAction
+                          label={`Edit ${u.display_name}`}
+                          icon={Pencil}
+                          onClick={() => open("edit", u)}
+                        />
+                      )}
+                      {canManage && u.status === "active" && (
                         <IconAction
                           label={`Send password reset link to ${u.display_name}`}
                           icon={Mail}
                           onClick={() => askResetLink(u)}
                         />
                       )}
-                      <IconAction
-                        label={`Set a new password for ${u.display_name}`}
-                        icon={KeyRound}
-                        onClick={() => open("password", u)}
-                      />
-                      {u.id !== me?.id &&
+                      {canManage && (
+                        <IconAction
+                          label={`Set a new password for ${u.display_name}`}
+                          icon={KeyRound}
+                          onClick={() => open("password", u)}
+                        />
+                      )}
+                      {canManage &&
+                        u.id !== me?.id &&
                         (u.status === "active" ? (
                           <IconAction
                             label={`Disable ${u.display_name}`}
@@ -557,7 +621,11 @@ export function UsersPage() {
                     </div>
                   ),
                 },
-                { key: "roles", header: "Roles", render: (i) => <RoleBadges roles={i.roles} /> },
+                {
+                  key: "roles",
+                  header: "Roles",
+                  render: (i) => <RoleBadges roles={i.roles} labels={roleLabels} />,
+                },
                 {
                   key: "status",
                   header: "Status",
@@ -575,14 +643,14 @@ export function UsersPage() {
                   className: "text-right",
                   render: (i) => (
                     <div className="flex justify-end gap-0.5">
-                      {["pending", "expired"].includes(i.status) && (
+                      {canAssign && ["pending", "expired"].includes(i.status) && (
                         <IconAction
                           label={`Resend invitation to ${i.email}`}
                           icon={RotateCcw}
                           onClick={() => askInvitation(i, "resend")}
                         />
                       )}
-                      {i.status === "pending" && (
+                      {canManage && i.status === "pending" && (
                         <IconAction
                           label={`Revoke invitation for ${i.email}`}
                           icon={X}
@@ -657,9 +725,11 @@ export function UsersPage() {
                 error={fieldError(error, "password")}
               />
             )}
-            {dialog.mode !== "password" && roles.data && (
+            {dialog.mode !== "password" && dialog.form.roles && roles.data && (
               <RolePicker
                 roles={roles.data}
+                labels={labels}
+                initial={dialog.user?.roles ?? []}
                 value={dialog.form.roles}
                 onChange={(v) => setForm({ roles: v })}
                 error={fieldError(error, "roles")}
@@ -670,7 +740,12 @@ export function UsersPage() {
       </Modal>
 
       {details && (
-        <UserDetails userId={details} roles={roles.data} onClose={() => setDetails(null)} />
+        <UserDetails
+          userId={details}
+          roleLabels={roleLabels}
+          labels={labels}
+          onClose={() => setDetails(null)}
+        />
       )}
 
       <ConfirmDialog

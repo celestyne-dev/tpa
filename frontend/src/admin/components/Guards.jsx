@@ -36,12 +36,13 @@ export function Forbidden() {
     <EmptyState
       icon={ShieldAlert}
       title="You don't have access to this area"
-      description="Your role does not include permission for this page. Ask a super administrator if you need access."
+      description="Your roles do not include permission for this page. Ask a super administrator if you need access."
     />
   );
 }
 
-export function RequirePermission({ permission, children }) {
-  const { can } = usePermissions();
-  return can(permission) ? children : <Forbidden />;
+/** Renders children when the user holds `permission` (or any of `anyOf`). */
+export function RequirePermission({ permission, anyOf, children }) {
+  const { allows } = usePermissions();
+  return allows({ permission, anyOf }) ? children : <Forbidden />;
 }

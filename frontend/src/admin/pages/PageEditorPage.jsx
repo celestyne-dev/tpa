@@ -109,7 +109,7 @@ export function PageEditorPage() {
   const api = useAdminApi();
   const notify = useNotify();
   const { can } = usePermissions();
-  const canWrite = can("pages.write");
+  const canWrite = can("pages.edit");
   const page = useAdminQuery(() => api.pages.get(id), [id]);
   const types = useAdminQuery(() => api.pages.sectionTypes(), []);
 

@@ -16,12 +16,13 @@ const RESOURCE_OPTIONS = [
   "tag",
   "author",
   "user",
+  "role",
   "auth",
   "site_settings",
   "navigation_menu",
   "page",
   "page_section",
-].map((v) => ({ value: v, label: v ? v.replace("_", " ") : "All resources" }));
+].map((v) => ({ value: v, label: v ? v.replaceAll("_", " ") : "All resources" }));
 
 function summarise(details) {
   if (!details || !Object.keys(details).length) return "—";

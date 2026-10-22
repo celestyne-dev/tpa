@@ -9,13 +9,13 @@ import { usePermissions } from "../hooks/usePermissions";
 import { adminSections, plannedModules } from "../navigation";
 
 function SidebarNav({ onNavigate }) {
-  const { can } = usePermissions();
+  const { allows } = usePermissions();
   const [plannedOpen, setPlannedOpen] = useState(false);
   const [collapsed, setCollapsed] = useState({});
   return (
     <nav aria-label="Admin" className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
       {adminSections.map((section) => {
-        const items = section.items.filter((item) => can(item.permission));
+        const items = section.items.filter((item) => allows(item));
         if (!items.length) return null;
         const id = `admin-nav-${section.title.toLowerCase()}`;
         const isCollapsed = collapsed[section.title];

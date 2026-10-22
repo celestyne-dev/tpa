@@ -156,10 +156,18 @@ export function DashboardPage() {
       {data && (
         <div className="space-y-8">
           <section aria-label="Content totals" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <Stat label="Total articles" value={data.articles.total} icon={FileText} />
-            <Stat label="Published" value={data.articles.published} icon={FileCheck2} />
-            <Stat label="Drafts" value={data.articles.draft} icon={FilePen} />
-            <Stat label="Scheduled" value={data.articles.scheduled} icon={CalendarClock} />
+            {data.articles && (
+              <>
+                <Stat
+                  label={can("articles.view") ? "Total articles" : "Your articles"}
+                  value={data.articles.total}
+                  icon={FileText}
+                />
+                <Stat label="Published" value={data.articles.published} icon={FileCheck2} />
+                <Stat label="Drafts" value={data.articles.draft} icon={FilePen} />
+                <Stat label="Scheduled" value={data.articles.scheduled} icon={CalendarClock} />
+              </>
+            )}
             <Stat label="Topics" value={data.topics_total} icon={FolderTree} />
             <Stat label="Authors" value={data.authors_total} icon={UserRound} />
           </section>
@@ -168,44 +176,46 @@ export function DashboardPage() {
           {can("analytics.view") && <AnalyticsPanel />}
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <section
-              aria-labelledby="recent-articles"
-              className="min-w-0 rounded-xl border border-charcoal/10 bg-white p-5"
-            >
-              <h2 id="recent-articles" className="font-sans text-base font-semibold">
-                Recent editorial activity
-              </h2>
-              {data.recent_articles.length === 0 ? (
-                <p className="mt-3 text-sm text-muted">
-                  No articles yet.{" "}
-                  {can("content.write") && (
-                    <Link to="/admin/articles/new" className="text-sage-700 underline">
-                      Create the first article
-                    </Link>
-                  )}
-                </p>
-              ) : (
-                <ul className="mt-3 divide-y divide-charcoal/5">
-                  {data.recent_articles.map((a) => (
-                    <li
-                      key={a.id}
-                      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-sm"
-                    >
-                      <Link
-                        to={`/admin/articles/${a.id}/edit`}
-                        className="min-w-0 truncate font-medium hover:text-sage-700"
-                      >
-                        {a.title}
+            {data.recent_articles && (
+              <section
+                aria-labelledby="recent-articles"
+                className="min-w-0 rounded-xl border border-charcoal/10 bg-white p-5"
+              >
+                <h2 id="recent-articles" className="font-sans text-base font-semibold">
+                  Recent editorial activity
+                </h2>
+                {data.recent_articles.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted">
+                    No articles yet.{" "}
+                    {can("articles.create") && (
+                      <Link to="/admin/articles/new" className="text-sage-700 underline">
+                        Create the first article
                       </Link>
-                      <span className="flex shrink-0 items-center gap-3 text-muted">
-                        <StatusBadge status={a.status} />
-                        <time dateTime={a.updated_at}>{formatDateTime(a.updated_at)}</time>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+                    )}
+                  </p>
+                ) : (
+                  <ul className="mt-3 divide-y divide-charcoal/5">
+                    {data.recent_articles.map((a) => (
+                      <li
+                        key={a.id}
+                        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-sm"
+                      >
+                        <Link
+                          to={`/admin/articles/${a.id}/edit`}
+                          className="min-w-0 truncate font-medium hover:text-sage-700"
+                        >
+                          {a.title}
+                        </Link>
+                        <span className="flex shrink-0 items-center gap-3 text-muted">
+                          <StatusBadge status={a.status} />
+                          <time dateTime={a.updated_at}>{formatDateTime(a.updated_at)}</time>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
 
             {data.recent_audit && (
               <section

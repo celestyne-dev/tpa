@@ -8,6 +8,7 @@ const tones = {
   hidden: "bg-beige text-ink",
   archived: "bg-charcoal/10 text-muted",
   disabled: "bg-red-50 text-red-800",
+  inactive: "bg-charcoal/10 text-muted",
 };
 
 export function StatusBadge({ status, className }) {

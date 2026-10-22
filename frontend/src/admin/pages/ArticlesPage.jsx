@@ -21,23 +21,37 @@ const STATUS_OPTIONS = [
   { value: "archived", label: "Archived" },
 ];
 
+const REVIEW_LABELS = { submitted: "Awaiting review", approved: "Approved" };
+const REVIEW_OPTIONS = [
+  { value: "", label: "Any review state" },
+  { value: "submitted", label: "Awaiting review" },
+  { value: "approved", label: "Approved" },
+];
+
 export function ArticlesPage() {
   const api = useAdminApi();
   const { can } = usePermissions();
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const status = params.get("status") ?? "";
+  const review = params.get("review") ?? "";
   const page = Number(params.get("page") ?? 1) || 1;
   const [search, setSearch] = useState(q);
 
   const { data, meta, loading, error, reload } = useAdminQuery(
     () =>
-      api.articles.list({ q: q || undefined, status: status || undefined, page, page_size: 20 }),
-    [q, status, page],
+      api.articles.list({
+        q: q || undefined,
+        status: status || undefined,
+        review_status: review || undefined,
+        page,
+        page_size: 20,
+      }),
+    [q, status, review, page],
   );
 
   const update = (next) => {
-    const merged = { q, status, page: 1, ...next };
+    const merged = { q, status, review, page: 1, ...next };
     const out = new URLSearchParams();
     Object.entries(merged).forEach(([k, v]) => v && !(k === "page" && v === 1) && out.set(k, v));
     setParams(out);
@@ -59,7 +73,18 @@ export function ArticlesPage() {
         </div>
       ),
     },
-    { key: "status", header: "Status", render: (a) => <StatusBadge status={a.status} /> },
+    {
+      key: "status",
+      header: "Status",
+      render: (a) => (
+        <span className="flex flex-col items-start gap-1">
+          <StatusBadge status={a.status} />
+          {a.review_status && a.review_status !== "none" && (
+            <span className="text-xs text-muted">{REVIEW_LABELS[a.review_status]}</span>
+          )}
+        </span>
+      ),
+    },
     { key: "topic", header: "Topic", render: (a) => a.primary_topic?.name ?? "—" },
     { key: "author", header: "Author", render: (a) => a.author?.display_name ?? "—" },
     {
@@ -73,10 +98,14 @@ export function ArticlesPage() {
     <>
       <AdminPageHeader
         title="Articles"
-        description="Create, edit and publish editorial content."
+        description={
+          can("articles.view")
+            ? "Create, edit and publish editorial content."
+            : "Your articles. Drafts can be edited until they are published."
+        }
         breadcrumbs={[{ label: "Articles" }]}
         actions={
-          can("content.write") && (
+          can("articles.create") && (
             <ButtonLink to="/admin/articles/new" size="sm">
               <FilePlus2 aria-hidden />
               New article
@@ -90,7 +119,7 @@ export function ArticlesPage() {
           e.preventDefault();
           update({ q: search.trim() });
         }}
-        className="mb-4 grid gap-3 rounded-xl border border-charcoal/10 bg-white p-4 sm:grid-cols-[1fr_12rem_auto] sm:items-end"
+        className="mb-4 grid gap-3 rounded-xl border border-charcoal/10 bg-white p-4 sm:grid-cols-[1fr_12rem_12rem_auto] sm:items-end"
       >
         <TextField
           label="Search"
@@ -104,6 +133,12 @@ export function ArticlesPage() {
           options={STATUS_OPTIONS}
           value={status}
           onChange={(e) => update({ status: e.target.value })}
+        />
+        <SelectField
+          label="Review"
+          options={REVIEW_OPTIONS}
+          value={review}
+          onChange={(e) => update({ review: e.target.value })}
         />
         <button
           type="submit"
@@ -128,9 +163,9 @@ export function ArticlesPage() {
           loading={loading}
           empty={{
             icon: PenSquare,
-            title: q || status ? "No matching articles" : "No articles yet",
+            title: q || status || review ? "No matching articles" : "No articles yet",
             description:
-              q || status
+              q || status || review
                 ? "Try a different search or status."
                 : "Your first article will appear here.",
           }}

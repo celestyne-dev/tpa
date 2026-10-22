@@ -175,7 +175,7 @@ export function TaxonomyPage({ kind }) {
   const api = useAdminApi()[kind];
   const notify = useNotify();
   const { can } = usePermissions();
-  const canWrite = can("taxonomy.manage");
+  const canWrite = can(`${kind}.manage`);
   const { data, loading, error, reload } = useAdminQuery(() => api.list(), [kind]);
 
   const [editing, setEditing] = useState(null); // { id?, form }

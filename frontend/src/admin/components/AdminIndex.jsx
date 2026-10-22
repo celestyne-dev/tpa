@@ -6,10 +6,10 @@ import { Forbidden } from "./Guards";
 
 /** /admin: the dashboard when permitted, otherwise the first area the user may open. */
 export function AdminIndex() {
-  const { can } = usePermissions();
+  const { can, allows } = usePermissions();
   if (can("dashboard.view")) return <DashboardPage />;
   const first = adminSections
     .flatMap((section) => section.items)
-    .find((item) => item.to !== "/admin" && can(item.permission));
+    .find((item) => item.to !== "/admin" && allows(item));
   return first ? <Navigate to={first.to} replace /> : <Forbidden />;
 }

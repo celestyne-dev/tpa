@@ -1,40 +1,92 @@
 import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 
+// Mirrors backend/app/auth/permissions.py (available permissions only, plus sensitive ones).
+const ARTICLES = ["articles.view", "articles.create", "articles.edit_own", "articles.edit_any"];
 const ALL = [
   "dashboard.view",
   "analytics.view",
-  "content.read",
-  "content.write",
-  "content.publish",
-  "content.moderate",
-  "taxonomy.manage",
-  "pages.read",
-  "pages.write",
+  ...ARTICLES,
+  "articles.submit_review",
+  "articles.approve",
+  "articles.publish",
+  "articles.unpublish",
+  "articles.archive",
+  "articles.delete",
+  "topics.manage",
+  "tags.manage",
+  "authors.manage",
+  "media.view",
+  "pages.view",
+  "pages.edit",
   "navigation.manage",
   "settings.manage",
+  "seo.manage",
+  "users.view",
   "users.manage",
+  "roles.manage",
   "roles.assign",
-  "audit.read",
+  "audit.view",
 ];
 
 export const ROLE_PERMS = {
   super_admin: ALL,
   editor: [
     "dashboard.view",
-    "content.read",
-    "content.write",
-    "content.publish",
-    "content.moderate",
-    "taxonomy.manage",
-    "pages.read",
-    "pages.write",
+    ...ARTICLES,
+    "articles.submit_review",
+    "articles.approve",
+    "articles.publish",
+    "articles.unpublish",
+    "articles.archive",
+    "topics.manage",
+    "tags.manage",
+    "authors.manage",
+    "media.view",
+    "pages.view",
+    "pages.edit",
   ],
-  moderator: ["dashboard.view", "content.read", "content.moderate", "pages.read"],
-  analyst: ["dashboard.view", "analytics.view", "content.read"],
-  // A future specialised role without dashboard access, used to test landing routes.
-  pages_only: ["pages.read"],
+  moderator: [
+    "dashboard.view",
+    "articles.view",
+    "articles.unpublish",
+    "articles.archive",
+    "media.view",
+    "pages.view",
+  ],
+  analyst: ["dashboard.view", "analytics.view", "articles.view", "media.view"],
+  content_writer: [
+    "dashboard.view",
+    "articles.create",
+    "articles.edit_own",
+    "articles.submit_review",
+    "media.view",
+  ],
+  administrator: ALL.filter((p) => !["roles.manage", "roles.assign"].includes(p)),
+  // A specialised role without dashboard access, used to test landing routes.
+  pages_only: ["pages.view"],
 };
+
+/** Simplified mirror of article_admin.capabilities() for the fake API. */
+export function articleCan(article, permissions = ALL, userId = 1) {
+  const has = (p) => permissions.includes(p);
+  const owner = article.created_by?.id === userId;
+  const { status } = article;
+  return {
+    edit: has("articles.edit_any") || (has("articles.edit_own") && owner && status === "draft"),
+    submit:
+      has("articles.submit_review") &&
+      (owner || has("articles.edit_any")) &&
+      status === "draft" &&
+      article.review_status !== "submitted",
+    approve: has("articles.approve") && article.review_status === "submitted",
+    publish: has("articles.publish") && ["draft", "scheduled"].includes(status),
+    unpublish: has("articles.unpublish") && ["published", "scheduled"].includes(status),
+    archive: has("articles.archive") && status !== "archived",
+    restore: has("articles.archive") && status === "archived",
+    delete: has("articles.delete") && !article.slug_locked && status === "draft",
+  };
+}
 
 export function adminUser(role = "super_admin") {
   return {
@@ -85,8 +137,74 @@ export function makeArticle(overrides = {}) {
     original_url: null,
     original_slug: null,
     slug_locked: false,
+    review_status: "none",
+    submitted_at: null,
+    approved_at: null,
+    created_by: { id: 1, display_name: "Site Owner" },
     ...overrides,
   };
+}
+
+export const CATALOGUE = [
+  {
+    name: "Articles",
+    permissions: [
+      { key: "articles.view", label: "View all articles", available: true, sensitive: false },
+      { key: "articles.create", label: "Create articles", available: true, sensitive: false },
+      { key: "articles.edit_own", label: "Edit own drafts", available: true, sensitive: false },
+      { key: "articles.edit_any", label: "Edit any article", available: true, sensitive: false },
+      { key: "articles.publish", label: "Publish articles", available: true, sensitive: false },
+    ],
+  },
+  {
+    name: "Digital products",
+    permissions: [
+      { key: "products.view", label: "View products", available: false, sensitive: false },
+    ],
+  },
+  {
+    name: "Users, roles & audit",
+    permissions: [
+      { key: "users.view", label: "View users", available: true, sensitive: false },
+      { key: "roles.manage", label: "Manage roles", available: true, sensitive: true },
+    ],
+  },
+];
+
+const role = (id, name, label, kind, permissions, extra = {}) => ({
+  id,
+  name,
+  label,
+  description: `${label} role.`,
+  kind,
+  is_active: true,
+  is_protected: kind === "system",
+  grants_all: false,
+  permissions,
+  planned_permissions: [],
+  user_count: 1,
+  updated_at: "2026-10-20T10:00:00.000Z",
+  ...extra,
+});
+
+export function makeRoles() {
+  return [
+    role(1, "super_admin", "Super Admin", "system", ALL, { grants_all: true }),
+    role(2, "editor", "Editor", "system", ROLE_PERMS.editor),
+    role(3, "moderator", "Moderator", "system", ROLE_PERMS.moderator),
+    role(4, "analyst", "Analyst", "system", ROLE_PERMS.analyst),
+    role(5, "content_writer", "Content Writer", "template", ROLE_PERMS.content_writer, {
+      user_count: 0,
+    }),
+    role(6, "product_manager", "Product Manager", "template", ["dashboard.view"], {
+      user_count: 0,
+      planned_permissions: ["products.view"],
+    }),
+    role(7, "old_reviewers", "Old Reviewers", "custom", ["articles.view"], {
+      is_active: false,
+      user_count: 0,
+    }),
+  ];
 }
 
 /** In-memory admin API double. `role` null means "not signed in". */
@@ -96,7 +214,10 @@ export { VALID_TOKEN };
 export function createFakeAdminApi({ role = "super_admin", article = makeArticle() } = {}) {
   let user = role ? adminUser(role) : null;
   let current = article;
+  let roles = makeRoles();
   const ok = (data, meta) => Promise.resolve({ data, meta });
+  // Articles carry server-computed capabilities for the signed-in user.
+  const withCan = (a) => ({ ...a, can: articleCan(a, user?.permissions ?? [], user?.id) });
   const settings = {
     groups: [
       {
@@ -196,12 +317,16 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     ),
     dashboard: vi.fn(() =>
       ok({
-        articles: { total: 6, draft: 1, scheduled: 0, published: 5, archived: 0 },
+        articles: ARTICLES.some((p) => user?.permissions.includes(p))
+          ? { total: 6, draft: 1, scheduled: 0, published: 5, archived: 0 }
+          : null,
         topics_total: 8,
         authors_total: 1,
         tags_total: 18,
-        recent_articles: [makeArticle()],
-        recent_audit: user?.permissions.includes("audit.read")
+        recent_articles: ARTICLES.some((p) => user?.permissions.includes(p))
+          ? [makeArticle()]
+          : null,
+        recent_audit: user?.permissions.includes("audit.view")
           ? [
               {
                 id: 1,
@@ -248,15 +373,24 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
           counts: { draft: 1, scheduled: 0, published: 1, archived: 0 },
         });
       }),
-      get: vi.fn(() => ok(current)),
+      get: vi.fn(() => ok(withCan(current))),
       create: vi.fn((body) => {
-        current = makeArticle({ ...body, id: 9 });
-        return ok(current);
+        current = makeArticle({ ...body, id: 9, created_by: { id: user.id } });
+        return ok(withCan(current));
       }),
       update: vi.fn((id, body) => {
         current = { ...current, ...body, updated_at: new Date().toISOString() };
-        return ok(current);
+        return ok(withCan(current));
       }),
+      submit: vi.fn(() => {
+        current = { ...current, review_status: "submitted", updated_at: new Date().toISOString() };
+        return ok(withCan(current));
+      }),
+      approve: vi.fn(() => {
+        current = { ...current, review_status: "approved", updated_at: new Date().toISOString() };
+        return ok(withCan(current));
+      }),
+      remove: vi.fn(() => ok({ deleted: true })),
       publish: vi.fn(() => {
         current = {
           ...current,
@@ -266,14 +400,14 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
           slug_locked: true,
           updated_at: new Date().toISOString(),
         };
-        return ok(current);
+        return ok(withCan(current));
       }),
       unpublish: vi.fn(() => {
         current = { ...current, status: "draft", updated_at: new Date().toISOString() };
-        return ok(current);
+        return ok(withCan(current));
       }),
-      archive: vi.fn(() => ok(current)),
-      restore: vi.fn(() => ok(current)),
+      archive: vi.fn(() => ok(withCan(current))),
+      restore: vi.fn(() => ok(withCan(current))),
       preview: vi.fn(() => ok({})),
     },
     topics: {
@@ -407,35 +541,31 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
       sendPasswordReset: vi.fn(() =>
         ok({ id: 5, purpose: "password_reset", delivery: "development_console" }),
       ),
-      roles: vi.fn(() =>
-        ok([
-          {
-            name: "super_admin",
-            label: "Super admin",
-            description: "Full access.",
-            permissions: ALL,
-          },
-          {
-            name: "editor",
-            label: "Editor",
-            description: "Edits content.",
-            permissions: ROLE_PERMS.editor,
-          },
-          {
-            name: "moderator",
-            label: "Moderator",
-            description: "Moderates.",
-            permissions: ROLE_PERMS.moderator,
-          },
-          {
-            name: "analyst",
-            label: "Analyst",
-            description: "Reads.",
-            permissions: ROLE_PERMS.analyst,
-          },
-        ]),
-      ),
-      permissions: vi.fn(() => ok([])),
+      roles: vi.fn(() => ok(roles)),
+      permissions: vi.fn(() => ok(CATALOGUE)),
+    },
+    roles: {
+      list: vi.fn(() => ok(roles)),
+      get: vi.fn((id) => {
+        const found = roles.find((r) => r.id === Number(id));
+        return found
+          ? ok({ ...found, users: [], pending_invitations: 0 })
+          : Promise.reject(new ApiError({ status: 404, code: "not_found", message: "Not found." }));
+      }),
+      create: vi.fn((body) => {
+        const created = role(20, "guest_reviewer", body.label, "custom", body.permissions, {
+          user_count: 0,
+        });
+        roles = [...roles, created];
+        return ok({ ...created, users: [], pending_invitations: 0 });
+      }),
+      update: vi.fn((id, body) => {
+        roles = roles.map((r) => (r.id === Number(id) ? { ...r, ...body } : r));
+        const updated = roles.find((r) => r.id === Number(id));
+        return ok({ ...updated, users: [], pending_invitations: 0 });
+      }),
+      remove: vi.fn(() => ok({ deleted: true })),
+      permissions: vi.fn(() => ok(CATALOGUE)),
     },
     invitations: {
       list: vi.fn(() =>

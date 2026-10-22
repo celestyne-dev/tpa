@@ -175,7 +175,7 @@ describe("articles", () => {
     expect(await screen.findByRole("button", { name: "Unpublish" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Publish now" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
-    expect(screen.getByText("You have read-only access to articles.")).toBeInTheDocument();
+    expect(screen.getByText("You have read-only access to this article.")).toBeInTheDocument();
     expect(screen.getByLabelText(/^Title/)).toBeDisabled();
   });
 

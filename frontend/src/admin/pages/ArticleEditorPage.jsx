@@ -1,4 +1,15 @@
-import { Archive, CalendarClock, Eye, RotateCcw, Save, Send, Undo2 } from "lucide-react";
+import {
+  Archive,
+  BadgeCheck,
+  CalendarClock,
+  ClipboardCheck,
+  Eye,
+  RotateCcw,
+  Save,
+  Send,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ArticleBody } from "@/components/articles/ArticleBody";
@@ -100,7 +111,6 @@ export function ArticleEditorPage() {
   const navigate = useNavigate();
   const notify = useNotify();
   const { can } = usePermissions();
-  const canWrite = can("content.write");
 
   const article = useAdminQuery(
     () => (isNew ? Promise.resolve({ data: null }) : api.articles.get(id)),
@@ -108,11 +118,15 @@ export function ArticleEditorPage() {
   );
   const refs = useAdminQuery(
     () =>
-      Promise.all([api.topics.list(), api.authors.list(), api.tags.list(), api.media.list()]).then(
-        ([topics, authors, tags, media]) => ({
-          data: { topics: topics.data, authors: authors.data, tags: tags.data, media: media.data },
-        }),
-      ),
+      Promise.all([
+        api.topics.list(),
+        api.authors.list(),
+        api.tags.list(),
+        // The media library needs media.view; without it the picker is simply empty.
+        api.media.list().catch(() => ({ data: [] })),
+      ]).then(([topics, authors, tags, media]) => ({
+        data: { topics: topics.data, authors: authors.data, tags: tags.data, media: media.data },
+      })),
     [],
   );
 
@@ -125,6 +139,9 @@ export function ArticleEditorPage() {
   const [scheduleAt, setScheduleAt] = useState("");
 
   const record = article.data;
+  // The server computes what this user may do with this article (ownership included).
+  const allowed = record?.can ?? {};
+  const canWrite = isNew ? can("articles.create") : Boolean(allowed.edit);
   // Sync the form when the article (re)loads.
   const [loadedFor, setLoadedFor] = useState(null);
   if (record && loadedFor !== record.updated_at) {
@@ -186,6 +203,11 @@ export function ArticleEditorPage() {
           : action === "schedule"
             ? await api.articles.publish(id, new Date(scheduleAt).toISOString())
             : await api.articles[action](id);
+      if (action === "remove") {
+        notify(message);
+        navigate("/admin/articles", { replace: true });
+        return;
+      }
       article.setData(res.data);
       notify(message);
     } catch (err) {
@@ -259,7 +281,9 @@ export function ArticleEditorPage() {
       />
       {!canWrite && (
         <p className="mb-4 rounded-lg bg-beige px-4 py-2 text-sm">
-          You have read-only access to articles.
+          {record && can("articles.edit_own") && !can("articles.edit_any")
+            ? "You can only edit your own articles while they are drafts."
+            : "You have read-only access to this article."}
         </p>
       )}
       {error?.status === 400 && error.details && (
@@ -373,6 +397,14 @@ export function ArticleEditorPage() {
             >
               Publishing <StatusBadge status={status} />
             </h2>
+            {record?.review_status && record.review_status !== "none" && (
+              <p className="mt-2 flex items-center gap-1.5 text-sm">
+                <ClipboardCheck aria-hidden className="size-4 text-sage-700" />
+                {record.review_status === "submitted"
+                  ? `Submitted for review ${formatDateTime(record.submitted_at)}`
+                  : `Approved ${formatDateTime(record.approved_at)}`}
+              </p>
+            )}
             {record?.published_at && (
               <p className="mt-2 text-sm text-muted">
                 {status === "scheduled" ? "Scheduled for" : "Published"}{" "}
@@ -387,7 +419,33 @@ export function ArticleEditorPage() {
             )}
             {!isNew && (
               <div className="mt-4 space-y-3">
-                {can("content.publish") && ["draft", "scheduled"].includes(status) && (
+                {allowed.submit && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                    disabled={busy || dirty}
+                    onClick={() =>
+                      runAction("submit", "Submitted for review. An editor will take a look.")
+                    }
+                  >
+                    <ClipboardCheck aria-hidden />
+                    Submit for review
+                  </Button>
+                )}
+                {allowed.approve && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                    disabled={busy || dirty}
+                    onClick={() => runAction("approve", "Article approved.")}
+                  >
+                    <BadgeCheck aria-hidden />
+                    Approve
+                  </Button>
+                )}
+                {allowed.publish && (
                   <>
                     <Button
                       className="w-full"
@@ -427,7 +485,7 @@ export function ArticleEditorPage() {
                     </p>
                   </>
                 )}
-                {can("content.moderate") && ["published", "scheduled"].includes(status) && (
+                {allowed.unpublish && (
                   <Button
                     variant="outline"
                     className="w-full"
@@ -439,7 +497,7 @@ export function ArticleEditorPage() {
                     Unpublish
                   </Button>
                 )}
-                {can("content.moderate") && status !== "archived" && (
+                {allowed.archive && (
                   <Button
                     variant="ghost"
                     className="w-full"
@@ -451,7 +509,7 @@ export function ArticleEditorPage() {
                     Archive
                   </Button>
                 )}
-                {canWrite && status === "archived" && (
+                {allowed.restore && (
                   <Button
                     variant="outline"
                     className="w-full"
@@ -461,6 +519,18 @@ export function ArticleEditorPage() {
                   >
                     <RotateCcw aria-hidden />
                     Restore to draft
+                  </Button>
+                )}
+                {allowed.delete && (
+                  <Button
+                    variant="ghost"
+                    className="w-full text-red-800"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => setConfirm("delete")}
+                  >
+                    <Trash2 aria-hidden />
+                    Delete permanently
                   </Button>
                 )}
               </div>
@@ -583,6 +653,16 @@ export function ArticleEditorPage() {
         busy={busy}
         onCancel={() => setConfirm(null)}
         onConfirm={() => runAction("archive", "Article archived.")}
+      />
+      <ConfirmDialog
+        open={confirm === "delete"}
+        title="Delete this article permanently?"
+        message="This draft has never been published. Deleting it cannot be undone."
+        confirmLabel="Delete article"
+        tone="danger"
+        busy={busy}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => runAction("remove", "Article deleted.")}
       />
     </>
   );
