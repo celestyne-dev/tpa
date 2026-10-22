@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC
+
 from marshmallow import RAISE, Schema, ValidationError, fields, pre_load, validate
 
 from ..utils.validation import SLUG_RE, is_https_url, plain_text_problem
@@ -72,6 +74,39 @@ class PageQuerySchema(Schema):
     page_size = fields.Integer(load_default=20, validate=validate.Range(min=1, max=100))
 
 
+class MediaQuerySchema(PageQuerySchema):
+    q = fields.String(load_default=None, validate=validate.Length(max=100))
+    type = fields.String(
+        load_default=None,
+        validate=validate.OneOf(
+            ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif", "image/svg+xml"]
+        ),
+    )
+    usage = fields.String(
+        load_default=None, validate=validate.OneOf(["used", "unused", "missing_alt"])
+    )
+    status = fields.String(
+        load_default="active", validate=validate.OneOf(["active", "archived", "all"])
+    )
+    sort = fields.String(
+        load_default="newest", validate=validate.OneOf(["newest", "oldest", "filename", "size"])
+    )
+    uploaded_from = fields.AwareDateTime(load_default=None, default_timezone=UTC)
+    uploaded_to = fields.AwareDateTime(load_default=None, default_timezone=UTC)
+    page_size = fields.Integer(load_default=30, validate=validate.Range(min=1, max=100))
+
+
+class MediaUpdateSchema(StrictSchema):
+    alt_text = fields.String(allow_none=True, validate=validate.Length(max=300))
+    title = fields.String(allow_none=True, validate=validate.Length(max=200))
+    caption = fields.String(allow_none=True, validate=validate.Length(max=500))
+    credit = fields.String(allow_none=True, validate=validate.Length(max=200))
+    source_url = fields.String(allow_none=True, validate=validate.Length(max=500))
+    filename = fields.String(validate=validate.Length(min=1, max=120))
+    focal_x = fields.Float(validate=validate.Range(min=0, max=1))
+    focal_y = fields.Float(validate=validate.Range(min=0, max=1))
+
+
 class ArticleQuerySchema(PageQuerySchema):
     q = fields.String(load_default=None, validate=validate.Length(max=100))
     status = fields.String(
@@ -83,6 +118,8 @@ class ArticleQuerySchema(PageQuerySchema):
     review_status = fields.String(
         load_default=None, validate=validate.OneOf(["none", "submitted", "approved"])
     )
+    has_pending = fields.Boolean(load_default=None)
+    mine = fields.Boolean(load_default=None)
 
 
 class ArticleWriteSchema(StrictSchema):
@@ -100,12 +137,71 @@ class ArticleWriteSchema(StrictSchema):
     social_image_id = fields.Integer(allow_none=True)
     seo_title = Text(200, allow_none=True)
     meta_description = Text(320, allow_none=True)
+    social_title = Text(200, allow_none=True)
+    social_description = Text(320, allow_none=True)
     canonical_url = fields.String(allow_none=True, validate=[validate.Length(max=500), _https])
     noindex = fields.Boolean()
     original_url = fields.String(
         allow_none=True, validate=[validate.Length(max=500), _http_or_https]
     )
     original_slug = Text(200, allow_none=True)
+
+
+class ArticleSaveSchema(ArticleWriteSchema):
+    """PATCH payload: content fields plus save metadata (never stored as content)."""
+
+    lock_version = fields.Integer(allow_none=True, validate=validate.Range(min=1))
+    mode = fields.String(load_default="save", validate=validate.OneOf(["save", "autosave"]))
+    change_summary = Text(200, allow_none=True)
+
+
+class LockSchema(StrictSchema):
+    lock_version = fields.Integer(allow_none=True, load_default=None)
+
+
+class RevisionCompareSchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    from_id = fields.Integer(required=True, data_key="from")
+    to_id = fields.Integer(required=True, data_key="to")
+
+
+class SlugCheckSchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    slug = fields.String(required=True, validate=validate.Length(min=1, max=200))
+    exclude = fields.Integer(load_default=None)
+
+
+class RedirectWriteSchema(StrictSchema):
+    source_path = fields.String(required=True, validate=validate.Length(min=1, max=500))
+    destination = fields.String(required=True, validate=validate.Length(min=1, max=1000))
+    status_code = fields.Integer(load_default=301)
+    is_active = fields.Boolean(load_default=True)
+    note = fields.String(allow_none=True, validate=validate.Length(max=300))
+
+
+class RedirectQuerySchema(PageQuerySchema):
+    q = fields.String(load_default=None, validate=validate.Length(max=100))
+    active = fields.Boolean(load_default=None)
+    origin = fields.String(
+        load_default=None, validate=validate.OneOf(["manual", "slug_change", "import"])
+    )
+    page_size = fields.Integer(load_default=50, validate=validate.Range(min=1, max=200))
+
+
+class RedirectImportSchema(StrictSchema):
+    csv = fields.String(required=True, validate=validate.Length(min=1, max=2_000_000))
+    dry_run = fields.Boolean(load_default=False)
+
+
+class JobQuerySchema(PageQuerySchema):
+    status = fields.String(
+        load_default=None,
+        validate=validate.OneOf(["pending", "running", "succeeded", "failed", "cancelled"]),
+    )
 
 
 class PublishSchema(StrictSchema):
@@ -136,6 +232,7 @@ class AuthorWriteSchema(StrictSchema):
     bio = Text(2000)
     status = fields.String(validate=validate.OneOf(["active", "archived"]))
     profile_image_id = fields.Integer(allow_none=True)
+    is_person = fields.Boolean()
 
 
 class TagWriteSchema(StrictSchema):

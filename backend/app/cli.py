@@ -6,6 +6,8 @@ flask --app wsgi rbac sync
 flask --app wsgi seed sample-content
 flask --app wsgi cms seed-defaults
 flask --app wsgi content publish-due
+flask --app wsgi publish worker
+flask --app wsgi media prune
 """
 
 from __future__ import annotations
@@ -118,20 +120,161 @@ def seed_defaults():
     click.echo("CMS defaults: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
-@content_cli.command("publish-due")
-def publish_due():
-    """Publish scheduled articles whose time has passed. Rebuild the site afterwards."""
+def _publish_due_locked() -> dict:
+    """Run the scheduler under an exclusive lock so overlapping timers never collide."""
+    import fcntl
+    from pathlib import Path
+
     from .services.publication_service import publish_due_scheduled
 
-    slugs = publish_due_scheduled()
-    db.session.commit()
-    if slugs:
-        click.echo(f"Published {len(slugs)} scheduled article(s): {', '.join(slugs)}")
-        click.echo("Run ./scripts/build-production.sh to refresh the static site.")
+    lock_dir = Path(current_app.config["PUBLISH_RELEASES_DIR"]).parent
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    with open(lock_dir / ".publish-due.lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return {"published": [], "failed": [], "skipped": True}
+        result = publish_due_scheduled()
+        db.session.commit()
+        return result
+
+
+@content_cli.command("publish-due")
+def publish_due():
+    """Publish scheduled articles whose time has passed (idempotent; queues a rebuild)."""
+    result = _publish_due_locked()
+    if result.get("skipped"):
+        click.echo("Another scheduler run is in progress; skipped.")
+    elif result["published"]:
+        click.echo(
+            f"Published {len(result['published'])} scheduled article(s): "
+            + ", ".join(result["published"])
+            + ". A site rebuild has been queued."
+        )
     else:
         click.echo("No scheduled articles are due.")
+    if result.get("failed"):
+        click.echo(f"{len(result['failed'])} article(s) failed; see the audit log.", err=True)
+        sys.exit(1)
+
+
+publish_cli = AppGroup("publish", help="Static site publishing jobs.")
+
+
+@publish_cli.command("worker")
+@click.option("--once", is_flag=True, help="Process at most one due job, then exit.")
+@click.option("--interval", default=5, show_default=True, help="Seconds between polls.")
+@click.option(
+    "--no-scheduler",
+    is_flag=True,
+    help="Do not publish due scheduled articles (when a separate timer does it).",
+)
+def publish_worker(once: bool, interval: int, no_scheduler: bool):
+    """Run queued site builds one at a time (systemd: tpa-publish-worker.service)."""
+    import signal
+    import time
+
+    from .services import publishing
+    from .services.site_builder import LocalReleaseBuilder
+
+    stop = {"flag": False}
+
+    def _stop(*_):
+        stop["flag"] = True
+
+    signal.signal(signal.SIGTERM, _stop)
+    signal.signal(signal.SIGINT, _stop)
+    click.echo(f"Publishing worker {publishing.worker_id()} started.")
+    while not stop["flag"]:
+        if not no_scheduler:
+            try:
+                _publish_due_locked()
+            except Exception:  # never let the scheduler stop the worker
+                db.session.rollback()
+                current_app.logger.exception("Scheduled publishing failed")
+        job = publishing.claim_next()
+        if job is not None:
+            click.echo(f"Building job {job.id} ({', '.join(job.reasons[:5])})...")
+            job = publishing.run_job(job, LocalReleaseBuilder())
+            click.echo(f"Job {job.id}: {job.status}" + (f" — {job.error}" if job.error else ""))
+        db.session.remove()
+        if once:
+            break
+        for _ in range(max(1, interval) * 5):
+            if stop["flag"]:
+                break
+            time.sleep(0.2)
+    click.echo("Publishing worker stopped.")
+
+
+@publish_cli.command("request")
+@click.option("--reason", default="manual_cli", show_default=True)
+def publish_request(reason: str):
+    """Queue a site rebuild now (picked up by the worker)."""
+    from .services.publishing import request_build
+
+    job = request_build(reason, None, trigger="manual")
+    db.session.commit()
+    click.echo(f"Queued publishing job {job.id}.")
+
+
+@publish_cli.command("status")
+def publish_status():
+    """Show the latest publishing jobs."""
+    from .services.publishing import list_jobs
+
+    jobs, _ = list_jobs({"page": 1, "page_size": 10})
+    for job in jobs:
+        click.echo(
+            f"#{job['id']:<5} {job['status']:<10} attempts={job['attempts']} "
+            f"created={job['created_at']} release={job['release'] or '-'} {job['error'] or ''}"
+        )
+
+
+media_cli = AppGroup("media", help="Media library maintenance.")
+
+
+@media_cli.command("prune")
+@click.option("--days", type=int, default=None, help="Override MEDIA_SUPERSEDED_RETENTION_DAYS.")
+def media_prune(days: int | None):
+    """Delete superseded image variants older than the retention period."""
+    from .services.admin.media_admin import prune_superseded
+
+    result = prune_superseded(days)
+    db.session.commit()
+    click.echo(
+        f"Removed {result['variants_removed']} superseded file(s), "
+        f"freed {result['bytes_freed'] / 1024:.0f} KB."
+    )
+
+
+@media_cli.command("generate-preset")
+@click.argument("preset")
+@click.option("--all", "all_assets", is_flag=True, help="Every active uploaded image.")
+@click.option("--id", "asset_ids", type=int, multiple=True, help="Specific media ids.")
+def media_generate_preset(preset: str, all_assets: bool, asset_ids: tuple[int, ...]):
+    """Generate an on-demand preset (e.g. ebook_cover) from the retained originals."""
+    from .services.admin.media_admin import generate_preset
+
+    count = generate_preset(preset, None if all_assets else list(asset_ids))
+    db.session.commit()
+    click.echo(f"Generated '{preset}' for {count} image(s).")
+
+
+@media_cli.command("verify")
+def media_verify():
+    """Check that every current variant file exists in storage."""
+    from .services.admin.media_admin import verify_files
+
+    missing = verify_files()
+    if missing:
+        for key in missing[:50]:
+            click.echo(f"missing: {key}")
+        click.echo(f"{len(missing)} file(s) missing.", err=True)
+        sys.exit(1)
+    click.echo("All media files are present.")
 
 
 def register_cli(app: Flask) -> None:
-    for group in (admin_cli, seed_cli, cms_cli, content_cli, rbac_cli):
+    for group in (admin_cli, seed_cli, cms_cli, content_cli, rbac_cli, publish_cli, media_cli):
         app.cli.add_command(group)

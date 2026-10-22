@@ -93,6 +93,53 @@ class BaseConfig:
     )
     ALLOW_SAMPLE_SEED = True
 
+    # ---- Static publishing pipeline (worker: `flask publish worker`) ----
+    FRONTEND_DIR = os.environ.get("FRONTEND_DIR") or str(REPO_DIR / "frontend")
+    # Successful builds are copied to RELEASES_DIR/<release> and SITE_CURRENT_LINK is
+    # atomically switched to the new release. Nginx serves SITE_CURRENT_LINK.
+    PUBLISH_RELEASES_DIR = os.environ.get("PUBLISH_RELEASES_DIR") or str(
+        INSTANCE_DIR / "site" / "releases"
+    )
+    PUBLISH_CURRENT_LINK = os.environ.get("PUBLISH_CURRENT_LINK") or str(
+        INSTANCE_DIR / "site" / "current"
+    )
+    PUBLISH_KEEP_RELEASES = _int("PUBLISH_KEEP_RELEASES", 5)
+    PUBLISH_DEBOUNCE_SECONDS = _int("PUBLISH_DEBOUNCE_SECONDS", 30)
+    PUBLISH_MAX_DELAY_SECONDS = _int("PUBLISH_MAX_DELAY_SECONDS", 300)
+    PUBLISH_MAX_ATTEMPTS = _int("PUBLISH_MAX_ATTEMPTS", 3)
+    PUBLISH_BUILD_TIMEOUT_SECONDS = _int("PUBLISH_BUILD_TIMEOUT_SECONDS", 900)
+    PUBLISH_STALE_AFTER_SECONDS = _int("PUBLISH_STALE_AFTER_SECONDS", 1800)
+    # API the prerender step reads from (the local Gunicorn in production).
+    PUBLISH_API_URL = os.environ.get("PUBLISH_API_URL", "http://127.0.0.1:5000/api/v1")
+    # Optional post-release hook for remote/cloud deployment, as a JSON argv list
+    # (e.g. ["rsync", "-a", "--delete", "{release}/", "deploy@cdn:/site/"]). Not set = off.
+    PUBLISH_DEPLOY_COMMAND = os.environ.get("PUBLISH_DEPLOY_COMMAND", "")
+    # Build command as a JSON argv list (no shell). Default: ["npm", "run", "build"].
+    PUBLISH_BUILD_COMMAND = os.environ.get("PUBLISH_BUILD_COMMAND", "")
+    PUBLISH_DIST_DIR = os.environ.get("PUBLISH_DIST_DIR", "")
+
+    # ---- Media library ----
+    MEDIA_STORAGE = os.environ.get("MEDIA_STORAGE", "local")
+    MEDIA_ROOT = os.environ.get("MEDIA_ROOT") or str(INSTANCE_DIR / "media")
+    MEDIA_PUBLIC_BASE_URL = os.environ.get("MEDIA_PUBLIC_BASE_URL", "/media")
+    # Flask serves /media/* itself only in development; Nginx serves it in production.
+    MEDIA_SERVE_FROM_FLASK = _bool("MEDIA_SERVE_FROM_FLASK", False)
+    MEDIA_MAX_UPLOAD_MB = _int("MEDIA_MAX_UPLOAD_MB", 20)
+    MEDIA_MAX_PIXELS = _int("MEDIA_MAX_PIXELS", 50_000_000)
+    MEDIA_MAX_DIMENSION = _int("MEDIA_MAX_DIMENSION", 12_000)
+    # "original": keep the uploaded file privately; "master": keep a metadata-free
+    # high-quality copy instead (smaller, still re-processable).
+    MEDIA_RETENTION = os.environ.get("MEDIA_RETENTION", "original")
+    MEDIA_ENABLE_AVIF = _bool("MEDIA_ENABLE_AVIF", True)
+    MEDIA_SUPERSEDED_RETENTION_DAYS = _int("MEDIA_SUPERSEDED_RETENTION_DAYS", 14)
+    MAX_CONTENT_LENGTH = (_int("MEDIA_MAX_UPLOAD_MB", 20) + 1) * 1024 * 1024
+
+    # ---- SEO / redirects ----
+    # Public website origin (matches VITE_SITE_URL); used for canonical checks and sitemaps.
+    SITE_URL = os.environ.get("SITE_URL", "http://localhost:5173").rstrip("/")
+    # Hosts redirects may point to besides internal paths (prevents open redirects).
+    REDIRECT_ALLOWED_HOSTS = _list("REDIRECT_ALLOWED_HOSTS", "")
+
     # ---- Email and account links ----
     MAIL_BACKEND = os.environ.get("MAIL_BACKEND", "none")
     MAIL_FROM = os.environ.get("MAIL_FROM", "Think Positive Always <no-reply@localhost>")
@@ -118,6 +165,7 @@ class BaseConfig:
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
+    MEDIA_SERVE_FROM_FLASK = _bool("MEDIA_SERVE_FROM_FLASK", True)
     # Invitation and reset links are printed to the Flask terminal unless configured otherwise.
     MAIL_BACKEND = os.environ.get("MAIL_BACKEND", "console")
     SQLALCHEMY_DATABASE_URI = BaseConfig.SQLALCHEMY_DATABASE_URI or (
@@ -149,6 +197,9 @@ class TestingConfig(BaseConfig):
     FRONTEND_BUILD_MANIFEST = str(INSTANCE_DIR / "does-not-exist-manifest.json")
     MAIL_BACKEND = "memory"
     ADMIN_BASE_URL = "http://localhost:5173"
+    MEDIA_ROOT = str(INSTANCE_DIR / "test-media")  # tests override with a temp dir
+    MEDIA_SERVE_FROM_FLASK = True
+    PUBLISH_DEBOUNCE_SECONDS = 0
 
 
 class ProductionConfig(BaseConfig):

@@ -1,6 +1,6 @@
 """Admin API (/api/v1/admin). Every resource enforces authentication and permissions."""
 
-from . import auth, content, roles, site
+from . import auth, content, media, roles, seo, site
 
 ADMIN_ROUTES = [
     (auth.LoginResource, "/admin/auth/login"),
@@ -23,6 +23,23 @@ ADMIN_ROUTES = [
     (content.ArticleSubmitResource, "/admin/articles/<int:article_id>/submit"),
     (content.ArticleApproveResource, "/admin/articles/<int:article_id>/approve"),
     (content.ArticlePreviewResource, "/admin/articles/<int:article_id>/preview"),
+    (content.ArticlePublishChangesResource, "/admin/articles/<int:article_id>/publish-changes"),
+    (content.ArticleDiscardChangesResource, "/admin/articles/<int:article_id>/discard-changes"),
+    (content.ArticleRevisionListResource, "/admin/articles/<int:article_id>/revisions"),
+    (
+        content.ArticleRevisionCompareResource,
+        "/admin/articles/<int:article_id>/revisions/compare",
+    ),
+    (
+        content.ArticleRevisionResource,
+        "/admin/articles/<int:article_id>/revisions/<int:revision_id>",
+    ),
+    (
+        content.ArticleRevisionRestoreResource,
+        "/admin/articles/<int:article_id>/revisions/<int:revision_id>/restore",
+    ),
+    (content.ArticleSeoChecksResource, "/admin/articles/<int:article_id>/seo-checks"),
+    (content.ArticleSlugCheckResource, "/admin/articles/slug-check"),
     (content.TopicListResource, "/admin/topics"),
     (content.TopicResource, "/admin/topics/<int:item_id>"),
     (content.TopicReassignResource, "/admin/topics/<int:item_id>/reassign"),
@@ -31,8 +48,12 @@ ADMIN_ROUTES = [
     (content.AuthorReassignResource, "/admin/authors/<int:item_id>/reassign"),
     (content.TagListResource, "/admin/tags"),
     (content.TagResource, "/admin/tags/<int:item_id>"),
-    (content.MediaListResource, "/admin/media"),
-    (content.PublishingStatusResource, "/admin/publishing/status"),
+    (media.MediaListResource, "/admin/media"),
+    (media.MediaStatsResource, "/admin/media/stats"),
+    (media.MediaResource, "/admin/media/<int:media_id>"),
+    (media.MediaReplaceResource, "/admin/media/<int:media_id>/replace"),
+    (media.MediaArchiveResource, "/admin/media/<int:media_id>/archive"),
+    (media.MediaRestoreResource, "/admin/media/<int:media_id>/restore"),
     (site.PageListResource, "/admin/pages"),
     (site.PageResource, "/admin/pages/<int:page_id>"),
     (site.PageSectionListResource, "/admin/pages/<int:page_id>/sections"),
@@ -53,6 +74,16 @@ ADMIN_ROUTES = [
     (roles.RoleListResource, "/admin/roles"),
     (roles.RoleResource, "/admin/roles/<int:role_id>"),
     (site.AuditLogResource, "/admin/audit-log"),
+    (seo.SeoOverviewResource, "/admin/seo/overview"),
+    (seo.RedirectListResource, "/admin/redirects"),
+    (seo.RedirectImportResource, "/admin/redirects/import"),
+    (seo.RedirectExportResource, "/admin/redirects/export"),
+    (seo.RedirectResource, "/admin/redirects/<int:redirect_id>"),
+    (seo.PublishingStatusResource, "/admin/publishing/status"),
+    (seo.PublishJobListResource, "/admin/publishing/jobs"),
+    (seo.PublishJobResource, "/admin/publishing/jobs/<int:job_id>"),
+    (seo.PublishJobRetryResource, "/admin/publishing/jobs/<int:job_id>/retry"),
+    (seo.PublishJobCancelResource, "/admin/publishing/jobs/<int:job_id>/cancel"),
 ]
 
 # Endpoints reachable without an access token (they authenticate in other ways).

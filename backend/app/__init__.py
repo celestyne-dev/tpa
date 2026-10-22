@@ -65,6 +65,10 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     register_error_handlers(app)
     register_cli(app)
 
+    if app.config.get("MEDIA_SERVE_FROM_FLASK"):
+        _register_media_route(app)
+    _register_redirect_fallback(app)
+
     @app.after_request
     def security_headers(response):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -76,3 +80,47 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
         logging.basicConfig(level=logging.INFO)
 
     return app
+
+
+def _register_media_route(app: Flask) -> None:
+    """Development/test only: serve public media derivatives (Nginx does this in production)."""
+    from flask import abort, send_file
+
+    from .storage import StorageError, get_storage
+
+    prefix = app.config["MEDIA_PUBLIC_BASE_URL"]
+    if not prefix.startswith("/"):
+        return
+
+    @app.get(f"{prefix.rstrip('/')}/<path:key>")
+    def media_file(key: str):
+        try:
+            path = get_storage().public_file(key)
+        except (StorageError, AttributeError):
+            abort(404)
+        if not path.is_file():
+            abort(404)
+        response = send_file(path, conditional=True, max_age=31536000)
+        # Variant paths are versioned, so they never change once written.
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
+def _register_redirect_fallback(app: Flask) -> None:
+    """Nginx asks this endpoint about paths that have no static file (see deploy/nginx).
+
+    It answers with the CMS redirect (real 301/302/307/308) or 404, so redirects
+    take effect immediately without regenerating or reloading the Nginx config.
+    """
+    from flask import abort, redirect
+
+    @app.route("/_redirect/<path:path>", methods=["GET", "HEAD"])
+    def redirect_fallback(path: str):
+        from .services.redirect_service import resolve
+
+        found = resolve("/" + path)
+        if found is None:
+            abort(404)
+        response = redirect(found["destination"], code=found["status_code"])
+        response.headers["Cache-Control"] = "public, max-age=300"
+        return response

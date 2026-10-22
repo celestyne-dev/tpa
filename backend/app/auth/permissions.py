@@ -36,7 +36,16 @@ class Permission(StrEnum):
     AUTHORS_MANAGE = "authors.manage"
     MEDIA_VIEW = "media.view"
     MEDIA_UPLOAD = "media.upload"
+    MEDIA_EDIT = "media.edit"
+    MEDIA_REPLACE = "media.replace"
     MEDIA_DELETE = "media.delete"
+    ARTICLES_VIEW_REVISIONS = "articles.view_revisions"
+    ARTICLES_RESTORE_REVISIONS = "articles.restore_revisions"
+    ARTICLES_PREVIEW = "articles.preview"
+    SEO_VIEW = "seo.view"
+    REDIRECTS_MANAGE = "redirects.manage"
+    PUBLISHING_VIEW = "publishing.view"
+    PUBLISHING_MANAGE = "publishing.manage"
     PAGES_VIEW = "pages.view"
     PAGES_EDIT = "pages.edit"
     NAVIGATION_MANAGE = "navigation.manage"
@@ -120,12 +129,53 @@ CATALOGUE: list[PermissionDef] = [
         "articles",
         description="Permanently delete drafts that were never published.",
     ),
+    _d(
+        P.ARTICLES_VIEW_REVISIONS,
+        "View revision history",
+        "Articles",
+        "articles",
+        description="For articles you can open.",
+    ),
+    _d(
+        P.ARTICLES_RESTORE_REVISIONS,
+        "Restore revisions",
+        "Articles",
+        "articles",
+        description="Only on articles you are allowed to edit.",
+    ),
+    _d(
+        P.ARTICLES_PREVIEW,
+        "Preview drafts",
+        "Articles",
+        "articles",
+        description="Private, non-indexed preview of articles you can open.",
+    ),
     _d(P.TOPICS_MANAGE, "Manage topics", "Topics, tags & authors", "taxonomy"),
     _d(P.TAGS_MANAGE, "Manage tags", "Topics, tags & authors", "taxonomy"),
     _d(P.AUTHORS_MANAGE, "Manage authors", "Topics, tags & authors", "taxonomy"),
     _d(P.MEDIA_VIEW, "View media library", "Media library", "media"),
-    _d(P.MEDIA_UPLOAD, "Upload media", "Media library", "media", available=False),
-    _d(P.MEDIA_DELETE, "Delete media", "Media library", "media", available=False),
+    _d(
+        P.MEDIA_UPLOAD,
+        "Upload media",
+        "Media library",
+        "media",
+        description="Upload images; they are validated and optimised automatically.",
+    ),
+    _d(
+        P.MEDIA_EDIT,
+        "Edit media details",
+        "Media library",
+        "media",
+        description="Alt text, title, caption, credit and focal point.",
+    ),
+    _d(P.MEDIA_REPLACE, "Replace media files", "Media library", "media"),
+    _d(
+        P.MEDIA_DELETE,
+        "Archive and delete media",
+        "Media library",
+        "media",
+        description="Media still used by content can be archived but never deleted.",
+    ),
     _d(P.PAGES_VIEW, "View pages and sections", "Pages & homepage", "pages"),
     _d(P.PAGES_EDIT, "Edit pages and homepage sections", "Pages & homepage", "pages"),
     _d(P.NAVIGATION_MANAGE, "Manage navigation menus", "Navigation", "navigation"),
@@ -149,7 +199,29 @@ CATALOGUE: list[PermissionDef] = [
         "Manage SEO settings",
         "SEO",
         "seo",
-        description="Default titles, descriptions and sharing image.",
+        description="Default titles, descriptions and sharing image; article canonical URLs, "
+        "indexing and post-publication slug changes.",
+    ),
+    _d(
+        P.SEO_VIEW,
+        "View SEO audit",
+        "SEO",
+        "seo",
+        description="The SEO dashboard and per-article checks.",
+    ),
+    _d(P.REDIRECTS_MANAGE, "Manage redirects", "SEO", "redirects"),
+    _d(
+        P.PUBLISHING_VIEW,
+        "View publishing jobs",
+        "Publishing",
+        "publishing",
+        description="Static site build status and history.",
+    ),
+    _d(
+        P.PUBLISHING_MANAGE,
+        "Run and retry publishing jobs",
+        "Publishing",
+        "publishing",
     ),
     _d(P.PRODUCTS_VIEW, "View digital products", "Digital products", "products", available=False),
     _d(
@@ -503,6 +575,56 @@ TEMPLATE_ROLES: list[RoleSpec] = [
     ),
 ]
 
+# Batch 03 additions (media, revisions, previews, SEO, redirects, publishing).
+# The migration that introduced these permissions grants the same sets to the
+# existing system roles and templates; edited templates keep their other changes.
+MEDIA_ALL = _set(P.MEDIA_VIEW, P.MEDIA_UPLOAD, P.MEDIA_EDIT, P.MEDIA_REPLACE, P.MEDIA_DELETE)
+REVISIONS = _set(P.ARTICLES_VIEW_REVISIONS, P.ARTICLES_RESTORE_REVISIONS, P.ARTICLES_PREVIEW)
+BATCH_03_GRANTS: dict[str, frozenset[str]] = {
+    "editor": _set(P.MEDIA_UPLOAD, P.MEDIA_EDIT, P.MEDIA_REPLACE, P.SEO_VIEW, P.PUBLISHING_VIEW)
+    | REVISIONS,
+    "moderator": _set(P.ARTICLES_VIEW_REVISIONS, P.ARTICLES_PREVIEW, P.PUBLISHING_VIEW),
+    "analyst": _set(P.ARTICLES_PREVIEW, P.SEO_VIEW, P.PUBLISHING_VIEW),
+    "administrator": MEDIA_ALL
+    | REVISIONS
+    | _set(P.SEO_VIEW, P.REDIRECTS_MANAGE, P.PUBLISHING_VIEW, P.PUBLISHING_MANAGE),
+    "editor_in_chief": MEDIA_ALL
+    | REVISIONS
+    | _set(P.SEO_VIEW, P.PUBLISHING_VIEW, P.PUBLISHING_MANAGE),
+    "content_editor": _set(P.MEDIA_UPLOAD, P.MEDIA_EDIT) | REVISIONS,
+    "content_writer": _set(P.MEDIA_UPLOAD) | REVISIONS,
+    "marketing_manager": _set(P.ARTICLES_PREVIEW, P.SEO_VIEW),
+    "seo_manager": _set(
+        P.MEDIA_VIEW,
+        P.MEDIA_EDIT,
+        P.ARTICLES_VIEW_REVISIONS,
+        P.ARTICLES_PREVIEW,
+        P.SEO_VIEW,
+        P.REDIRECTS_MANAGE,
+    ),
+    "website_manager": _set(
+        P.MEDIA_UPLOAD, P.MEDIA_EDIT, P.MEDIA_REPLACE, P.SEO_VIEW, P.PUBLISHING_VIEW
+    ),
+}
+
+
+def _with_batch_03(spec: RoleSpec) -> RoleSpec:
+    extra = BATCH_03_GRANTS.get(spec.key, frozenset())
+    if not extra:
+        return spec
+    return RoleSpec(
+        spec.key,
+        spec.label,
+        spec.description,
+        spec.kind,
+        spec.permissions | extra,
+        spec.grants_all,
+        spec.planned - extra,
+    )
+
+
+SYSTEM_ROLES = [_with_batch_03(r) for r in SYSTEM_ROLES]
+TEMPLATE_ROLES = [_with_batch_03(r) for r in TEMPLATE_ROLES]
 ROLE_SPECS: dict[str, RoleSpec] = {r.key: r for r in SYSTEM_ROLES + TEMPLATE_ROLES}
 
 for _spec in ROLE_SPECS.values():

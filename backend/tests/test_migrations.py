@@ -8,7 +8,7 @@ from flask_migrate import downgrade, upgrade
 from sqlalchemy import event, inspect, text
 
 from app import create_app
-from app.auth.permissions import ROLE_SPECS, TEMPLATE_ROLES
+from app.auth.permissions import TEMPLATE_ROLES
 from app.auth.rbac import effective_permissions, sync_rbac
 from app.extensions import db
 
@@ -23,7 +23,10 @@ def _real_drift(diff):
     def known(op):
         kind = op[0]
         fk = op[1] if kind in ("add_fk", "remove_fk") else None
-        return fk is not None and [c.name for c in fk.columns] == ["approved_by_id"]
+        return fk is not None and [c.name for c in fk.columns] in (
+            ["approved_by_id"],
+            ["pending_by_id"],
+        )
 
     return [op for op in diff if not known(op)]
 
@@ -138,7 +141,7 @@ def test_rbac_upgrade_preserves_users_roles_and_invitations(tmp_path):
             statements.append(statement.upper())
 
         event.listen(db.engine, "before_cursor_execute", capture)
-        upgrade(directory=MIGRATIONS)
+        upgrade(directory=MIGRATIONS, revision="7cf88d33a308")
         event.remove(db.engine, "before_cursor_execute", capture)
         # Incremental: nothing is dropped, renamed or rebuilt.
         assert not [s for s in statements if "DROP TABLE" in s or "_ALEMBIC_TMP" in s]
@@ -157,12 +160,12 @@ def test_rbac_upgrade_preserves_users_roles_and_invitations(tmp_path):
         editor = db.session.scalar(db.select(User).where(User.email == "ed@example.org"))
         assert db.session.scalar(db.select(Role).where(Role.name == "super_admin")).grants_all
         assert "roles.manage" in effective_permissions(owner)
-        assert effective_permissions(editor) == set(
-            ROLE_SPECS["editor"].permissions | ROLE_SPECS["analyst"].permissions
+        # Specs include later additions (Batch 03); at this revision only the original set exists.
+        assert {"articles.edit_any", "analytics.view", "articles.publish"} <= effective_permissions(
+            editor
         )
         invite = db.session.scalar(db.select(AccountToken))
         assert invite.roles == ["editor"] and invite.used_at is None
-        assert set(sync_rbac().values()) == {0}
         db.session.rollback()
         db.session.remove()
 
@@ -171,3 +174,92 @@ def test_rbac_upgrade_preserves_users_roles_and_invitations(tmp_path):
         assert db.session.execute(text("SELECT COUNT(*) FROM user_roles")).scalar_one() == 4
         assert db.session.execute(text("SELECT COUNT(*) FROM account_tokens")).scalar_one() == 1
         assert {r[0] for r in db.session.execute(text("SELECT name FROM roles"))} == set(role_ids)
+
+
+def test_batch03_upgrade_preserves_content_and_adds_permissions(tmp_path):
+    """7cf88d33a308 -> a817c9636960: existing data survives, tables are only extended."""
+    app = _app(tmp_path, "batch03.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="7cf88d33a308")
+        conn = db.session
+        now = "2026-10-01 10:00:00"
+        uid = conn.execute(
+            text(
+                "INSERT INTO users (email, display_name, password_hash, status, session_version, "
+                "created_at, updated_at) VALUES ('w@example.org', 'W', 'x', 'active', 1, :n, :n) "
+                "RETURNING id"
+            ),
+            {"n": now},
+        ).scalar_one()
+        writer_role = conn.execute(
+            text("SELECT id FROM roles WHERE name = 'content_writer'")
+        ).scalar_one()
+        conn.execute(
+            text("INSERT INTO user_roles (user_id, role_id, assigned_at) VALUES (:u, :r, :n)"),
+            {"u": uid, "r": writer_role, "n": now},
+        )
+        media_id = conn.execute(
+            text(
+                "INSERT INTO media_assets (filename, mime_type, storage_key, size_bytes, alt_text, "
+                "width, height, visibility, created_at) VALUES ('calm.svg', 'image/svg+xml', "
+                "'/images/articles/calm.svg', 0, 'Calm', 1600, 1000, 'public', :n) RETURNING id"
+            ),
+            {"n": now},
+        ).scalar_one()
+        conn.execute(
+            text(
+                "INSERT INTO articles (title, slug, excerpt, body, status, featured, noindex, "
+                "source, created_at, updated_at, featured_image_id, review_status) VALUES "
+                "('Kept', 'kept', 'e', '[]', 'draft', 0, 0, 'original', :n, :n, :m, 'none')"
+            ),
+            {"n": now, "m": media_id},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO site_settings (key, value, updated_at) VALUES "
+                "('site.name', '\"TPA\"', :n)"
+            ),
+            {"n": now},
+        )
+        conn.commit()
+        conn.remove()
+
+        statements = []
+
+        def capture(_conn, _cursor, statement, *_args):
+            statements.append(statement.upper())
+
+        event.listen(db.engine, "before_cursor_execute", capture)
+        upgrade(directory=MIGRATIONS, revision="a817c9636960")
+        event.remove(db.engine, "before_cursor_execute", capture)
+        assert not [s for s in statements if "DROP TABLE" in s or "_ALEMBIC_TMP" in s]
+        created = {
+            s.split("CREATE TABLE ")[1].split(" ")[0].strip()
+            for s in statements
+            if "CREATE TABLE" in s
+        }
+        assert created == {"PUBLISH_JOBS", "REDIRECTS", "MEDIA_VARIANTS", "ARTICLE_REVISIONS"}
+
+        from app.models import Article, MediaAsset, User
+
+        article = db.session.scalar(db.select(Article).where(Article.slug == "kept"))
+        assert article.lock_version == 1 and article.pending_changes is None
+        assert article.featured_image_id == media_id
+        asset = db.session.get(MediaAsset, media_id)
+        assert asset.status == "active" and asset.public_id is None and not asset.variants
+        assert asset.as_image()["src"] == "/images/articles/calm.svg"
+        writer = db.session.get(User, uid)
+        perms = effective_permissions(writer)
+        assert {"media.upload", "articles.view_revisions", "articles.preview"} <= perms
+        assert "articles.publish" not in perms and "publishing.manage" not in perms
+        assert db.session.execute(text("SELECT value FROM site_settings")).scalar_one() == '"TPA"'
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+
+        downgrade(directory=MIGRATIONS, revision="7cf88d33a308")
+        assert db.session.execute(text("SELECT COUNT(*) FROM articles")).scalar_one() == 1
+        assert db.session.execute(text("SELECT COUNT(*) FROM media_assets")).scalar_one() == 1
+        assert db.session.execute(text("SELECT COUNT(*) FROM user_roles")).scalar_one() == 1
+        keys = set(db.session.scalars(text("SELECT key FROM permissions")))
+        assert "media.edit" not in keys and "publishing.view" not in keys

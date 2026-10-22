@@ -12,8 +12,15 @@ PASSWORD = "Correct-Horse-Battery-9"
 
 
 @pytest.fixture()
-def app():
-    app = create_app("testing")
+def app(tmp_path):
+    app = create_app(
+        "testing",
+        {
+            "MEDIA_ROOT": str(tmp_path / "media"),
+            "PUBLISH_RELEASES_DIR": str(tmp_path / "site" / "releases"),
+            "PUBLISH_CURRENT_LINK": str(tmp_path / "site" / "current"),
+        },
+    )
     with app.app_context():
         db.drop_all()
         db.create_all()
@@ -101,6 +108,14 @@ class Api:
     def delete(self, url):
         return self.c.delete(url, headers=csrf(self.c))
 
+    def upload(self, url, data: bytes, filename="photo.jpg", **form):
+        import io
+
+        payload = {"file": (io.BytesIO(data), filename), **form}
+        return self.c.post(
+            url, data=payload, headers=csrf(self.c), content_type="multipart/form-data"
+        )
+
 
 @pytest.fixture()
 def as_role(admin_factory):
@@ -108,3 +123,75 @@ def as_role(admin_factory):
         return Api(admin_factory(list(roles), email=email))
 
     return factory
+
+
+# ---- image fixtures ------------------------------------------------------------------
+
+
+def make_photo(width=1800, height=1200, *, fmt="JPEG", exif_orientation=None, gps=False, seed=1):
+    """A photo-like image (smooth gradients plus fine noise) as encoded bytes."""
+    import io
+    import random
+
+    from PIL import Image, ImageDraw, ImageFilter
+
+    rnd = random.Random(seed)
+    img = Image.new("RGB", (width, height))
+    draw = ImageDraw.Draw(img)
+    for y in range(height):
+        t = y / height
+        draw.line([(0, y), (width, y)], fill=(int(40 + 160 * t), int(90 + 80 * (1 - t)), 170))
+    for _ in range(60):
+        x, y, r = rnd.randrange(width), rnd.randrange(height), rnd.randrange(20, 200)
+        color = (rnd.randrange(255), rnd.randrange(255), rnd.randrange(255))
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=color)
+    img = img.filter(ImageFilter.GaussianBlur(3))
+    noise = Image.effect_noise((width, height), 18).convert("RGB")
+    img = Image.blend(img, noise, 0.08)
+    exif = Image.Exif()
+    if exif_orientation:
+        exif[0x0112] = exif_orientation
+    if gps:
+        exif[0x8825] = {1: "N", 2: (51.0, 30.0, 0.0), 3: "W", 4: (0.0, 7.0, 0.0)}
+        exif[0x010F] = "SecretCam"
+    buf = io.BytesIO()
+    kwargs = {"exif": exif.tobytes()} if (exif_orientation or gps) else {}
+    img.save(buf, fmt, quality=95, **kwargs)
+    return buf.getvalue()
+
+
+def make_png(width=600, height=400, *, alpha=False, flat=False):
+    import io
+
+    from PIL import Image, ImageDraw
+
+    mode = "RGBA" if alpha else "RGB"
+    img = Image.new(mode, (width, height), (255, 255, 255, 0) if alpha else (250, 248, 240))
+    draw = ImageDraw.Draw(img)
+    if flat:
+        draw.rectangle([20, 20, width - 20, height // 2], fill=(30, 60, 50, 255))
+        draw.text((40, height // 2 + 20), "Think Positive Always", fill=(0, 0, 0, 255))
+    else:
+        for x in range(0, width, 7):
+            draw.line([(x, 0), (width - x, height)], fill=(x % 255, 120, 200, 200), width=3)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return buf.getvalue()
+
+
+def png_header_only(width, height):
+    """A PNG whose header claims huge dimensions (decompression-bomb probe)."""
+    import struct
+    import zlib
+
+    def chunk(kind, data):
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)
+    idat = zlib.compress(b"\x00" * 64)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")

@@ -78,6 +78,7 @@ def author_dict(a: Author) -> dict[str, Any]:
         "slug": a.slug,
         "bio": a.bio,
         "status": a.status,
+        "is_person": a.is_person,
         "profile_image_id": a.profile_image_id,
         "profile_image": media_dict(a.profile_image),
         "article_count": author_usage(a.id),
@@ -105,6 +106,8 @@ def _check_image(image_id: int | None, field: str) -> None:
     asset = db.session.get(MediaAsset, image_id)
     if asset is None or asset.visibility != "public" or not asset.mime_type.startswith("image/"):
         raise ValidationError(details={field: ["Choose a public image."]})
+    if asset.status == "archived":
+        raise ValidationError(details={field: ["This image is archived."]})
 
 
 def _write(model, obj, data: dict[str, Any], fields: tuple[str, ...], label_field: str):
@@ -223,7 +226,7 @@ def reassign_topic(topic: Topic, target_id: int, actor: User) -> int:
 
 # ---- authors ------------------------------------------------------------------
 
-AUTHOR_FIELDS = ("display_name", "bio", "status", "profile_image_id")
+AUTHOR_FIELDS = ("display_name", "bio", "status", "profile_image_id", "is_person")
 
 
 def list_authors() -> list[dict[str, Any]]:

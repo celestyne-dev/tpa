@@ -8,6 +8,13 @@ class ImageSchema(Schema):
     alt = fields.String()
     width = fields.Integer()
     height = fields.Integer()
+    # Optimised uploads only (absent for built-in images).
+    srcset = fields.String()
+    sources = fields.Dict(keys=fields.String(), values=fields.String())
+    placeholder = fields.String()
+    caption = fields.String()
+    credit = fields.String()
+    focal = fields.List(fields.Float())
 
 
 class TopicRefSchema(Schema):
@@ -21,6 +28,8 @@ class SeoSchema(Schema):
     canonical_url = fields.String()
     no_index = fields.Boolean()
     og_image = fields.Nested(ImageSchema)
+    og_title = fields.String()
+    og_description = fields.String()
 
 
 class TopicSchema(Schema):
@@ -37,6 +46,12 @@ class TopicSchema(Schema):
 class AuthorSchema(Schema):
     slug = fields.String()
     name = fields.String()
+
+
+class AuthorProfileSchema(AuthorSchema):
+    bio = fields.String()
+    image = fields.Nested(ImageSchema, allow_none=True)
+    is_person = fields.Boolean()
 
 
 class ArticleSummarySchema(Schema):
@@ -62,6 +77,8 @@ class ArticleDetailSchema(ArticleSummarySchema):
     body = fields.List(fields.Dict())
     canonical_url = fields.String(allow_none=True)
     seo = fields.Nested(SeoSchema, allow_none=True)
+    first_published_at = fields.String(allow_none=True)
+    author_profile = fields.Nested(AuthorProfileSchema, allow_none=True)
 
 
 class ProductSchema(Schema):

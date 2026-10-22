@@ -65,7 +65,10 @@ def test_scheduled_articles_publish_only_via_explicit_task(seeded):
     # Not visible until the publish-due task promotes it.
     assert client.get("/api/v1/articles/building-quiet-confidence").status_code == 404
     with seeded.app_context():
-        assert publication_service.publish_due_scheduled() == ["building-quiet-confidence"]
+        assert publication_service.publish_due_scheduled() == {
+            "published": ["building-quiet-confidence"],
+            "failed": [],
+        }
         db.session.commit()
     assert client.get("/api/v1/articles/building-quiet-confidence").status_code == 200
 

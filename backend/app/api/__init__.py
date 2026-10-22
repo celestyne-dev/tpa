@@ -6,6 +6,7 @@ from flask_restful import Api
 from .articles import ArticleDetailResource, ArticleListResource
 from .health import HealthResource
 from .products import ProductListResource
+from .seo import RedirectListPublicResource, RedirectResolveResource, SitemapResource
 from .site import SiteResource
 from .topics import TopicDetailResource, TopicListResource
 
@@ -26,6 +27,9 @@ api.add_resource(TopicDetailResource, "/topics/<string:slug>")
 api.add_resource(ArticleListResource, "/articles")
 api.add_resource(ArticleDetailResource, "/articles/<string:slug>")
 api.add_resource(ProductListResource, "/products")
+api.add_resource(SitemapResource, "/sitemap")
+api.add_resource(RedirectListPublicResource, "/redirects")
+api.add_resource(RedirectResolveResource, "/redirects/resolve")
 
 # ---- Admin API ------------------------------------------------------------------
 from flask import request  # noqa: E402
@@ -46,5 +50,7 @@ def _admin_origin_guard():
 @api_v1.after_request
 def _admin_no_store(response):
     if request.path.startswith("/api/v1/admin"):
+        # Admin data (including draft previews) is never cached or indexed.
         response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response

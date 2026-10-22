@@ -391,8 +391,11 @@ def test_audit_log_listing_and_sanitisation(seeded, as_role):
 
 
 def test_media_listing(seeded, as_role):
-    media = as_role("editor").get("/api/v1/admin/media").get_json()["data"]
+    res = as_role("editor").get("/api/v1/admin/media").get_json()
+    media = res["data"]
     assert len(media) == 12 and all(m["url"].startswith("/") for m in media)
+    assert res["meta"]["pagination"]["total"] == 12
+    assert all(m["managed"] is False and m["usage_count"] >= 0 for m in media)
 
 
 def test_media_metadata_validation():

@@ -5,14 +5,17 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
+    Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Table,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,6 +29,8 @@ REVIEW_STATUSES = ("none", "submitted", "approved")
 AUTHOR_STATUSES = ("active", "archived")
 TOPIC_STATUSES = ("active", "hidden", "archived")
 MEDIA_VISIBILITY = ("public", "private")
+MEDIA_STATUSES = ("active", "archived")
+REVISION_KINDS = ("manual", "autosave", "restore", "publish", "system")
 
 
 article_topics = Table(
@@ -52,6 +57,8 @@ class MediaAsset(db.Model):
     __table_args__ = (
         CheckConstraint(f"visibility IN {MEDIA_VISIBILITY}", name="visibility_valid"),
         CheckConstraint("size_bytes >= 0", name="size_non_negative"),
+        CheckConstraint(f"status IN {MEDIA_STATUSES}", name="status_valid"),
+        Index("uq_media_assets_public_id", "public_id", unique=True),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -69,22 +76,126 @@ class MediaAsset(db.Model):
     )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
 
+    # ---- Batch 03: uploaded, optimised images -------------------------------------
+    # Stable, random identifier used in storage keys (never the uploaded file name).
+    # Legacy records (static /images/... files) have no public_id and no variants.
+    public_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    title: Mapped[str] = mapped_column(String(200), default="", server_default="", nullable=False)
+    caption: Mapped[str] = mapped_column(String(500), default="", server_default="", nullable=False)
+    credit: Mapped[str] = mapped_column(String(200), default="", server_default="", nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="active", server_default="active", nullable=False
+    )
+    checksum: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Retained source file in private storage (never served publicly).
+    original_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    original_mime: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    original_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    focal_x: Mapped[float] = mapped_column(Float, default=0.5, server_default="0.5", nullable=False)
+    focal_y: Mapped[float] = mapped_column(Float, default=0.5, server_default="0.5", nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    has_alpha: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    dominant_color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow, nullable=True
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+    variants: Mapped[list[MediaVariant]] = relationship(
+        back_populates="asset",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="MediaVariant.width",
+    )
+
+    @property
+    def is_managed(self) -> bool:
+        return self.public_id is not None
+
+    def current_variants(self, preset: str | None = None) -> list[MediaVariant]:
+        return [
+            v
+            for v in self.variants
+            if v.superseded_at is None and (preset is None or v.preset == preset)
+        ]
+
     @property
     def public_url(self) -> str | None:
         if self.visibility != "public":
             return None
+        if self.is_managed:
+            from ..storage import public_url  # local import: avoids a models -> app cycle
+
+            return public_url(self.storage_key)
         return self.storage_key if self.storage_key.startswith("/") else None
 
-    def as_image(self) -> dict[str, Any] | None:
+    def as_image(self, preset: str = "responsive") -> dict[str, Any] | None:
+        """Public image shape: fallback src plus responsive sources when available."""
         url = self.public_url
         if not url:
             return None
-        return {
+        image: dict[str, Any] = {
             "src": url,
             "alt": self.alt_text,
             "width": self.width or 1600,
             "height": self.height or 1000,
         }
+        if self.is_managed:
+            from ..storage import public_url
+
+            variants = self.current_variants(preset) or self.current_variants("responsive")
+            sources: dict[str, list[str]] = {}
+            for v in variants:
+                sources.setdefault(v.format, []).append(f"{public_url(v.storage_key)} {v.width}w")
+            fallback = [v for v in variants if v.format in ("jpeg", "png")]
+            if fallback:
+                largest = max(fallback, key=lambda v: v.width if v.width <= 1280 else 0)
+                image["src"] = public_url(largest.storage_key)
+            image["srcset"] = ", ".join(sources.get("jpeg") or sources.get("png") or [])
+            image["sources"] = {
+                f"image/{fmt}": ", ".join(entries)
+                for fmt, entries in sources.items()
+                if fmt in ("avif", "webp")
+            }
+            if preset != "responsive" and variants:
+                image["width"], image["height"] = variants[-1].width, variants[-1].height
+            if self.caption:
+                image["caption"] = self.caption
+            if self.credit:
+                image["credit"] = self.credit
+            if self.dominant_color:
+                image["placeholder"] = self.dominant_color
+            image["focal"] = [round(self.focal_x, 3), round(self.focal_y, 3)]
+        return image
+
+
+class MediaVariant(db.Model):
+    """One optimised derivative (format x size) of a media asset."""
+
+    __tablename__ = "media_variants"
+    __table_args__ = (Index("ix_media_variants_asset_current", "asset_id", "superseded_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("media_assets.id", ondelete="CASCADE"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    preset: Mapped[str] = mapped_column(String(40), nullable=False)
+    format: Mapped[str] = mapped_column(String(10), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    # Set when a replacement or focal-point change supersedes this file. The file is
+    # kept until `flask media prune` so already-built pages keep working.
+    superseded_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+    asset: Mapped[MediaAsset] = relationship(back_populates="variants")
 
 
 class Author(TimestampMixin, db.Model):
@@ -99,6 +210,11 @@ class Author(TimestampMixin, db.Model):
         ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True
     )
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    # Only authors marked as real people produce schema.org Person data; editorial
+    # bylines ("TPA Editorial") stay attributed to the organisation.
+    is_person: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
 
     profile_image: Mapped[MediaAsset | None] = relationship()
 
@@ -187,6 +303,19 @@ class Article(TimestampMixin, db.Model):
         ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True
     )
     noindex: Mapped[bool] = mapped_column(default=False, nullable=False)
+    social_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    social_description: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    # Optimistic locking: every write increments it; clients send the version they edited.
+    lock_version: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1", nullable=False
+    )
+    # Unpublished edits to a published article (autosave, or saves by people who
+    # cannot publish). The live article stays untouched until they are published.
+    pending_changes: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    pending_updated_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    pending_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     # Provenance / migration
     source: Mapped[str] = mapped_column(String(20), default="original", nullable=False)
     original_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -205,6 +334,34 @@ class Article(TimestampMixin, db.Model):
     social_image: Mapped[MediaAsset | None] = relationship(foreign_keys=[social_image_id])
     secondary_topics: Mapped[list[Topic]] = relationship(secondary=article_topics, lazy="selectin")
     tags: Mapped[list[Tag]] = relationship(secondary=article_tags, lazy="selectin")
+
+
+class ArticleRevision(db.Model):
+    """Versioned snapshot of an article's editable content."""
+
+    __tablename__ = "article_revisions"
+    __table_args__ = (
+        UniqueConstraint("article_id", "number", name="uq_article_revisions_article_number"),
+        CheckConstraint(f"kind IN {REVISION_KINDS}", name="kind_valid"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("articles.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    summary: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONType, nullable=False)
+    editor_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    editor = relationship("User", lazy="joined")
 
 
 class ContentRevision(db.Model):

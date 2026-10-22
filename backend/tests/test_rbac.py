@@ -34,7 +34,8 @@ def test_permission_matrix_is_least_privilege():
     assert Permission.ARTICLES_PUBLISH not in moderator
     assert not {Permission.ARTICLES_EDIT_ANY, Permission.ARTICLES_EDIT_OWN} & moderator
     analyst = specs[RoleName.ANALYST.value].permissions
-    assert all(p.endswith((".view",)) for p in analyst)
+    # Read-only: views, previews and revision history only.
+    assert all(p.endswith(".view") or p == "articles.preview" for p in analyst)
     for spec in specs.values():
         assert not spec.permissions & SENSITIVE_PERMISSIONS
 

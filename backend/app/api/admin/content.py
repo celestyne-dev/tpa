@@ -7,15 +7,19 @@ from ...extensions import db
 from ...models import Author, Tag, Topic
 from ...schemas.admin import (
     ArticleQuerySchema,
+    ArticleSaveSchema,
     ArticleWriteSchema,
     AuthorWriteSchema,
+    LockSchema,
     PublishSchema,
     ReassignSchema,
+    RevisionCompareSchema,
+    SlugCheckSchema,
     TagWriteSchema,
     TopicWriteSchema,
 )
-from ...services import publication_service
-from ...services.admin import article_admin, media_admin, taxonomy
+from ...services import seo_service
+from ...services.admin import article_admin, revisions, taxonomy
 from ...services.admin.common import get_or_404
 from ...utils.responses import success
 from .._validation import load_body, load_query
@@ -56,10 +60,20 @@ class ArticleResource(Resource):
     @require_any_permission(P.ARTICLES_EDIT_OWN, P.ARTICLES_EDIT_ANY)
     def patch(self, article_id: int):
         article = article_admin.get_article_for(article_id, current_user)
-        data = load_body(_article_write, partial=True)
-        article_admin.update_article(article, data, current_user)
+        data = load_body(ArticleSaveSchema(), partial=True)
+        mode = data.pop("mode", "save")
+        lock_version = data.pop("lock_version", None)
+        summary = data.pop("change_summary", None)
+        result = article_admin.update_article(
+            article,
+            data,
+            current_user,
+            mode=mode,
+            lock_version=lock_version,
+            summary=summary,
+        )
         db.session.commit()
-        return success(article_admin.admin_detail(article, current_user))
+        return success(article_admin.admin_detail(article, current_user), {"save_result": result})
 
     @require_permission(P.ARTICLES_DELETE)
     def delete(self, article_id: int):
@@ -94,11 +108,85 @@ ArticleApproveResource = _action("approve", P.ARTICLES_APPROVE)
 
 
 class ArticlePreviewResource(Resource):
-    @require_any_permission(*ARTICLE_ACCESS)
+    """Private preview of the working copy (admin responses are no-store and noindex)."""
+
+    @require_permission(P.ARTICLES_PREVIEW)
     def get(self, article_id: int):
-        return success(
-            article_admin.preview(article_admin.get_article_for(article_id, current_user))
+        article = article_admin.get_article_for(article_id, current_user)
+        return success(article_admin.preview_article(article))
+
+
+class ArticlePublishChangesResource(Resource):
+    @require_permission(P.ARTICLES_PUBLISH)
+    def post(self, article_id: int):
+        article = article_admin.get_article_for(article_id, current_user)
+        article_admin.publish_changes(
+            article, current_user, load_body(LockSchema())["lock_version"]
         )
+        db.session.commit()
+        return success(article_admin.admin_detail(article, current_user))
+
+
+class ArticleDiscardChangesResource(Resource):
+    @require_any_permission(P.ARTICLES_EDIT_OWN, P.ARTICLES_EDIT_ANY)
+    def post(self, article_id: int):
+        article = article_admin.get_article_for(article_id, current_user)
+        article_admin.discard_changes(article, current_user)
+        db.session.commit()
+        return success(article_admin.admin_detail(article, current_user))
+
+
+class ArticleRevisionListResource(Resource):
+    @require_permission(P.ARTICLES_VIEW_REVISIONS)
+    def get(self, article_id: int):
+        article = article_admin.get_article_for(article_id, current_user)
+        items = revisions.list_for(article)
+        return success(items, {"total": len(items)})
+
+
+class ArticleRevisionResource(Resource):
+    @require_permission(P.ARTICLES_VIEW_REVISIONS)
+    def get(self, article_id: int, revision_id: int):
+        article = article_admin.get_article_for(article_id, current_user)
+        revision = revisions.get(article, revision_id)
+        return success({**revisions.revision_summary(revision), "snapshot": revision.snapshot})
+
+
+class ArticleRevisionCompareResource(Resource):
+    @require_permission(P.ARTICLES_VIEW_REVISIONS)
+    def get(self, article_id: int):
+        article = article_admin.get_article_for(article_id, current_user)
+        args = load_query(RevisionCompareSchema())
+        a = revisions.get(article, args["from_id"])
+        b = revisions.get(article, args["to_id"])
+        if a.number > b.number:
+            a, b = b, a
+        return success(revisions.compare(a, b))
+
+
+class ArticleRevisionRestoreResource(Resource):
+    @require_permission(P.ARTICLES_RESTORE_REVISIONS)
+    def post(self, article_id: int, revision_id: int):
+        article = article_admin.get_article_for(article_id, current_user)
+        result = article_admin.restore_revision(
+            article, revision_id, current_user, load_body(LockSchema())["lock_version"]
+        )
+        db.session.commit()
+        return success(article_admin.admin_detail(article, current_user), {"save_result": result})
+
+
+class ArticleSeoChecksResource(Resource):
+    @require_any_permission(*ARTICLE_ACCESS, P.SEO_VIEW)
+    def get(self, article_id: int):
+        article = article_admin.get_article_for(article_id, current_user)
+        return success(seo_service.check_article(article))
+
+
+class ArticleSlugCheckResource(Resource):
+    @require_any_permission(*ARTICLE_ACCESS)
+    def get(self):
+        args = load_query(SlugCheckSchema())
+        return success(seo_service.slug_status(args["slug"], args["exclude"]))
 
 
 # ---- taxonomy -----------------------------------------------------------------
@@ -186,16 +274,3 @@ TagListResource, TagResource, _ = _taxonomy(
     taxonomy.delete_tag,
     taxonomy.tag_dict,
 )
-
-
-class MediaListResource(Resource):
-    @require_permission(P.MEDIA_VIEW)
-    def get(self):
-        items = media_admin.list_media()
-        return success(items, {"total": len(items)})
-
-
-class PublishingStatusResource(Resource):
-    @require_any_permission(*ARTICLE_ACCESS)
-    def get(self):
-        return success(publication_service.status())

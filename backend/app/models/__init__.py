@@ -5,14 +5,17 @@ from .base import TimestampMixin
 from .cms import NavigationItem, NavigationMenu, Page, PageSection, SiteSetting
 from .content import (
     Article,
+    ArticleRevision,
     Author,
     ContentRevision,
     MediaAsset,
+    MediaVariant,
     Tag,
     Topic,
     article_tags,
     article_topics,
 )
+from .publishing import PublishJob, Redirect
 from .user import (
     AccountToken,
     PermissionDefinition,
@@ -26,6 +29,10 @@ from .user import (
 __all__ = [
     "AccountToken",
     "Article",
+    "ArticleRevision",
+    "MediaVariant",
+    "PublishJob",
+    "Redirect",
     "AuditLog",
     "PermissionDefinition",
     "role_permissions",
