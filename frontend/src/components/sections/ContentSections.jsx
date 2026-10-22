@@ -229,7 +229,7 @@ export function FeatureListSection({ section }) {
               {item.title}
             </h3>
             {item.text && (
-              <p className={cn("mt-2", dark ? "text-sand" : "text-muted")}>{item.text}</p>
+              <div className={cn("mt-2", dark ? "text-sand" : "text-muted")}>{item.text}</div>
             )}
           </li>
         );

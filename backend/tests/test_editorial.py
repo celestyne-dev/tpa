@@ -376,7 +376,7 @@ def test_publish_due_cli_is_idempotent(seeded):
     first = runner.invoke(args=["content", "publish-due"])
     second = runner.invoke(args=["content", "publish-due"])
     assert "Published 1 scheduled article" in first.output
-    assert "No scheduled articles are due" in second.output
+    assert "No scheduled articles or pages are due" in second.output
 
 
 def test_workflow_filters(seeded, as_role):

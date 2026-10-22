@@ -2,7 +2,7 @@
 
 The commercial home of **Think Positive Always (TPA)**: personal development articles, digital products, free resources, the newsletter, and brand partnerships.
 
-The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`.
+The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`. Since Batch 04, the homepage, CMS pages, branding, header, footer, menus and announcements are all managed in the CMS too, with a visual section builder (see [`docs/cms-guide.md`](docs/cms-guide.md)).
 
 ## 1. Technology stack
 
@@ -24,9 +24,11 @@ tpa/
 │       ├── admin/              Admin dashboard (lazy-loaded chunk, never prerendered)
 │       │   ├── components/     Layout, DataTable, Modal, ConfirmDialog, Fields, BlockEditor, Notifications, Guards
 │       │   ├── hooks/          useAdminQuery, usePermissions, useUnsavedChanges
-│       │   ├── pages/          Login, Dashboard, Articles, ArticleEditor, Taxonomy, Pages, Navigation, Settings, Users, AuditLog, Account
+│       │   ├── components/builder/  Page builder: section outline, typed fields, style presets, live preview
+│       │   ├── pages/          Login, Dashboard, Articles, ArticleEditor, Taxonomy, Homepage, Pages, PageEditor, SharedSections,
+│       │   │                   Branding, Navigation, Footer, Announcements, Settings, Users, AuditLog, Account
 │       │   └── navigation.js   Sidebar sections and planned modules
-│       ├── components/ …       Public design system and page sections
+│       ├── components/ …       Public design system; components/sections/ renders CMS sections
 │       ├── pages/              Public pages
 │       ├── services/           apiClient.js, contentApi.js (public), adminApi.js (admin, cookie + CSRF aware)
 │       └── store/              Redux slices: site, topics, articles, products, auth
@@ -34,7 +36,8 @@ tpa/
 │   ├── app/
 │   │   ├── api/                Public /api/v1 resources; api/admin/ for /api/v1/admin resources
 │   │   ├── auth/               permissions.py (roles → permissions), decorators.py, session.py (JWT cookies), passwords.py, roles.py
-│   │   ├── cms/                blocks.py (article blocks), sections.py (page sections), settings_registry.py, defaults.py
+│   │   ├── cms/                blocks.py (article blocks), sections.py (section registry), design.py (style presets),
+│   │   │                       routing.py (reserved paths), templates.py (page templates), settings_registry.py, defaults.py
 │   │   ├── models/             SQLAlchemy models (user, content, cms, audit, portable types)
 │   │   ├── schemas/            Marshmallow request schemas (strict) and public response schemas
 │   │   ├── services/           Public queries, admin services, audit, settings, navigation, publication, seed
@@ -43,7 +46,7 @@ tpa/
 │   ├── migrations/             Alembic migrations (version-controlled)
 │   └── tests/                  pytest suite
 ├── deploy/                     Nginx and systemd examples
-├── docs/                       architecture.md, deployment.md
+├── docs/                       architecture.md, deployment.md, cms-guide.md (website management)
 └── scripts/build-production.sh
 ```
 
@@ -120,6 +123,25 @@ The Vite dev server proxies `/api` to Flask, so the admin's HttpOnly cookies are
   - `7cf88d33a308`: dynamic roles. It adds the `permissions` and `role_permissions` tables, new role columns (`label`, `kind`, `is_active`, `grants_all`, timestamps) and article review columns. It changes tables with `ALTER TABLE … ADD COLUMN` only, so nothing is dropped or rebuilt. It then seeds the permission catalogue and the 14 role templates, marks the four existing roles as protected system roles and maps their permissions. Users, roles, role assignments and invitations are preserved. Downgrade removes the new tables and columns, plus any template role nobody holds, and keeps every user and assignment.
 
   - `a817c9636960` (Batch 03): media library, revisions, redirects and publishing jobs. It adds the `media_variants`, `article_revisions`, `redirects` and `publish_jobs` tables; new `media_assets` columns (public id, title, caption, credit, status, checksum, retained original, focal point, version …), new `articles` columns (social title/description, `lock_version`, pending changes) and `authors.is_person`, using `ALTER TABLE … ADD COLUMN` and unique indexes only (no table rebuilds). It brings the permission catalogue up to date and grants the new permissions to the built-in roles and to role templates that still exist; custom roles are unchanged. Existing built-in `/images/…` media keep working. Downgrade removes the new tables, columns and permissions, but uploaded files on disk are left in place.
+
+  - `de3d968df6ce` (Batch 04): page builder, shared sections and announcements. See [Upgrading to Batch 04](#upgrading-to-batch-04) below.
+
+### Upgrading to Batch 04
+
+Migration `de3d968df6ce` (revises `a817c9636960`):
+
+- **Adds** the `page_revisions`, `reusable_sections`, `global_ctas` and `announcements` tables, new `pages` columns (template, parent, draft and published paths, published snapshot, scheduling, social/canonical SEO, `lock_version`, archive time), new `page_sections` columns (`name`, `design`, `visibility`, `reusable_section_id`) and `navigation_items.visibility`. On SQLite this uses `ALTER TABLE … ADD COLUMN` and skips columns that already exist; no table is rebuilt.
+- **Converts existing homepage and page sections** to the new section format. Only rows that have not been converted yet (empty `design`) are touched, so running it again changes nothing. Sections still holding the untouched Batch 02 defaults become the new defaults, which reproduce the previous homepage pixel for pixel. Sections you had edited keep your text, links and images, converted field by field. Nothing is overwritten.
+- **Keeps what was already public live:** each published page gets a published snapshot and revision #1, so the site looks the same right after the upgrade.
+- **Permissions:** adds `homepage.view/edit/publish`, `pages.create/publish`, `reusable_sections.manage`, `branding.manage`, `announcements.manage` and the sensitive `settings.technical`. Grants follow [Roles and permissions](#8-roles-and-permissions). Custom roles gain only what they could already do: `pages.view` → `homepage.view`, `pages.edit` → `homepage.view` + `homepage.edit`, `settings.manage` → `branding.manage`. Users, roles and assignments are never deleted.
+- **Downgrade** converts sections back to the Batch 03 format and drops the new tables and permissions. On SQLite it leaves the new foreign-key columns in place, because rebuilding `pages` or `page_sections` would cascade-delete rows.
+
+```bash
+# 1. back up (see above), then:
+flask --app wsgi db upgrade        # applies de3d968df6ce
+flask --app wsgi rbac sync         # should report all zeros
+flask --app wsgi publish request   # queue a rebuild so the CMS header, footer and branding are baked in
+```
 
 Upgrading an existing installation to dynamic roles:
 
@@ -229,13 +251,22 @@ Roles, permissions and their links live in the database. The permission catalogu
 | publishing.view (publishing jobs and build status)                            |      ✓      |   ✓    |     ✓     |    ✓    |
 | publishing.manage (rebuild, retry, cancel)                                    |      ✓      |        |           |         |
 | pages.view                                                                    |      ✓      |   ✓    |     ✓     |         |
-| pages.edit                                                                    |      ✓      |   ✓    |           |         |
+| pages.edit (page drafts)                                                      |      ✓      |   ✓    |           |         |
+| pages.create, pages.publish (publish, schedule, unpublish, archive)           |      ✓      |        |           |         |
+| homepage.view                                                                 |      ✓      |   ✓    |     ✓     |         |
+| homepage.edit (draft only)                                                    |      ✓      |   ✓    |           |         |
+| homepage.publish                                                              |      ✓      |        |           |         |
+| reusable_sections.manage (shared sections, global CTAs)                       |      ✓      |        |           |         |
+| branding.manage, announcements.manage                                         |      ✓      |        |           |         |
 | navigation.manage, settings.manage                                            |      ✓      |        |           |         |
 | seo.manage (SEO defaults, canonical/noindex, post-publication slug changes)   |      ✓      |        |           |         |
 | users.view, users.manage, audit.view                                          |      ✓      |        |           |         |
 | roles.manage, roles.assign, settings.security, payments.configure (sensitive) |      ✓      |        |           |         |
+| settings.technical (indexing switch, canonical site URL; sensitive)           |      ✓      |        |           |         |
 
 Batch 03 template grants: Administrator and Editor-in-Chief get all media permissions, revisions, preview, SEO audit and publishing management (Administrator also redirects); Content Editor gets upload, edit, revisions and preview; Content Writer gets upload, revisions and preview (restores only on their own drafts); SEO Manager gets media alt-text editing, preview, SEO audit and redirects; Website Manager gets upload, edit, replace, SEO audit and publishing status; Marketing Manager gets preview and the SEO audit. Templates you have already edited keep your other changes.
+
+Batch 04 template grants: Administrator and Website Manager get every website permission above (not the sensitive one); Marketing Manager gets `homepage.view` and `announcements.manage`; Editor-in-Chief and SEO Manager get `homepage.view`. Content Writer and Analyst gain nothing.
 
 Future-module permissions are also in the catalogue but marked **unavailable** and cannot be granted: products, orders, refunds, customers, partnerships, advertising, affiliates, newsletters, subscribers, courses, memberships and finance.
 
@@ -244,7 +275,7 @@ Future-module permissions are also in the catalogue but marked **unavailable** a
 - **Least privilege.** Endpoints check specific actions such as `articles.publish`, never a role name.
 - **Ownership.** Users with `articles.edit_own` but not `articles.view` only see articles they created. Other articles return 404. They can edit their own articles only while they are drafts, and submit them for review. `articles.edit_any` edits any article. Each article response includes `can` flags computed on the server.
 - **Review workflow.** `submit` and then `approve`. An edit by someone without `articles.approve` withdraws a pending or granted approval.
-- **Sensitive permissions** (`roles.manage`, `roles.assign`, `settings.security`, `payments.configure`) cannot be granted to any role. In practice only Super Admin holds them.
+- **Sensitive permissions** (`roles.manage`, `roles.assign`, `settings.security`, `settings.technical`, `payments.configure`) cannot be granted to any role. In practice only Super Admin holds them.
 - **No escalation.**
   - Granting roles (create, invite, change roles) needs `roles.assign` and every permission those roles grant.
   - Creating or editing a role only allows permissions the actor holds.
@@ -257,7 +288,7 @@ Future-module permissions are also in the catalogue but marked **unavailable** a
 
 ## 9. Admin routes
 
-`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/articles/:id/preview` (private preview), `/admin/workflow` (editorial board), `/admin/media` (media library), `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/pages` (and `/admin/pages/:id`), `/admin/navigation`, `/admin/seo` (SEO audit), `/admin/redirects`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`), `/admin/publishing` (publishing jobs), `/admin/audit-log`, `/admin/account` (change password).
+`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/articles/:id/preview` (private preview), `/admin/workflow` (editorial board), `/admin/media` (media library), `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/homepage` (homepage builder), `/admin/pages` (and `/admin/pages/:id`, `/admin/pages/:id/preview`), `/admin/shared-sections` (shared sections and global CTAs), `/admin/branding`, `/admin/navigation`, `/admin/footer`, `/admin/announcements`, `/admin/seo` (SEO audit), `/admin/redirects`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`), `/admin/publishing` (publishing jobs), `/admin/audit-log`, `/admin/account` (change password).
 
 The sidebar shows only what the signed-in user may use. Future commercial modules (products, orders, customers, newsletter, partnerships, advertising, affiliates, courses, memberships, analytics, eBooks/licensing) are listed as **Planned**, without links.
 
@@ -298,18 +329,32 @@ The sidebar shows only what the signed-in user may use. Future commercial module
 - **Workflow:** draft → submitted → approved → scheduled/published → archived. Writers submit, approvers approve, and publishers publish or schedule, all enforced by the backend (a Publish button in the UI grants nothing). Every transition is audit-logged. The `/admin/workflow` board groups drafts, review, approved, pending changes and scheduled articles.
 - **Scheduling:** the publishing worker (or the optional timer) runs `publish-due` every few seconds. It promotes due articles with a conditional `UPDATE` (idempotent, so overlapping runs never double-publish) under a file lock, records failures in the audit log and queues a rebuild. Timestamps are timezone-aware UTC. No browser tab or in-process thread is involved.
 
-## 12. Technical SEO and redirects
+## 12. Homepage, pages and website management
+
+The day-to-day guide is [`docs/cms-guide.md`](docs/cms-guide.md). In technical terms:
+
+- **Drafts vs. live.** Editors work on draft rows (`pages`, `page_sections`). Publishing freezes them into `pages.published_snapshot` (page metadata plus sections) and records a `page_revisions` row. The public API (`GET /api/v1/pages`, `GET /api/v1/pages/resolve?path=`) and the prerenderer read **only** snapshots, so a draft can never leak. Every write checks `lock_version` (409 `edit_conflict`).
+- **Section registry** (`app/cms/sections.py`): 24 types (23 for pages plus the shared-only section group). Each type declares typed fields (text, rich text, link, CTA, media, select, number, boolean, article/topic/author pickers, repeatable items), layout variants, defaults, and which fields apply to which variant. Content is data only: no HTML, scripts or CSS. Styles are chosen from design-token presets (`app/cms/design.py`). The admin builds its forms from `GET /api/v1/admin/section-types`, and a test keeps the frontend fixture in sync.
+- **Templates** (`app/cms/templates.py`): standard, landing, newsletter, lead magnet, campaign, partnership and coming soon.
+- **Shared sections and global CTAs** are referenced by id. A change can propagate to every page, or detach existing uses, which keeps inline copies in both drafts and live snapshots. Section groups are checked for cycles and limited to 3 levels.
+- **Routing** (`app/cms/routing.py`): pages may be nested 3 levels deep. Reserved first segments (`admin`, `api`, `articles`, `topics`, `shop`, `media`, `auth`, `home` …) are refused. **Precedence:** application routes → a published CMS page at an overridable built-in path (`/about`, `/contact`, `/newsletter`, `/partner-with-us`, `/free-resources`, `/privacy-policy`, `/terms`, `/affiliate-disclosure`) → the built-in page → other published CMS pages → CMS redirects → real 404. A published slug or parent change adds a 301 redirect.
+- **Previews:** `/admin/pages/:id/preview` and the builder's live iframe (`/admin/preview-frame/:id`, fed by `postMessage`) render drafts with the public components through the authenticated admin API (`no-store`, `noindex`). They are never prerendered.
+- **Scheduling:** `publish-due` also publishes scheduled pages, and queues one rebuild when a section visibility window or an announcement starts or ends.
+- **Site-wide settings:** branding (name, tagline, logos, a favicon set generated with Pillow, social image, and colour/typography/button/image presets applied as CSS variables), header button, footer, navigation (primary with one level of dropdowns, mobile, footer, legal; per-device visibility; link validation), announcements (dates, targeting, dismissal stored in the reader's browser) and SEO/organisation settings. The technical indexing settings need `settings.technical` and can only make indexing stricter than `VITE_ALLOW_INDEXING`. No secrets are included in the public site payload.
+- **Forms:** the builder offers no data-collecting forms. The newsletter section shows an honest "opening soon" notice and the contact section lists email addresses, so there are no fake success messages and nothing for spammers to submit to. Form handling (with spam protection) will arrive together with the newsletter provider.
+
+## 13. Technical SEO and redirects
 
 - **Article SEO tab:** SEO title, meta description, slug (with an availability check), canonical URL, noindex, social title, description and image, a search-result preview, a social card preview, character counts (as guidance) and non-blocking checks. The checks flag a missing title or description, empty or thin content, heading hierarchy problems, missing featured image, alt text or dimensions, broken internal links, noindex, external or duplicate canonicals, missing author or topic, and a redirect shadowing the slug.
 - **Indexing controls** (`canonical_url`, `noindex`) and **slug changes after publication** require `seo.manage`. A published slug change automatically creates a **301** from the old URL, repoints chains and never creates loops.
 - **Structured data:** WebSite and Organization site-wide; BlogPosting (published and modified dates, ImageObjects with dimensions, publisher) and BreadcrumbList on articles. **Person** is used only for authors marked "This is a real person"; editorial bylines remain Organization. No ratings or commercial schema.
 - **Meta:** canonical, robots, Open Graph (title, description, 1200×630 image), X/Twitter cards, and `article:published_time`/`modified_time`/`section`/`tag`.
-- **Sitemap:** generated from `GET /api/v1/sitemap`. It includes only published, indexable articles whose canonical URL is their own, active topics and static pages (minus unpublished or noindex CMS pages), with `lastmod` and `<image:image>` entries. Admin, auth, previews, drafts and archived content are never included. Builds stay `noindex` with a blocking `robots.txt` unless `VITE_ALLOW_INDEXING=true`.
+- **Sitemap:** generated from `GET /api/v1/sitemap`. It includes only published, indexable articles whose canonical URL is their own, active topics, static pages and published, indexable CMS pages (never drafts, scheduled, archived, noindex or canonicalised pages, nor paths listed in the sitemap-exclusion setting), with `lastmod` and `<image:image>` entries. Admin, auth, previews, drafts and archived content are never included. Builds stay `noindex` with a blocking `robots.txt` unless `VITE_ALLOW_INDEXING=true`.
 - **Redirect manager** (`/admin/redirects`): source path, destination, 301/302/307/308, active flag, origin (manual, slug change, import) and timestamps. Sources are normalised; `/admin`, `/api`, `/media` and `/assets` are refused, and duplicates are rejected. Loops and chains longer than 5 hops are blocked. Destinations must be site paths or https URLs on `REDIRECT_ALLOWED_HOSTS`, which prevents open redirects. CSV import (with a dry run and per-row errors) and export are supported.
 - **How redirects are served:** Nginx tries the static file first. Unknown paths go to Flask `/_redirect/<path>`, which answers with the real status code or 404, after which Nginx shows the prerendered 404 page. Changes apply immediately without an Nginx reload. `npm run serve:dist` mirrors this locally, and the React 404 page also follows redirects for client-side navigation.
 - **SEO dashboard** (`/admin/seo`): published article count, articles with issues, metadata/alt/noindex/canonical/broken-link totals, redirects, sitemap URL and image counts, and build freshness and indexing status. No Search Console or ranking data is shown or invented.
 
-## 13. Static publishing pipeline
+## 14. Static publishing pipeline
 
 ```
 CMS change affecting public pages ─► content_revisions row + publish_jobs (pending, debounced 30 s, max 5 min)
@@ -320,17 +365,17 @@ flask publish worker (systemd) ─► claims one due job (atomic UPDATE; one bui
 failure ─► live release untouched; retried with backoff (1, 2, 4 min) up to PUBLISH_MAX_ATTEMPTS, then "failed"
 ```
 
-- Builds are triggered by publishing, unpublishing, archiving, scheduled publication, edits to live articles, topic, page, navigation and settings changes, media changes on published content, and redirect changes.
+- Builds are triggered by publishing, unpublishing, archiving, scheduled publication, edits to live articles, topic changes, page and homepage publication (not draft saves), shared section and global CTA changes that affect live pages, navigation, branding, footer, announcement and settings changes, media changes on published content, and redirect changes.
 - Admin endpoints never run commands. The worker runs a fixed argv list (no shell) with a timeout. Diagnostics are stored sanitised (paths, credentials and database URLs redacted) and shown on `/admin/publishing`, where users with `publishing.manage` can rebuild, retry or cancel. Stale running jobs (no heartbeat) are recovered automatically.
 - **Development:** run builds on demand with `flask --app wsgi publish request` followed by `flask --app wsgi publish worker --once`, or keep `flask --app wsgi publish worker` running. **Production:** the `tpa-publish-worker` systemd unit (see `docs/deployment.md`). `scripts/build-production.sh` still works for manual builds.
 - **Not automated:** CDN cache purging and remote/cloud deployment. `PUBLISH_DEPLOY_COMMAND` provides the hook, but no provider is configured.
 
-## 14. Tests and checks
+## 15. Tests and checks
 
 ```bash
 # Backend
 cd backend && source .venv/bin/activate
-python -m pytest                     # auth, RBAC, CMS, media, editorial, SEO, publishing, migrations
+python -m pytest                     # auth, RBAC, CMS, page builder, media, editorial, SEO, publishing, migrations
 ruff check . && ruff format --check .
 # Optional: run the suite against PostgreSQL
 TEST_DATABASE_URL=postgresql+psycopg://user:pass@127.0.0.1:5432/tpa_pytest python -m pytest
@@ -342,12 +387,12 @@ npm run build                        # needs the API running (or use ../scripts/
 npm run serve:dist                   # preview the static build at http://localhost:4173 (proxies /api to :5000)
 ```
 
-## 15. Security precautions
+## 16. Security precautions
 
 - Never commit `.env` files, database files or dumps. Generate unique `SECRET_KEY` and `JWT_SECRET_KEY` values per environment.
 - Serve production over HTTPS only, with Secure cookies, and keep the admin same-origin with the API.
 - Use a shared rate-limit store (Redis) when running more than one Gunicorn worker.
-- Article blocks, section content and settings accept **plain text only**: HTML tags, control characters and `javascript:` links are rejected. React renders all content as text.
+- Article blocks, section content and settings accept **plain text only** (section styles are preset names, never CSS): HTML tags, control characters and `javascript:` links are rejected. React renders all content as text.
 - Request bodies are validated with strict Marshmallow schemas (unknown fields rejected). Queries go through the SQLAlchemy ORM (parameterised).
 - The audit log redacts any field that looks like a password, token or secret. Errors never include stack traces.
 - Deleting topics, authors or tags that articles still use is refused (reassign or archive instead). Articles are archived; only never-published drafts can be deleted.
@@ -355,8 +400,8 @@ npm run serve:dist                   # preview the static build at http://localh
 - Redirect destinations are restricted to site paths and allow-listed hosts (no open redirects). Video embeds are limited to YouTube/Vimeo IDs.
 - Admin API responses (including previews) are `no-store` and `noindex`. The publishing worker runs with least-privilege systemd settings, and failed builds never replace the live site.
 
-## 16. Known limitations and deferred features
+## 17. Known limitations and deferred features
 
-- **Working now:** media uploads and optimisation, the media library, the advanced editor, autosave, revisions, pending changes, previews, workflow, scheduling via the worker, SEO checks and dashboard, sitemap with images, redirects, and the publishing queue with atomic releases.
-- **Limitations:** image processing runs inside the upload request (large files can take a few seconds; Gunicorn `--timeout 120`). The S3 storage adapter and CDN purging are not activated. Revisions record field and block-level differences, not character-level diffs. Search Console and ranking data are not connected. Homepage and page sections are editable but public pages still render their approved designs from code (Batch 04).
-- **Deferred:** self-service "forgot password", branded email templates, the public page builder (Batch 04), product catalogue and checkout (Paystack), customers and orders, newsletter provider integration, memberships, courses, affiliates, advertising, analytics, two-factor authentication, and migration of the previous website's articles (redirect import is ready for it).
+- **Working now:** media uploads and optimisation, the media library, the advanced editor, autosave, revisions, pending changes, previews, workflow, scheduling via the worker, SEO checks and dashboard, sitemap with images, redirects, the publishing queue with atomic releases, and (Batch 04) the CMS-controlled homepage, page builder, shared sections, global CTAs, branding, navigation, footer and announcements.
+- **Limitations:** image processing runs inside the upload request (large files can take a few seconds; Gunicorn `--timeout 120`). The S3 storage adapter and CDN purging are not activated. Revisions record field and block-level differences, not character-level diffs. Search Console and ranking data are not connected. The page builder has no autosave (explicit Save draft plus an unsaved-changes warning) and no character-level diff between page revisions. Built-in listing and detail pages (articles, topics) keep their layouts in code; their header, footer, branding and announcements are CMS-controlled. Changes appear after the queued rebuild, not instantly.
+- **Deferred:** self-service "forgot password", branded email templates, product catalogue and checkout (Paystack), customers and orders, newsletter provider integration, memberships, courses, affiliates, advertising, analytics, two-factor authentication, and migration of the previous website's articles (redirect import is ready for it).

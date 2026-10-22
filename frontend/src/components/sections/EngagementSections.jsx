@@ -201,7 +201,7 @@ export function CtaSection({ section }) {
         <span className="size-2 rounded-full bg-gold-400" />
         <span className="h-px w-12 bg-gold-400" />
       </div>
-      <Heading id={id} size={section.design?.heading_size ?? "large"}>
+      <Heading id={id} defaultSizeClass="text-4xl sm:text-5xl">
         {data.heading}
       </Heading>
       <Paragraphs text={data.body} className="mx-auto mt-6 max-w-xl" />
@@ -225,7 +225,7 @@ export function PartnershipSection({ section }) {
         <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-20">
           <div>
             <Eyebrow>{data.eyebrow}</Eyebrow>
-            <Heading id={id} size="large">
+            <Heading id={id} defaultSizeClass="text-3xl sm:text-4xl lg:text-5xl">
               {data.heading}
             </Heading>
             <Paragraphs text={data.body} className="mt-6" tone={dark ? "text-sand" : undefined} />

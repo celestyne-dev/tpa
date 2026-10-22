@@ -6,15 +6,20 @@ import { cn } from "@/utils/format";
 import { BACKGROUNDS, buttonVariant, DEVICES, HEADING_SIZE, SPACING } from "./design";
 import { useSectionContext } from "./sectionContext";
 
-export function Heading({ id, className, children, size }) {
+/**
+ * Section heading. `size` forces a preset; `defaultSizeClass` is a section's own
+ * original size, used until an editor picks a heading size in Appearance.
+ */
+export function Heading({ id, className, children, size, defaultSizeClass }) {
   const { level, design, dark } = useSectionContext();
   const Tag = level === 1 ? "h1" : "h2";
+  const preset = size ?? design.heading_size;
   return (
     <Tag
       id={id}
       className={cn(
         "font-medium",
-        HEADING_SIZE[size ?? design.heading_size ?? "default"],
+        preset || !defaultSizeClass ? HEADING_SIZE[preset ?? "default"] : defaultSizeClass,
         dark && "text-ivory",
         className,
       )}

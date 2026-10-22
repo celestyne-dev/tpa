@@ -96,6 +96,24 @@ sudo systemctl restart tpa-api && sudo systemctl enable --now tpa-publish-worker
 
 Rollback: stop the worker, restore the dump with `pg_restore --clean`, or run `flask --app wsgi db downgrade` (drops the Batch 03 tables and columns, including revisions, redirects and jobs; uploaded files stay on disk), check out the previous release, and point Nginx back at the previous `dist/`.
 
+## Upgrading from Batch 03
+
+```bash
+cd /var/www/tpa && git fetch && git checkout <release tag or branch>
+pg_dump --format=custom --file=/var/backups/tpa-$(date +%F)-pre-batch04.dump "$DATABASE_URL"
+cd backend && .venv/bin/pip install -r requirements.txt
+set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db upgrade                       # de3d968df6ce
+.venv/bin/flask --app wsgi rbac sync                        # should report all zeros
+cd ../frontend && npm ci
+sudo systemctl restart tpa-api tpa-publish-worker
+cd ../backend && .venv/bin/flask --app wsgi publish request # first rebuild with CMS header/footer/branding
+```
+
+No new environment variables are required. The migration keeps the existing homepage and published pages exactly as they were (see the README, "Upgrading to Batch 04"). Generated favicons are written under `MEDIA_ROOT/public/branding/`, so the existing `/media/` Nginx location serves them. CMS pages are prerendered to `<path>/index.html` in each release, so no Nginx change is needed.
+
+Rollback: stop the worker, restore the dump with `pg_restore --clean` (preferred), or run `flask --app wsgi db downgrade` (converts sections back and drops page revisions, shared sections, global CTAs and announcements), check out the previous release, and repoint `current` at the previous release directory.
+
 ## Frontend build (manual)
 
 ```bash

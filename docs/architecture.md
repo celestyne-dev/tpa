@@ -11,7 +11,7 @@ Browser ──► Nginx ──► /var/www/tpa-site/current (atomic release syml
                                               ├── api/          public /api/v1 (GET only, CORS allow-list)
                                               ├── api/admin/    /api/v1/admin (JWT cookies + CSRF + RBAC)
                                               ├── auth/         permissions, decorators, sessions, passwords
-                                              ├── cms/          blocks, sections, settings registry, defaults
+                                              ├── cms/          blocks, section registry, design presets, routing, templates, settings
                                               ├── services/     public queries, admin services, audit, publication
                                               ├── media/        Pillow validation + optimisation
                                               ├── storage/      local storage (S3 adapter slot)
@@ -52,9 +52,28 @@ Upload → content sniffing and limits → header-only dimension and pixel check
 ## CMS data validation
 
 - **Article blocks** (`cms/blocks.py`): paragraph, heading (level 2–3), lists, quote, pull quote, callout, divider, image, gallery, video (YouTube/Vimeo id only), button, call to action, related articles, resource, table. Plain text only, safe links (site paths or https), media referenced by id, length limits; unknown fields are rejected.
-- **Page sections** (`cms/sections.py`): approved types with fixed field definitions and layout variants. The admin builds its forms from `GET /admin/section-types`, so field definitions are not duplicated in the frontend.
-- **Settings** (`cms/settings_registry.py`): only registered keys can be stored, each with a type (string, text, email, https URL, path or https, boolean). Defaults keep a fresh install working.
-- **Navigation:** internal links must be site paths and external links `https://`. Footer groups are one level deep.
+- **Page sections** (`cms/sections.py`): 24 approved types with typed field definitions, layout variants and design presets. The admin builds its forms from `GET /admin/section-types`, so field definitions are not duplicated in the frontend.
+- **Settings** (`cms/settings_registry.py`): only registered keys can be stored, each with a type (string, text, email, https URL, path or https, boolean, media, choice, path list). Sensitive groups require their own permission (`settings.technical`). Defaults keep a fresh install working.
+- **Navigation:** internal links must be site paths and external links `https://`. Footer groups and header dropdowns are one level deep. Items carry a device visibility (all, desktop, mobile).
+
+## Page builder (Batch 04)
+
+```
+admin builder ──► draft rows (pages, page_sections; lock_version) ──► POST …/preview (no-store, noindex)
+      │                                                            └► live preview iframe (postMessage)
+      └─ publish ──► page_render.draft_document() ──► pages.published_snapshot + page_revisions
+                           └─► record_public_change ──► publish_jobs (debounced) ──► worker rebuild
+public API /pages/resolve ──► page_render.resolve_document(snapshot)   (drafts are never read)
+   └─ batch-loads media, published articles, topics, authors, global CTAs and shared sections
+prerender.mjs ──► GET /site (branding, menus, footer, announcements, cms_overrides) + /pages
+   └─► configureSite() ──► static HTML for every published page; favicon + manifest rewritten
+```
+
+- **Registry, not code.** `cms/sections.py` describes each section type as typed fields with variants, defaults and per-variant visibility. `check_section` returns clean content, field errors and the ids it references, which feed media usage, link checks and shared-section cycle detection. The frontend renders each type with `components/sections/registry.js`; design choices map to fixed token classes (`design.js`), so arbitrary CSS is impossible.
+- **Snapshots.** A published page is a self-contained JSON document. Shared sections and CTAs stay references and are resolved at read time, so "update everywhere" is one write; "keep pages unchanged" rewrites the affected drafts and snapshots with inline copies first.
+- **Routing.** `cms/routing.py` owns reserved segments, depth and the overridable built-in paths. The public router tries application routes, then `withCmsOverride` for built-in pages that a published CMS page replaces, then the catch-all `CmsRoute`, which shows the real 404 page (prerendered with HTTP 404 by Nginx) when nothing matches.
+- **Time-dependent content.** Section visibility windows and announcements are evaluated at build time and again in the browser (`useNow`, hydration-safe using the build's `generated_at`). The scheduler queues one rebuild when a boundary is crossed.
+- **Branding.** Presets are emitted as `data-*` attributes on the root element, and `globals.css` swaps CSS variables, so no CSS is generated from user input. Favicons are generated server-side by Pillow from an already-sanitised raster upload.
 
 ## Migration readiness
 
