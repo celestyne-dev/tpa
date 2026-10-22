@@ -8,6 +8,12 @@ export function Modal({ open, title, description, onClose, children, footer, siz
   const titleId = useId();
   const descId = useId();
   const panelRef = useRef(null);
+  // Keep the latest onClose without re-running the focus effect on every render
+  // (callers usually pass an inline function).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return undefined;
@@ -21,7 +27,7 @@ export function Modal({ open, title, description, onClose, children, footer, siz
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
       } else if (event.key === "Tab") {
         const items = focusables();
         const first = items[0];
@@ -41,7 +47,7 @@ export function Modal({ open, title, description, onClose, children, footer, siz
       document.removeEventListener("keydown", onKeyDown);
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   return createPortal(

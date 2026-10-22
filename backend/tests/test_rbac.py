@@ -212,3 +212,47 @@ def test_user_management(app, as_role):
         assert all(
             "Strong-Pass" not in str(d) for d in db.session.scalars(db.select(AuditLog.details))
         )
+
+
+def test_taxonomy_permission_is_separate_from_articles(seeded, as_role):
+    moderator = as_role("moderator")
+    assert moderator.get("/api/v1/admin/topics").status_code == 200
+    for method, url, body in [
+        ("post", "/api/v1/admin/topics", {"name": "X"}),
+        ("patch", "/api/v1/admin/tags/1", {"name": "Y"}),
+        ("delete", "/api/v1/admin/authors/1", None),
+    ]:
+        res = getattr(moderator, method)(url, body) if body else moderator.delete(url)
+        assert res.status_code == 403, url
+    editor = as_role("editor")
+    assert editor.post("/api/v1/admin/topics", {"name": "Gratitude"}).status_code == 201
+
+
+def test_analytics_access(seeded, as_role):
+    analyst = as_role("analyst")
+    data = analyst.get("/api/v1/admin/analytics").get_json()["data"]
+    assert data["articles_by_status"]["published"] == 6
+    assert sum(t["count"] for t in data["published_by_topic"]) == 6
+    assert (
+        as_role("editor", email="ed2@example.org").get("/api/v1/admin/analytics").status_code == 403
+    )
+    assert (
+        as_role("super_admin", email="sa@example.org").get("/api/v1/admin/analytics").status_code
+        == 200
+    )
+
+
+def test_roles_can_only_be_granted_by_holders_of_their_permissions():
+    from app.auth.permissions import ROLE_PERMISSIONS, Permission, RoleName, can_grant_roles
+
+    super_perms = set(ROLE_PERMISSIONS[RoleName.SUPER_ADMIN])
+    assert can_grant_roles(super_perms, ["editor", "super_admin"])
+    # A hypothetical team-manager role with roles.assign but fewer permissions:
+    manager = set(ROLE_PERMISSIONS[RoleName.EDITOR]) | {
+        Permission.ROLES_ASSIGN,
+        Permission.USERS_MANAGE,
+    }
+    assert can_grant_roles(manager, ["editor", "moderator"])
+    assert not can_grant_roles(manager, ["super_admin"])
+    assert not can_grant_roles(manager, ["analyst"])  # analytics.view not held
+    assert not can_grant_roles(set(ROLE_PERMISSIONS[RoleName.EDITOR]), ["moderator"])

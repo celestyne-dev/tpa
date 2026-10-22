@@ -8,6 +8,8 @@ from ...extensions import db
 from ...models import AuditLog, User
 from ...schemas.admin import (
     AuditQuerySchema,
+    InvitationCreateSchema,
+    InvitationQuerySchema,
     NavigationWriteSchema,
     PageWriteSchema,
     ReorderSchema,
@@ -16,10 +18,11 @@ from ...schemas.admin import (
     SectionWriteSchema,
     SettingsWriteSchema,
     UserCreateSchema,
+    UserQuerySchema,
     UserUpdateSchema,
 )
 from ...services import navigation_service, settings_service
-from ...services.admin import dashboard, page_admin, user_admin
+from ...services.admin import account_tokens, dashboard, page_admin, user_admin
 from ...services.admin.auth_service import user_payload
 from ...services.admin.common import get_or_404, paginate
 from ...utils.responses import success
@@ -30,6 +33,12 @@ class DashboardResource(Resource):
     @require_permission(P.DASHBOARD_VIEW)
     def get(self):
         return success(dashboard.overview(current_user))
+
+
+class AnalyticsResource(Resource):
+    @require_permission(P.ANALYTICS_VIEW)
+    def get(self):
+        return success(dashboard.analytics_summary())
 
 
 # ---- pages --------------------------------------------------------------------
@@ -130,7 +139,7 @@ class SettingsResource(Resource):
 class UserListResource(Resource):
     @require_permission(P.USERS_MANAGE)
     def get(self):
-        users = user_admin.list_users()
+        users = user_admin.list_users(load_query(UserQuerySchema()))
         return success(users, {"total": len(users)})
 
     @require_permission(P.USERS_MANAGE)
@@ -142,8 +151,12 @@ class UserListResource(Resource):
 
 class UserResource(Resource):
     @require_permission(P.USERS_MANAGE)
+    def get(self, user_id: int):
+        return success(user_admin.user_detail(user_admin.get_user(user_id)))
+
+    @require_permission(P.USERS_MANAGE)
     def patch(self, user_id: int):
-        user = get_or_404(User, user_id, "User")
+        user = user_admin.get_user(user_id)
         user_admin.update_user(user, load_body(UserUpdateSchema(), partial=True), current_user)
         db.session.commit()
         return success(user_payload(user))
@@ -156,6 +169,55 @@ class UserPasswordResource(Resource):
         user_admin.reset_password(user, load_body(ResetPasswordSchema())["password"], current_user)
         db.session.commit()
         return success({"reset": True})
+
+
+class UserPasswordResetLinkResource(Resource):
+    @require_permission(P.USERS_MANAGE)
+    def post(self, user_id: int):
+        user = user_admin.get_user(user_id)
+        record = account_tokens.request_password_reset(user, current_user)
+        db.session.commit()
+        return success(account_tokens.token_dict(record), status=201)
+
+
+class InvitationListResource(Resource):
+    @require_permission(P.USERS_MANAGE)
+    def get(self):
+        args = load_query(InvitationQuerySchema())
+        items = account_tokens.list_invitations(args["status"])
+        return success(items, {"total": len(items)})
+
+    @require_permission(P.USERS_MANAGE)
+    def post(self):
+        invite = account_tokens.create_invitation(load_body(InvitationCreateSchema()), current_user)
+        db.session.commit()
+        return success(account_tokens.token_dict(invite), status=201)
+
+
+class InvitationRevokeResource(Resource):
+    @require_permission(P.USERS_MANAGE)
+    def post(self, invite_id: int):
+        invite = account_tokens.revoke_invitation(
+            account_tokens.get_invitation(invite_id), current_user
+        )
+        db.session.commit()
+        return success(account_tokens.token_dict(invite))
+
+
+class InvitationResendResource(Resource):
+    @require_permission(P.USERS_MANAGE)
+    def post(self, invite_id: int):
+        invite = account_tokens.resend_invitation(
+            account_tokens.get_invitation(invite_id), current_user
+        )
+        db.session.commit()
+        return success(account_tokens.token_dict(invite))
+
+
+class PermissionListResource(Resource):
+    @require_permission(P.USERS_MANAGE)
+    def get(self):
+        return success(user_admin.list_permissions())
 
 
 class RoleListResource(Resource):

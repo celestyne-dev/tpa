@@ -13,9 +13,15 @@ from ...auth.session import (
     rotate_session,
 )
 from ...extensions import db, limiter
-from ...schemas.admin import ChangePasswordSchema, LoginSchema
+from ...schemas.admin import (
+    AcceptInvitationSchema,
+    ChangePasswordSchema,
+    CompleteResetSchema,
+    LoginSchema,
+    TokenSchema,
+)
 from ...services import audit_service
-from ...services.admin import auth_service
+from ...services.admin import account_tokens, auth_service
 from ...utils.errors import AuthenticationError
 from .._validation import load_body
 
@@ -108,4 +114,51 @@ class ChangePasswordResource(Resource):
         issue_session(user, response)
         audit_service.record("auth.password_changed", "user", user.id, actor=user)
         db.session.commit()
+        return response
+
+
+# ---- token-based flows (no session; the emailed token authorises one action) --------
+
+_sensitive = [limiter.limit(lambda: current_app.config["RATELIMIT_SENSITIVE"])]
+
+
+class InvitationVerifyResource(Resource):
+    method_decorators = {"post": _sensitive}
+
+    def post(self):
+        token = load_body(TokenSchema())["token"]
+        return {"data": account_tokens.describe(token, account_tokens.INVITATION)}
+
+
+class InvitationAcceptResource(Resource):
+    method_decorators = {"post": _sensitive}
+
+    def post(self):
+        data = load_body(AcceptInvitationSchema())
+        user = account_tokens.accept_invitation(
+            data["token"], data["password"], data.get("display_name")
+        )
+        response = jsonify({"data": {"user": auth_service.user_payload(user)}})
+        issue_session(user, response)  # the new administrator is signed in immediately
+        db.session.commit()
+        return response
+
+
+class PasswordResetVerifyResource(Resource):
+    method_decorators = {"post": _sensitive}
+
+    def post(self):
+        token = load_body(TokenSchema())["token"]
+        return {"data": account_tokens.describe(token, account_tokens.PASSWORD_RESET)}
+
+
+class PasswordResetCompleteResource(Resource):
+    method_decorators = {"post": _sensitive}
+
+    def post(self):
+        data = load_body(CompleteResetSchema())
+        account_tokens.complete_password_reset(data["token"], data["password"])
+        db.session.commit()
+        response = jsonify({"data": {"reset": True}})
+        clear_session_cookies(response)
         return response

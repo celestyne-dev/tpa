@@ -77,6 +77,63 @@ function PublishingPanel({ publishing }) {
   );
 }
 
+function AnalyticsPanel() {
+  const api = useAdminApi();
+  const { data, error } = useAdminQuery(() => api.analytics(), []);
+  if (error) return null;
+  return (
+    <section
+      aria-labelledby="analytics-heading"
+      className="min-w-0 rounded-xl border border-charcoal/10 bg-white p-5"
+    >
+      <h2 id="analytics-heading" className="font-sans text-base font-semibold">
+        Content insights
+      </h2>
+      <p className="mt-1 text-sm text-muted">
+        {data?.note ?? "Based on published editorial records."}
+      </p>
+      {data && (
+        <div className="mt-3 grid gap-6 sm:grid-cols-2">
+          <div>
+            <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">
+              Published by topic
+            </h3>
+            {data.published_by_topic.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">No published articles yet.</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm">
+                {data.published_by_topic.map((t) => (
+                  <li key={t.topic} className="flex justify-between gap-3">
+                    <span>{t.topic}</span>
+                    <span className="font-medium">{t.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">
+              Published by month
+            </h3>
+            {data.published_by_month.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">No published articles yet.</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm">
+                {data.published_by_month.map((m) => (
+                  <li key={m.month} className="flex justify-between gap-3">
+                    <span>{m.month}</span>
+                    <span className="font-medium">{m.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function DashboardPage() {
   const api = useAdminApi();
   const { can } = usePermissions();
@@ -108,6 +165,7 @@ export function DashboardPage() {
           </section>
 
           <PublishingPanel publishing={data.publishing} />
+          {can("analytics.view") && <AnalyticsPanel />}
 
           <div className="grid gap-6 xl:grid-cols-2">
             <section

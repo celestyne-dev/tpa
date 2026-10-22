@@ -15,6 +15,10 @@ const LOGOUT_URL = "/auth/logout";
 // These endpoints authenticate with the refresh cookie, so they send its CSRF value.
 const REFRESH_CSRF_URLS = new Set([REFRESH_URL, LOGOUT_URL]);
 const NO_RETRY = new Set(["/auth/login", LOGOUT_URL, REFRESH_URL]);
+// Token-link endpoints (invitation activation, password reset) never use the session.
+const isTokenFlow = (url = "") =>
+  url.startsWith("/auth/invitation/") || url.startsWith("/auth/password-reset/");
+const skipRefresh = (url) => NO_RETRY.has(url) || isTokenFlow(url);
 
 export function readCookie(name) {
   if (typeof document === "undefined") return "";
@@ -52,9 +56,9 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
         ["token_expired", "authentication_required"].includes(apiError.code) &&
         original &&
         !original._retried &&
-        !NO_RETRY.has(original.url);
+        !skipRefresh(original.url);
       if (!canRefresh) {
-        if (apiError.status === 401 && original && !NO_RETRY.has(original.url)) onSessionExpired();
+        if (apiError.status === 401 && original && !skipRefresh(original.url)) onSessionExpired();
         return Promise.reject(apiError);
       }
       original._retried = true;
@@ -96,7 +100,12 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       login: (credentials) => post("/auth/login", credentials),
       logout: () => post(LOGOUT_URL),
       changePassword: (body) => post("/auth/change-password", body),
+      verifyInvitation: (token) => post("/auth/invitation/verify", { token }),
+      acceptInvitation: (body) => post("/auth/invitation/accept", body),
+      verifyPasswordReset: (token) => post("/auth/password-reset/verify", { token }),
+      completePasswordReset: (body) => post("/auth/password-reset/complete", body),
     },
+    analytics: () => get("/analytics"),
     dashboard: () => get("/dashboard"),
     articles: {
       ...collection("articles"),
@@ -130,11 +139,20 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       save: (values) => patch("/settings", { values }),
     },
     users: {
-      list: () => get("/users"),
+      list: (params) => get("/users", params),
+      get: (id) => get(`/users/${id}`),
       create: (body) => post("/users", body),
       update: (id, body) => patch(`/users/${id}`, body),
       resetPassword: (id, password) => post(`/users/${id}/password`, { password }),
+      sendPasswordReset: (id) => post(`/users/${id}/password-reset`),
       roles: () => get("/roles"),
+      permissions: () => get("/permissions"),
+    },
+    invitations: {
+      list: (params) => get("/invitations", params),
+      create: (body) => post("/invitations", body),
+      revoke: (id) => post(`/invitations/${id}/revoke`),
+      resend: (id) => post(`/invitations/${id}/resend`),
     },
     audit: { list: (params) => get("/audit-log", params) },
   };

@@ -8,7 +8,12 @@ ADMIN_ROUTES = [
     (auth.LogoutResource, "/admin/auth/logout"),
     (auth.MeResource, "/admin/auth/me"),
     (auth.ChangePasswordResource, "/admin/auth/change-password"),
+    (auth.InvitationVerifyResource, "/admin/auth/invitation/verify"),
+    (auth.InvitationAcceptResource, "/admin/auth/invitation/accept"),
+    (auth.PasswordResetVerifyResource, "/admin/auth/password-reset/verify"),
+    (auth.PasswordResetCompleteResource, "/admin/auth/password-reset/complete"),
     (site.DashboardResource, "/admin/dashboard"),
+    (site.AnalyticsResource, "/admin/analytics"),
     (content.ArticleListResource, "/admin/articles"),
     (content.ArticleResource, "/admin/articles/<int:article_id>"),
     (content.ArticlePublishResource, "/admin/articles/<int:article_id>/publish"),
@@ -38,9 +43,22 @@ ADMIN_ROUTES = [
     (site.UserListResource, "/admin/users"),
     (site.UserResource, "/admin/users/<int:user_id>"),
     (site.UserPasswordResource, "/admin/users/<int:user_id>/password"),
+    (site.UserPasswordResetLinkResource, "/admin/users/<int:user_id>/password-reset"),
+    (site.InvitationListResource, "/admin/invitations"),
+    (site.InvitationRevokeResource, "/admin/invitations/<int:invite_id>/revoke"),
+    (site.InvitationResendResource, "/admin/invitations/<int:invite_id>/resend"),
+    (site.PermissionListResource, "/admin/permissions"),
     (site.RoleListResource, "/admin/roles"),
     (site.AuditLogResource, "/admin/audit-log"),
 ]
 
 # Endpoints reachable without an access token (they authenticate in other ways).
-PUBLIC_ADMIN_PATHS = {"/admin/auth/login", "/admin/auth/refresh", "/admin/auth/logout"}
+PUBLIC_ADMIN_PATHS = {
+    "/admin/auth/login",
+    "/admin/auth/refresh",
+    "/admin/auth/logout",
+    "/admin/auth/invitation/verify",
+    "/admin/auth/invitation/accept",
+    "/admin/auth/password-reset/verify",
+    "/admin/auth/password-reset/complete",
+}

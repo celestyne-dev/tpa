@@ -50,3 +50,30 @@ def overview(user: User) -> dict[str, Any]:
         ).all()
         data["recent_audit"] = [audit_entry(e) for e in entries]
     return data
+
+
+def analytics_summary() -> dict[str, Any]:
+    """Content analytics computed from editorial records (no traffic or sales data exists yet)."""
+    from ...models import Article as A
+    from ...models import Topic as T
+
+    by_topic = db.session.execute(
+        select(T.name, func.count(A.id))
+        .join(A, A.primary_topic_id == T.id)
+        .where(A.status == "published")
+        .group_by(T.name)
+        .order_by(func.count(A.id).desc(), T.name)
+    ).all()
+    published = db.session.scalars(
+        select(A.published_at).where(A.status == "published", A.published_at.is_not(None))
+    ).all()
+    per_month: dict[str, int] = {}
+    for value in published:
+        key = value.strftime("%Y-%m")
+        per_month[key] = per_month.get(key, 0) + 1
+    return {
+        "articles_by_status": status_counts(),
+        "published_by_topic": [{"topic": name, "count": n} for name, n in by_topic],
+        "published_by_month": [{"month": k, "count": per_month[k]} for k in sorted(per_month)],
+        "note": "Traffic, audience and revenue analytics arrive with the analytics module.",
+    }

@@ -3,16 +3,18 @@ import { ApiError } from "@/services/apiClient";
 
 const ALL = [
   "dashboard.view",
-  "reports.read",
+  "analytics.view",
   "content.read",
   "content.write",
   "content.publish",
   "content.moderate",
+  "taxonomy.manage",
   "pages.read",
   "pages.write",
   "navigation.manage",
   "settings.manage",
   "users.manage",
+  "roles.assign",
   "audit.read",
 ];
 
@@ -24,11 +26,14 @@ export const ROLE_PERMS = {
     "content.write",
     "content.publish",
     "content.moderate",
+    "taxonomy.manage",
     "pages.read",
     "pages.write",
   ],
   moderator: ["dashboard.view", "content.read", "content.moderate", "pages.read"],
-  analyst: ["dashboard.view", "reports.read", "content.read"],
+  analyst: ["dashboard.view", "analytics.view", "content.read"],
+  // A future specialised role without dashboard access, used to test landing routes.
+  pages_only: ["pages.read"],
 };
 
 export function adminUser(role = "super_admin") {
@@ -85,6 +90,9 @@ export function makeArticle(overrides = {}) {
 }
 
 /** In-memory admin API double. `role` null means "not signed in". */
+const VALID_TOKEN = "valid-link-token-0123456789abcdef";
+export { VALID_TOKEN };
+
 export function createFakeAdminApi({ role = "super_admin", article = makeArticle() } = {}) {
   let user = role ? adminUser(role) : null;
   let current = article;
@@ -153,7 +161,39 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
         return ok({ logged_out: true });
       }),
       changePassword: vi.fn(() => ok({ user })),
+      verifyInvitation: vi.fn((token) =>
+        token === VALID_TOKEN
+          ? ok({
+              email: "invitee@example.org",
+              display_name: "Invitee",
+              roles: ["editor"],
+              expires_at: "2026-10-25T10:00:00.000Z",
+            })
+          : Promise.reject(
+              new ApiError({ status: 400, code: "link_invalid", message: "This link is invalid." }),
+            ),
+      ),
+      acceptInvitation: vi.fn(({ display_name }) => {
+        user = { ...adminUser("editor"), email: "invitee@example.org", display_name };
+        return ok({ user });
+      }),
+      verifyPasswordReset: vi.fn((token) =>
+        token === VALID_TOKEN
+          ? ok({ email: "writer@example.org", expires_at: "2026-10-22T10:00:00.000Z" })
+          : Promise.reject(
+              new ApiError({ status: 400, code: "link_invalid", message: "This link is invalid." }),
+            ),
+      ),
+      completePasswordReset: vi.fn(() => ok({ reset: true })),
     },
+    analytics: vi.fn(() =>
+      ok({
+        articles_by_status: { draft: 1, scheduled: 0, published: 5, archived: 0 },
+        published_by_topic: [{ topic: "Positive Mindset", count: 3 }],
+        published_by_month: [{ month: "2026-09", count: 5 }],
+        note: "Traffic analytics arrive later.",
+      }),
+    ),
     dashboard: vi.fn(() =>
       ok({
         articles: { total: 6, draft: 1, scheduled: 0, published: 5, archived: 0 },
@@ -310,11 +350,118 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
       }),
     },
     users: {
-      list: vi.fn(() => ok([])),
-      create: vi.fn(),
-      update: vi.fn(),
-      resetPassword: vi.fn(),
-      roles: vi.fn(() => ok([])),
+      list: vi.fn((params = {}) => {
+        const rows = [
+          {
+            ...adminUser("super_admin"),
+            id: 1,
+            display_name: "Site Owner",
+            email: "owner@example.org",
+            last_login_at: null,
+          },
+          {
+            ...adminUser("editor"),
+            id: 2,
+            display_name: "Ngozi Writer",
+            email: "ngozi@example.org",
+            last_login_at: null,
+          },
+          {
+            ...adminUser("analyst"),
+            id: 3,
+            display_name: "Old Analyst",
+            email: "old@example.org",
+            status: "disabled",
+            last_login_at: null,
+          },
+        ];
+        return ok(
+          rows.filter(
+            (u) =>
+              (!params.q ||
+                u.email.includes(params.q) ||
+                u.display_name.toLowerCase().includes(params.q.toLowerCase())) &&
+              (!params.status || u.status === params.status) &&
+              (!params.role || u.roles.includes(params.role)),
+          ),
+        );
+      }),
+      get: vi.fn((id) =>
+        ok({
+          ...adminUser("editor"),
+          id,
+          display_name: "Ngozi Writer",
+          email: "ngozi@example.org",
+          created_at: "2026-10-01T10:00:00.000Z",
+          email_verified_at: null,
+          is_last_super_admin: false,
+          account_links: [],
+          recent_activity: [
+            { id: 9, action: "auth.login", created_at: "2026-10-20T10:00:00.000Z" },
+          ],
+        }),
+      ),
+      create: vi.fn((body) => ok({ id: 4, ...body })),
+      update: vi.fn((id, body) => ok({ id, ...body })),
+      resetPassword: vi.fn(() => ok({ reset: true })),
+      sendPasswordReset: vi.fn(() =>
+        ok({ id: 5, purpose: "password_reset", delivery: "development_console" }),
+      ),
+      roles: vi.fn(() =>
+        ok([
+          {
+            name: "super_admin",
+            label: "Super admin",
+            description: "Full access.",
+            permissions: ALL,
+          },
+          {
+            name: "editor",
+            label: "Editor",
+            description: "Edits content.",
+            permissions: ROLE_PERMS.editor,
+          },
+          {
+            name: "moderator",
+            label: "Moderator",
+            description: "Moderates.",
+            permissions: ROLE_PERMS.moderator,
+          },
+          {
+            name: "analyst",
+            label: "Analyst",
+            description: "Reads.",
+            permissions: ROLE_PERMS.analyst,
+          },
+        ]),
+      ),
+      permissions: vi.fn(() => ok([])),
+    },
+    invitations: {
+      list: vi.fn(() =>
+        ok([
+          {
+            id: 11,
+            email: "pending@example.org",
+            display_name: null,
+            roles: ["moderator"],
+            status: "pending",
+            expires_at: "2026-10-25T10:00:00.000Z",
+            created_by: { id: 1, display_name: "Site Owner" },
+          },
+        ]),
+      ),
+      create: vi.fn((body) =>
+        ok({
+          id: 12,
+          email: body.email,
+          roles: body.roles,
+          status: "pending",
+          delivery: "development_console",
+        }),
+      ),
+      revoke: vi.fn(() => ok({ id: 11, status: "revoked" })),
+      resend: vi.fn(() => ok({ id: 11, status: "pending", delivery: "development_console" })),
     },
     audit: { list: vi.fn(() => ok([], { pagination: null })) },
   };

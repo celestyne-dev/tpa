@@ -13,9 +13,10 @@ from .content import (
     article_tags,
     article_topics,
 )
-from .user import RefreshToken, Role, User, UserRole
+from .user import AccountToken, RefreshToken, Role, User, UserRole
 
 __all__ = [
+    "AccountToken",
     "Article",
     "AuditLog",
     "Author",

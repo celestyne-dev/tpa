@@ -2,18 +2,20 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Navigate, Route, Routes } from "react-router";
 import { loadSession, selectAuth } from "@/store/slices/authSlice";
+import { AdminIndex } from "./components/AdminIndex";
 import { AdminLayout } from "./components/AdminLayout";
 import { RequireAuth, RequirePermission } from "./components/Guards";
 import { NotificationProvider } from "./components/Notifications";
 import { AccountPage } from "./pages/AccountPage";
+import { ActivatePage } from "./pages/ActivatePage";
 import { ArticleEditorPage } from "./pages/ArticleEditorPage";
 import { ArticlesPage } from "./pages/ArticlesPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
-import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NavigationPage } from "./pages/NavigationPage";
 import { PageEditorPage } from "./pages/PageEditorPage";
 import { PagesPage } from "./pages/PagesPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TaxonomyPage } from "./pages/TaxonomyPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -35,6 +37,8 @@ export default function AdminApp() {
     <NotificationProvider>
       <Routes>
         <Route path="login" element={<LoginPage />} />
+        <Route path="activate" element={<ActivatePage />} />
+        <Route path="reset-password" element={<ResetPasswordPage />} />
         <Route
           element={
             <RequireAuth>
@@ -42,7 +46,7 @@ export default function AdminApp() {
             </RequireAuth>
           }
         >
-          <Route index element={guarded("dashboard.view", <DashboardPage />)} />
+          <Route index element={<AdminIndex />} />
           <Route path="articles" element={guarded("content.read", <ArticlesPage />)} />
           <Route path="articles/new" element={guarded("content.write", <ArticleEditorPage />)} />
           <Route

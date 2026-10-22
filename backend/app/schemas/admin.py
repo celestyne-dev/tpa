@@ -196,3 +196,42 @@ class AuditQuerySchema(PageQuerySchema):
     action = fields.String(load_default=None, validate=validate.Length(max=80))
     resource_type = fields.String(load_default=None, validate=validate.Length(max=50))
     actor_id = fields.Integer(load_default=None)
+
+
+class UserQuerySchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    q = fields.String(load_default=None, validate=validate.Length(max=100))
+    status = fields.String(load_default=None, validate=validate.OneOf(["active", "disabled"]))
+    role = fields.String(load_default=None, validate=validate.Length(max=50))
+
+
+class InvitationCreateSchema(StrictSchema):
+    email = fields.String(required=True, validate=validate.Length(max=254))
+    display_name = Text(120, allow_none=True)
+    roles = fields.List(fields.String(), required=True, validate=validate.Length(min=1, max=4))
+
+
+class InvitationQuerySchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    status = fields.String(
+        load_default=None, validate=validate.OneOf(["pending", "accepted", "expired", "revoked"])
+    )
+
+
+class TokenSchema(StrictSchema):
+    token = fields.String(required=True, validate=validate.Length(min=1, max=200))
+
+
+class AcceptInvitationSchema(StrictSchema):
+    token = fields.String(required=True, validate=validate.Length(min=1, max=200))
+    password = fields.String(required=True, validate=validate.Length(max=256))
+    display_name = fields.String(allow_none=True, validate=validate.Length(max=120))
+
+
+class CompleteResetSchema(StrictSchema):
+    token = fields.String(required=True, validate=validate.Length(min=1, max=200))
+    password = fields.String(required=True, validate=validate.Length(max=256))

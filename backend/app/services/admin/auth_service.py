@@ -37,6 +37,7 @@ def user_payload(user: User) -> dict:
         "roles": user.role_names,
         "permissions": sorted(p.value for p in user_permissions(user)),
         "last_login_at": iso(user.last_login_at),
+        "email_verified_at": iso(user.email_verified_at),
         "created_at": iso(user.created_at),
     }
 

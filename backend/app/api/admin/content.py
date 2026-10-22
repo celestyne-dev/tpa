@@ -93,7 +93,7 @@ def _taxonomy(model, label, schema, list_fn, save_fn, delete_fn, dict_fn, reassi
             items = list_fn()
             return success(items, {"total": len(items)})
 
-        @require_permission(P.CONTENT_WRITE)
+        @require_permission(P.TAXONOMY_MANAGE)
         def post(self):
             obj = save_fn(None, load_body(write), current_user)
             db.session.commit()
@@ -104,21 +104,21 @@ def _taxonomy(model, label, schema, list_fn, save_fn, delete_fn, dict_fn, reassi
         def get(self, item_id: int):
             return success(dict_fn(get_or_404(model, item_id, label)))
 
-        @require_permission(P.CONTENT_WRITE)
+        @require_permission(P.TAXONOMY_MANAGE)
         def patch(self, item_id: int):
             obj = get_or_404(model, item_id, label)
             save_fn(obj, load_body(write, partial=True), current_user)
             db.session.commit()
             return success(dict_fn(obj))
 
-        @require_permission(P.CONTENT_WRITE)
+        @require_permission(P.TAXONOMY_MANAGE)
         def delete(self, item_id: int):
             delete_fn(get_or_404(model, item_id, label), current_user)
             db.session.commit()
             return success({"deleted": True})
 
     class ReassignResource(Resource):
-        @require_permission(P.CONTENT_WRITE)
+        @require_permission(P.TAXONOMY_MANAGE)
         def post(self, item_id: int):
             obj = get_or_404(model, item_id, label)
             moved = reassign_fn(obj, load_body(_reassign)["target_id"], current_user)

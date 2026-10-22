@@ -50,6 +50,13 @@ const authSlice = createSlice({
     userUpdated(state, action) {
       state.user = action.payload;
     },
+    /** A session was established outside the login form (e.g. invitation activation). */
+    signedIn(state, action) {
+      state.user = action.payload;
+      state.status = "authenticated";
+      state.sessionExpired = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -83,7 +90,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { sessionExpired, userUpdated } = authSlice.actions;
+export const { sessionExpired, userUpdated, signedIn } = authSlice.actions;
 export const selectAuth = (state) => state.auth;
 export const selectPermissions = (state) => state.auth.user?.permissions ?? [];
 export default authSlice.reducer;

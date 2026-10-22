@@ -18,6 +18,7 @@ cd /var/www/tpa/backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env    # set FLASK_CONFIG=production, SECRET_KEY, JWT_SECRET_KEY, DATABASE_URL,
                         # CORS_ORIGINS=https://your-domain, TRUST_PROXY=1, RATELIMIT_STORAGE_URI
+                        # MAIL_BACKEND=smtp + MAIL_SMTP_* + MAIL_FROM, ADMIN_BASE_URL=https://your-domain
 set -a && . ./.env && set +a
 .venv/bin/flask --app wsgi db upgrade            # back up first on existing databases
 .venv/bin/flask --app wsgi cms seed-defaults     # safe: creates only missing defaults

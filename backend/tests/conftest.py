@@ -5,6 +5,7 @@ from app.auth.passwords import hash_password
 from app.auth.roles import set_user_roles, sync_roles
 from app.extensions import db, limiter
 from app.models import User
+from app.services.mail import MemoryBackend
 from app.services.seed_service import seed_cms_defaults, seed_sample_content
 
 PASSWORD = "Correct-Horse-Battery-9"
@@ -19,6 +20,7 @@ def app():
         sync_roles()
         db.session.commit()
     limiter.reset()
+    MemoryBackend.outbox.clear()
     yield app
     with app.app_context():
         db.session.remove()

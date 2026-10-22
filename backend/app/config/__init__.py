@@ -93,6 +93,18 @@ class BaseConfig:
     )
     ALLOW_SAMPLE_SEED = True
 
+    # ---- Email and account links ----
+    MAIL_BACKEND = os.environ.get("MAIL_BACKEND", "none")
+    MAIL_FROM = os.environ.get("MAIL_FROM", "Think Positive Always <no-reply@localhost>")
+    MAIL_SMTP_HOST = os.environ.get("MAIL_SMTP_HOST", "")
+    MAIL_SMTP_PORT = _int("MAIL_SMTP_PORT", 587)
+    MAIL_SMTP_USERNAME = os.environ.get("MAIL_SMTP_USERNAME", "")
+    MAIL_SMTP_PASSWORD = os.environ.get("MAIL_SMTP_PASSWORD", "")
+    # Public origin of the admin used in emailed links (activation, password reset).
+    ADMIN_BASE_URL = os.environ.get("ADMIN_BASE_URL", "http://localhost:5173").rstrip("/")
+    INVITATION_TTL_HOURS = _int("INVITATION_TTL_HOURS", 72)
+    PASSWORD_RESET_TTL_MINUTES = _int("PASSWORD_RESET_TTL_MINUTES", 60)
+
     # ---- Fallback public business settings (CMS site settings take precedence) ----
     CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "").strip()
     PARTNERSHIPS_EMAIL = os.environ.get("PARTNERSHIPS_EMAIL", "").strip()
@@ -106,6 +118,8 @@ class BaseConfig:
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
+    # Invitation and reset links are printed to the Flask terminal unless configured otherwise.
+    MAIL_BACKEND = os.environ.get("MAIL_BACKEND", "console")
     SQLALCHEMY_DATABASE_URI = BaseConfig.SQLALCHEMY_DATABASE_URI or (
         f"sqlite:///{INSTANCE_DIR / 'tpa-dev.db'}"
     )
@@ -133,6 +147,8 @@ class TestingConfig(BaseConfig):
     MEDIA_KIT_URL = ""
     SOCIAL_LINKS = {}
     FRONTEND_BUILD_MANIFEST = str(INSTANCE_DIR / "does-not-exist-manifest.json")
+    MAIL_BACKEND = "memory"
+    ADMIN_BASE_URL = "http://localhost:5173"
 
 
 class ProductionConfig(BaseConfig):
@@ -149,6 +165,12 @@ class ProductionConfig(BaseConfig):
             missing.append("JWT_SECRET_KEY (at least 32 characters)")
         if not cls.SQLALCHEMY_DATABASE_URI:
             missing.append("DATABASE_URL")
+        if os.environ.get("MAIL_BACKEND", "none").lower() in {"console", "memory"}:
+            missing.append("MAIL_BACKEND (console/memory are not allowed in production)")
+        if os.environ.get("MAIL_BACKEND", "").lower() == "smtp" and not os.environ.get(
+            "MAIL_SMTP_HOST"
+        ):
+            missing.append("MAIL_SMTP_HOST")
         if missing:
             raise RuntimeError(f"Missing required production settings: {', '.join(missing)}")
 
