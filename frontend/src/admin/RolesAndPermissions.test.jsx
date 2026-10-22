@@ -1,8 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { createFakeAdminApi, makeArticle, ROLE_PERMS } from "@/test/adminFake";
-import { renderApp } from "@/test/utils";
+import { preloadAdminApp, renderApp } from "@/test/utils";
+
+beforeAll(preloadAdminApp);
 
 describe("roles & permissions navigation", () => {
   it("lists Roles & Permissions under Administration for super admins only", async () => {

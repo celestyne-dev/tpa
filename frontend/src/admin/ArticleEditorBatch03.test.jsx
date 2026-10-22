@@ -1,10 +1,12 @@
 import { act, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
-import { createFakeAdminApi, makeArticle } from "@/test/adminFake";
-import { renderApp } from "@/test/utils";
+import { createFakeAdminApi, makeArticle, manualSave } from "@/test/adminFake";
+import { preloadAdminApp, renderApp } from "@/test/utils";
 import { useAutosave } from "./hooks/useAutosave";
+
+beforeAll(preloadAdminApp);
 
 const EDIT = "/admin/articles/7/edit";
 
@@ -52,13 +54,14 @@ describe("article editor sections", () => {
     await user.type(screen.getByLabelText("Pull quote 2 text"), "Small steps count.");
     await user.click(screen.getByRole("button", { name: "Duplicate block 2" }));
     await user.click(within(add).getByRole("button", { name: "Video" }));
-    await user.type(screen.getByLabelText("Video 4 link"), "https://youtu.be/dQw4w9WgXcQ");
+    await user.click(screen.getByLabelText("Video 4 link"));
+    await user.paste("https://youtu.be/dQw4w9WgXcQ"); // links are pasted, not typed
     await user.type(screen.getByLabelText("Video title"), "A short talk");
     await user.click(within(add).getByRole("button", { name: "Table" }));
     await user.type(screen.getByLabelText("Table 5 row 1 column 1"), "Habit");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(adminApi.articles.update).toHaveBeenCalled());
-    const body = adminApi.articles.update.mock.calls.at(-1)[1].body;
+    await waitFor(() => expect(manualSave(adminApi.articles.update)).toBeDefined());
+    const { body } = manualSave(adminApi.articles.update)[1];
     expect(body.map((b) => b.type)).toEqual([
       "paragraph",
       "pullquote",
@@ -75,24 +78,26 @@ describe("article editor sections", () => {
   });
 
   it("autosaves after a pause and reports the status", async () => {
-    const user = userEvent.setup();
     const { adminApi } = renderApp(EDIT);
     const title = await screen.findByLabelText(/^Title/);
+    // Drive the 2.5 s debounce with fake timers so the test doesn't depend on machine speed.
+    vi.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     await user.type(title, " today");
     expect(screen.getByTestId("autosave-status")).toHaveTextContent("Unsaved changes");
-    await waitFor(
-      () =>
-        expect(adminApi.articles.update).toHaveBeenCalledWith(
-          "7",
-          expect.objectContaining({ mode: "autosave", title: "Finding Calm today" }),
-        ),
-      { timeout: 5000 },
-    );
+    await act(() => vi.advanceTimersByTimeAsync(2400));
+    expect(adminApi.articles.update).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(100));
     expect(adminApi.articles.update).toHaveBeenCalledTimes(1); // debounced, not per keystroke
+    expect(adminApi.articles.update).toHaveBeenCalledWith(
+      "7",
+      expect.objectContaining({ mode: "autosave", title: "Finding Calm today" }),
+    );
+    vi.useRealTimers();
     await waitFor(() =>
       expect(screen.getByTestId("autosave-status")).toHaveTextContent("All changes saved"),
     );
-  }, 10000);
+  });
 
   it("explains edit conflicts instead of overwriting newer work", async () => {
     const user = userEvent.setup();

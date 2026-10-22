@@ -1,10 +1,10 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
 import { RootLayout } from "@/components/layout/RootLayout";
+import { loadAdminApp } from "./loadAdminApp";
 import { routeTable } from "./routeConfig";
 
-// The admin area is a separate, lazily loaded chunk that is never prerendered.
-const AdminApp = lazy(() => import("@/admin/AdminApp"));
+const AdminApp = lazy(loadAdminApp);
 
 function AdminFallback() {
   return (

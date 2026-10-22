@@ -1,8 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { createFakeAdminApi } from "@/test/adminFake";
-import { renderApp } from "@/test/utils";
+import { preloadAdminApp, renderApp } from "@/test/utils";
+
+beforeAll(preloadAdminApp);
 
 const image = (name = "sunrise.jpg", type = "image/jpeg") =>
   new File([new Uint8Array([1, 2, 3])], name, { type });

@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import { App } from "@/app/App";
+import { loadAdminApp } from "@/routes/loadAdminApp";
 import { ApiError } from "@/services/apiClient";
 import { createAppStore } from "@/store";
 import { createFakeAdminApi } from "./adminFake";
@@ -9,6 +10,16 @@ import * as fx from "./fixtures";
 
 export const notFound = (message = "Not found") =>
   Promise.reject(new ApiError({ status: 404, code: "not_found", message }));
+
+/**
+ * Load the code-split admin chunk before a file's tests run (`beforeAll(preloadAdminApp)`).
+ * Otherwise the first admin render in each file triggers Vite's on-demand transform of
+ * the whole admin module graph, which on a cold cache or slower machine can take longer
+ * than a `findBy*` query waits, making the first test in the file fail.
+ */
+export async function preloadAdminApp() {
+  await loadAdminApp();
+}
 
 /** In-memory implementation of the content API used by the store's thunks. */
 export function createFakeApi(overrides = {}) {

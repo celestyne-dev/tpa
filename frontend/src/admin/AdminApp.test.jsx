@@ -1,10 +1,12 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
-import { createFakeAdminApi, makeArticle } from "@/test/adminFake";
-import { renderApp } from "@/test/utils";
+import { createFakeAdminApi, makeArticle, manualSave } from "@/test/adminFake";
+import { preloadAdminApp, renderApp } from "@/test/utils";
 import { safeNextPath } from "./components/safeNextPath";
+
+beforeAll(preloadAdminApp);
 
 describe("admin authentication", () => {
   it("redirects anonymous visitors to the login page and back after signing in", async () => {
@@ -70,7 +72,9 @@ describe("admin authentication", () => {
   it("returns to login when the session expires", async () => {
     const { store } = renderApp("/admin");
     await screen.findByRole("heading", { level: 1, name: "Dashboard" });
-    store.dispatch({ type: "auth/sessionExpired" });
+    act(() => {
+      store.dispatch({ type: "auth/sessionExpired" });
+    });
     expect(await screen.findByText("Your session has ended")).toBeInTheDocument();
   });
 });
@@ -144,8 +148,8 @@ describe("articles", () => {
     await user.type(screen.getByLabelText("Callout text"), "Breathe slowly.");
     await user.click(screen.getByRole("button", { name: "Divider" }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(adminApi.articles.update).toHaveBeenCalled());
-    const [, payload] = adminApi.articles.update.mock.calls[0];
+    await waitFor(() => expect(manualSave(adminApi.articles.update)).toBeDefined());
+    const [, payload] = manualSave(adminApi.articles.update);
     expect(payload.title).toBe("Finding Calm Today");
     expect(payload.body).toEqual([
       { type: "paragraph", text: "Hello world." },
@@ -218,5 +222,11 @@ describe("public site is unaffected", () => {
   it("still renders the public homepage alongside the admin routes", async () => {
     renderApp("/");
     expect(screen.getByRole("heading", { level: 1, name: /A Better Mindset/ })).toBeInTheDocument();
+    // Let the homepage's API-driven sections finish loading inside the test.
+    expect(await screen.findByRole("link", { name: "Positive Mindset" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("link", { name: "How to Reframe a Negative Thought" }),
+    ).toBeInTheDocument();
+    expect((await screen.findAllByText("Know Your Worth")).length).toBeGreaterThan(0);
   });
 });

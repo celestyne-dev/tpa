@@ -1134,3 +1134,11 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     audit: { list: vi.fn(() => ok([], { pagination: null })) },
   };
 }
+
+/**
+ * The explicit "Save changes" call to `articles.update`. Autosave also calls it
+ * (with `mode: "autosave"`) whenever typing pauses, which on a slow machine can
+ * happen mid-test, so tests about manual saves must not assume call order.
+ */
+export const manualSave = (update) =>
+  update.mock.calls.find(([, body]) => body.mode !== "autosave");

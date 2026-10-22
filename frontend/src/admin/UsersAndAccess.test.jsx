@@ -1,9 +1,11 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 import { createFakeAdminApi, VALID_TOKEN } from "@/test/adminFake";
-import { renderApp } from "@/test/utils";
+import { preloadAdminApp, renderApp } from "@/test/utils";
+
+beforeAll(preloadAdminApp);
 
 const PASSWORD = "Correct-Horse-Battery-9";
 

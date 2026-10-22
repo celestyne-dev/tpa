@@ -1,8 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { ApiError } from "@/services/apiClient";
-import { createFakeApi, renderApp } from "@/test/utils";
+import { createFakeApi, preloadAdminApp, renderApp } from "@/test/utils";
+
+beforeAll(preloadAdminApp);
 
 describe("homepage", () => {
   it("renders the hero and API-driven sections", async () => {
