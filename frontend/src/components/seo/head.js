@@ -13,8 +13,21 @@ export function buildHead({
   canonicalUrl,
   noIndex = false,
   jsonLd = [],
+  defaults,
+  siteName,
 }) {
-  const fullTitle = title ? `${title} | ${siteConfig.name}` : siteConfig.defaultTitle;
+  // CMS-managed SEO defaults (GET /api/v1/site) take precedence over build-time config.
+  const name = siteName || siteConfig.name;
+  const defaultImage = defaults?.default_og_image
+    ? { src: defaults.default_og_image, width: 1200, height: 630, alt: name }
+    : siteConfig.defaultOgImage;
+  if (description === siteConfig.description && defaults?.default_description) {
+    description = defaults.default_description;
+  }
+  if (image === siteConfig.defaultOgImage) image = defaultImage;
+  const fullTitle = title
+    ? `${title} | ${name}`
+    : defaults?.default_title || siteConfig.defaultTitle;
   const url = absoluteUrl(path, siteConfig.url);
   const imageUrl = absoluteUrl(image.src, siteConfig.url);
   let robots = "index, follow, max-image-preview:large";
@@ -24,10 +37,10 @@ export function buildHead({
   const meta = [
     { name: "description", content: description },
     { name: "robots", content: robots },
-    { property: "og:title", content: title ?? siteConfig.name },
+    { property: "og:title", content: title ?? name },
     { property: "og:description", content: description },
     { property: "og:url", content: url },
-    { property: "og:site_name", content: siteConfig.name },
+    { property: "og:site_name", content: name },
     { property: "og:locale", content: siteConfig.locale },
     { property: "og:type", content: type },
     { property: "og:image", content: imageUrl },
@@ -35,7 +48,7 @@ export function buildHead({
     { property: "og:image:height", content: String(image.height) },
     { property: "og:image:alt", content: image.alt },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: title ?? siteConfig.name },
+    { name: "twitter:title", content: title ?? name },
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: imageUrl },
   ];

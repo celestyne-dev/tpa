@@ -25,3 +25,14 @@ export function slugify(value) {
 export function absoluteUrl(path, base) {
   return new URL(path, base).toString();
 }
+
+export function formatDateTime(iso) {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}

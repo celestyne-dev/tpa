@@ -1,12 +1,40 @@
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router";
 import { Container } from "@/components/ui/Container";
-import { footerNav, routes } from "@/config/navigation";
+import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
+import { useNavigation } from "@/hooks/useNavigation";
 import { Logo } from "./Logo";
 
-export function SiteFooter({ socialLinks = [] }) {
+const DEFAULT_FOOTER_TEXT =
+  "Practical encouragement, mindset insights, and thoughtful personal growth resources to help you build confidence and move forward through every season of life.";
+
+function FooterLink({ item }) {
+  const className = "transition-colors hover:text-ivory hover:underline hover:underline-offset-4";
+  if (item.external) {
+    return (
+      <a
+        href={item.href}
+        className={className}
+        {...(item.newTab && { target: "_blank", rel: "noopener noreferrer" })}
+      >
+        {item.label}
+        {item.newTab && <span className="sr-only"> (opens in a new tab)</span>}
+      </a>
+    );
+  }
+  return (
+    <Link to={item.href} className={className}>
+      {item.label}
+    </Link>
+  );
+}
+
+export function SiteFooter({ site }) {
   const year = new Date().getFullYear();
+  const { footer } = useNavigation();
+  const socialLinks = site?.social_links ?? [];
+  const name = site?.name ?? siteConfig.name;
   return (
     <footer className="bg-charcoal text-sand">
       <Container size="wide" className="py-16 sm:py-20">
@@ -14,8 +42,7 @@ export function SiteFooter({ socialLinks = [] }) {
           <div className="max-w-sm">
             <Logo invert />
             <p className="mt-6 text-[0.95rem] leading-relaxed">
-              Practical encouragement, mindset insights, and thoughtful personal growth resources to
-              help you build confidence and move forward through every season of life.
+              {site?.footer?.text || DEFAULT_FOOTER_TEXT}
             </p>
             <Link
               to={routes.newsletter}
@@ -27,20 +54,15 @@ export function SiteFooter({ socialLinks = [] }) {
           </div>
 
           <div className="grid grid-cols-2 gap-10 sm:grid-cols-4">
-            {footerNav.map((group) => (
+            {footer.map((group) => (
               <nav key={group.title} aria-label={group.title}>
                 <h2 className="font-sans text-xs font-semibold tracking-[0.16em] text-ivory uppercase">
                   {group.title}
                 </h2>
                 <ul className="mt-5 space-y-3 text-[0.95rem]">
                   {group.items.map((item) => (
-                    <li key={item.href}>
-                      <Link
-                        to={item.href}
-                        className="transition-colors hover:text-ivory hover:underline hover:underline-offset-4"
-                      >
-                        {item.label}
-                      </Link>
+                    <li key={`${item.href}-${item.label}`}>
+                      <FooterLink item={item} />
                     </li>
                   ))}
                 </ul>
@@ -51,7 +73,7 @@ export function SiteFooter({ socialLinks = [] }) {
 
         <div className="mt-14 flex flex-col gap-6 border-t border-ivory/10 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © <span suppressHydrationWarning>{year}</span> {siteConfig.name}. All rights reserved.
+            © <span suppressHydrationWarning>{year}</span> {name}. All rights reserved.
           </p>
           {socialLinks.length > 0 && (
             <ul aria-label="Social media" className="flex flex-wrap gap-x-6 gap-y-2">

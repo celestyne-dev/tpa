@@ -7,8 +7,8 @@
  * 3. Renders every public route to dist/<route>/index.html with its title,
  *    meta description, canonical URL, Open Graph tags, JSON-LD, full content
  *    and the serialised Redux state used for hydration.
- * 4. Writes dist/404.html, dist/sitemap.xml, dist/robots.txt and
- *    dist/prerender-manifest.json.
+ * 4. Writes dist/404.html, dist/admin/index.html (client-only admin shell),
+ *    dist/sitemap.xml, dist/robots.txt and dist/prerender-manifest.json.
  */
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -133,6 +133,17 @@ if (notFound.status !== 404) fail("the not-found route did not report status 404
 await writeFile(
   path.join(distDir, "404.html"),
   injectTemplate(template, { ...notFound, state: null }),
+);
+
+// Admin SPA shell: rendered client-side only, never indexed.
+await mkdir(path.join(distDir, "admin"), { recursive: true });
+await writeFile(
+  path.join(distDir, "admin", "index.html"),
+  injectTemplate(template, {
+    head: '<title>Admin | Think Positive Always</title>\n    <meta name="robots" content="noindex, nofollow" />',
+    html: "",
+    state: null,
+  }),
 );
 
 await writeFile(

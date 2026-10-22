@@ -13,6 +13,16 @@ def load_query(schema: Schema) -> dict:
         raise ValidationError(details=err.messages) from None
 
 
+def load_body(schema: Schema, *, partial: bool = False) -> dict:
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ValidationError("Send a JSON object in the request body.")
+    try:
+        return schema.load(data, partial=partial)
+    except MarshmallowValidationError as err:
+        raise ValidationError(details=err.messages) from None
+
+
 def require_slug(slug: str, resource: str) -> str:
     if not is_valid_slug(slug):
         raise NotFoundError(f"{resource} '{slug}' was not found.")

@@ -2,196 +2,219 @@
 
 The commercial home of **Think Positive Always (TPA)**: personal development articles, digital products, free resources, the newsletter, and brand partnerships.
 
-The project uses a React/Vite frontend and a Python Flask API backed by PostgreSQL, the same architecture as Ticksy. Public pages are **prerendered to static HTML at build time** from Flask API data, so search engines receive complete content and metadata.
+The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`.
 
 ## 1. Technology stack
 
-| Layer    | Technology                                                                                                                                          |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend | React 19, Vite 8, JavaScript/JSX, Tailwind CSS 4, React Router 8, Redux Toolkit 2, React Redux 9, Axios, Lucide React, Fontsource (Fraunces, Inter) |
-| SEO      | Build-time prerendering (Vite SSR build + `react-dom/server`), built-in head manager, generated sitemap/robots                                      |
-| Testing  | Vitest, React Testing Library, jsdom (frontend), pytest (backend)                                                                                   |
-| Quality  | ESLint 9, Prettier (frontend), Ruff (backend)                                                                                                       |
-| Backend  | Python 3.11+, Flask 3, Flask-RESTful, Flask-CORS, Flask-SQLAlchemy, Flask-Migrate, Marshmallow, python-dotenv, Gunicorn                             |
-| Database | PostgreSQL (production, psycopg 3) and SQLite (local development)                                                                                   |
-| Hosting  | Linux VPS with Nginx, Gunicorn, systemd, PostgreSQL and static frontend assets (see `docs/deployment.md`)                                           |
+| Layer    | Technology                                                                                                                                                                                               |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend | React 19, Vite 8, JavaScript/JSX, Tailwind CSS 4, React Router 8, Redux Toolkit 2, React Redux 9, Axios, Lucide React                                                                                    |
+| Backend  | Python 3.11+, Flask 3, Flask-RESTful, Flask-CORS, Flask-SQLAlchemy / SQLAlchemy 2, Flask-Migrate (Alembic), Marshmallow, Flask-JWT-Extended, Flask-Limiter, Werkzeug (scrypt password hashing), Gunicorn |
+| Database | PostgreSQL in production (psycopg 3, JSONB); SQLite for local development and tests                                                                                                                      |
+| Testing  | pytest and Ruff (backend); Vitest, React Testing Library, ESLint and Prettier (frontend)                                                                                                                 |
+| Hosting  | Linux VPS with Nginx, Gunicorn, systemd and PostgreSQL (see `docs/deployment.md`)                                                                                                                        |
 
 ## 2. Folder structure
 
 ```
 tpa/
-├── frontend/                 React + Vite app
-│   ├── public/               Static files (images, OG images, icon, manifest)
-│   ├── scripts/
-│   │   ├── prerender.mjs     Build-time HTML, sitemap and robots generation
-│   │   └── serve-dist.mjs    Local production preview (mirrors Nginx)
+├── frontend/
+│   ├── scripts/                prerender.mjs (static HTML, sitemap, robots, admin shell), serve-dist.mjs
 │   └── src/
-│       ├── app/              App root (shared by browser, prerender and tests)
-│       ├── assets/styles/    Tailwind design tokens and global CSS
-│       ├── components/       layout/ ui/ articles/ products/ newsletter/ home/ topics/ legal/ seo/
-│       ├── config/           Site identity, navigation, routes
-│       ├── data/             Static marketing copy and shared list queries
-│       ├── hooks/            Data hooks (useArticles, useArticle, useTopics…)
-│       ├── pages/            One component per route
-│       ├── routes/           Route table and per-route data loaders
-│       ├── services/         Axios client and content API
-│       ├── store/            Redux Toolkit store and slices
-│       ├── utils/            Formatting and structured data helpers
-│       ├── entry-client.jsx  Browser entry (hydrates prerendered HTML)
-│       └── entry-server.jsx  Prerender entry (renders a URL to HTML)
-├── backend/                  Flask API
+│       ├── admin/              Admin dashboard (lazy-loaded chunk, never prerendered)
+│       │   ├── components/     Layout, DataTable, Modal, ConfirmDialog, Fields, BlockEditor, Notifications, Guards
+│       │   ├── hooks/          useAdminQuery, usePermissions, useUnsavedChanges
+│       │   ├── pages/          Login, Dashboard, Articles, ArticleEditor, Taxonomy, Pages, Navigation, Settings, Users, AuditLog, Account
+│       │   └── navigation.js   Sidebar sections and planned modules
+│       ├── components/ …       Public design system and page sections
+│       ├── pages/              Public pages
+│       ├── services/           apiClient.js, contentApi.js (public), adminApi.js (admin, cookie + CSRF aware)
+│       └── store/              Redux slices: site, topics, articles, products, auth
+├── backend/
 │   ├── app/
-│   │   ├── api/              /api/v1 resources (health, site, topics, articles, products)
-│   │   ├── config/           Development / testing / production configuration
-│   │   ├── data/             Temporary sample content (JSON, replaced by PostgreSQL)
-│   │   ├── extensions/       SQLAlchemy, Migrate and CORS instances
-│   │   ├── models/           SQLAlchemy models (Batch 02)
-│   │   ├── schemas/          Marshmallow request and response schemas
-│   │   ├── services/         Business logic and content repository abstraction
-│   │   └── utils/            Response envelopes and JSON error handling
-│   ├── tests/                pytest suite
-│   ├── requirements.txt      Runtime dependencies (requirements-dev.txt adds test tools)
-│   └── wsgi.py               WSGI entry point (Flask CLI and Gunicorn)
-├── deploy/                   Nginx and systemd example configuration
-├── docs/                     Architecture and deployment documentation
+│   │   ├── api/                Public /api/v1 resources; api/admin/ for /api/v1/admin resources
+│   │   ├── auth/               permissions.py (roles → permissions), decorators.py, session.py (JWT cookies), passwords.py, roles.py
+│   │   ├── cms/                blocks.py (article blocks), sections.py (page sections), settings_registry.py, defaults.py
+│   │   ├── models/             SQLAlchemy models (user, content, cms, audit, portable types)
+│   │   ├── schemas/            Marshmallow request schemas (strict) and public response schemas
+│   │   ├── services/           Public queries, admin services, audit, settings, navigation, publication, seed
+│   │   ├── data/               JSON fixtures: import source for the sample content and products dataset
+│   │   └── cli.py              flask admin / seed / cms / content commands
+│   ├── migrations/             Alembic migrations (version-controlled)
+│   └── tests/                  pytest suite
+├── deploy/                     Nginx and systemd examples
+├── docs/                       architecture.md, deployment.md
 └── scripts/build-production.sh
 ```
 
 ## 3. Requirements
 
-- **Python 3.11 or newer** (tested with 3.13)
-- **Node.js 20.19+ or 22.12+** (Node 22 LTS recommended) and npm
-- On Ubuntu WSL: `sudo apt install python3 python3-venv python3-pip`
+- Python 3.11 or newer (tested with 3.13), with `python3-venv`
+- Node.js 20.19+ or 22.12+ and npm (Node 22 LTS recommended)
+- PostgreSQL 14+ for production. It is **not** needed for local development or tests, which use SQLite.
 
 ## 4. Environment variables
 
-Both apps run without any configuration. Copy the examples to customise them:
-
 ```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env.local
+cp backend/.env.example backend/.env          # server-side only; never commit it
+cp frontend/.env.example frontend/.env.local  # VITE_* values are public; never put secrets there
 ```
 
-Backend (`backend/.env`, server-side only):
+Key backend variables (all documented in `backend/.env.example`):
 
-| Variable                                                                              | Purpose                                                                                      |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `FLASK_CONFIG`                                                                        | `development` (default), `testing` or `production`                                           |
-| `SECRET_KEY`                                                                          | Required in production                                                                       |
-| `DATABASE_URL`                                                                        | Required in production (PostgreSQL). Development falls back to SQLite in `backend/instance/` |
-| `CORS_ORIGINS`                                                                        | Comma-separated list of approved browser origins (default: the Vite dev server)              |
-| `TRUST_PROXY`                                                                         | `1` behind Nginx                                                                             |
-| `CONTACT_EMAIL`, `PARTNERSHIPS_EMAIL`, `SOCIAL_*`, `MEDIA_KIT_URL`, `NEWSLETTER_OPEN` | Public business settings returned by `/api/v1/site`. Each one stays hidden until it is set   |
+| Variable                                     | Purpose                                                                                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `FLASK_CONFIG`                               | `development` (default), `testing` or `production`                                                                                    |
+| `SECRET_KEY`, `JWT_SECRET_KEY`               | Required in production (JWT key at least 32 characters). Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `DATABASE_URL`                               | PostgreSQL in production. Development defaults to `backend/instance/tpa-dev.db` (SQLite)                                              |
+| `ACCESS_TOKEN_MINUTES`, `REFRESH_TOKEN_DAYS` | Session lifetimes (default 15 minutes / 14 days)                                                                                      |
+| `JWT_COOKIE_SECURE`                          | Forced on in production; Secure cookies need HTTPS                                                                                    |
+| `RATELIMIT_STORAGE_URI`                      | `memory://` for one process; use Redis when running several Gunicorn workers                                                          |
+| `CORS_ORIGINS`, `TRUST_PROXY`                | Approved browser origins (also used for the admin Origin check); set `TRUST_PROXY=1` behind Nginx                                     |
+| `FRONTEND_BUILD_MANIFEST`                    | Where the prerender manifest is read for the "rebuild required" indicator                                                             |
+| `TEST_DATABASE_URL`                          | Optional: run pytest against a disposable PostgreSQL database                                                                         |
 
-Frontend (`frontend/.env.local`). `VITE_*` values are embedded in the browser bundle, so never put secrets in them:
+Frontend variables (`VITE_SITE_URL`, `VITE_ALLOW_INDEXING`, `VITE_API_BASE_URL`, `PRERENDER_API_URL`) are unchanged from Batch 01.
 
-| Variable              | Purpose                                                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `VITE_SITE_URL`       | Public origin for canonical URLs, Open Graph and the sitemap (default `http://localhost:5173`)                           |
-| `VITE_ALLOW_INDEXING` | `true` **only** for the verified production build. Any other value produces `noindex` tags and a disallow-all robots.txt |
-| `VITE_API_BASE_URL`   | Browser API base (default `/api/v1`, proxied by Vite in development and by Nginx in production)                          |
-| `API_PROXY_TARGET`    | Flask origin for the Vite dev proxy (default `http://127.0.0.1:5000`)                                                    |
-| `PRERENDER_API_URL`   | Flask API used during `npm run build` (default `http://127.0.0.1:5000/api/v1`)                                           |
-
-## 5. Local development (Ubuntu WSL)
-
-**Backend** (terminal 1):
+## 5. Local setup (Ubuntu WSL, SQLite)
 
 ```bash
+# Backend
 cd ~/development/code/tpa/backend
-python3 -m venv .venv
+python3 -m venv .venv            # skip if it already exists
 source .venv/bin/activate
 pip install -r requirements-dev.txt
-flask --app wsgi run --debug          # http://127.0.0.1:5000/api/v1/health
-```
+flask --app wsgi db upgrade                     # create or upgrade the schema (explicit, never automatic)
+flask --app wsgi seed sample-content            # development only: 6 sample articles + 8 topics (idempotent)
+flask --app wsgi cms seed-defaults              # editable default navigation + homepage section config
+flask --app wsgi admin create-superadmin --email you@example.com --name "Your Name"   # prompts for a password
+flask --app wsgi run --debug                    # http://127.0.0.1:5000/api/v1/health
 
-**Frontend** (terminal 2):
-
-```bash
+# Frontend (second terminal)
 cd ~/development/code/tpa/frontend
 npm install
-npm run dev                            # http://localhost:5173 (proxies /api to Flask)
+npm run dev                                     # http://localhost:5173 and http://localhost:5173/admin
 ```
 
-The frontend and backend start independently. If the API is not running, the site shell still renders and each content section shows a retry message.
+The Vite dev server proxies `/api` to Flask, so the admin's HttpOnly cookies are same-origin. Always open the admin through `localhost:5173`, not the Flask port.
 
-## 6. Tests and quality checks
+## 6. Database and migrations
+
+- The schema is managed **only** by Alembic. The app never calls `create_all()` at startup.
+- Upgrade: `flask --app wsgi db upgrade`. Check status: `flask --app wsgi db current`.
+- After changing models: `flask --app wsgi db migrate -m "describe change"`, **review the generated file**, then upgrade.
+- Downgrade one step: `flask --app wsgi db downgrade -1`. Downgrading the initial migration drops every table. Back up first:
+  - PostgreSQL: `pg_dump --format=custom --file=tpa-$(date +%F).dump "$DATABASE_URL"`
+  - SQLite: `cp backend/instance/tpa-dev.db backend/instance/tpa-dev-$(date +%F).db`
+- The initial migration creates all tables and the four built-in roles. It drops no existing data.
+
+PostgreSQL (development or production):
+
+```bash
+sudo -u postgres psql -c "CREATE USER tpa_user WITH PASSWORD 'choose-a-strong-password';"
+sudo -u postgres psql -c "CREATE DATABASE tpa OWNER tpa_user;"
+# backend/.env
+DATABASE_URL=postgresql+psycopg://tpa_user:choose-a-strong-password@127.0.0.1:5432/tpa
+flask --app wsgi db upgrade
+```
+
+### Database model overview
+
+| Area       | Tables                                                                                                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access     | `users`, `roles`, `user_roles` (who assigned, when), `refresh_tokens` (rotation and revocation)                                                                             |
+| Editorial  | `articles` (JSON/JSONB blocks, status, SEO, canonical, provenance), `topics`, `tags`, `authors`, `article_topics`, `article_tags`, `media_assets` (public/private metadata) |
+| CMS        | `site_settings` (registered, validated keys), `navigation_menus`, `navigation_items`, `pages`, `page_sections` (approved types and variants)                                |
+| Operations | `audit_logs` (sanitised), `content_revisions` (public-affecting changes, drives the rebuild indicator)                                                                      |
+
+All timestamps are timezone-aware UTC. Statuses are enforced with check constraints. Slugs are unique, and foreign keys use `RESTRICT` where deletion would orphan content.
+
+## 7. Authentication architecture
+
+- **Login** (`POST /api/v1/admin/auth/login`): credentials are checked against a Werkzeug **scrypt** hash. Unknown email, wrong password and disabled account all return the same generic error, with similar timing.
+- **Sessions:** Flask-JWT-Extended sets **HttpOnly, SameSite=Strict** cookies (Secure in production).
+  - Access token: 15 minutes, cookie path `/api/`.
+  - Refresh token: 14 days, cookie path `/api/v1/admin/auth/`, recorded in `refresh_tokens`.
+  - No token is ever exposed to JavaScript, localStorage or Redux.
+- **Refresh** rotates the refresh token. Presenting an already-rotated token is treated as theft and revokes every session of that user.
+- **Logout** revokes the refresh token and clears the cookies. **Password change** and **account disable** bump the user's `session_version`, which invalidates every outstanding access token immediately.
+- **CSRF:** double-submit tokens. Every cookie-authenticated mutation must send `X-CSRF-TOKEN` matching the readable `csrf_*` cookie. Admin mutations from untrusted `Origin`s are also rejected.
+- **Rate limits:** login is limited to 5/minute and 20/hour per IP, plus 10/hour per email. Password changes are limited to 10/minute, and refresh to 30/minute.
+- **CORS:** the admin API has no CORS. It is only served same-origin, through the Vite proxy or Nginx.
+
+### First super administrator
+
+```bash
+flask --app wsgi admin create-superadmin --email owner@example.com --name "Owner Name"
+# Password prompt is hidden and asked twice. For automation without shell history:
+#   read -s PW && printf '%s\n' "$PW" | flask --app wsgi admin create-superadmin --email … --name … --password-stdin
+```
+
+There are no default credentials and no development backdoor. The command refuses to run if an active super administrator already exists; add further admins from **Admin → Users**.
+
+## 8. Roles and permissions
+
+Roles are stored in the database. What each role may do is defined centrally in `backend/app/auth/permissions.py`, and the frontend receives the resolved permission list.
+
+| Permission                                                  | Super admin | Editor | Moderator | Analyst |
+| ----------------------------------------------------------- | :---------: | :----: | :-------: | :-----: |
+| dashboard.view, content.read                                |      ✓      |   ✓    |     ✓     |    ✓    |
+| content.write (articles, topics, tags, authors)             |      ✓      |   ✓    |           |         |
+| content.publish (publish, schedule)                         |      ✓      |   ✓    |           |         |
+| content.moderate (unpublish, archive)                       |      ✓      |   ✓    |     ✓     |         |
+| pages.read                                                  |      ✓      |   ✓    |     ✓     |         |
+| pages.write                                                 |      ✓      |   ✓    |           |         |
+| navigation.manage, settings.manage                          |      ✓      |        |           |         |
+| users.manage (accounts, roles, password resets), audit.read |      ✓      |        |           |         |
+| reports.read                                                |      ✓      |        |           |    ✓    |
+
+The last active super administrator cannot be demoted or disabled, and administrators cannot disable their own account. Role changes take effect on the next request. Every admin endpoint is enforced in Flask, whatever the UI shows.
+
+## 9. Admin routes
+
+`/admin/login`, `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/pages` (and `/admin/pages/:id`), `/admin/navigation`, `/admin/settings`, `/admin/users`, `/admin/audit-log`, `/admin/account` (change password).
+
+Future modules (products, orders, customers, newsletter, partnerships, advertising, affiliates, courses, memberships, analytics, SEO tools, media library, licensing) are listed in the sidebar as **Planned**, without links.
+
+## 10. CMS publishing workflow and SEO build
+
+1. Editors create a **draft**, edit content blocks and metadata, and preview.
+2. **Publish now** makes the article `published` immediately. **Schedule** sets `scheduled` with a future `published_at`.
+3. Public endpoints only return articles that are `published` with `published_at` in the past. Drafts, scheduled and archived articles never appear publicly.
+4. The static site is **not** rebuilt automatically, and no API request runs shell commands. Every public-affecting change is recorded in `content_revisions`, and the dashboard compares it with the last build's `prerender-manifest.json`, showing **"rebuild required"** when they differ.
+5. Rebuild: `./scripts/build-production.sh`. Prerendering discovers articles and topics from the API, so new slugs need no frontend changes and the sitemap updates automatically.
+6. **Scheduled articles do not publish themselves.** Run `flask --app wsgi content publish-due` (manually, or from a systemd timer or cron job), then rebuild. Until then they stay hidden even after their time passes.
+7. The slug is locked after first publication, so URLs stay stable. Indexing stays disabled unless `VITE_ALLOW_INDEXING=true` is set for the production build.
+
+**What the CMS controls today, publicly:** articles, topics, tags, authors, site name and descriptions, contact email, social links, SEO defaults (title, description, sharing image), footer text, newsletter-open flag, media-kit URL, and primary and footer navigation. All of these appear on the website after the next build. **Not yet:** the homepage and page section content are stored and editable in the admin, but the public pages still render their approved designs from code; connecting them is the Batch 04 page builder. The products endpoint still serves the JSON preview dataset until the commerce batch.
+
+## 11. Tests and checks
 
 ```bash
 # Backend
 cd backend && source .venv/bin/activate
-python -m pytest             # API, service and configuration tests
+python -m pytest                     # auth, RBAC, CMS, migrations, public API compatibility
 ruff check . && ruff format --check .
+# Optional: run the suite against PostgreSQL
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@127.0.0.1:5432/tpa_pytest python -m pytest
 
 # Frontend
 cd frontend
-npm run lint
-npm run format:check
-npm run test                 # Vitest + React Testing Library
-npm run check                # lint + format check + tests
+npm run check                        # ESLint + Prettier + Vitest
+npm run build                        # needs the API running (or use ../scripts/build-production.sh)
+npm run serve:dist                   # preview the static build at http://localhost:4173 (proxies /api to :5000)
 ```
 
-## 7. Production build
+## 12. Security precautions
 
-The build prerenders pages from the API, so Flask must be reachable. The helper script starts a temporary local API for you:
+- Never commit `.env` files, database files or dumps. Generate unique `SECRET_KEY` and `JWT_SECRET_KEY` values per environment.
+- Serve production over HTTPS only, with Secure cookies, and keep the admin same-origin with the API.
+- Use a shared rate-limit store (Redis) when running more than one Gunicorn worker.
+- Article blocks, section content and settings accept **plain text only**: HTML tags, control characters and `javascript:` links are rejected. React renders all content as text.
+- Request bodies are validated with strict Marshmallow schemas (unknown fields rejected). Queries go through the SQLAlchemy ORM (parameterised).
+- The audit log redacts any field that looks like a password, token or secret. Errors never include stack traces.
+- Deleting topics, authors or tags that articles still use is refused (reassign or archive instead). Articles are archived, never hard-deleted.
 
-```bash
-./scripts/build-production.sh
-# or, with the API already running:
-cd frontend && npm run build
-# Preview the result exactly as Nginx will serve it (real 404s, /api proxy):
-npm run serve:dist           # http://localhost:4173
-```
+## 13. Deferred features
 
-For a production build, set `VITE_SITE_URL` to the real domain. Set `VITE_ALLOW_INDEXING=true` only after the domain is verified and the site is ready to launch.
-
-`npm run build` runs three steps:
-
-1. `vite build`: the client bundle in `dist/`.
-2. `vite build --ssr`: a server render bundle in `.ssr/` (temporary).
-3. `node scripts/prerender.mjs`: fetches topics and articles from Flask and writes `dist/<route>/index.html` for every public route, plus `dist/404.html`, `sitemap.xml`, `robots.txt` and `prerender-manifest.json`. The build fails if the API is unreachable or returns errors, so it never ships empty pages.
-
-## 8. SEO and prerendering approach
-
-- **Why build-time prerendering?** TPA's editorial pages change only when content is published. Static HTML is the fastest, most robust option for crawlers and Core Web Vitals, and it keeps Flask as the only runtime service. A Node SSR server would be a second production process with no benefit at this stage. Vite's official SSR build is used directly with a small prerender script, which avoids a third-party prerender plugin that could break on Vite upgrades.
-- **Every prerendered page contains:** a unique `<title>`, meta description, canonical URL, robots directive, Open Graph and Twitter tags, article metadata, JSON-LD (Organization, WebSite, Article, BreadcrumbList), semantic headings, image alt text, the full article content, and serialised Redux state for hydration.
-- **Head management:** `react-helmet-async` v3 hands tags to React 19's native metadata hoisting and no longer collects head tags during server rendering, so a small built-in head manager is used instead (`src/components/seo/`). It writes into static HTML during prerendering and updates `document.head` during client navigation.
-- **Invalid URLs:** unknown routes and slugs get `404.html` with an HTTP 404 status (Nginx `try_files … =404`). In the browser, the same unknown slugs render the not-found page.
-- **Indexing safeguards:** pages are `noindex` and robots.txt disallows everything unless `VITE_ALLOW_INDEXING=true`.
-- **Slugs and migration:** article slugs come from the API unchanged. Legacy URLs are redirected with Nginx 301 rules (`deploy/nginx/redirects.conf.example`). Articles carry `seo.canonical_url` and legacy fields; an article with an external canonical is left out of the sitemap.
-- **New content:** the prerenderer discovers topics and articles from the API, so content published in PostgreSQL appears after the next build with no frontend code changes. Real-time publishing (a rebuild triggered by the CMS) is planned for the admin batches and is **not implemented yet**. See `docs/architecture.md`.
-
-## 9. API (v1)
-
-All responses use `{"data": …, "meta": {…}}`; errors use `{"error": {"code", "message", "details?"}}` with the correct HTTP status. Internal errors never expose stack traces.
-
-| Endpoint                      | Notes                                                  |
-| ----------------------------- | ------------------------------------------------------ |
-| `GET /api/v1/health`          | Service status                                         |
-| `GET /api/v1/site`            | Public business settings                               |
-| `GET /api/v1/topics`          | `?featured=true\|false`                                |
-| `GET /api/v1/topics/<slug>`   | 404 for unknown slugs                                  |
-| `GET /api/v1/articles`        | `?topic=&featured=&page=&page_size=` (≤ 50), paginated |
-| `GET /api/v1/articles/<slug>` | Article with body plus related articles                |
-| `GET /api/v1/products`        | Upcoming product previews (no prices or purchasing)    |
-
-## 10. Future PostgreSQL configuration
-
-```bash
-sudo -u postgres psql -c "CREATE USER tpa_user WITH PASSWORD 'change-me';"
-sudo -u postgres psql -c "CREATE DATABASE tpa OWNER tpa_user;"
-# backend/.env
-DATABASE_URL=postgresql+psycopg://tpa_user:change-me@127.0.0.1:5432/tpa
-flask --app wsgi db init      # once, when the first models land (Batch 02)
-flask --app wsgi db migrate -m "initial schema" && flask --app wsgi db upgrade
-```
-
-`postgres://` and `postgresql://` URLs are normalised to the psycopg 3 driver automatically.
-
-## 11. Deployment architecture
-
-Nginx serves `frontend/dist` and proxies `/api/` to Gunicorn (`wsgi:app`), which systemd keeps running, with PostgreSQL behind it. Example configs are in `deploy/`, and step-by-step instructions are in `docs/deployment.md`. Nothing has been deployed yet.
-
-## 12. Deferred features
-
-Authentication (Flask-JWT-Extended), role-based access, the admin dashboard and CMS, database models and migrations, Paystack checkout, digital downloads, customer accounts, newsletter provider integration, contact forms, analytics, migration of the old website's articles, CMS-triggered rebuilds, and per-article OG image generation for new content (new articles currently fall back to the default share image).
+Media uploads and the media library UI, the rich page builder connected to public pages (Batch 04), automatic rebuild/deploy on publish, an automatic scheduler, product catalogue and checkout (Paystack), customers and orders, newsletter provider integration, memberships, courses, affiliates, advertising, analytics, email verification and password-reset email flows, two-factor authentication, and migration of the previous website's articles.

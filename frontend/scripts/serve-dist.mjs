@@ -1,7 +1,8 @@
 /**
  * Local production preview that mirrors the Nginx configuration in
  * docs/deployment.md: static files from dist/, `<path>/index.html` for
- * prerendered routes, dist/404.html with HTTP 404 for unknown URLs, and
+ * prerendered routes, the admin SPA shell for /admin/*, dist/404.html with
+ * HTTP 404 for unknown URLs, and
  * /api proxied to Flask. Usage: npm run serve:dist  (PORT, API_PROXY_TARGET)
  */
 import { createReadStream } from "node:fs";
@@ -74,6 +75,8 @@ http
     }
     const file = await resolveFile(pathname);
     if (file) send(res, 200, file);
+    else if (pathname === "/admin" || pathname.startsWith("/admin/"))
+      send(res, 200, path.join(distDir, "admin", "index.html"));
     else send(res, 404, path.join(distDir, "404.html"));
   })
   .listen(port, () =>

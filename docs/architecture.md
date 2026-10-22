@@ -3,36 +3,47 @@
 ## Overview
 
 ```
-Browser ──► Nginx ──► frontend/dist (prerendered HTML, JS, CSS, images)
-                 └──► /api/* ──► Gunicorn ──► Flask (app factory)
-                                              ├── api/       Flask-RESTful resources (/api/v1)
-                                              ├── schemas/   Marshmallow validation and serialisation
-                                              ├── services/  business logic
-                                              └── services/content_repository.py
-                                                    ├── LocalContentRepository (JSON, Batch 01)
-                                                    └── SQLAlchemy repository (Batch 02, PostgreSQL)
+Browser ──► Nginx ──► frontend/dist         prerendered public HTML + JS/CSS
+                 │      └── /admin/*         client-only admin SPA shell (noindex, no-store)
+                 └──► /api/* ──► Gunicorn ──► Flask app factory
+                                              ├── api/          public /api/v1 (GET only, CORS allow-list)
+                                              ├── api/admin/    /api/v1/admin (JWT cookies + CSRF + RBAC)
+                                              ├── auth/         permissions, decorators, sessions, passwords
+                                              ├── cms/          blocks, sections, settings registry, defaults
+                                              ├── services/     public queries, admin services, audit, publication
+                                              └── models/       SQLAlchemy → PostgreSQL (SQLite locally)
 ```
 
-Flask is the single source of truth for content and business settings. The React app reads everything through Axios (`src/services`) and stores shared server data in Redux Toolkit slices (`site`, `topics`, `articles`, `products`). Local UI state such as the mobile menu stays in components; the article filter lives in the URL.
+Flask is the single source of truth. The public React app reads content through `contentApi`; the admin uses `adminApi` (an Axios instance with cookie credentials, CSRF headers and single-flight session refresh). Redux holds shared public content and the admin **profile** (never tokens); individual admin screens keep their data locally via `useAdminQuery`.
 
-## Data flow
+## Content repository migration
 
-1. Each route in `src/routes/routeConfig.js` declares the thunks its page needs (`load`).
-2. **Prerendering:** `entry-server.jsx` dispatches those thunks against the Flask API, renders the page with `StaticRouter`, collects head tags, and returns HTML, head and the Redux state.
-3. **Browser:** `entry-client.jsx` hydrates the prerendered HTML using the serialised state, so there is no refetch. On later client navigation, page hooks (`src/hooks/useContent.js`) fetch whatever is missing, with loading, error and retry states.
+Batch 01 read JSON files through `LocalContentRepository`. Batch 02 moves topics and articles to SQLAlchemy queries in `services/topic_service.py` and `services/article_service.py`. The public response shapes are unchanged, as the Batch 01 compatibility tests confirm. Products still come from the JSON dataset. The JSON fixtures remain as the import source for `flask seed sample-content`, which matches records by slug and never overwrites existing rows.
 
-## Publishing PostgreSQL content without frontend changes
+## Authorization
 
-The prerender script never hard-codes slugs. It calls `GET /api/v1/topics` and pages through `GET /api/v1/articles`, so once Batch 02 swaps `LocalContentRepository` for a database repository, newly published articles are prerendered by the next build automatically.
+`auth/permissions.py` defines permissions and the role → permission mapping. Every admin resource method is wrapped with `@require_permission(...)`, which verifies the access cookie, loads the user (it must be active and its `session_version` must match) and checks permissions from the user's current roles on each request. A test enumerates every admin route to make sure it rejects unauthenticated access. Frontend checks (`usePermissions`, `RequirePermission`, filtered navigation) only improve the experience.
 
-Planned for the CMS batches (not implemented):
+## Publishing / rebuild contract
 
-- On publish, update or unpublish, the API queues a rebuild job (for example, a systemd path unit or a small worker running `scripts/build-production.sh` against the live API) and atomically swaps `frontend/dist`.
-- An optional incremental mode would re-render only changed slugs by calling `render(url)` for each affected path.
-- Per-article OG images would be generated or uploaded and exposed as `seo.og_image`, which the frontend already uses.
+```
+admin action (publish/unpublish/edit published/settings/navigation/topic change)
+   └─► content_revisions row (+ audit_logs row)
+build: scripts/build-production.sh → npm run build → prerender.mjs writes dist/prerender-manifest.json (generatedAt)
+dashboard: GET /api/v1/admin/publishing/status → rebuild_required = latest revision > generatedAt
+```
+
+No HTTP request starts a build or runs shell commands. A future batch can add a worker or systemd path unit that watches `content_revisions` and runs the build script, then swaps `dist/` atomically.
+
+Scheduled articles stay hidden until `flask content publish-due` promotes them (`scheduled` → `published`, recording a revision). The public filter also requires `published_at <= now`, so publishing never leaks content early.
+
+## CMS data validation
+
+- **Article blocks** (`cms/blocks.py`): paragraph, heading (level 2–3), ordered or unordered list, quote, callout (info/tip/warning), divider. Plain text only, length limits, and unknown fields are rejected.
+- **Page sections** (`cms/sections.py`): approved types with fixed field definitions and layout variants. The admin builds its forms from `GET /admin/section-types`, so field definitions are not duplicated in the frontend.
+- **Settings** (`cms/settings_registry.py`): only registered keys can be stored, each with a type (string, text, email, https URL, path or https, boolean). Defaults keep a fresh install working.
+- **Navigation:** internal links must be site paths and external links `https://`. Footer groups are one level deep.
 
 ## Migration readiness
 
-- Article records keep their original `slug`, plus `source` (`sample` | `original` | `migrated`), `legacy` (`original_path`, `original_url`, `canonical_url`, `imported_at`) and `seo` overrides.
-- The JSON sample format in `backend/app/data/articles.json` doubles as the import format.
-- Legacy URL redirects belong in Nginx (`deploy/nginx/redirects.conf.example`) as 301s.
+Articles keep `slug`, `original_slug`, `original_url`, `canonical_url`, `source` (`sample` | `original` | `migrated`) and `noindex`. Legacy URL redirects belong in Nginx (`deploy/nginx/redirects.conf.example`).

@@ -1,66 +1,74 @@
+"""Public article queries. Only published articles whose publish time has passed are visible."""
+
 from __future__ import annotations
 
 import math
+from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import func, or_, select
+
+from ..extensions import db
+from ..models import Article, Topic, article_topics
 from ..utils.errors import NotFoundError
-from .content_repository import Record, get_repository
-from .topic_service import topic_lookup
-
-WORDS_PER_MINUTE = 225
+from .serializers import public_article
 
 
-def reading_time(body: list[Record]) -> int:
-    words = 0
-    for block in body:
-        text = (
-            " ".join(block.get("items", []))
-            if block.get("type") == "list"
-            else block.get("text", "")
-        )
-        words += len(text.split())
-    return max(1, round(words / WORDS_PER_MINUTE))
+def _now() -> datetime:
+    return datetime.now(UTC)
 
 
-def _enrich(article: Record, topics: dict[str, Record]) -> Record:
-    topic = topics.get(article["topic_slug"])
-    seo = article.get("seo") or {}
-    legacy = article.get("legacy") or {}
-    return {
-        **article,
-        "reading_time_minutes": article.get("reading_time_minutes")
-        or reading_time(article["body"]),
-        "topic": {"slug": topic["slug"], "name": topic["name"]} if topic else None,
-        "canonical_url": seo.get("canonical_url") or legacy.get("canonical_url"),
-    }
+def published_filter():
+    return (Article.status == "published") & (Article.published_at <= _now())
 
 
-def _published() -> list[Record]:
-    topics = topic_lookup()
-    items = [
-        _enrich(a, topics)
-        for a in get_repository().list_articles()
-        if a.get("status") == "published"
-    ]
-    return sorted(items, key=lambda a: a["published_at"], reverse=True)
+def _topic_filter(slug: str):
+    return or_(
+        Article.primary_topic.has(Topic.slug == slug),
+        Article.secondary_topics.any(Topic.slug == slug),
+    )
+
+
+def published_topic_counts() -> dict[int, int]:
+    """Published article count per topic (primary or secondary, counted once)."""
+    pairs: set[tuple[int, int]] = set()
+    rows = db.session.execute(
+        select(Article.id, Article.primary_topic_id).where(published_filter())
+    )
+    for article_id, topic_id in rows:
+        if topic_id:
+            pairs.add((article_id, topic_id))
+    secondary = db.session.execute(
+        select(article_topics.c.article_id, article_topics.c.topic_id)
+        .join(Article, Article.id == article_topics.c.article_id)
+        .where(published_filter())
+    )
+    pairs.update((a, t) for a, t in secondary)
+    counts: dict[int, int] = {}
+    for _, topic_id in pairs:
+        counts[topic_id] = counts.get(topic_id, 0) + 1
+    return counts
 
 
 def list_articles(
     *, topic: str | None = None, featured: bool | None = None, page: int = 1, page_size: int = 12
-) -> tuple[list[Record], dict[str, Any]]:
-    items = _published()
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    conditions = [published_filter()]
     if topic:
-        items = [
-            a
-            for a in items
-            if a["topic_slug"] == topic or topic in a.get("secondary_topic_slugs", [])
-        ]
+        conditions.append(_topic_filter(topic))
     if featured is not None:
-        items = [a for a in items if bool(a.get("featured")) is featured]
+        conditions.append(Article.featured.is_(featured))
 
-    total = len(items)
+    total = db.session.scalar(select(func.count(Article.id)).where(*conditions)) or 0
+    stmt = (
+        select(Article)
+        .where(*conditions)
+        .order_by(Article.published_at.desc(), Article.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    items = [public_article(a, include_body=False) for a in db.session.scalars(stmt)]
     total_pages = max(1, math.ceil(total / page_size))
-    start = (page - 1) * page_size
     pagination = {
         "page": page,
         "page_size": page_size,
@@ -69,26 +77,36 @@ def list_articles(
         "has_next": page < total_pages,
         "has_prev": page > 1,
     }
-    return items[start : start + page_size], pagination
+    return items, pagination
 
 
-def get_article(slug: str) -> Record:
-    for article in _published():
-        if article["slug"] == slug:
-            return article
-    raise NotFoundError(f"Article '{slug}' was not found.")
+def get_article_model(slug: str) -> Article:
+    article = db.session.scalar(select(Article).where(Article.slug == slug, published_filter()))
+    if article is None:
+        raise NotFoundError(f"Article '{slug}' was not found.")
+    return article
 
 
-def related_articles(article: Record, limit: int = 3) -> list[Record]:
+def get_article(slug: str) -> dict[str, Any]:
+    return public_article(get_article_model(slug))
+
+
+def related_articles(slug: str, limit: int = 3) -> list[dict[str, Any]]:
     """Same primary topic first, then shared secondary topics, then most recent."""
-    own = {article["topic_slug"], *article.get("secondary_topic_slugs", [])}
+    article = get_article_model(slug)
+    own = {t.id for t in article.secondary_topics} | {article.primary_topic_id}
+    candidates = db.session.scalars(
+        select(Article)
+        .where(published_filter(), Article.id != article.id)
+        .order_by(Article.published_at.desc(), Article.id.desc())
+        .limit(60)
+    ).all()
 
-    def score(other: Record) -> int:
-        if other["topic_slug"] == article["topic_slug"]:
+    def score(other: Article) -> int:
+        if other.primary_topic_id and other.primary_topic_id == article.primary_topic_id:
             return 2
-        theirs = {other["topic_slug"], *other.get("secondary_topic_slugs", [])}
+        theirs = {t.id for t in other.secondary_topics} | {other.primary_topic_id}
         return 1 if own & theirs else 0
 
-    others = [a for a in _published() if a["id"] != article["id"]]
-    # sorted() is stable, so recency order is preserved within each score.
-    return sorted(others, key=score, reverse=True)[:limit]
+    ranked = sorted(candidates, key=score, reverse=True)[:limit]
+    return [public_article(a, include_body=False) for a in ranked]

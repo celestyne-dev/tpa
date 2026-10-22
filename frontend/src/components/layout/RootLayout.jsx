@@ -32,7 +32,7 @@ export function RootLayout() {
       <main ref={mainRef} id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
         <Outlet />
       </main>
-      <SiteFooter socialLinks={socialLinks} />
+      <SiteFooter site={site} />
       <JsonLd data={[organizationJsonLd(socialLinks), websiteJsonLd()]} />
     </div>
   );

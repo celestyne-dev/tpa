@@ -1,17 +1,14 @@
-from datetime import UTC, datetime
+from datetime import datetime
 
-from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-
-def utcnow() -> datetime:
-    return datetime.now(UTC)
+from .types import UTCDateTime, utcnow
 
 
 class TimestampMixin:
-    """Common created/updated timestamps for future models."""
+    """Created/updated timestamps (timezone-aware UTC)."""
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+        UTCDateTime, default=utcnow, onupdate=utcnow, nullable=False
     )

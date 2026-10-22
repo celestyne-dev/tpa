@@ -1,3 +1,11 @@
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _sample_content(seeded):
+    """Public endpoints read the database; import the six sample articles first."""
+
+
 def _data(res):
     return res.get_json()["data"]
 
@@ -21,7 +29,7 @@ def test_site_settings(client):
     assert site["social_links"] == []
 
 
-def test_site_settings_only_exposes_https_social_links(app):
+def test_site_settings_only_exposes_https_social_links(app):  # env fallbacks
     app.config["SOCIAL_LINKS"] = {"linkedin": "https://www.linkedin.com/x", "x": "http://insecure"}
     app.config["CONTACT_EMAIL"] = "hello@example.org"
     site = _data(app.test_client().get("/api/v1/site"))

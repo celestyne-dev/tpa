@@ -9,7 +9,28 @@ const styles = {
 };
 
 /** Navigation link; React Router sets aria-current="page" on the active route. */
-export function NavItem({ href, variant = "desktop", className, children, ...props }) {
+export function NavItem({
+  href,
+  variant = "desktop",
+  external = false,
+  newTab = false,
+  className,
+  children,
+  ...props
+}) {
+  if (external) {
+    return (
+      <a
+        href={href}
+        className={cn(styles[variant], className)}
+        {...(newTab && { target: "_blank", rel: "noopener noreferrer" })}
+        {...props}
+      >
+        {children}
+        {newTab && <span className="sr-only"> (opens in a new tab)</span>}
+      </a>
+    );
+  }
   return (
     <NavLink to={href} end={href === "/"} className={cn(styles[variant], className)} {...props}>
       {children}

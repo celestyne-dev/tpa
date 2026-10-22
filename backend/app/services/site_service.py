@@ -2,66 +2,53 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import current_app
-
-SOCIAL_LABELS = {
-    "linkedin": "LinkedIn",
-    "instagram": "Instagram",
-    "facebook": "Facebook",
-    "x": "X",
-    "youtube": "YouTube",
-    "tiktok": "TikTok",
-    "pinterest": "Pinterest",
-}
-
-
-def _https(url: str) -> bool:
-    return url.startswith("https://")
+from ..cms.settings_registry import SOCIAL_PLATFORMS
+from ..utils.validation import is_https_url
+from .navigation_service import public_navigation
+from .settings_service import get_values
 
 
 def get_site_settings() -> dict[str, Any]:
-    """Public business settings. Only verified, configured values are returned."""
-    cfg = current_app.config
-    contact = cfg.get("CONTACT_EMAIL") or None
+    """Public site settings (Batch 01 shape plus CMS branding, SEO, footer and navigation)."""
+    v = get_values()
+    label = v["community.linkedin_followers_label"]
+    contact = v["contact.email"] or None
     social = [
-        {"platform": p, "label": SOCIAL_LABELS[p], "url": url}
-        for p, url in (cfg.get("SOCIAL_LINKS") or {}).items()
-        if url and _https(url) and p in SOCIAL_LABELS
+        {"platform": p, "label": name, "url": v[f"social.{p}"]}
+        for p, name in SOCIAL_PLATFORMS.items()
+        if v.get(f"social.{p}") and is_https_url(v[f"social.{p}"])
     ]
-    media_kit = cfg.get("MEDIA_KIT_URL") or None
     return {
-        "name": "Think Positive Always",
-        "short_name": "TPA",
-        "tagline": (
-            "Practical inspiration for a stronger mindset, more confidence, "
-            "and intentional personal growth."
-        ),
-        "description": (
-            "Think Positive Always offers practical encouragement, mindset insights, personal "
-            "growth articles and thoughtful resources to help you build confidence and grow "
-            "through every season of life."
-        ),
-        "mission": (
-            "Helping people develop a healthier mindset, navigate life's challenges, build "
-            "confidence, and move forward through encouragement, thoughtful content, and "
-            "useful personal development tools."
-        ),
+        "name": v["site.name"],
+        "short_name": v["site.short_name"],
+        "tagline": v["site.tagline"],
+        "description": v["site.description"],
+        "mission": v["site.mission"],
         "community": {
-            # Verified figure: LinkedIn followers only.
-            "linkedin_followers_label": "280,000+",
+            "linkedin_followers_label": label,
             "linkedin_followers_text": (
-                "more than 280,000 people who follow Think Positive Always on LinkedIn"
+                f"more than {label.rstrip('+')} people who follow {v['site.name']} on LinkedIn"
             ),
         },
         "newsletter": {
             "name": "The Positive Reset",
             "cadence": "weekly",
-            "is_open": bool(cfg.get("NEWSLETTER_OPEN")),
+            "is_open": bool(v["newsletter.is_open"]),
         },
         "contact": {
             "email": contact,
-            "partnerships_email": cfg.get("PARTNERSHIPS_EMAIL") or contact,
+            "partnerships_email": v["contact.partnerships_email"] or contact,
         },
         "social_links": social,
-        "media_kit_url": media_kit if media_kit and _https(media_kit) else None,
+        "media_kit_url": v["partnerships.media_kit_url"]
+        if is_https_url(v["partnerships.media_kit_url"] or "")
+        else None,
+        "branding": {"logo_url": v["branding.logo_url"]},
+        "seo": {
+            "default_title": v["seo.default_title"],
+            "default_description": v["seo.default_description"],
+            "default_og_image": v["seo.default_og_image"],
+        },
+        "footer": {"text": v["footer.text"]},
+        "navigation": public_navigation(),
     }

@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import { App } from "@/app/App";
 import { ApiError } from "@/services/apiClient";
 import { createAppStore } from "@/store";
+import { createFakeAdminApi } from "./adminFake";
 import * as fx from "./fixtures";
 
 export const notFound = (message = "Not found") =>
@@ -53,12 +54,15 @@ export function createFakeApi(overrides = {}) {
   };
 }
 
-export function renderApp(path = "/", { api = createFakeApi(), preloadedState } = {}) {
-  const store = createAppStore({ api, preloadedState });
+export function renderApp(
+  path = "/",
+  { api = createFakeApi(), adminApi = createFakeAdminApi(), preloadedState } = {},
+) {
+  const store = createAppStore({ api, adminApi, preloadedState });
   const utils = render(
     <MemoryRouter initialEntries={[path]}>
-      <App store={store} />
+      <App store={store} adminApi={adminApi} />
     </MemoryRouter>,
   );
-  return { ...utils, store, api };
+  return { ...utils, store, api, adminApi };
 }

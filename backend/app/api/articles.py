@@ -30,7 +30,7 @@ class ArticleListResource(Resource):
 class ArticleDetailResource(Resource):
     def get(self, slug: str):
         article = article_service.get_article(require_slug(slug, "Article"))
-        related = article_service.related_articles(article)
+        related = article_service.related_articles(slug)
         return success(
             {
                 "article": article_detail_schema.dump(article),

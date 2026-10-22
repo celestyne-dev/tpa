@@ -3,12 +3,14 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 import { ButtonLink } from "@/components/ui/Button";
-import { mainNav, routes } from "@/config/navigation";
+import { routes } from "@/config/navigation";
+import { useNavigation } from "@/hooks/useNavigation";
 import { NavItem } from "./NavItem";
 
 /** Accessible mobile navigation dialog: focus trap, Escape to close, focus restore, scroll lock. */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
+  const { primary } = useNavigation();
   const { pathname } = useLocation();
   const panelId = useId();
   const triggerRef = useRef(null);
@@ -102,9 +104,15 @@ export function MobileNav() {
             </div>
             <nav aria-label="Mobile" className="flex-1 overflow-y-auto px-3 py-6 sm:px-6">
               <ul className="space-y-1">
-                {mainNav.map((item) => (
+                {primary.map((item) => (
                   <li key={item.href}>
-                    <NavItem href={item.href} variant="mobile" onClick={() => setOpen(false)}>
+                    <NavItem
+                      href={item.href}
+                      external={item.external}
+                      newTab={item.newTab}
+                      variant="mobile"
+                      onClick={() => setOpen(false)}
+                    >
                       {item.label}
                     </NavItem>
                   </li>

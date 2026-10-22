@@ -107,6 +107,9 @@
   .prose-tpa h2 + * {
     margin-top: 0.8em;
   }
+  .prose-tpa h3 {
+    @apply mt-[1.8em] text-xl font-medium sm:text-2xl;
+  }
   .prose-tpa ul,
   .prose-tpa ol {
     @apply space-y-2 pl-6;

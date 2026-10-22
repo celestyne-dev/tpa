@@ -26,3 +26,25 @@ api.add_resource(TopicDetailResource, "/topics/<string:slug>")
 api.add_resource(ArticleListResource, "/articles")
 api.add_resource(ArticleDetailResource, "/articles/<string:slug>")
 api.add_resource(ProductListResource, "/products")
+
+# ---- Admin API ------------------------------------------------------------------
+from flask import request  # noqa: E402
+
+from ..auth.decorators import check_origin  # noqa: E402
+from .admin import ADMIN_ROUTES  # noqa: E402
+
+for resource, path in ADMIN_ROUTES:
+    api.add_resource(resource, path, endpoint=f"admin_{resource.__name__.lower()}")
+
+
+@api_v1.before_request
+def _admin_origin_guard():
+    if request.path.startswith("/api/v1/admin"):
+        check_origin()
+
+
+@api_v1.after_request
+def _admin_no_store(response):
+    if request.path.startswith("/api/v1/admin"):
+        response.headers["Cache-Control"] = "no-store"
+    return response

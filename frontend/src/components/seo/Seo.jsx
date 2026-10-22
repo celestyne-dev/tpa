@@ -1,4 +1,6 @@
 import { useContext, useEffect } from "react";
+import { useSelector } from "react-redux";
+import { selectSite } from "@/store/slices/siteSlice";
 import { applyHead, buildHead } from "./head";
 import { HeadContext } from "./headContext";
 
@@ -9,7 +11,8 @@ import { HeadContext } from "./headContext";
  */
 export function Seo(props) {
   const collector = useContext(HeadContext);
-  const head = buildHead(props);
+  const site = useSelector(selectSite)?.data;
+  const head = buildHead({ ...props, defaults: site?.seo, siteName: site?.name });
   collector?.setHead(head);
   const signature = JSON.stringify(head);
 

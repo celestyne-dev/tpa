@@ -1,33 +1,28 @@
+"""Public topic queries (database-backed)."""
+
 from __future__ import annotations
 
+from typing import Any
+
+from sqlalchemy import select
+
+from ..extensions import db
+from ..models import Topic
 from ..utils.errors import NotFoundError
-from .content_repository import Record, get_repository
+from .article_service import published_topic_counts
+from .serializers import public_topic
 
 
-def _published_counts() -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for article in get_repository().list_articles():
-        if article.get("status") != "published":
-            continue
-        for slug in {article["topic_slug"], *article.get("secondary_topic_slugs", [])}:
-            counts[slug] = counts.get(slug, 0) + 1
-    return counts
-
-
-def list_topics(featured: bool | None = None) -> list[Record]:
-    counts = _published_counts()
-    topics = get_repository().list_topics()
+def list_topics(featured: bool | None = None) -> list[dict[str, Any]]:
+    stmt = select(Topic).where(Topic.status == "active").order_by(Topic.display_order, Topic.name)
     if featured is not None:
-        topics = [t for t in topics if bool(t.get("featured")) is featured]
-    return [{**t, "article_count": counts.get(t["slug"], 0)} for t in topics]
+        stmt = stmt.where(Topic.featured.is_(featured))
+    counts = published_topic_counts()
+    return [public_topic(t, counts.get(t.id, 0)) for t in db.session.scalars(stmt)]
 
 
-def get_topic(slug: str) -> Record:
-    for topic in list_topics():
-        if topic["slug"] == slug:
-            return topic
-    raise NotFoundError(f"Topic '{slug}' was not found.")
-
-
-def topic_lookup() -> dict[str, Record]:
-    return {t["slug"]: t for t in get_repository().list_topics()}
+def get_topic(slug: str) -> dict[str, Any]:
+    topic = db.session.scalar(select(Topic).where(Topic.slug == slug, Topic.status == "active"))
+    if topic is None:
+        raise NotFoundError(f"Topic '{slug}' was not found.")
+    return public_topic(topic, published_topic_counts().get(topic.id, 0))

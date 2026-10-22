@@ -7,17 +7,19 @@ import { StrictMode } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { App } from "./app/App";
+import { createAdminApi } from "./services/adminApi";
 import { createAppStore } from "./store";
 
 const container = document.getElementById("root");
 const preloadedState = window.__TPA_STATE__;
 delete window.__TPA_STATE__;
-const store = createAppStore({ preloadedState });
+const adminApi = createAdminApi();
+const store = createAppStore({ preloadedState, adminApi });
 
 const app = (
   <StrictMode>
     <BrowserRouter>
-      <App store={store} />
+      <App store={store} adminApi={adminApi} />
     </BrowserRouter>
   </StrictMode>
 );
