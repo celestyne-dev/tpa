@@ -141,20 +141,25 @@ def _publish_due_locked() -> dict:
 
 @content_cli.command("publish-due")
 def publish_due():
-    """Publish scheduled articles whose time has passed (idempotent; queues a rebuild)."""
+    """Publish scheduled articles and pages whose time has passed (idempotent; queues a rebuild).
+
+    Also queues one rebuild when a section visibility window or an announcement starts or ends.
+    """
     result = _publish_due_locked()
     if result.get("skipped"):
         click.echo("Another scheduler run is in progress; skipped.")
     elif result["published"]:
         click.echo(
-            f"Published {len(result['published'])} scheduled article(s): "
+            f"Published {len(result['published'])} scheduled article(s)/page(s): "
             + ", ".join(result["published"])
             + ". A site rebuild has been queued."
         )
     else:
-        click.echo("No scheduled articles are due.")
+        click.echo("No scheduled articles or pages are due.")
+    if result.get("boundary_rebuild"):
+        click.echo("A scheduled section or announcement changed visibility; a rebuild was queued.")
     if result.get("failed"):
-        click.echo(f"{len(result['failed'])} article(s) failed; see the audit log.", err=True)
+        click.echo(f"{len(result['failed'])} item(s) failed; see the audit log.", err=True)
         sys.exit(1)
 
 

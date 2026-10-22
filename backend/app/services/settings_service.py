@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from ..auth.permissions import Permission as P
 from ..auth.rbac import effective_permissions
+from ..cms import settings_registry as registry
 from ..cms.settings_registry import SETTINGS, SETTINGS_BY_KEY, SettingDef, validate_setting
 from ..extensions import db
 from ..models import SiteSetting, User
@@ -27,7 +28,19 @@ def get_values() -> dict[str, Any]:
 
 
 # Settings groups managed by a dedicated permission; everything else needs settings.manage.
-GROUP_PERMISSIONS = {"SEO defaults": P.SEO_MANAGE}
+GROUP_PERMISSIONS = {
+    "SEO defaults": P.SEO_MANAGE,
+    "Branding": P.BRANDING_MANAGE,
+    "Header": P.NAVIGATION_MANAGE,
+    "Technical": P.SETTINGS_TECHNICAL,
+}
+CHOICE_LABELS = {
+    "branding.palette": registry.PALETTES,
+    "branding.typography": registry.TYPOGRAPHY,
+    "branding.button_shape": registry.BUTTON_SHAPES,
+    "branding.image_style": registry.IMAGE_STYLES,
+}
+SETTING_PERMISSIONS = tuple(dict.fromkeys([P.SETTINGS_MANAGE, *GROUP_PERMISSIONS.values()]))
 
 
 def setting_permission(definition: SettingDef) -> P:
@@ -38,26 +51,32 @@ def editable_by(user: User, definition: SettingDef) -> bool:
     return setting_permission(definition).value in effective_permissions(user)
 
 
-def admin_payload(user: User | None = None) -> dict[str, Any]:
+def admin_payload(
+    user: User | None = None, groups_filter: set[str] | None = None
+) -> dict[str, Any]:
     stored = {s.key: s for s in db.session.scalars(select(SiteSetting))}
     values = get_values()
     groups: dict[str, list[dict[str, Any]]] = {}
     for d in SETTINGS:
         if user is not None and not editable_by(user, d):
             continue
+        if groups_filter and d.group not in groups_filter:
+            continue
         record = stored.get(d.key)
-        groups.setdefault(d.group, []).append(
-            {
-                "key": d.key,
-                "label": d.label,
-                "type": d.type,
-                "max_length": d.max_length,
-                "help": d.help,
-                "value": values[d.key],
-                "is_default": record is None or record.value is None,
-                "updated_at": iso(record.updated_at) if record else None,
-            }
-        )
+        item = {
+            "key": d.key,
+            "label": d.label,
+            "type": d.type,
+            "max_length": d.max_length,
+            "help": d.help,
+            "value": values[d.key],
+            "is_default": record is None or record.value is None,
+            "updated_at": iso(record.updated_at) if record else None,
+        }
+        if d.type == "choice":
+            labels = CHOICE_LABELS.get(d.key, {})
+            item["choices"] = [{"value": c, "label": labels.get(c, c)} for c in d.choices]
+        groups.setdefault(d.group, []).append(item)
     return {"groups": [{"name": name, "settings": items} for name, items in groups.items()]}
 
 
@@ -78,6 +97,12 @@ def update_values(changes: dict[str, Any], actor: User) -> dict[str, Any]:
             errors[key] = [error]
         else:
             clean[key] = cleaned
+    media_keys = {k: v for k, v in clean.items() if SETTINGS_BY_KEY[k].type == "media" and v}
+    if media_keys:
+        from .admin.media_admin import media_ref_problems
+
+        for key, problem in media_ref_problems(media_keys).items():
+            errors[key] = [problem]
     if errors:
         raise ValidationError("Some settings are invalid.", details=errors)
 
@@ -93,6 +118,10 @@ def update_values(changes: dict[str, Any], actor: User) -> dict[str, Any]:
         record.value = value
         record.updated_by_id = actor.id
         changed[key] = {"from": before.get(key), "to": value}
+    if "branding.favicon_media_id" in changed and clean.get("branding.favicon_media_id"):
+        from .branding_service import generate_favicons
+
+        generate_favicons(clean["branding.favicon_media_id"])
     if changed:
         audit_service.record("settings.updated", "site_settings", actor=actor, details=changed)
         if any(SETTINGS_BY_KEY[k].public for k in changed):

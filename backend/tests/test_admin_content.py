@@ -261,7 +261,7 @@ def test_site_settings_are_validated_and_public(seeded, as_role, client):
 def test_navigation_management(seeded, as_role, client):
     api = as_role("super_admin")
     menus = api.get("/api/v1/admin/navigation").get_json()["data"]
-    assert [m["key"] for m in menus] == ["primary", "footer"]
+    assert [m["key"] for m in menus] == ["primary", "mobile", "footer", "legal"]
     bad = api.put(
         "/api/v1/admin/navigation/primary",
         {
@@ -305,7 +305,7 @@ def test_pages_and_sections(seeded, as_role):
     api = as_role("editor")
     pages = api.get("/api/v1/admin/pages").get_json()["data"]
     home = next(p for p in pages if p["slug"] == "home")
-    assert home["section_count"] == 9 and home["rendered_publicly"] is False
+    assert home["section_count"] == 9 and home["rendered_publicly"] is True
     detail = api.get(f"/api/v1/admin/pages/{home['id']}").get_json()["data"]
     hero = detail["sections"][0]
     assert hero["section_type"] == "hero"

@@ -61,7 +61,14 @@ def _known_paths() -> tuple[set[str], set[str], set[str], set[str]]:
     redirects = set(
         db.session.scalars(select(Redirect.source_path).where(Redirect.is_active.is_(True)))
     )
-    return {p for p, _, _ in STATIC_PATHS}, articles, topics, redirects
+    pages = set(
+        db.session.scalars(
+            select(Page.published_path).where(
+                Page.status == "published", Page.published_path.is_not(None)
+            )
+        )
+    )
+    return {p for p, _, _ in STATIC_PATHS} | pages, articles, topics, redirects
 
 
 def broken_links(hrefs: list[str], known=None) -> list[str]:
@@ -364,6 +371,93 @@ def slug_status(slug: str, exclude_id: int | None) -> dict[str, Any]:
     }
 
 
+# ---- CMS pages ---------------------------------------------------------------------------
+
+
+def check_page_document(doc: dict[str, Any], *, is_home: bool = False) -> list[dict[str, Any]]:
+    """Practical, non-blocking SEO checks for a CMS page document."""
+    meta = doc.get("page") or {}
+    checks: list[dict[str, Any]] = []
+    title = meta.get("seo_title") or meta.get("title") or ""
+    if not meta.get("seo_title") and not is_home:
+        checks.append(
+            _check(
+                "missing_seo_title", "info", "No SEO title: the page title is used.", "seo_title"
+            )
+        )
+    if len(title) > 60:
+        checks.append(
+            _check(
+                "long_title",
+                "info",
+                "The title may be shortened in search results (over about 60 characters).",
+                "seo_title",
+            )
+        )
+    description = meta.get("meta_description") or ""
+    if not description:
+        checks.append(
+            _check(
+                "missing_meta_description",
+                "warning",
+                "Add a meta description so search results show a helpful summary.",
+                "meta_description",
+            )
+        )
+    elif len(description) < 70 or len(description) > 160:
+        checks.append(
+            _check(
+                "description_length",
+                "info",
+                "Meta descriptions of roughly 70–160 characters display best.",
+                "meta_description",
+            )
+        )
+    if meta.get("noindex"):
+        checks.append(_check("noindex", "info", "Hidden from search engines (noindex).", "noindex"))
+    visible = [s for s in doc.get("sections", []) if s.get("is_visible", True)]
+    headings = [s for s in visible if s.get("section_type") in ("hero", "page_header")]
+    if not headings and not is_home:
+        checks.append(
+            _check(
+                "missing_h1",
+                "warning",
+                "Start the page with a page header or hero so it has a main heading.",
+                "sections",
+            )
+        )
+    hrefs = []
+    for s in visible:
+        content = s.get("content") or {}
+        for value in content.values():
+            if isinstance(value, dict) and value.get("url", "").startswith("/"):
+                hrefs.append(value["url"])
+    for href in broken_links(hrefs):
+        checks.append(
+            _check(
+                "broken_internal_link",
+                "warning",
+                f"{href} does not point to a published page.",
+                "sections",
+            )
+        )
+    return checks
+
+
+def page_issues(limit: int = 50) -> list[dict[str, Any]]:
+    rows = []
+    for page in db.session.scalars(
+        select(Page).where(Page.status == "published").order_by(Page.title)
+    ):
+        checks = check_page_document(page.published_snapshot or {}, is_home=page.slug == "home")
+        issues = [c for c in checks if c["severity"] in ("error", "warning")]
+        if issues:
+            rows.append(
+                {"id": page.id, "title": page.title, "path": page.published_path, "issues": issues}
+            )
+    return rows[:limit]
+
+
 # ---- dashboard ---------------------------------------------------------------------------
 
 
@@ -400,6 +494,7 @@ def overview(limit: int = 50) -> dict[str, Any]:
                     "issues": issues,
                 }
             )
+    page_rows = page_issues()
     redirect_count = db.session.scalar(select(func.count(Redirect.id))) or 0
     active_redirects = (
         db.session.scalar(select(func.count(Redirect.id)).where(Redirect.is_active.is_(True))) or 0
@@ -411,10 +506,12 @@ def overview(limit: int = 50) -> dict[str, Any]:
         "totals": totals,
         "articles_with_issues": rows[:limit],
         "articles_with_issues_total": len(rows),
+        "pages_with_issues": page_rows,
         "redirects": {"total": redirect_count, "active": active_redirects},
         "sitemap": {
             "urls": len(entries),
             "articles": sum(1 for e in entries if e["type"] == "article"),
+            "pages": sum(1 for e in entries if e["type"] == "page"),
             "images": sum(len(e.get("images", [])) for e in entries),
             "indexing_enabled_in_build": status.get("indexing_enabled"),
         },
@@ -451,23 +548,87 @@ def _image_entries(article: Article) -> list[dict[str, str]]:
     return images
 
 
+def _page_images(snapshot: dict[str, Any]) -> list[dict[str, str]]:
+    from .admin.media_admin import _deep_media_ids
+
+    ids = set()
+    for section in snapshot.get("sections", []):
+        if section.get("is_visible", True):
+            ids |= _deep_media_ids(section.get("content"))
+    images, assets = [], []
+    if ids:
+        assets = db.session.scalars(
+            select(MediaAsset).where(MediaAsset.id.in_(ids), MediaAsset.status == "active")
+        ).all()
+    for asset in assets:
+        if asset.visibility != "public" or not asset.public_url:
+            continue
+        image = asset.as_image() or {}
+        entry = {"loc": _absolute(image.get("src") or asset.public_url)}
+        if asset.title or asset.alt_text:
+            entry["title"] = asset.title or asset.alt_text
+        images.append(entry)
+    return images
+
+
 def sitemap_entries() -> list[dict[str, Any]]:
     """Indexable public URLs only: no drafts, archived, noindex or canonicalised pages."""
-    pages = {p.slug: p for p in db.session.scalars(select(Page))}
+    from .settings_service import get_values
+
+    settings = get_values()
+    excluded = set((settings.get("seo.sitemap_exclude") or "").splitlines())
+    live = {
+        p.published_path: p
+        for p in db.session.scalars(
+            select(Page).where(Page.status == "published", Page.published_path.is_not(None))
+        )
+    }
     entries: list[dict[str, Any]] = []
+
+    def page_entry(page: Page, path: str, priority: float, changefreq: str) -> dict | None:
+        snap = (page.published_snapshot or {}).get("page") or {}
+        canonical = (snap.get("canonical_url") or "").rstrip("/")
+        if snap.get("noindex") or (canonical and canonical != f"{_site()}{path}".rstrip("/")):
+            return None
+        return {
+            "type": "page",
+            "path": path,
+            "priority": priority,
+            "changefreq": changefreq,
+            "lastmod": iso(page.published_at),
+            "images": _page_images(page.published_snapshot or {}),
+        }
+
     for path, priority, changefreq in STATIC_PATHS:
-        page = pages.get(path.strip("/") or "home")
-        if page is not None and (page.status != "published" or page.noindex):
+        if path in excluded:
             continue
-        entry = {"type": "page", "path": path, "priority": priority, "changefreq": changefreq}
-        if page is not None and page.updated_at:
-            entry["lastmod"] = iso(page.updated_at)
-        entries.append(entry)
+        page = live.pop(path, None)
+        if page is not None:
+            entry = page_entry(page, path, priority, changefreq)
+            if entry:
+                entries.append(entry)
+            continue
+        entries.append(
+            {"type": "page", "path": path, "priority": priority, "changefreq": changefreq}
+        )
+    for path, page in sorted(live.items()):
+        if path in excluded:
+            continue
+        entry = page_entry(page, path, 0.6, "monthly")
+        if entry:
+            entries.append(entry)
     from .article_service import published_filter
 
-    for topic in db.session.scalars(
-        select(Topic).where(Topic.status == "active").order_by(Topic.display_order, Topic.name)
-    ):
+    topics = (
+        db.session.scalars(
+            select(Topic).where(Topic.status == "active").order_by(Topic.display_order, Topic.name)
+        )
+        if settings.get("seo.sitemap_include_topics") is not False
+        else []
+    )
+    for topic in topics:
+        if f"/topics/{topic.slug}" in excluded:
+            continue
         entries.append(
             {
                 "type": "topic",
@@ -481,6 +642,8 @@ def sitemap_entries() -> list[dict[str, Any]]:
         select(Article).where(published_filter()).order_by(Article.published_at.desc())
     ):
         own = article_url(article.slug)
+        if article_path(article.slug) in excluded:
+            continue
         if article.noindex or (article.canonical_url and article.canonical_url.rstrip("/") != own):
             continue
         entries.append(

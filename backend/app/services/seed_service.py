@@ -14,10 +14,9 @@ from typing import Any
 from sqlalchemy import select
 
 from ..cms.blocks import validate_blocks
-from ..cms.defaults import DEFAULT_MENUS, HOME_SECTIONS
-from ..cms.sections import validate_section
+from ..cms.defaults import DEFAULT_MENUS
 from ..extensions import db
-from ..models import Article, Author, MediaAsset, NavigationMenu, Page, PageSection, Tag, Topic
+from ..models import Article, Author, MediaAsset, NavigationMenu, Page, Tag, Topic
 from ..utils.validation import slugify
 from .admin.media_admin import validate_metadata
 from .navigation_service import _tree_from_defaults
@@ -129,6 +128,8 @@ def seed_cms_defaults() -> dict[str, int]:
 
     counts = {"menus": 0, "pages": 0, "sections": 0}
     for key, spec in DEFAULT_MENUS.items():
+        if not spec["items"]:
+            continue  # optional menus (mobile, legal) start empty and use their fallbacks
         if db.session.scalar(select(NavigationMenu.id).where(NavigationMenu.key == key)):
             continue
         menu = NavigationMenu(key=key, name=spec["name"])
@@ -157,27 +158,32 @@ def seed_cms_defaults() -> dict[str, int]:
                 )
         counts["menus"] += 1
 
-    page = db.session.scalar(select(Page).where(Page.slug == "home"))
-    if page is None:
-        page = Page(slug="home", title="Homepage", status="published")
-        db.session.add(page)
-        db.session.flush()
+    from .admin.page_admin import ensure_home
+    from .page_render import draft_document
+
+    existed = db.session.scalar(select(Page.id).where(Page.slug == "home")) is not None
+    page = ensure_home()
+    if not existed:
         counts["pages"] += 1
-    existing = {s.key for s in page.sections}
-    for order, spec in enumerate(HOME_SECTIONS):
-        if spec["key"] in existing:
-            continue
-        content = validate_section(spec["section_type"], spec["variant"], spec["content"])
+        counts["sections"] += len(page.sections)
+    if page.published_snapshot is None:
+        # First installation: the default homepage goes live as revision #1.
+        from datetime import UTC, datetime
+
+        from ..models import PageRevision
+
+        doc = draft_document(page)
+        page.status, page.path, page.published_path = "published", "/", "/"
+        page.published_snapshot = doc
+        page.published_at = page.first_published_at = datetime.now(UTC)
         db.session.add(
-            PageSection(
+            PageRevision(
                 page_id=page.id,
-                key=spec["key"],
-                section_type=spec["section_type"],
-                variant=spec["variant"],
-                content=content,
-                display_order=order,
+                number=1,
+                kind="published",
+                snapshot=doc,
+                summary="Default homepage",
             )
         )
-        counts["sections"] += 1
     db.session.flush()
     return counts

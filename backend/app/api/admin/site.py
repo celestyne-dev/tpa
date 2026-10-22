@@ -11,18 +11,15 @@ from ...schemas.admin import (
     InvitationCreateSchema,
     InvitationQuerySchema,
     NavigationWriteSchema,
-    PageWriteSchema,
-    ReorderSchema,
     ResetPasswordSchema,
-    SectionCreateSchema,
-    SectionWriteSchema,
+    SettingsQuerySchema,
     SettingsWriteSchema,
     UserCreateSchema,
     UserQuerySchema,
     UserUpdateSchema,
 )
 from ...services import navigation_service, settings_service
-from ...services.admin import account_tokens, dashboard, page_admin, user_admin
+from ...services.admin import account_tokens, dashboard, user_admin
 from ...services.admin.auth_service import user_payload
 from ...services.admin.common import get_or_404, paginate
 from ...utils.responses import success
@@ -39,65 +36,6 @@ class AnalyticsResource(Resource):
     @require_permission(P.ANALYTICS_VIEW)
     def get(self):
         return success(dashboard.analytics_summary())
-
-
-# ---- pages --------------------------------------------------------------------
-
-
-class PageListResource(Resource):
-    @require_permission(P.PAGES_VIEW)
-    def get(self):
-        pages = page_admin.list_pages()
-        return success(pages, {"total": len(pages)})
-
-
-class PageResource(Resource):
-    @require_permission(P.PAGES_VIEW)
-    def get(self, page_id: int):
-        return success(page_admin.page_dict(page_admin.get_page(page_id), with_sections=True))
-
-    @require_permission(P.PAGES_EDIT)
-    def patch(self, page_id: int):
-        page = page_admin.get_page(page_id)
-        page_admin.update_page(page, load_body(PageWriteSchema(), partial=True), current_user)
-        db.session.commit()
-        return success(page_admin.page_dict(page, with_sections=True))
-
-
-class PageSectionListResource(Resource):
-    @require_permission(P.PAGES_EDIT)
-    def post(self, page_id: int):
-        page = page_admin.get_page(page_id)
-        section = page_admin.create_section(page, load_body(SectionCreateSchema()), current_user)
-        db.session.commit()
-        return success(page_admin.section_dict(section), status=201)
-
-
-class PageSectionResource(Resource):
-    @require_permission(P.PAGES_EDIT)
-    def patch(self, page_id: int, section_id: int):
-        page = page_admin.get_page(page_id)
-        section = page_admin.get_section(page, section_id)
-        page_admin.update_section(
-            section, load_body(SectionWriteSchema(), partial=True), current_user
-        )
-        db.session.commit()
-        return success(page_admin.section_dict(section))
-
-
-class PageSectionOrderResource(Resource):
-    @require_permission(P.PAGES_EDIT)
-    def put(self, page_id: int):
-        page = page_admin.get_page(page_id)
-        page_admin.reorder_sections(page, load_body(ReorderSchema())["order"], current_user)
-        db.session.commit()
-        return success(page_admin.page_dict(page, with_sections=True))
-
-
-class SectionTypesResource(Resource):
-    @require_permission(P.PAGES_VIEW)
-    def get(self):
-        return success(page_admin.section_types())
 
 
 # ---- navigation & settings ------------------------------------------------------
@@ -119,18 +57,23 @@ class NavigationMenuResource(Resource):
         return success(menu)
 
 
-class SettingsResource(Resource):
-    @require_any_permission(P.SETTINGS_MANAGE, P.SEO_MANAGE)
-    def get(self):
-        return success(settings_service.admin_payload(current_user))
+def _groups_filter() -> set[str] | None:
+    groups = load_query(SettingsQuerySchema())["groups"]
+    return {g.strip() for g in groups.split(",") if g.strip()} if groups else None
 
-    @require_any_permission(P.SETTINGS_MANAGE, P.SEO_MANAGE)
+
+class SettingsResource(Resource):
+    @require_any_permission(*settings_service.SETTING_PERMISSIONS)
+    def get(self):
+        return success(settings_service.admin_payload(current_user, _groups_filter()))
+
+    @require_any_permission(*settings_service.SETTING_PERMISSIONS)
     def patch(self):
         result = settings_service.update_values(
             load_body(SettingsWriteSchema())["values"], current_user
         )
         db.session.commit()
-        return success({**settings_service.admin_payload(current_user), **result})
+        return success({**settings_service.admin_payload(current_user, _groups_filter()), **result})
 
 
 # ---- users, roles, audit ----------------------------------------------------------

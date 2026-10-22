@@ -48,9 +48,18 @@ class Permission(StrEnum):
     PUBLISHING_MANAGE = "publishing.manage"
     PAGES_VIEW = "pages.view"
     PAGES_EDIT = "pages.edit"
+    PAGES_CREATE = "pages.create"
+    PAGES_PUBLISH = "pages.publish"
+    HOMEPAGE_VIEW = "homepage.view"
+    HOMEPAGE_EDIT = "homepage.edit"
+    HOMEPAGE_PUBLISH = "homepage.publish"
+    REUSABLE_SECTIONS_MANAGE = "reusable_sections.manage"
+    BRANDING_MANAGE = "branding.manage"
+    ANNOUNCEMENTS_MANAGE = "announcements.manage"
     NAVIGATION_MANAGE = "navigation.manage"
     SETTINGS_MANAGE = "settings.manage"
     SETTINGS_SECURITY = "settings.security"
+    SETTINGS_TECHNICAL = "settings.technical"
     SEO_MANAGE = "seo.manage"
     PRODUCTS_VIEW = "products.view"
     PRODUCTS_MANAGE = "products.manage"
@@ -176,15 +185,78 @@ CATALOGUE: list[PermissionDef] = [
         "media",
         description="Media still used by content can be archived but never deleted.",
     ),
-    _d(P.PAGES_VIEW, "View pages and sections", "Pages & homepage", "pages"),
-    _d(P.PAGES_EDIT, "Edit pages and homepage sections", "Pages & homepage", "pages"),
+    _d(
+        P.HOMEPAGE_VIEW,
+        "View homepage builder",
+        "Pages & homepage",
+        "homepage",
+        description="See the homepage sections, drafts, previews and history.",
+    ),
+    _d(
+        P.HOMEPAGE_EDIT,
+        "Edit homepage drafts",
+        "Pages & homepage",
+        "homepage",
+        description="Change, add, reorder and restore homepage sections as a draft.",
+    ),
+    _d(
+        P.HOMEPAGE_PUBLISH,
+        "Publish the homepage",
+        "Pages & homepage",
+        "homepage",
+        description="Make homepage drafts live (queues a site rebuild).",
+    ),
+    _d(P.PAGES_VIEW, "View pages", "Pages & homepage", "pages"),
+    _d(
+        P.PAGES_EDIT,
+        "Edit page drafts",
+        "Pages & homepage",
+        "pages",
+        description="Edit page content, sections and SEO as a draft; restore revisions.",
+    ),
+    _d(P.PAGES_CREATE, "Create and duplicate pages", "Pages & homepage", "pages"),
+    _d(
+        P.PAGES_PUBLISH,
+        "Publish pages",
+        "Pages & homepage",
+        "pages",
+        description="Publish, schedule, unpublish, archive and restore pages.",
+    ),
+    _d(
+        P.REUSABLE_SECTIONS_MANAGE,
+        "Manage shared sections and calls to action",
+        "Pages & homepage",
+        "pages",
+        description="Edit shared sections (changes can update every page using them).",
+    ),
+    _d(
+        P.BRANDING_MANAGE,
+        "Manage branding",
+        "Site settings",
+        "branding",
+        description="Site name, logos, favicon, social image and approved style presets.",
+    ),
+    _d(
+        P.ANNOUNCEMENTS_MANAGE,
+        "Manage announcement banners",
+        "Site settings",
+        "announcements",
+    ),
     _d(P.NAVIGATION_MANAGE, "Manage navigation menus", "Navigation", "navigation"),
     _d(
         P.SETTINGS_MANAGE,
         "Manage site settings",
         "Site settings",
         "settings",
-        description="Branding, contact details, social links, footer and newsletter flag.",
+        description="Contact details, social links, footer and the newsletter flag.",
+    ),
+    _d(
+        P.SETTINGS_TECHNICAL,
+        "Manage indexing and canonical URL",
+        "Site settings",
+        "settings",
+        sensitive=True,
+        description="Search engine indexing and the canonical website address (Super Admin).",
     ),
     _d(
         P.SETTINGS_SECURITY,
@@ -608,8 +680,38 @@ BATCH_03_GRANTS: dict[str, frozenset[str]] = {
 }
 
 
+# Batch 04 additions (homepage builder, page publishing, shared sections, branding,
+# announcements). Roles only gain what matches their existing responsibilities:
+# editors keep editing homepage drafts (as before) but cannot publish the homepage.
+WEBSITE_ALL = _set(
+    P.HOMEPAGE_VIEW,
+    P.HOMEPAGE_EDIT,
+    P.HOMEPAGE_PUBLISH,
+    P.PAGES_CREATE,
+    P.PAGES_PUBLISH,
+    P.REUSABLE_SECTIONS_MANAGE,
+    P.BRANDING_MANAGE,
+    P.ANNOUNCEMENTS_MANAGE,
+)
+BATCH_04_GRANTS: dict[str, frozenset[str]] = {
+    "editor": _set(P.HOMEPAGE_VIEW, P.HOMEPAGE_EDIT),
+    "moderator": _set(P.HOMEPAGE_VIEW),
+    "administrator": WEBSITE_ALL,
+    "editor_in_chief": _set(P.HOMEPAGE_VIEW),
+    "seo_manager": _set(P.HOMEPAGE_VIEW),
+    "marketing_manager": _set(P.HOMEPAGE_VIEW, P.ANNOUNCEMENTS_MANAGE),
+    "website_manager": WEBSITE_ALL,
+}
+# Custom roles: permissions implied by what a role could already do.
+BATCH_04_IMPLIED: dict[str, frozenset[str]] = {
+    P.PAGES_VIEW.value: _set(P.HOMEPAGE_VIEW),
+    P.PAGES_EDIT.value: _set(P.HOMEPAGE_VIEW, P.HOMEPAGE_EDIT),
+    P.SETTINGS_MANAGE.value: _set(P.BRANDING_MANAGE),
+}
+
+
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
-    extra = BATCH_03_GRANTS.get(spec.key, frozenset())
+    extra = BATCH_03_GRANTS.get(spec.key, frozenset()) | BATCH_04_GRANTS.get(spec.key, frozenset())
     if not extra:
         return spec
     return RoleSpec(

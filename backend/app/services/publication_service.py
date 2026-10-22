@@ -67,6 +67,16 @@ def status() -> dict[str, Any]:
             Article.status == "scheduled", Article.published_at <= now
         )
     )
+    from ..models import Page
+
+    due += (
+        db.session.scalar(
+            select(func.count(Page.id)).where(
+                Page.scheduled_at.is_not(None), Page.scheduled_at <= now
+            )
+        )
+        or 0
+    )
     jobs = summary()
     return {
         "last_build_at": iso(built_at),
@@ -124,4 +134,49 @@ def publish_due_scheduled(now: datetime | None = None) -> dict[str, Any]:
                 article_id,
                 details={"error": type(exc).__name__},
             )
-    return {"published": published, "failed": failed}
+    pages = _publish_due_pages(now)
+    rebuild = _visibility_boundaries_passed(now)
+    return {
+        "published": published + pages["published"],
+        "failed": failed + pages["failed"],
+        "boundary_rebuild": rebuild,
+    }
+
+
+def _publish_due_pages(now: datetime) -> dict[str, list]:
+    from .admin.page_admin import publish_due
+
+    return publish_due(now)
+
+
+BOUNDARY_MARKER = "_scheduler.boundaries_checked_at"
+
+
+def _visibility_boundaries_passed(now: datetime) -> bool:
+    """Queue one rebuild when a section window or announcement starts or ends.
+
+    The last check time is stored outside the settings registry (never exposed in
+    the admin). The first run only records the time.
+    """
+    from ..models import SiteSetting
+    from .admin.announcement_admin import boundaries as announcement_boundaries
+    from .page_render import visibility_boundaries
+    from .publishing import request_build
+
+    marker = db.session.get(SiteSetting, BOUNDARY_MARKER)
+    last = None
+    if marker is not None and isinstance(marker.value, str):
+        try:
+            last = datetime.fromisoformat(marker.value)
+        except ValueError:
+            last = None
+    if marker is None:
+        marker = SiteSetting(key=BOUNDARY_MARKER)
+        db.session.add(marker)
+    marker.value = now.isoformat()
+    if last is None:
+        return False
+    crossed = any(last < t <= now for t in visibility_boundaries() + announcement_boundaries())
+    if crossed:
+        request_build("scheduled_visibility", None)
+    return crossed

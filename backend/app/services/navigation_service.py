@@ -15,6 +15,7 @@ from . import audit_service
 from .publication_service import record_public_change
 
 MAX_ITEMS = 40
+VISIBILITY = ("all", "desktop", "mobile")
 
 
 def _menu(key: str) -> NavigationMenu | None:
@@ -36,6 +37,7 @@ def _tree_from_db(menu: NavigationMenu, *, visible_only: bool) -> list[dict[str,
                 "url": item.url,
                 "open_in_new_tab": item.open_in_new_tab,
                 "is_visible": item.is_visible,
+                "visibility": item.visibility or "all",
             }
             if parent_id is None:
                 node["children"] = build(item.id)
@@ -53,6 +55,7 @@ def _tree_from_defaults(key: str) -> list[dict[str, Any]]:
             "url": item.get("url"),
             "open_in_new_tab": False,
             "is_visible": True,
+            "visibility": "all",
         }
         if top:
             node["children"] = [norm(c, False) for c in item.get("children", [])]
@@ -73,9 +76,29 @@ def public_navigation() -> dict[str, Any]:
             "url": node["url"],
             "external": node["link_type"] == "external",
             "open_in_new_tab": node["open_in_new_tab"],
+            "visibility": node.get("visibility", "all"),
         }
 
-    primary = [link(n) for n in menu_tree("primary") if n["link_type"] != "heading"]
+    def header_items(key: str) -> list[dict[str, Any]]:
+        out = []
+        for n in menu_tree(key):
+            if n["link_type"] == "heading":
+                children = [link(c) for c in n["children"]]
+                if children:
+                    out.append(
+                        {
+                            "label": n["label"],
+                            "url": None,
+                            "visibility": n.get("visibility", "all"),
+                            "children": children,
+                        }
+                    )
+            else:
+                out.append(link(n))
+        return out
+
+    primary = header_items("primary")
+    mobile = header_items("mobile") if _menu("mobile") is not None else []
     footer = [
         {
             "title": n["label"],
@@ -84,20 +107,44 @@ def public_navigation() -> dict[str, Any]:
         for n in menu_tree("footer")
         if n["link_type"] == "heading"
     ]
-    return {"primary": primary, "footer": [g for g in footer if g["items"]]}
+    legal = [link(n) for n in menu_tree("legal") if n["link_type"] != "heading"]
+    return {
+        "primary": primary,
+        "mobile": mobile or None,
+        "footer": [g for g in footer if g["items"]],
+        "legal": legal,
+    }
+
+
+def link_warnings(items: list[dict[str, Any]]) -> list[str]:
+    """Internal links that do not point to a published page (warnings, not errors)."""
+    from .seo_service import broken_links
+
+    hrefs = []
+    for item in items:
+        if item.get("link_type") == "internal" and item.get("url"):
+            hrefs.append(item["url"])
+        hrefs += [c["url"] for c in item.get("children") or [] if c.get("link_type") == "internal"]
+    broken = broken_links(hrefs)
+    return [f"{href} does not point to a published page yet." for href in dict.fromkeys(broken)]
 
 
 def admin_menus() -> list[dict[str, Any]]:
-    return [
-        {
-            "key": key,
-            "name": spec["name"],
-            "is_default": _menu(key) is None,
-            "allows_groups": key == "footer",
-            "items": menu_tree(key, visible_only=False),
-        }
-        for key, spec in DEFAULT_MENUS.items()
-    ]
+    out = []
+    for key, spec in DEFAULT_MENUS.items():
+        items = menu_tree(key, visible_only=False)
+        out.append(
+            {
+                "key": key,
+                "name": spec["name"],
+                "help": spec.get("help", ""),
+                "is_default": _menu(key) is None,
+                "allows_groups": spec.get("allows_groups", False),
+                "items": items,
+                "warnings": link_warnings(items),
+            }
+        )
+    return out
 
 
 def _validate_item(item: Any, path: str, *, top: bool, allow_groups: bool, errors: dict) -> dict:
@@ -116,7 +163,7 @@ def _validate_item(item: Any, path: str, *, top: bool, allow_groups: bool, error
         problems.append("Link type must be internal, external or heading.")
     if link_type == "heading":
         if not (top and allow_groups):
-            problems.append("Group headings are only allowed at the top level of the footer.")
+            problems.append("Groups are only allowed at the top level of this menu.")
         url = None
     elif link_type == "internal" and not (url and is_internal_path(url)):
         problems.append("Internal links must start with / (e.g. /articles).")
@@ -125,6 +172,9 @@ def _validate_item(item: Any, path: str, *, top: bool, allow_groups: bool, error
     children = item.get("children") or []
     if children and not (top and link_type == "heading"):
         problems.append("Only group headings can contain links.")
+    visibility = item.get("visibility") or "all"
+    if visibility not in VISIBILITY:
+        problems.append(f"Visibility must be one of: {', '.join(VISIBILITY)}.")
     if problems:
         errors[path] = problems
     return {
@@ -133,6 +183,7 @@ def _validate_item(item: Any, path: str, *, top: bool, allow_groups: bool, error
         "url": url,
         "open_in_new_tab": bool(item.get("open_in_new_tab", False)),
         "is_visible": bool(item.get("is_visible", True)),
+        "visibility": visibility if visibility in VISIBILITY else "all",
         "children": [
             _validate_item(c, f"{path}.{i}", top=False, allow_groups=allow_groups, errors=errors)
             for i, c in enumerate(children)
@@ -151,8 +202,9 @@ def replace_menu(key: str, items: Any, actor: User) -> list[dict[str, Any]]:
     if total > MAX_ITEMS:
         raise ValidationError(details={"items": [f"A menu can have at most {MAX_ITEMS} links."]})
     errors: dict[str, list[str]] = {}
+    allow_groups = DEFAULT_MENUS[key].get("allows_groups", False)
     clean = [
-        _validate_item(item, str(i), top=True, allow_groups=key == "footer", errors=errors)
+        _validate_item(item, str(i), top=True, allow_groups=allow_groups, errors=errors)
         for i, item in enumerate(items)
     ]
     if errors:
@@ -171,6 +223,7 @@ def replace_menu(key: str, items: Any, actor: User) -> list[dict[str, Any]]:
             url=node["url"],
             open_in_new_tab=node["open_in_new_tab"],
             is_visible=node["is_visible"],
+            visibility=node["visibility"],
             display_order=order,
         )
         menu.items.append(parent)
@@ -184,6 +237,7 @@ def replace_menu(key: str, items: Any, actor: User) -> list[dict[str, Any]]:
                     url=child["url"],
                     open_in_new_tab=child["open_in_new_tab"],
                     is_visible=child["is_visible"],
+                    visibility=child["visibility"],
                     display_order=child_order,
                 )
             )

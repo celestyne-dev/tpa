@@ -2,7 +2,17 @@
 
 from .audit import AuditLog
 from .base import TimestampMixin
-from .cms import NavigationItem, NavigationMenu, Page, PageSection, SiteSetting
+from .cms import (
+    Announcement,
+    GlobalCta,
+    NavigationItem,
+    NavigationMenu,
+    Page,
+    PageRevision,
+    PageSection,
+    ReusableSection,
+    SiteSetting,
+)
 from .content import (
     Article,
     ArticleRevision,
@@ -28,6 +38,10 @@ from .user import (
 
 __all__ = [
     "AccountToken",
+    "Announcement",
+    "GlobalCta",
+    "PageRevision",
+    "ReusableSection",
     "Article",
     "ArticleRevision",
     "MediaVariant",

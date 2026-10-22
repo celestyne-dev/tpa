@@ -26,6 +26,11 @@ def _real_drift(diff):
         return fk is not None and [c.name for c in fk.columns] in (
             ["approved_by_id"],
             ["pending_by_id"],
+            ["reusable_section_id"],
+            ["parent_id"],
+            ["social_image_id"],
+            ["published_by_id"],
+            ["updated_by_id"],
         )
 
     return [op for op in diff if not known(op)]
@@ -253,6 +258,8 @@ def test_batch03_upgrade_preserves_content_and_adds_permissions(tmp_path):
         assert {"media.upload", "articles.view_revisions", "articles.preview"} <= perms
         assert "articles.publish" not in perms and "publishing.manage" not in perms
         assert db.session.execute(text("SELECT value FROM site_settings")).scalar_one() == '"TPA"'
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)  # the catalogue matches the code only at head
         assert set(sync_rbac().values()) == {0}
         db.session.rollback()
         db.session.remove()
@@ -263,3 +270,153 @@ def test_batch03_upgrade_preserves_content_and_adds_permissions(tmp_path):
         assert db.session.execute(text("SELECT COUNT(*) FROM user_roles")).scalar_one() == 1
         keys = set(db.session.scalars(text("SELECT key FROM permissions")))
         assert "media.edit" not in keys and "publishing.view" not in keys
+
+
+def test_batch04_upgrade_converts_homepage_without_losing_edits(tmp_path):
+    """a817c9636960 -> de3d968df6ce: unedited defaults become the Batch 04 homepage,
+    edited text is kept, the live homepage gets its first snapshot and custom roles
+    keep (only) the equivalent permissions."""
+    from app.cms.defaults import HOME_SECTIONS
+    from app.cms.sections import check_section
+
+    app = _app(tmp_path, "batch04.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="a817c9636960")
+        conn = db.session
+        now = "2026-10-01 10:00:00"
+        page_id = conn.execute(
+            text(
+                "INSERT INTO pages (slug, title, status, noindex, content, created_at, updated_at) "
+                "VALUES ('home', 'Homepage', 'published', 0, '[]', :n, :n) RETURNING id"
+            ),
+            {"n": now},
+        ).scalar_one()
+        hero_v1 = {
+            "eyebrow": "Think Positive Always",
+            "heading": "A Better Mindset.",
+            "highlight": "A Brighter Life.",
+            "body": "Practical encouragement, thoughtful resources, and tools to help you grow "
+            "through every season of life.",
+            "primary_cta_label": "Explore Our Resources",
+            "primary_cta_url": "/free-resources",
+            "secondary_cta_label": "Read Our Articles",
+            "secondary_cta_url": "/articles",
+        }
+        edited = {
+            "eyebrow": "Our mission",
+            "heading": "Welcome, friend",
+            "body": "Edited by the team.",
+            "cta_label": "Read our story",
+            "cta_url": "/about",
+        }
+        import json
+
+        for order, (key, stype, variant, content) in enumerate(
+            [
+                ("hero", "hero", "default", hero_v1),
+                ("welcome", "brand_intro", "default", edited),
+                ("notes", "rich_text", "default", {"heading": "", "body": "One\n\nTwo"}),
+            ]
+        ):
+            conn.execute(
+                text(
+                    "INSERT INTO page_sections (page_id, key, section_type, variant, content, "
+                    "is_visible, display_order, created_at, updated_at) VALUES "
+                    "(:p, :k, :t, :v, :c, 1, :o, :n, :n)"
+                ),
+                {
+                    "p": page_id,
+                    "k": key,
+                    "t": stype,
+                    "v": variant,
+                    "c": json.dumps(content),
+                    "o": order,
+                    "n": now,
+                },
+            )
+        role_id = conn.execute(
+            text(
+                "INSERT INTO roles (name, label, description, kind, is_active, grants_all) "
+                "VALUES ('site_helper', 'Site helper', '', 'custom', 1, 0) RETURNING id"
+            )
+        ).scalar_one()
+        for key in ("pages.view", "pages.edit", "settings.manage"):
+            conn.execute(
+                text(
+                    "INSERT INTO role_permissions (role_id, permission_id) "
+                    "SELECT :r, id FROM permissions WHERE key = :k"
+                ),
+                {"r": role_id, "k": key},
+            )
+        conn.commit()
+        conn.remove()
+
+        statements = []
+
+        def capture(_conn, _cursor, statement, *_args):
+            statements.append(statement.upper())
+
+        event.listen(db.engine, "before_cursor_execute", capture)
+        upgrade(directory=MIGRATIONS, revision="de3d968df6ce")
+        event.remove(db.engine, "before_cursor_execute", capture)
+        assert not [s for s in statements if "DROP TABLE" in s or "_ALEMBIC_TMP" in s]
+        created = {
+            s.split("CREATE TABLE ")[1].split(" ")[0].strip()
+            for s in statements
+            if "CREATE TABLE" in s
+        }
+        assert created == {"ANNOUNCEMENTS", "GLOBAL_CTAS", "REUSABLE_SECTIONS", "PAGE_REVISIONS"}
+
+        from app.models import Page, PageRevision, Role
+
+        page = db.session.get(Page, page_id)
+        assert (
+            page.path == page.published_path == "/" and page.is_system and page.template == "home"
+        )
+        by_key = {s.key: s for s in page.sections}
+        assert by_key["hero"].content == HOME_SECTIONS[0]["content"]  # unedited -> Batch 04 default
+        assert by_key["hero"].variant == "split" and by_key["hero"].design["background"] == "ivory"
+        welcome = by_key["welcome"]
+        assert welcome.content["heading"] == "Welcome, friend"  # edits are kept
+        assert welcome.content["cta"] == {
+            "label": "Read our story",
+            "url": "/about",
+            "style": "outline",
+            "cta_id": None,
+        }
+        assert by_key["notes"].content["body"] == [
+            {"type": "paragraph", "text": "One"},
+            {"type": "paragraph", "text": "Two"},
+        ]
+        for section in page.sections:  # converted content is valid in the new editor
+            _, errors, _ = check_section(
+                section.section_type,
+                section.variant,
+                section.content,
+                section.design,
+                section.visibility,
+            )
+            assert errors == {}, (section.key, errors)
+        assert page.published_snapshot["sections"][1]["content"]["heading"] == "Welcome, friend"
+        assert db.session.query(PageRevision).filter_by(page_id=page_id).count() == 1
+        helper = db.session.get(Role, role_id)
+        granted = {p.key for p in helper.permissions}
+        assert {"homepage.view", "homepage.edit", "branding.manage"} <= granted
+        assert (
+            not {"homepage.publish", "pages.publish", "pages.create", "settings.technical"}
+            & granted
+        )
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+
+        # Downgrade restores the Batch 02 field format; upgrading again is safe.
+        downgrade(directory=MIGRATIONS, revision="a817c9636960")
+        row = db.session.execute(
+            text("SELECT content, variant FROM page_sections WHERE key = 'welcome'")
+        ).one()
+        assert json.loads(row[0])["cta_label"] == "Read our story" and row[1] == "default"
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        page = db.session.get(Page, page_id)
+        assert {s.key: s for s in page.sections}["welcome"].content["heading"] == "Welcome, friend"

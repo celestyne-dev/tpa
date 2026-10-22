@@ -68,6 +68,7 @@ def test_scheduled_articles_publish_only_via_explicit_task(seeded):
         assert publication_service.publish_due_scheduled() == {
             "published": ["building-quiet-confidence"],
             "failed": [],
+            "boundary_rebuild": False,
         }
         db.session.commit()
     assert client.get("/api/v1/articles/building-quiet-confidence").status_code == 200

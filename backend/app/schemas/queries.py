@@ -29,3 +29,15 @@ class ArticleListQuerySchema(Schema):
 
 def is_valid_slug(value: str) -> bool:
     return len(value) <= 120 and re.fullmatch(SLUG_PATTERN, value) is not None
+
+
+_PAGE_PATH = r"^/(?:[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*){0,3})?$"
+
+
+class PagePathQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    path = fields.String(
+        required=True, validate=[validate.Length(max=400), validate.Regexp(_PAGE_PATH)]
+    )

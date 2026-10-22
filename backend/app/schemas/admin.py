@@ -351,3 +351,99 @@ class AcceptInvitationSchema(StrictSchema):
 class CompleteResetSchema(StrictSchema):
     token = fields.String(required=True, validate=validate.Length(min=1, max=200))
     password = fields.String(required=True, validate=validate.Length(max=256))
+
+
+# ---- Batch 04: page builder, shared sections, CTAs, announcements ----------------------------
+
+
+class PageCreateSchema(StrictSchema):
+    title = Text(200, required=True, min_len=1)
+    slug = fields.String(allow_none=True, validate=validate.Length(max=120))
+    template = fields.String(load_default="standard", validate=validate.Length(max=40))
+    parent_id = fields.Integer(allow_none=True, load_default=None)
+
+
+class PageQuerySchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    status = fields.String(
+        load_default=None, validate=validate.OneOf(["draft", "published", "archived"])
+    )
+    q = fields.String(load_default=None, validate=validate.Length(max=100))
+
+
+class PageDraftSchema(StrictSchema):
+    lock_version = fields.Integer(required=True, allow_none=True)
+    page = fields.Dict(load_default=None)
+    sections = fields.List(fields.Dict(), validate=validate.Length(max=60))
+
+
+class PagePreviewSchema(StrictSchema):
+    page = fields.Dict(load_default=None)
+    sections = fields.List(fields.Dict(), validate=validate.Length(max=60))
+
+
+class PageScheduleSchema(StrictSchema):
+    scheduled_at = fields.AwareDateTime(required=True, default_timezone=UTC)
+    lock_version = fields.Integer(required=True, allow_none=True)
+
+
+class PageSlugCheckSchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    slug = fields.String(required=True, validate=validate.Length(min=1, max=120))
+    parent_id = fields.Integer(load_default=None, allow_none=True)
+    exclude = fields.Integer(load_default=None, allow_none=True)
+
+
+class ShareSectionSchema(StrictSchema):
+    name = Text(120, required=True, min_len=1)
+
+
+class SharedSectionSchema(StrictSchema):
+    name = fields.String(validate=validate.Length(max=200))
+    description = fields.String(allow_none=True, validate=validate.Length(max=400))
+    section_type = fields.String(validate=validate.Length(max=40))
+    variant = fields.String(allow_none=True, validate=validate.Length(max=40))
+    content = fields.Dict()
+    design = fields.Dict(allow_none=True)
+    lock_version = fields.Integer(allow_none=True)
+    propagate = fields.Boolean(load_default=True)
+
+
+class CtaSchema(StrictSchema):
+    name = fields.String(validate=validate.Length(max=200))
+    label = fields.String(validate=validate.Length(max=100))
+    url = fields.String(validate=validate.Length(max=500))
+    style = fields.String(validate=validate.Length(max=20))
+    description = fields.String(allow_none=True, validate=validate.Length(max=400))
+
+
+class AnnouncementSchema(StrictSchema):
+    name = fields.String(validate=validate.Length(max=200))
+    message = fields.String(validate=validate.Length(max=400))
+    cta_label = fields.String(allow_none=True, validate=validate.Length(max=100))
+    cta_url = fields.String(allow_none=True, validate=validate.Length(max=500))
+    variant = fields.String(validate=validate.Length(max=20))
+    target = fields.String(validate=validate.Length(max=20))
+    target_paths = fields.List(fields.String(validate=validate.Length(max=400)))
+    starts_at = fields.AwareDateTime(allow_none=True, default_timezone=UTC)
+    ends_at = fields.AwareDateTime(allow_none=True, default_timezone=UTC)
+    is_enabled = fields.Boolean()
+    is_dismissible = fields.Boolean()
+
+
+class SettingsQuerySchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    groups = fields.String(load_default=None, validate=validate.Length(max=200))
+
+
+class LinkOptionsQuerySchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    q = fields.String(load_default="", validate=validate.Length(max=100))

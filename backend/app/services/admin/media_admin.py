@@ -14,7 +14,7 @@ from sqlalchemy import func, or_, select
 
 from ...extensions import db
 from ...media import processing
-from ...models import Article, Author, MediaAsset, MediaVariant, PageSection, Topic, User
+from ...models import Article, Author, MediaAsset, MediaVariant, Topic, User
 from ...storage import get_storage, public_url
 from ...utils.errors import ConflictError, NotFoundError, ValidationError
 from ...utils.validation import is_https_url, plain_text_problem
@@ -55,7 +55,7 @@ def _deep_media_ids(value: Any) -> set[int]:
     found: set[int] = set()
     if isinstance(value, dict):
         for key, item in value.items():
-            if (key == "media_id" or key.endswith("image_id")) and isinstance(item, int):
+            if (key in ("media", "media_id") or key.endswith("image_id")) and isinstance(item, int):
                 found.add(item)
             else:
                 found |= _deep_media_ids(item)
@@ -113,16 +113,58 @@ def usage_index() -> dict[int, list[dict[str, Any]]]:
                 "public": topic.status == "active",
             },
         )
-    for section in db.session.scalars(select(PageSection)):
-        for asset_id in _deep_media_ids(section.content):
+    from ...cms.settings_registry import MEDIA_SETTINGS
+    from ...models import Page, ReusableSection, SiteSetting
+
+    for page in db.session.scalars(select(Page)):
+        base = {"type": "page", "id": page.id, "label": page.title}
+        add(page.social_image_id, {**base, "field": "social image (draft)", "public": False})
+        for section in page.sections:
+            for asset_id in _deep_media_ids(section.content):
+                add(
+                    asset_id,
+                    {
+                        **base,
+                        "type": "page_section",
+                        "id": section.id,
+                        "label": f"{page.title}: {section.name or section.key}",
+                        "field": "section (draft)",
+                        "public": False,
+                    },
+                )
+        snapshot = page.published_snapshot if page.status == "published" else None
+        if snapshot:
+            add(
+                (snapshot.get("page") or {}).get("social_image_id"),
+                {**base, "field": "social image", "public": True},
+            )
+            for section in snapshot.get("sections", []):
+                for asset_id in _deep_media_ids(section.get("content")):
+                    add(asset_id, {**base, "field": "live section", "public": True})
+    for shared in db.session.scalars(select(ReusableSection)):
+        for asset_id in _deep_media_ids(shared.content):
             add(
                 asset_id,
                 {
-                    "type": "page_section",
-                    "id": section.id,
-                    "label": f"{section.page.title}: {section.key}",
-                    "field": "section",
-                    "public": section.is_visible and section.page.status == "published",
+                    "type": "reusable_section",
+                    "id": shared.id,
+                    "label": shared.name,
+                    "field": "shared section",
+                    "public": True,
+                },
+            )
+    for setting in db.session.scalars(
+        select(SiteSetting).where(SiteSetting.key.in_(MEDIA_SETTINGS))
+    ):
+        if isinstance(setting.value, int):
+            add(
+                setting.value,
+                {
+                    "type": "setting",
+                    "id": setting.key,
+                    "label": "Branding & settings",
+                    "field": setting.key,
+                    "public": True,
                 },
             )
     return index
@@ -607,6 +649,22 @@ def get_asset(asset_id: int) -> MediaAsset:
     if asset is None or asset.visibility != "public":
         raise NotFoundError("Image not found.")
     return asset
+
+
+def media_ref_problems(refs: dict[str, int]) -> dict[str, str]:
+    """{field: asset id} -> {field: problem} for images that cannot be used publicly."""
+    ids = {i for i in refs.values() if i}
+    found = {a.id: a for a in db.session.scalars(select(MediaAsset).where(MediaAsset.id.in_(ids)))}
+    problems = {}
+    for field, asset_id in refs.items():
+        asset = found.get(asset_id)
+        if asset is None:
+            problems[field] = "This image no longer exists."
+        elif asset.visibility != "public" or not asset.mime_type.startswith("image/"):
+            problems[field] = "This file cannot be used on the website."
+        elif asset.status == "archived":
+            problems[field] = "This image is archived. Restore it or choose another image."
+    return problems
 
 
 def validate_media_refs(ids: Iterable[int], *, allow_archived: set[int] | None = None) -> None:

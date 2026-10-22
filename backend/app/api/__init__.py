@@ -5,6 +5,7 @@ from flask_restful import Api
 
 from .articles import ArticleDetailResource, ArticleListResource
 from .health import HealthResource
+from .pages import PageListPublicResource, PageResolveResource
 from .products import ProductListResource
 from .seo import RedirectListPublicResource, RedirectResolveResource, SitemapResource
 from .site import SiteResource
@@ -28,6 +29,8 @@ api.add_resource(ArticleListResource, "/articles")
 api.add_resource(ArticleDetailResource, "/articles/<string:slug>")
 api.add_resource(ProductListResource, "/products")
 api.add_resource(SitemapResource, "/sitemap")
+api.add_resource(PageListPublicResource, "/pages")
+api.add_resource(PageResolveResource, "/pages/resolve")
 api.add_resource(RedirectListPublicResource, "/redirects")
 api.add_resource(RedirectResolveResource, "/redirects/resolve")
 
