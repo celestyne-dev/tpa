@@ -7,14 +7,16 @@ from typing import Any
 
 from sqlalchemy import func, or_, select
 
+from ...auth.permissions import Permission as P
+from ...auth.rbac import effective_permissions
 from ...cms.blocks import validate_blocks
 from ...extensions import db
 from ...models import Article, Author, MediaAsset, Tag, Topic, User
-from ...utils.errors import ConflictError, ValidationError
+from ...utils.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from .. import audit_service
 from ..publication_service import record_public_change
 from ..serializers import iso, media_dict, public_article, reading_time
-from .common import get_or_404, paginate, resolve_slug
+from .common import paginate, resolve_slug
 
 SCHEDULE_GRACE = timedelta(minutes=1)
 
@@ -29,6 +31,62 @@ def is_public(article: Article) -> bool:
         and article.published_at is not None
         and article.published_at <= _now()
     )
+
+
+# ---- ownership-aware access ---------------------------------------------------------
+
+
+def can_view_all(user: User) -> bool:
+    return P.ARTICLES_VIEW.value in effective_permissions(user)
+
+
+def scope_filter(user: User):
+    """Users without articles.view only see the articles they created."""
+    return None if can_view_all(user) else (Article.created_by_id == user.id)
+
+
+def is_owner(article: Article, user: User) -> bool:
+    return article.created_by_id is not None and article.created_by_id == user.id
+
+
+def capabilities(article: Article, user: User) -> dict[str, bool]:
+    """What this user may do with this article (enforced again by every action)."""
+    perms = effective_permissions(user)
+    owner = is_owner(article, user)
+    status = article.status
+    can_edit = P.ARTICLES_EDIT_ANY.value in perms or (
+        P.ARTICLES_EDIT_OWN.value in perms and owner and status == "draft"
+    )
+    return {
+        "edit": can_edit,
+        "submit": P.ARTICLES_SUBMIT_REVIEW.value in perms
+        and (owner or P.ARTICLES_EDIT_ANY.value in perms)
+        and status == "draft"
+        and article.review_status != "submitted",
+        "approve": P.ARTICLES_APPROVE.value in perms
+        and article.review_status == "submitted"
+        and status in ("draft", "scheduled"),
+        "publish": P.ARTICLES_PUBLISH.value in perms and status in ("draft", "scheduled"),
+        "unpublish": P.ARTICLES_UNPUBLISH.value in perms and status in ("published", "scheduled"),
+        "archive": P.ARTICLES_ARCHIVE.value in perms and status != "archived",
+        "restore": P.ARTICLES_ARCHIVE.value in perms and status == "archived",
+        "delete": P.ARTICLES_DELETE.value in perms
+        and article.first_published_at is None
+        and status in ("draft", "archived"),
+    }
+
+
+def require_capability(article: Article, user: User, action: str) -> None:
+    if not capabilities(article, user)[action]:
+        raise ForbiddenError(f"You cannot {action} this article.")
+
+
+def get_article_for(article_id: int, user: User) -> Article:
+    article = db.session.get(Article, article_id)
+    # Out-of-scope articles are reported as missing (no existence leak).
+    if article is None or (not can_view_all(user) and not is_owner(article, user)):
+        raise NotFoundError("Article not found.")
+    return article
 
 
 def admin_summary(a: Article) -> dict[str, Any]:
@@ -46,12 +104,19 @@ def admin_summary(a: Article) -> dict[str, Any]:
         if a.primary_topic
         else None,
         "source": a.source,
+        "review_status": a.review_status,
+        "created_by": {"id": a.created_by.id, "display_name": a.created_by.display_name}
+        if a.created_by
+        else None,
     }
 
 
-def admin_detail(a: Article) -> dict[str, Any]:
+def admin_detail(a: Article, user: User | None = None) -> dict[str, Any]:
     return {
         **admin_summary(a),
+        "can": capabilities(a, user) if user else None,
+        "submitted_at": iso(a.submitted_at),
+        "approved_at": iso(a.approved_at),
         "subtitle": a.subtitle,
         "excerpt": a.excerpt,
         "body": a.body or [],
@@ -75,8 +140,10 @@ def admin_detail(a: Article) -> dict[str, Any]:
     }
 
 
-def list_articles(args: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def list_articles(args: dict[str, Any], user: User) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     stmt = select(Article)
+    if (scope := scope_filter(user)) is not None:
+        stmt = stmt.where(scope)
     if args.get("q"):
         like = f"%{args['q'].strip()}%"
         stmt = stmt.where(or_(Article.title.ilike(like), Article.slug.ilike(like)))
@@ -88,6 +155,8 @@ def list_articles(args: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str,
         stmt = stmt.where(Article.author_id == args["author_id"])
     if args.get("featured") is not None:
         stmt = stmt.where(Article.featured.is_(args["featured"]))
+    if args.get("review_status"):
+        stmt = stmt.where(Article.review_status == args["review_status"])
     stmt = stmt.order_by(Article.updated_at.desc(), Article.id.desc())
     items, pagination = paginate(stmt, args["page"], args["page_size"])
     return [admin_summary(a) for a in items], pagination
@@ -180,6 +249,7 @@ def _apply(article: Article, data: dict[str, Any], refs: dict[str, Any]) -> None
 
 def _snapshot(a: Article) -> dict[str, Any]:
     d = admin_detail(a)
+    d.pop("can", None)
     d["body"] = f"{len(a.body or [])} blocks"
     return {
         k: v
@@ -214,6 +284,7 @@ def create_article(data: dict[str, Any], actor: User) -> Article:
 
 
 def update_article(article: Article, data: dict[str, Any], actor: User) -> Article:
+    require_capability(article, actor, "edit")
     before = _snapshot(article)
     if "slug" in data and data["slug"] != article.slug:
         if article.first_published_at is not None:
@@ -228,6 +299,13 @@ def update_article(article: Article, data: dict[str, Any], actor: User) -> Artic
     db.session.flush()
     changes = audit_service.changed_fields(before, _snapshot(article))
     if changes:
+        # Changes by someone who cannot approve invalidate a pending or granted approval.
+        if (
+            article.review_status != "none"
+            and P.ARTICLES_APPROVE.value not in effective_permissions(actor)
+        ):
+            article.review_status = "none"
+            article.approved_at = article.approved_by_id = article.submitted_at = None
         audit_service.record("article.updated", "article", article.id, actor=actor, details=changes)
         if is_public(article):
             record_public_change("article", article.id, "published_article_updated", actor)
@@ -321,6 +399,42 @@ def restore(article: Article, actor: User) -> Article:
     return article
 
 
+def submit_for_review(article: Article, actor: User) -> Article:
+    require_capability(article, actor, "submit")
+    article.review_status = "submitted"
+    article.submitted_at = _now()
+    article.approved_at = article.approved_by_id = None
+    audit_service.record("article.submitted", "article", article.id, actor=actor)
+    return article
+
+
+def approve(article: Article, actor: User) -> Article:
+    require_capability(article, actor, "approve")
+    article.review_status = "approved"
+    article.approved_at = _now()
+    article.approved_by_id = actor.id
+    audit_service.record("article.approved", "article", article.id, actor=actor)
+    return article
+
+
+def delete_article(article: Article, actor: User) -> None:
+    """Permanent deletion is limited to drafts that were never published (URLs stay stable)."""
+    if not capabilities(article, actor)["delete"]:
+        if P.ARTICLES_DELETE.value in effective_permissions(actor):
+            raise ConflictError(
+                "Only drafts that were never published can be deleted. Archive it instead."
+            )
+        raise ForbiddenError("You cannot delete this article.")
+    audit_service.record(
+        "article.deleted",
+        "article",
+        article.id,
+        actor=actor,
+        details={"title": article.title, "slug": article.slug},
+    )
+    db.session.delete(article)
+
+
 def preview(article: Article) -> dict[str, Any]:
     data = public_article(article)
     if not article.featured_image_id:
@@ -328,14 +442,11 @@ def preview(article: Article) -> dict[str, Any]:
     return {"article": data, "related": [], "status": article.status}
 
 
-def get_article(article_id: int) -> Article:
-    return get_or_404(Article, article_id, "Article")
-
-
-def status_counts() -> dict[str, int]:
-    rows = db.session.execute(
-        select(Article.status, func.count(Article.id)).group_by(Article.status)
-    )
+def status_counts(user: User | None = None) -> dict[str, int]:
+    stmt = select(Article.status, func.count(Article.id)).group_by(Article.status)
+    if user is not None and (scope := scope_filter(user)) is not None:
+        stmt = stmt.where(scope)
+    rows = db.session.execute(stmt)
     counts = {s: 0 for s in ("draft", "scheduled", "published", "archived")}
     counts.update({status: n for status, n in rows})
     return counts

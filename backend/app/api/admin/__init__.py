@@ -1,6 +1,6 @@
 """Admin API (/api/v1/admin). Every resource enforces authentication and permissions."""
 
-from . import auth, content, site
+from . import auth, content, roles, site
 
 ADMIN_ROUTES = [
     (auth.LoginResource, "/admin/auth/login"),
@@ -20,6 +20,8 @@ ADMIN_ROUTES = [
     (content.ArticleUnpublishResource, "/admin/articles/<int:article_id>/unpublish"),
     (content.ArticleArchiveResource, "/admin/articles/<int:article_id>/archive"),
     (content.ArticleRestoreResource, "/admin/articles/<int:article_id>/restore"),
+    (content.ArticleSubmitResource, "/admin/articles/<int:article_id>/submit"),
+    (content.ArticleApproveResource, "/admin/articles/<int:article_id>/approve"),
     (content.ArticlePreviewResource, "/admin/articles/<int:article_id>/preview"),
     (content.TopicListResource, "/admin/topics"),
     (content.TopicResource, "/admin/topics/<int:item_id>"),
@@ -47,8 +49,9 @@ ADMIN_ROUTES = [
     (site.InvitationListResource, "/admin/invitations"),
     (site.InvitationRevokeResource, "/admin/invitations/<int:invite_id>/revoke"),
     (site.InvitationResendResource, "/admin/invitations/<int:invite_id>/resend"),
-    (site.PermissionListResource, "/admin/permissions"),
-    (site.RoleListResource, "/admin/roles"),
+    (roles.PermissionListResource, "/admin/permissions"),
+    (roles.RoleListResource, "/admin/roles"),
+    (roles.RoleResource, "/admin/roles/<int:role_id>"),
     (site.AuditLogResource, "/admin/audit-log"),
 ]
 

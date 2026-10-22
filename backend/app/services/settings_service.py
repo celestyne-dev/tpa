@@ -6,10 +6,12 @@ from typing import Any
 
 from sqlalchemy import select
 
-from ..cms.settings_registry import SETTINGS, SETTINGS_BY_KEY, validate_setting
+from ..auth.permissions import Permission as P
+from ..auth.rbac import effective_permissions
+from ..cms.settings_registry import SETTINGS, SETTINGS_BY_KEY, SettingDef, validate_setting
 from ..extensions import db
 from ..models import SiteSetting, User
-from ..utils.errors import ValidationError
+from ..utils.errors import ForbiddenError, ValidationError
 from . import audit_service
 from .publication_service import record_public_change
 from .serializers import iso
@@ -24,11 +26,25 @@ def get_values() -> dict[str, Any]:
     return values
 
 
-def admin_payload() -> dict[str, Any]:
+# Settings groups managed by a dedicated permission; everything else needs settings.manage.
+GROUP_PERMISSIONS = {"SEO defaults": P.SEO_MANAGE}
+
+
+def setting_permission(definition: SettingDef) -> P:
+    return GROUP_PERMISSIONS.get(definition.group, P.SETTINGS_MANAGE)
+
+
+def editable_by(user: User, definition: SettingDef) -> bool:
+    return setting_permission(definition).value in effective_permissions(user)
+
+
+def admin_payload(user: User | None = None) -> dict[str, Any]:
     stored = {s.key: s for s in db.session.scalars(select(SiteSetting))}
     values = get_values()
     groups: dict[str, list[dict[str, Any]]] = {}
     for d in SETTINGS:
+        if user is not None and not editable_by(user, d):
+            continue
         record = stored.get(d.key)
         groups.setdefault(d.group, []).append(
             {
@@ -55,6 +71,8 @@ def update_values(changes: dict[str, Any], actor: User) -> dict[str, Any]:
         if definition is None:
             errors[key] = ["Unknown setting."]
             continue
+        if not editable_by(actor, definition):
+            raise ForbiddenError("You cannot change one or more of these settings.")
         cleaned, error = validate_setting(definition, value)
         if error:
             errors[key] = [error]

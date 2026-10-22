@@ -80,6 +80,9 @@ class ArticleQuerySchema(PageQuerySchema):
     topic_id = fields.Integer(load_default=None)
     author_id = fields.Integer(load_default=None)
     featured = fields.Boolean(load_default=None)
+    review_status = fields.String(
+        load_default=None, validate=validate.OneOf(["none", "submitted", "approved"])
+    )
 
 
 class ArticleWriteSchema(StrictSchema):
@@ -179,13 +182,13 @@ class UserCreateSchema(StrictSchema):
     email = fields.String(required=True, validate=validate.Length(max=254))
     display_name = Text(120, required=True, min_len=1)
     password = fields.String(required=True, validate=validate.Length(max=256))
-    roles = fields.List(fields.String(), required=True, validate=validate.Length(max=4))
+    roles = fields.List(fields.String(), required=True, validate=validate.Length(max=10))
 
 
 class UserUpdateSchema(StrictSchema):
     display_name = Text(120, min_len=1)
     status = fields.String(validate=validate.OneOf(["active", "disabled"]))
-    roles = fields.List(fields.String(), validate=validate.Length(max=4))
+    roles = fields.List(fields.String(), validate=validate.Length(max=10))
 
 
 class ResetPasswordSchema(StrictSchema):
@@ -210,7 +213,23 @@ class UserQuerySchema(Schema):
 class InvitationCreateSchema(StrictSchema):
     email = fields.String(required=True, validate=validate.Length(max=254))
     display_name = Text(120, allow_none=True)
-    roles = fields.List(fields.String(), required=True, validate=validate.Length(min=1, max=4))
+    roles = fields.List(fields.String(), required=True, validate=validate.Length(min=1, max=10))
+
+
+class RoleWriteSchema(StrictSchema):
+    label = Text(80, required=True, min_len=1)
+    description = Text(255, allow_none=True)
+    permissions = fields.List(
+        fields.String(validate=validate.Length(max=80)), validate=validate.Length(max=200)
+    )
+    is_active = fields.Boolean()
+
+
+class RoleQuerySchema(Schema):
+    class Meta:
+        unknown = "exclude"
+
+    include_inactive = fields.Boolean(load_default=True)
 
 
 class InvitationQuerySchema(Schema):

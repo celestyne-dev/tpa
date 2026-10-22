@@ -3,7 +3,7 @@ import re
 import pytest
 
 from app.api.admin import ADMIN_ROUTES, PUBLIC_ADMIN_PATHS
-from app.auth.permissions import ROLE_PERMISSIONS, Permission, RoleName
+from app.auth.permissions import SENSITIVE_PERMISSIONS, SYSTEM_ROLES, Permission, RoleName
 from app.extensions import db
 from app.models import AuditLog, User
 
@@ -26,15 +26,17 @@ def test_every_admin_endpoint_requires_authentication(client, resource, path):
 
 
 def test_permission_matrix_is_least_privilege():
-    assert ROLE_PERMISSIONS[RoleName.SUPER_ADMIN] == frozenset(Permission)
-    editor = ROLE_PERMISSIONS[RoleName.EDITOR]
+    specs = {s.key: s for s in SYSTEM_ROLES}
+    assert specs[RoleName.SUPER_ADMIN.value].grants_all
+    editor = specs[RoleName.EDITOR.value].permissions
     assert Permission.USERS_MANAGE not in editor and Permission.SETTINGS_MANAGE not in editor
-    moderator = ROLE_PERMISSIONS[RoleName.MODERATOR]
-    assert Permission.CONTENT_PUBLISH not in moderator and Permission.CONTENT_WRITE not in moderator
-    analyst = ROLE_PERMISSIONS[RoleName.ANALYST]
-    assert not {
-        p for p in analyst if p.value.endswith((".write", ".publish", ".moderate", ".manage"))
-    }
+    moderator = specs[RoleName.MODERATOR.value].permissions
+    assert Permission.ARTICLES_PUBLISH not in moderator
+    assert not {Permission.ARTICLES_EDIT_ANY, Permission.ARTICLES_EDIT_OWN} & moderator
+    analyst = specs[RoleName.ANALYST.value].permissions
+    assert all(p.endswith((".view",)) for p in analyst)
+    for spec in specs.values():
+        assert not spec.permissions & SENSITIVE_PERMISSIONS
 
 
 def test_super_admin_has_full_access(seeded, as_role):
@@ -205,7 +207,9 @@ def test_user_management(app, as_role):
     users = admin.get("/api/v1/admin/users").get_json()["data"]
     assert {u["email"] for u in users} == {"owner@example.org", "new@example.org"}
     roles = admin.get("/api/v1/admin/roles").get_json()["data"]
-    assert [r["name"] for r in roles] == ["super_admin", "editor", "moderator", "analyst"]
+    names = [r["name"] for r in roles]
+    assert {"super_admin", "editor", "moderator", "analyst"} <= set(names[:4])
+    assert all(r["kind"] == "system" for r in roles[:4])
     with app.app_context():
         actions = set(db.session.scalars(db.select(AuditLog.action)))
         assert {"user.created", "user.password_reset", "auth.login"} <= actions
@@ -242,17 +246,14 @@ def test_analytics_access(seeded, as_role):
     )
 
 
-def test_roles_can_only_be_granted_by_holders_of_their_permissions():
-    from app.auth.permissions import ROLE_PERMISSIONS, Permission, RoleName, can_grant_roles
+def test_roles_can_only_be_granted_by_holders_of_their_permissions(app):
+    from app.auth.rbac import can_grant_roles
+    from app.auth.roles import get_roles
 
-    super_perms = set(ROLE_PERMISSIONS[RoleName.SUPER_ADMIN])
-    assert can_grant_roles(super_perms, ["editor", "super_admin"])
-    # A hypothetical team-manager role with roles.assign but fewer permissions:
-    manager = set(ROLE_PERMISSIONS[RoleName.EDITOR]) | {
-        Permission.ROLES_ASSIGN,
-        Permission.USERS_MANAGE,
-    }
-    assert can_grant_roles(manager, ["editor", "moderator"])
-    assert not can_grant_roles(manager, ["super_admin"])
-    assert not can_grant_roles(manager, ["analyst"])  # analytics.view not held
-    assert not can_grant_roles(set(ROLE_PERMISSIONS[RoleName.EDITOR]), ["moderator"])
+    owner_id = make_user(app, "owner@example.org", ["super_admin"])
+    editor_id = make_user(app, "ed@example.org", ["editor"])
+    with app.app_context():
+        owner, editor = db.session.get(User, owner_id), db.session.get(User, editor_id)
+        assert can_grant_roles(owner, get_roles(["editor", "super_admin"]))
+        # Without roles.assign nobody can grant roles, not even ones they fully cover.
+        assert not can_grant_roles(editor, get_roles(["moderator"]))

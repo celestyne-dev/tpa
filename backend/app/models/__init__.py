@@ -13,12 +13,22 @@ from .content import (
     article_tags,
     article_topics,
 )
-from .user import AccountToken, RefreshToken, Role, User, UserRole
+from .user import (
+    AccountToken,
+    PermissionDefinition,
+    RefreshToken,
+    Role,
+    User,
+    UserRole,
+    role_permissions,
+)
 
 __all__ = [
     "AccountToken",
     "Article",
     "AuditLog",
+    "PermissionDefinition",
+    "role_permissions",
     "Author",
     "ContentRevision",
     "MediaAsset",

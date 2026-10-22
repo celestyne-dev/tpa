@@ -2,6 +2,7 @@
 
 flask --app wsgi admin create-superadmin --email you@example.com --name "Your Name"
 flask --app wsgi admin sync-roles
+flask --app wsgi rbac sync
 flask --app wsgi seed sample-content
 flask --app wsgi cms seed-defaults
 flask --app wsgi content publish-due
@@ -18,6 +19,7 @@ from sqlalchemy import select
 
 from .auth.passwords import password_problems
 from .auth.permissions import RoleName
+from .auth.rbac import sync_rbac
 from .auth.roles import active_super_admin_count, sync_roles
 from .extensions import db
 from .models import User
@@ -26,11 +28,25 @@ admin_cli = AppGroup("admin", help="Administrator account management.")
 seed_cli = AppGroup("seed", help="Development data imports.")
 cms_cli = AppGroup("cms", help="CMS defaults.")
 content_cli = AppGroup("content", help="Content publication tasks.")
+rbac_cli = AppGroup("rbac", help="Roles and permissions.")
+
+
+@rbac_cli.command("sync")
+def rbac_sync_command():
+    """Synchronise the permission catalogue, built-in roles and templates (idempotent).
+
+    Never deletes users, roles or assignments. Built-in roles are reset to their
+    definitions; templates and custom roles keep their edits (minus any grant
+    that is no longer allowed).
+    """
+    counts = sync_rbac()
+    db.session.commit()
+    click.echo(", ".join(f"{k.replace('_', ' ')}: {v}" for k, v in counts.items()))
 
 
 @admin_cli.command("sync-roles")
 def sync_roles_command():
-    """Create the built-in roles if they are missing (idempotent)."""
+    """Create the built-in roles and templates if they are missing (idempotent)."""
     created = sync_roles()
     db.session.commit()
     click.echo(f"Roles ready ({created} created).")
@@ -117,5 +133,5 @@ def publish_due():
 
 
 def register_cli(app: Flask) -> None:
-    for group in (admin_cli, seed_cli, cms_cli, content_cli):
+    for group in (admin_cli, seed_cli, cms_cli, content_cli, rbac_cli):
         app.cli.add_command(group)

@@ -1,51 +1,266 @@
-"""Central permission definitions and the role registry.
+"""Permission catalogue, system roles and role templates.
 
-Roles are stored in the database and assigned per user; what each role may do
-is defined here in code so permissions cannot be widened by editing data. The
-frontend receives each user's resolved permission list and never hardcodes
-role names. To add a specialised role later (e.g. "newsletter_manager"), add
-a RoleDefinition below and a data migration inserting the role row.
+The catalogue below is the canonical definition of every permission key. It is
+synchronised into the ``permissions`` table (migration + ``flask rbac sync``),
+and roles reference permissions through ``role_permissions`` rows, so custom
+roles can be created and edited from the admin without code changes.
+
+- ``available``: the backend has endpoints that enforce this permission. Roles
+  can only be granted available permissions, so a role can never silently gain
+  access when a future module ships.
+- ``sensitive``: reserved for the protected Super Admin role (role management,
+  payment configuration, system security). Never assignable to other roles.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 
 class Permission(StrEnum):
     DASHBOARD_VIEW = "dashboard.view"
     ANALYTICS_VIEW = "analytics.view"
-    CONTENT_READ = "content.read"
-    CONTENT_WRITE = "content.write"
-    CONTENT_PUBLISH = "content.publish"
-    CONTENT_MODERATE = "content.moderate"
-    TAXONOMY_MANAGE = "taxonomy.manage"
-    PAGES_READ = "pages.read"
-    PAGES_WRITE = "pages.write"
+    ARTICLES_VIEW = "articles.view"
+    ARTICLES_CREATE = "articles.create"
+    ARTICLES_EDIT_OWN = "articles.edit_own"
+    ARTICLES_EDIT_ANY = "articles.edit_any"
+    ARTICLES_SUBMIT_REVIEW = "articles.submit_review"
+    ARTICLES_APPROVE = "articles.approve"
+    ARTICLES_PUBLISH = "articles.publish"
+    ARTICLES_UNPUBLISH = "articles.unpublish"
+    ARTICLES_ARCHIVE = "articles.archive"
+    ARTICLES_DELETE = "articles.delete"
+    TOPICS_MANAGE = "topics.manage"
+    TAGS_MANAGE = "tags.manage"
+    AUTHORS_MANAGE = "authors.manage"
+    MEDIA_VIEW = "media.view"
+    MEDIA_UPLOAD = "media.upload"
+    MEDIA_DELETE = "media.delete"
+    PAGES_VIEW = "pages.view"
+    PAGES_EDIT = "pages.edit"
     NAVIGATION_MANAGE = "navigation.manage"
     SETTINGS_MANAGE = "settings.manage"
+    SETTINGS_SECURITY = "settings.security"
+    SEO_MANAGE = "seo.manage"
+    PRODUCTS_VIEW = "products.view"
+    PRODUCTS_MANAGE = "products.manage"
+    ORDERS_VIEW = "orders.view"
+    ORDERS_MANAGE = "orders.manage"
+    REFUNDS_ISSUE = "refunds.issue"
+    PAYMENTS_CONFIGURE = "payments.configure"
+    CUSTOMERS_VIEW = "customers.view"
+    CUSTOMERS_MANAGE = "customers.manage"
+    PARTNERSHIPS_VIEW = "partnerships.view"
+    PARTNERSHIPS_MANAGE = "partnerships.manage"
+    ADVERTISING_VIEW = "advertising.view"
+    ADVERTISING_MANAGE = "advertising.manage"
+    AFFILIATES_VIEW = "affiliates.view"
+    AFFILIATES_MANAGE = "affiliates.manage"
+    NEWSLETTERS_MANAGE = "newsletters.manage"
+    SUBSCRIBERS_VIEW = "subscribers.view"
+    SUBSCRIBERS_EXPORT = "subscribers.export"
+    COURSES_MANAGE = "courses.manage"
+    MEMBERSHIPS_MANAGE = "memberships.manage"
+    FINANCE_VIEW = "finance.view"
+    FINANCE_MANAGE = "finance.manage"
+    USERS_VIEW = "users.view"
     USERS_MANAGE = "users.manage"
+    ROLES_MANAGE = "roles.manage"
     ROLES_ASSIGN = "roles.assign"
-    AUDIT_READ = "audit.read"
+    AUDIT_VIEW = "audit.view"
 
 
-PERMISSION_DESCRIPTIONS: dict[Permission, str] = {
-    Permission.DASHBOARD_VIEW: "Open the admin dashboard",
-    Permission.ANALYTICS_VIEW: "View content analytics and reports",
-    Permission.CONTENT_READ: "View articles, drafts and editorial records",
-    Permission.CONTENT_WRITE: "Create and edit articles",
-    Permission.CONTENT_PUBLISH: "Publish and schedule articles",
-    Permission.CONTENT_MODERATE: "Unpublish and archive articles",
-    Permission.TAXONOMY_MANAGE: "Create, edit and remove topics, tags and authors",
-    Permission.PAGES_READ: "View CMS pages and sections",
-    Permission.PAGES_WRITE: "Edit CMS pages and sections",
-    Permission.NAVIGATION_MANAGE: "Edit website navigation menus",
-    Permission.SETTINGS_MANAGE: "Edit sensitive website settings",
-    Permission.USERS_MANAGE: "Create, invite, disable and reset administrator accounts",
-    Permission.ROLES_ASSIGN: "Assign and change administrator roles",
-    Permission.AUDIT_READ: "Read the audit log",
-}
+P = Permission
+
+
+@dataclass(frozen=True)
+class PermissionDef:
+    key: Permission
+    label: str
+    group: str
+    module: str
+    available: bool = True
+    sensitive: bool = False
+    description: str = ""
+
+
+def _d(key, label, group, module, *, available=True, sensitive=False, description=""):
+    return PermissionDef(key, label, group, module, available, sensitive, description)
+
+
+CATALOGUE: list[PermissionDef] = [
+    _d(P.DASHBOARD_VIEW, "View dashboard", "Dashboard & analytics", "dashboard"),
+    _d(P.ANALYTICS_VIEW, "View content analytics", "Dashboard & analytics", "analytics"),
+    _d(
+        P.ARTICLES_VIEW,
+        "View all articles",
+        "Articles",
+        "articles",
+        description="See every article, including other people's drafts.",
+    ),
+    _d(P.ARTICLES_CREATE, "Create articles", "Articles", "articles"),
+    _d(
+        P.ARTICLES_EDIT_OWN,
+        "Edit own drafts",
+        "Articles",
+        "articles",
+        description="Edit articles you created while they are drafts.",
+    ),
+    _d(P.ARTICLES_EDIT_ANY, "Edit any article", "Articles", "articles"),
+    _d(P.ARTICLES_SUBMIT_REVIEW, "Submit for review", "Articles", "articles"),
+    _d(P.ARTICLES_APPROVE, "Approve articles", "Articles", "articles"),
+    _d(P.ARTICLES_PUBLISH, "Publish and schedule", "Articles", "articles"),
+    _d(P.ARTICLES_UNPUBLISH, "Unpublish", "Articles", "articles"),
+    _d(P.ARTICLES_ARCHIVE, "Archive and restore", "Articles", "articles"),
+    _d(
+        P.ARTICLES_DELETE,
+        "Delete unpublished drafts",
+        "Articles",
+        "articles",
+        description="Permanently delete drafts that were never published.",
+    ),
+    _d(P.TOPICS_MANAGE, "Manage topics", "Topics, tags & authors", "taxonomy"),
+    _d(P.TAGS_MANAGE, "Manage tags", "Topics, tags & authors", "taxonomy"),
+    _d(P.AUTHORS_MANAGE, "Manage authors", "Topics, tags & authors", "taxonomy"),
+    _d(P.MEDIA_VIEW, "View media library", "Media library", "media"),
+    _d(P.MEDIA_UPLOAD, "Upload media", "Media library", "media", available=False),
+    _d(P.MEDIA_DELETE, "Delete media", "Media library", "media", available=False),
+    _d(P.PAGES_VIEW, "View pages and sections", "Pages & homepage", "pages"),
+    _d(P.PAGES_EDIT, "Edit pages and homepage sections", "Pages & homepage", "pages"),
+    _d(P.NAVIGATION_MANAGE, "Manage navigation menus", "Navigation", "navigation"),
+    _d(
+        P.SETTINGS_MANAGE,
+        "Manage site settings",
+        "Site settings",
+        "settings",
+        description="Branding, contact details, social links, footer and newsletter flag.",
+    ),
+    _d(
+        P.SETTINGS_SECURITY,
+        "Manage security settings",
+        "Site settings",
+        "settings",
+        available=False,
+        sensitive=True,
+    ),
+    _d(
+        P.SEO_MANAGE,
+        "Manage SEO settings",
+        "SEO",
+        "seo",
+        description="Default titles, descriptions and sharing image.",
+    ),
+    _d(P.PRODUCTS_VIEW, "View digital products", "Digital products", "products", available=False),
+    _d(
+        P.PRODUCTS_MANAGE,
+        "Manage products and pricing",
+        "Digital products",
+        "products",
+        available=False,
+    ),
+    _d(P.ORDERS_VIEW, "View orders", "Orders & refunds", "orders", available=False),
+    _d(P.ORDERS_MANAGE, "Manage orders", "Orders & refunds", "orders", available=False),
+    _d(P.REFUNDS_ISSUE, "Issue refunds", "Orders & refunds", "orders", available=False),
+    _d(
+        P.PAYMENTS_CONFIGURE,
+        "Configure payments",
+        "Orders & refunds",
+        "payments",
+        available=False,
+        sensitive=True,
+    ),
+    _d(P.CUSTOMERS_VIEW, "View customers", "Customers", "customers", available=False),
+    _d(P.CUSTOMERS_MANAGE, "Manage customers", "Customers", "customers", available=False),
+    _d(P.PARTNERSHIPS_VIEW, "View partnerships", "Partnerships", "partnerships", available=False),
+    _d(
+        P.PARTNERSHIPS_MANAGE,
+        "Manage partnerships",
+        "Partnerships",
+        "partnerships",
+        available=False,
+    ),
+    _d(P.ADVERTISING_VIEW, "View advertising", "Advertising", "advertising", available=False),
+    _d(P.ADVERTISING_MANAGE, "Manage advertising", "Advertising", "advertising", available=False),
+    _d(
+        P.AFFILIATES_VIEW,
+        "View affiliate campaigns",
+        "Affiliate campaigns",
+        "affiliates",
+        available=False,
+    ),
+    _d(
+        P.AFFILIATES_MANAGE,
+        "Manage affiliate campaigns",
+        "Affiliate campaigns",
+        "affiliates",
+        available=False,
+    ),
+    _d(
+        P.NEWSLETTERS_MANAGE,
+        "Manage newsletters",
+        "Newsletters & subscribers",
+        "newsletters",
+        available=False,
+    ),
+    _d(
+        P.SUBSCRIBERS_VIEW,
+        "View subscribers",
+        "Newsletters & subscribers",
+        "newsletters",
+        available=False,
+    ),
+    _d(
+        P.SUBSCRIBERS_EXPORT,
+        "Export subscribers",
+        "Newsletters & subscribers",
+        "newsletters",
+        available=False,
+    ),
+    _d(P.COURSES_MANAGE, "Manage courses", "Courses & memberships", "courses", available=False),
+    _d(
+        P.MEMBERSHIPS_MANAGE,
+        "Manage memberships",
+        "Courses & memberships",
+        "memberships",
+        available=False,
+    ),
+    _d(P.FINANCE_VIEW, "View finance reports", "Finance", "finance", available=False),
+    _d(P.FINANCE_MANAGE, "Manage finance", "Finance", "finance", available=False),
+    _d(P.USERS_VIEW, "View administrators", "Users, roles & audit", "users"),
+    _d(
+        P.USERS_MANAGE,
+        "Manage administrator accounts",
+        "Users, roles & audit",
+        "users",
+        description="Disable, reactivate and reset passwords of administrators with equal "
+        "or fewer permissions.",
+    ),
+    _d(
+        P.ROLES_MANAGE,
+        "Manage roles and permissions",
+        "Users, roles & audit",
+        "roles",
+        sensitive=True,
+    ),
+    _d(
+        P.ROLES_ASSIGN,
+        "Assign roles and invite administrators",
+        "Users, roles & audit",
+        "roles",
+        sensitive=True,
+    ),
+    _d(P.AUDIT_VIEW, "View audit log", "Users, roles & audit", "audit"),
+]
+
+CATALOGUE_BY_KEY: dict[str, PermissionDef] = {d.key.value: d for d in CATALOGUE}
+ALL_PERMISSIONS: frozenset[str] = frozenset(CATALOGUE_BY_KEY)
+AVAILABLE_PERMISSIONS: frozenset[str] = frozenset(
+    k for k, d in CATALOGUE_BY_KEY.items() if d.available
+)
+SENSITIVE_PERMISSIONS: frozenset[str] = frozenset(
+    k for k, d in CATALOGUE_BY_KEY.items() if d.sensitive
+)
 
 
 class RoleName(StrEnum):
@@ -56,83 +271,240 @@ class RoleName(StrEnum):
 
 
 @dataclass(frozen=True)
-class RoleDefinition:
-    name: RoleName
+class RoleSpec:
+    key: str
     label: str
     description: str
-    permissions: frozenset[Permission]
+    kind: str  # "system" (protected) or "template" (editable starting point)
+    permissions: frozenset[str] = frozenset()
+    grants_all: bool = False
+    # Permissions this template is intended to receive once their modules ship.
+    planned: frozenset[str] = field(default_factory=frozenset)
 
 
-ROLE_DEFINITIONS: dict[RoleName, RoleDefinition] = {
-    RoleName.SUPER_ADMIN: RoleDefinition(
-        RoleName.SUPER_ADMIN,
-        "Super admin",
-        "Full administrative access, including users, roles and settings.",
-        frozenset(Permission),
+def _set(*perms: Permission) -> frozenset[str]:
+    return frozenset(p.value for p in perms)
+
+
+ARTICLE_EDITING = _set(P.ARTICLES_VIEW, P.ARTICLES_CREATE, P.ARTICLES_EDIT_OWN, P.ARTICLES_EDIT_ANY)
+
+SYSTEM_ROLES: list[RoleSpec] = [
+    RoleSpec(
+        "super_admin",
+        "Super Admin",
+        "Full access to everything, including roles, users and sensitive settings.",
+        "system",
+        grants_all=True,
     ),
-    RoleName.EDITOR: RoleDefinition(
-        RoleName.EDITOR,
+    RoleSpec(
+        "editor",
         "Editor",
-        "Creates, edits and publishes editorial content, taxonomy and pages.",
-        frozenset(
-            {
-                Permission.DASHBOARD_VIEW,
-                Permission.CONTENT_READ,
-                Permission.CONTENT_WRITE,
-                Permission.CONTENT_PUBLISH,
-                Permission.CONTENT_MODERATE,
-                Permission.TAXONOMY_MANAGE,
-                Permission.PAGES_READ,
-                Permission.PAGES_WRITE,
-            }
+        "Creates, edits, approves and publishes editorial content.",
+        "system",
+        ARTICLE_EDITING
+        | _set(
+            P.DASHBOARD_VIEW,
+            P.ARTICLES_SUBMIT_REVIEW,
+            P.ARTICLES_APPROVE,
+            P.ARTICLES_PUBLISH,
+            P.ARTICLES_UNPUBLISH,
+            P.ARTICLES_ARCHIVE,
+            P.TOPICS_MANAGE,
+            P.TAGS_MANAGE,
+            P.AUTHORS_MANAGE,
+            P.MEDIA_VIEW,
+            P.PAGES_VIEW,
+            P.PAGES_EDIT,
         ),
     ),
-    RoleName.MODERATOR: RoleDefinition(
-        RoleName.MODERATOR,
+    RoleSpec(
+        "moderator",
         "Moderator",
         "Reviews content and can take published content offline.",
-        frozenset(
-            {
-                Permission.DASHBOARD_VIEW,
-                Permission.CONTENT_READ,
-                Permission.CONTENT_MODERATE,
-                Permission.PAGES_READ,
-            }
+        "system",
+        _set(
+            P.DASHBOARD_VIEW,
+            P.ARTICLES_VIEW,
+            P.ARTICLES_UNPUBLISH,
+            P.ARTICLES_ARCHIVE,
+            P.MEDIA_VIEW,
+            P.PAGES_VIEW,
         ),
     ),
-    RoleName.ANALYST: RoleDefinition(
-        RoleName.ANALYST,
+    RoleSpec(
+        "analyst",
         "Analyst",
-        "Read-only access to the dashboard, content listings and analytics.",
-        frozenset({Permission.DASHBOARD_VIEW, Permission.ANALYTICS_VIEW, Permission.CONTENT_READ}),
+        "Read-only access to the dashboard, content and analytics.",
+        "system",
+        _set(P.DASHBOARD_VIEW, P.ANALYTICS_VIEW, P.ARTICLES_VIEW, P.MEDIA_VIEW),
     ),
-}
+]
 
-# Backwards-compatible views used across the codebase.
-ROLE_PERMISSIONS: dict[RoleName, frozenset[Permission]] = {
-    name: role.permissions for name, role in ROLE_DEFINITIONS.items()
-}
-ROLE_DESCRIPTIONS: dict[RoleName, str] = {
-    name: role.description for name, role in ROLE_DEFINITIONS.items()
-}
+TEMPLATE_ROLES: list[RoleSpec] = [
+    RoleSpec(
+        "administrator",
+        "Administrator",
+        "Runs day-to-day operations across content and the website (no role management).",
+        "template",
+        ARTICLE_EDITING
+        | _set(
+            P.DASHBOARD_VIEW,
+            P.ANALYTICS_VIEW,
+            P.ARTICLES_SUBMIT_REVIEW,
+            P.ARTICLES_APPROVE,
+            P.ARTICLES_PUBLISH,
+            P.ARTICLES_UNPUBLISH,
+            P.ARTICLES_ARCHIVE,
+            P.ARTICLES_DELETE,
+            P.TOPICS_MANAGE,
+            P.TAGS_MANAGE,
+            P.AUTHORS_MANAGE,
+            P.MEDIA_VIEW,
+            P.PAGES_VIEW,
+            P.PAGES_EDIT,
+            P.NAVIGATION_MANAGE,
+            P.SETTINGS_MANAGE,
+            P.SEO_MANAGE,
+            P.USERS_VIEW,
+            P.USERS_MANAGE,
+            P.AUDIT_VIEW,
+        ),
+    ),
+    RoleSpec(
+        "editor_in_chief",
+        "Editor-in-Chief",
+        "Owns the editorial calendar: approves, publishes and curates all content.",
+        "template",
+        ARTICLE_EDITING
+        | _set(
+            P.DASHBOARD_VIEW,
+            P.ANALYTICS_VIEW,
+            P.ARTICLES_SUBMIT_REVIEW,
+            P.ARTICLES_APPROVE,
+            P.ARTICLES_PUBLISH,
+            P.ARTICLES_UNPUBLISH,
+            P.ARTICLES_ARCHIVE,
+            P.ARTICLES_DELETE,
+            P.TOPICS_MANAGE,
+            P.TAGS_MANAGE,
+            P.AUTHORS_MANAGE,
+            P.MEDIA_VIEW,
+            P.PAGES_VIEW,
+        ),
+    ),
+    RoleSpec(
+        "content_editor",
+        "Content Editor",
+        "Edits and prepares articles and submits them for approval.",
+        "template",
+        ARTICLE_EDITING
+        | _set(P.DASHBOARD_VIEW, P.ARTICLES_SUBMIT_REVIEW, P.TAGS_MANAGE, P.MEDIA_VIEW),
+        planned=_set(P.MEDIA_UPLOAD),
+    ),
+    RoleSpec(
+        "content_writer",
+        "Content Writer",
+        "Writes and edits their own drafts and submits them for review.",
+        "template",
+        _set(
+            P.DASHBOARD_VIEW,
+            P.ARTICLES_CREATE,
+            P.ARTICLES_EDIT_OWN,
+            P.ARTICLES_SUBMIT_REVIEW,
+            P.MEDIA_VIEW,
+        ),
+        planned=_set(P.MEDIA_UPLOAD),
+    ),
+    RoleSpec(
+        "product_manager",
+        "Product Manager",
+        "Will manage the digital product catalogue and pricing.",
+        "template",
+        _set(P.DASHBOARD_VIEW),
+        planned=_set(P.PRODUCTS_VIEW, P.PRODUCTS_MANAGE),
+    ),
+    RoleSpec(
+        "orders_manager",
+        "Orders Manager",
+        "Will manage orders and refunds.",
+        "template",
+        _set(P.DASHBOARD_VIEW),
+        planned=_set(P.ORDERS_VIEW, P.ORDERS_MANAGE, P.REFUNDS_ISSUE, P.CUSTOMERS_VIEW),
+    ),
+    RoleSpec(
+        "customer_support",
+        "Customer Support",
+        "Will help customers with orders and account questions.",
+        "template",
+        _set(P.DASHBOARD_VIEW),
+        planned=_set(P.CUSTOMERS_VIEW, P.ORDERS_VIEW),
+    ),
+    RoleSpec(
+        "partnerships_manager",
+        "Partnerships Manager",
+        "Will manage brand partnerships and sponsored campaigns.",
+        "template",
+        _set(P.DASHBOARD_VIEW),
+        planned=_set(P.PARTNERSHIPS_VIEW, P.PARTNERSHIPS_MANAGE),
+    ),
+    RoleSpec(
+        "affiliate_manager",
+        "Affiliate Manager",
+        "Will manage affiliate campaigns.",
+        "template",
+        _set(P.DASHBOARD_VIEW),
+        planned=_set(P.AFFILIATES_VIEW, P.AFFILIATES_MANAGE),
+    ),
+    RoleSpec(
+        "marketing_manager",
+        "Marketing Manager",
+        "Reviews content performance; will manage advertising and campaigns.",
+        "template",
+        _set(P.DASHBOARD_VIEW, P.ANALYTICS_VIEW, P.ARTICLES_VIEW),
+        planned=_set(P.ADVERTISING_VIEW, P.ADVERTISING_MANAGE, P.NEWSLETTERS_MANAGE),
+    ),
+    RoleSpec(
+        "newsletter_manager",
+        "Newsletter Manager",
+        "Will manage The Positive Reset newsletter and subscribers.",
+        "template",
+        _set(P.DASHBOARD_VIEW),
+        planned=_set(P.NEWSLETTERS_MANAGE, P.SUBSCRIBERS_VIEW, P.SUBSCRIBERS_EXPORT),
+    ),
+    RoleSpec(
+        "seo_manager",
+        "SEO Manager",
+        "Manages SEO defaults and reviews content for search visibility.",
+        "template",
+        _set(P.DASHBOARD_VIEW, P.ANALYTICS_VIEW, P.ARTICLES_VIEW, P.SEO_MANAGE, P.PAGES_VIEW),
+    ),
+    RoleSpec(
+        "website_manager",
+        "Website Manager",
+        "Maintains pages, homepage sections, navigation and site settings.",
+        "template",
+        _set(
+            P.DASHBOARD_VIEW,
+            P.PAGES_VIEW,
+            P.PAGES_EDIT,
+            P.NAVIGATION_MANAGE,
+            P.SETTINGS_MANAGE,
+            P.MEDIA_VIEW,
+        ),
+        planned=_set(P.MEDIA_UPLOAD),
+    ),
+    RoleSpec(
+        "finance_manager",
+        "Finance Manager",
+        "Will review revenue and financial reports.",
+        "template",
+        _set(P.DASHBOARD_VIEW),
+        planned=_set(P.FINANCE_VIEW, P.FINANCE_MANAGE),
+    ),
+]
 
+ROLE_SPECS: dict[str, RoleSpec] = {r.key: r for r in SYSTEM_ROLES + TEMPLATE_ROLES}
 
-def role_permissions(name: str) -> frozenset[Permission]:
-    try:
-        return ROLE_DEFINITIONS[RoleName(name)].permissions
-    except ValueError:
-        return frozenset()  # Unknown role names grant nothing.
-
-
-def permissions_for_roles(role_names: list[str] | set[str]) -> set[Permission]:
-    granted: set[Permission] = set()
-    for name in role_names:
-        granted |= role_permissions(name)
-    return granted
-
-
-def can_grant_roles(actor_permissions: set[Permission], role_names: list[str]) -> bool:
-    """An administrator may only grant roles whose permissions they already hold."""
-    if Permission.ROLES_ASSIGN not in actor_permissions:
-        return False
-    return all(role_permissions(name) <= actor_permissions for name in role_names)
+for _spec in ROLE_SPECS.values():
+    assert _spec.permissions <= AVAILABLE_PERMISSIONS, _spec.key
+    assert not (_spec.permissions & SENSITIVE_PERMISSIONS), _spec.key

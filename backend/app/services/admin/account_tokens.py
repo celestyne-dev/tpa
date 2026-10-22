@@ -19,9 +19,8 @@ from typing import Any
 from flask import current_app
 from sqlalchemy import select, update
 
-from ...auth.decorators import user_permissions
 from ...auth.passwords import hash_password, password_problems
-from ...auth.permissions import can_grant_roles
+from ...auth.rbac import can_grant_roles, can_manage_user
 from ...auth.roles import get_roles, set_user_roles
 from ...auth.session import revoke_all_sessions
 from ...extensions import db
@@ -86,8 +85,8 @@ def _link(path: str, token: str) -> str:
 
 
 def _check_grant(actor: User, roles: list[str]) -> None:
-    get_roles(sorted(set(roles)))  # validates names
-    if not can_grant_roles(user_permissions(actor), roles):
+    # Validates names, rejects inactive roles and prevents privilege escalation.
+    if not can_grant_roles(actor, get_roles(sorted(set(roles)))):
         raise ForbiddenError("You cannot grant one or more of these roles.")
 
 
@@ -270,6 +269,12 @@ def accept_invitation(token: str, password: str, display_name: str | None) -> Us
         raise ValidationError(details=errors)
     if db.session.scalar(select(User.id).where(User.email == record.email)):
         raise InvalidLinkError()
+    try:
+        get_roles(list(record.roles))
+    except ValidationError:
+        raise ConflictError(
+            "A role in this invitation was deactivated or removed. Ask for a new invitation."
+        ) from None
     _consume(record)
     inviter = db.session.get(User, record.created_by_id) if record.created_by_id else None
     user = User(
@@ -298,6 +303,8 @@ def accept_invitation(token: str, password: str, display_name: str | None) -> Us
 
 
 def request_password_reset(user: User, actor: User) -> AccountToken:
+    if user.id != actor.id and not can_manage_user(actor, user):
+        raise ForbiddenError("You cannot manage an account with more access than your own.")
     if not user.is_active:
         raise ConflictError("Reactivate the account before resetting its password.")
     db.session.execute(

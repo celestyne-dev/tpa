@@ -2,7 +2,7 @@ from flask_jwt_extended import current_user
 from flask_restful import Resource
 from sqlalchemy import select
 
-from ...auth.decorators import require_permission
+from ...auth.decorators import require_any_permission, require_permission
 from ...auth.permissions import Permission as P
 from ...extensions import db
 from ...models import AuditLog, User
@@ -45,18 +45,18 @@ class AnalyticsResource(Resource):
 
 
 class PageListResource(Resource):
-    @require_permission(P.PAGES_READ)
+    @require_permission(P.PAGES_VIEW)
     def get(self):
         pages = page_admin.list_pages()
         return success(pages, {"total": len(pages)})
 
 
 class PageResource(Resource):
-    @require_permission(P.PAGES_READ)
+    @require_permission(P.PAGES_VIEW)
     def get(self, page_id: int):
         return success(page_admin.page_dict(page_admin.get_page(page_id), with_sections=True))
 
-    @require_permission(P.PAGES_WRITE)
+    @require_permission(P.PAGES_EDIT)
     def patch(self, page_id: int):
         page = page_admin.get_page(page_id)
         page_admin.update_page(page, load_body(PageWriteSchema(), partial=True), current_user)
@@ -65,7 +65,7 @@ class PageResource(Resource):
 
 
 class PageSectionListResource(Resource):
-    @require_permission(P.PAGES_WRITE)
+    @require_permission(P.PAGES_EDIT)
     def post(self, page_id: int):
         page = page_admin.get_page(page_id)
         section = page_admin.create_section(page, load_body(SectionCreateSchema()), current_user)
@@ -74,7 +74,7 @@ class PageSectionListResource(Resource):
 
 
 class PageSectionResource(Resource):
-    @require_permission(P.PAGES_WRITE)
+    @require_permission(P.PAGES_EDIT)
     def patch(self, page_id: int, section_id: int):
         page = page_admin.get_page(page_id)
         section = page_admin.get_section(page, section_id)
@@ -86,7 +86,7 @@ class PageSectionResource(Resource):
 
 
 class PageSectionOrderResource(Resource):
-    @require_permission(P.PAGES_WRITE)
+    @require_permission(P.PAGES_EDIT)
     def put(self, page_id: int):
         page = page_admin.get_page(page_id)
         page_admin.reorder_sections(page, load_body(ReorderSchema())["order"], current_user)
@@ -95,7 +95,7 @@ class PageSectionOrderResource(Resource):
 
 
 class SectionTypesResource(Resource):
-    @require_permission(P.PAGES_READ)
+    @require_permission(P.PAGES_VIEW)
     def get(self):
         return success(page_admin.section_types())
 
@@ -120,24 +120,24 @@ class NavigationMenuResource(Resource):
 
 
 class SettingsResource(Resource):
-    @require_permission(P.SETTINGS_MANAGE)
+    @require_any_permission(P.SETTINGS_MANAGE, P.SEO_MANAGE)
     def get(self):
-        return success(settings_service.admin_payload())
+        return success(settings_service.admin_payload(current_user))
 
-    @require_permission(P.SETTINGS_MANAGE)
+    @require_any_permission(P.SETTINGS_MANAGE, P.SEO_MANAGE)
     def patch(self):
         result = settings_service.update_values(
             load_body(SettingsWriteSchema())["values"], current_user
         )
         db.session.commit()
-        return success({**settings_service.admin_payload(), **result})
+        return success({**settings_service.admin_payload(current_user), **result})
 
 
 # ---- users, roles, audit ----------------------------------------------------------
 
 
 class UserListResource(Resource):
-    @require_permission(P.USERS_MANAGE)
+    @require_permission(P.USERS_VIEW)
     def get(self):
         users = user_admin.list_users(load_query(UserQuerySchema()))
         return success(users, {"total": len(users)})
@@ -150,7 +150,7 @@ class UserListResource(Resource):
 
 
 class UserResource(Resource):
-    @require_permission(P.USERS_MANAGE)
+    @require_permission(P.USERS_VIEW)
     def get(self, user_id: int):
         return success(user_admin.user_detail(user_admin.get_user(user_id)))
 
@@ -181,7 +181,7 @@ class UserPasswordResetLinkResource(Resource):
 
 
 class InvitationListResource(Resource):
-    @require_permission(P.USERS_MANAGE)
+    @require_permission(P.USERS_VIEW)
     def get(self):
         args = load_query(InvitationQuerySchema())
         items = account_tokens.list_invitations(args["status"])
@@ -214,20 +214,8 @@ class InvitationResendResource(Resource):
         return success(account_tokens.token_dict(invite))
 
 
-class PermissionListResource(Resource):
-    @require_permission(P.USERS_MANAGE)
-    def get(self):
-        return success(user_admin.list_permissions())
-
-
-class RoleListResource(Resource):
-    @require_permission(P.USERS_MANAGE)
-    def get(self):
-        return success(user_admin.list_roles())
-
-
 class AuditLogResource(Resource):
-    @require_permission(P.AUDIT_READ)
+    @require_permission(P.AUDIT_VIEW)
     def get(self):
         args = load_query(AuditQuerySchema())
         stmt = select(AuditLog)

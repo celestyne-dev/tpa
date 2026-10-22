@@ -68,7 +68,7 @@ def test_login_sets_httponly_cookies_and_returns_no_secrets(app, client):
     assert res.status_code == 200
     body = res.get_json()["data"]["user"]
     assert body["email"] == "editor@example.org"
-    assert "content.write" in body["permissions"] and "users.manage" not in body["permissions"]
+    assert "articles.edit_any" in body["permissions"] and "users.manage" not in body["permissions"]
     raw = res.get_data(as_text=True)
     assert "password" not in raw and "token" not in raw
 

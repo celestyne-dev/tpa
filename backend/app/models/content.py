@@ -22,6 +22,7 @@ from .types import JSONType, UTCDateTime, utcnow
 
 ARTICLE_STATUSES = ("draft", "scheduled", "published", "archived")
 ARTICLE_SOURCES = ("sample", "original", "migrated")
+REVIEW_STATUSES = ("none", "submitted", "approved")
 AUTHOR_STATUSES = ("active", "archived")
 TOPIC_STATUSES = ("active", "hidden", "archived")
 MEDIA_VISIBILITY = ("public", "private")
@@ -141,6 +142,7 @@ class Article(TimestampMixin, db.Model):
     __table_args__ = (
         CheckConstraint(f"status IN {ARTICLE_STATUSES}", name="status_valid"),
         CheckConstraint(f"source IN {ARTICLE_SOURCES}", name="source_valid"),
+        CheckConstraint(f"review_status IN {REVIEW_STATUSES}", name="review_status_valid"),
         CheckConstraint(
             "status NOT IN ('published', 'scheduled') OR published_at IS NOT NULL",
             name="published_at_required",
@@ -166,6 +168,15 @@ class Article(TimestampMixin, db.Model):
     status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
     featured: Mapped[bool] = mapped_column(default=False, nullable=False)
     published_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Editorial review workflow: none -> submitted -> approved (reset when content changes).
+    review_status: Mapped[str] = mapped_column(
+        String(20), default="none", server_default="none", nullable=False
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    approved_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     # Set the first time the article goes live; once set, the slug is locked.
     first_published_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     # SEO
@@ -188,6 +199,7 @@ class Article(TimestampMixin, db.Model):
     )
 
     author: Mapped[Author | None] = relationship(lazy="joined")
+    created_by = relationship("User", foreign_keys=[created_by_id], lazy="joined")
     primary_topic: Mapped[Topic | None] = relationship(lazy="joined")
     featured_image: Mapped[MediaAsset | None] = relationship(foreign_keys=[featured_image_id])
     social_image: Mapped[MediaAsset | None] = relationship(foreign_keys=[social_image_id])

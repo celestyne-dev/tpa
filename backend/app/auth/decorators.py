@@ -9,18 +9,23 @@ from flask_jwt_extended import current_user, verify_jwt_in_request
 
 from ..models import User
 from ..utils.errors import ForbiddenError
-from .permissions import Permission, permissions_for_roles
+from .permissions import Permission
+from .rbac import effective_permissions, has_permissions
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
-def user_permissions(user: User) -> set[Permission]:
-    return permissions_for_roles(user.role_names)
+def user_permissions(user: User) -> set[str]:
+    return effective_permissions(user)
 
 
-def has_permission(user: User, *perms: Permission) -> bool:
-    granted = user_permissions(user)
-    return all(p in granted for p in perms)
+def has_permission(user: User, *perms: Permission | str) -> bool:
+    return has_permissions(user, *perms)
+
+
+def has_any_permission(user: User, *perms: Permission | str) -> bool:
+    granted = effective_permissions(user)
+    return any(str(p) in granted for p in perms)
 
 
 def check_origin() -> None:
@@ -53,6 +58,22 @@ def require_permission(*perms: Permission):
         def wrapper(*args, **kwargs):
             verify_jwt_in_request()
             if not has_permission(current_user, *perms):
+                raise ForbiddenError()
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def require_any_permission(*perms: Permission):
+    """Require an authenticated administrator holding at least one of the permissions."""
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            verify_jwt_in_request()
+            if not has_any_permission(current_user, *perms):
                 raise ForbiddenError()
             return fn(*args, **kwargs)
 

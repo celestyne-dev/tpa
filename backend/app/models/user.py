@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Table,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
@@ -10,14 +20,71 @@ from .base import TimestampMixin
 from .types import JSONType, UTCDateTime, utcnow
 
 USER_STATUSES = ("active", "disabled")
+ROLE_KINDS = ("system", "template", "custom")
+
+
+role_permissions = Table(
+    "role_permissions",
+    db.metadata,
+    Column("role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "permission_id", Integer, ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Index("ix_role_permissions_permission_id", "permission_id"),
+)
+
+
+class PermissionDefinition(db.Model):
+    """Database copy of the permission catalogue (app/auth/permissions.py)."""
+
+    __tablename__ = "permissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    group: Mapped[str] = mapped_column(String(60), nullable=False)
+    module: Mapped[str] = mapped_column(String(40), nullable=False)
+    is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_sensitive: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sort_order: Mapped[int] = mapped_column(default=0, nullable=False)
 
 
 class Role(db.Model):
     __tablename__ = "roles"
+    __table_args__ = (CheckConstraint(f"kind IN {ROLE_KINDS}", name="kind_valid"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Stable machine key (e.g. "super_admin"); never changes once created.
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(80), default="", server_default="", nullable=False)
     description: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    kind: Mapped[str] = mapped_column(
+        String(20), default="custom", server_default="custom", nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1", nullable=False
+    )
+    # Super Admin: resolves to every permission, including sensitive and future ones.
+    grants_all: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    created_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=utcnow, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow, nullable=True
+    )
+
+    permissions: Mapped[list[PermissionDefinition]] = relationship(
+        secondary=role_permissions, lazy="selectin", order_by=PermissionDefinition.sort_order
+    )
+
+    @property
+    def permission_keys(self) -> set[str]:
+        return {p.key for p in self.permissions}
+
+    @property
+    def is_protected(self) -> bool:
+        return self.kind == "system"
 
 
 class UserRole(db.Model):

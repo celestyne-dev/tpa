@@ -380,12 +380,12 @@ def test_user_list_filters_and_detail(app, as_role):
     assert detail["recent_activity"][0]["action"] == "auth.login"
     assert "password_hash" not in str(detail)
     perms = admin.get("/api/v1/admin/permissions").get_json()["data"]
-    assert {
-        "name": "taxonomy.manage",
-        "description": "Create, edit and remove topics, tags and authors",
-    } in perms
+    flat = {p["key"]: p for g in perms for p in g["permissions"]}
+    assert flat["topics.manage"]["available"] is True
+    assert flat["roles.manage"]["sensitive"] is True
+    assert flat["products.manage"]["available"] is False
     roles = admin.get("/api/v1/admin/roles").get_json()["data"]
-    assert roles[0]["label"] == "Super admin"
+    assert roles[0]["label"] == "Super Admin"
 
 
 def test_new_admin_session_flow_end_to_end(as_role, client):

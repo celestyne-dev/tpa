@@ -7,29 +7,24 @@ from sqlalchemy import func, select
 from ..extensions import db
 from ..models import Role, User, UserRole
 from ..utils.errors import ConflictError, ValidationError
-from .permissions import ROLE_DESCRIPTIONS, RoleName
+from .permissions import RoleName
+from .rbac import sync_rbac
 
 
 def sync_roles() -> int:
-    """Ensure the four built-in roles exist. Idempotent; returns how many were created."""
-    existing = set(db.session.scalars(select(Role.name)))
-    created = 0
-    for role in RoleName:
-        if role.value not in existing:
-            db.session.add(Role(name=role.value, description=ROLE_DESCRIPTIONS[role]))
-            created += 1
-    if created:
-        db.session.flush()
-    return created
+    """Ensure permissions, system roles and templates exist (idempotent)."""
+    return sync_rbac()["roles_created"]
 
 
-def get_roles(names: list[str]) -> list[Role]:
-    unknown = set(names) - {r.value for r in RoleName}
+def get_roles(names: list[str], *, require_active: bool = True) -> list[Role]:
+    names = sorted(set(names))
+    roles = list(db.session.scalars(select(Role).where(Role.name.in_(names))))
+    unknown = set(names) - {r.name for r in roles}
     if unknown:
         raise ValidationError(details={"roles": [f"Unknown role(s): {', '.join(sorted(unknown))}"]})
-    roles = list(db.session.scalars(select(Role).where(Role.name.in_(names))))
-    if len(roles) != len(set(names)):
-        raise ValidationError("Roles are not initialised. Run `flask admin sync-roles`.")
+    inactive = [r.label or r.name for r in roles if not r.is_active]
+    if require_active and inactive:
+        raise ValidationError(details={"roles": [f"Inactive role(s): {', '.join(inactive)}"]})
     return roles
 
 
@@ -46,11 +41,15 @@ def active_super_admin_count(exclude_user_id: int | None = None) -> int:
 
 
 def set_user_roles(user: User, names: list[str], *, assigned_by: User | None) -> None:
-    roles = get_roles(sorted(set(names)))
+    current_names = set(user.role_names)
+    wanted_names = set(names)
+    # Roles the user already holds may stay even if since deactivated; new ones must be active.
+    get_roles(sorted(wanted_names - current_names))
+    roles = get_roles(sorted(wanted_names), require_active=False)
     wanted = {r.id for r in roles}
     removing_super = (
-        RoleName.SUPER_ADMIN.value in user.role_names
-        and RoleName.SUPER_ADMIN.value not in {r.name for r in roles}
+        RoleName.SUPER_ADMIN.value in current_names
+        and RoleName.SUPER_ADMIN.value not in wanted_names
     )
     if removing_super and user.is_active and active_super_admin_count(user.id) == 0:
         raise ConflictError("The last active super administrator cannot lose that role.")

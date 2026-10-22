@@ -6,14 +6,9 @@ from typing import Any
 
 from sqlalchemy import or_, select
 
-from ...auth.decorators import user_permissions
 from ...auth.passwords import hash_password, password_problems
-from ...auth.permissions import (
-    PERMISSION_DESCRIPTIONS,
-    ROLE_DEFINITIONS,
-    RoleName,
-    can_grant_roles,
-)
+from ...auth.permissions import RoleName
+from ...auth.rbac import can_grant_roles, can_manage_user
 from ...auth.roles import active_super_admin_count, get_roles, set_user_roles
 from ...auth.session import revoke_all_sessions
 from ...extensions import db
@@ -68,33 +63,17 @@ def user_detail(user: User) -> dict[str, Any]:
     }
 
 
-def list_roles() -> list[dict[str, Any]]:
-    roles = db.session.scalars(select(Role).order_by(Role.id)).all()
-    out = []
-    for r in roles:
-        try:
-            definition = ROLE_DEFINITIONS[RoleName(r.name)]
-        except ValueError:
-            continue
-        out.append(
-            {
-                "name": r.name,
-                "label": definition.label,
-                "description": definition.description,
-                "permissions": sorted(p.value for p in definition.permissions),
-            }
-        )
-    return out
-
-
-def list_permissions() -> list[dict[str, str]]:
-    return [{"name": p.value, "description": d} for p, d in PERMISSION_DESCRIPTIONS.items()]
-
-
-def _check_grant(actor: User | None, roles: list[str]) -> None:
-    get_roles(sorted(set(roles)))
-    if actor is not None and not can_grant_roles(user_permissions(actor), roles):
+def check_grant(actor: User | None, names: list[str], *, require_active: bool = True) -> None:
+    """Validate role names and make sure the actor may hand out every one of them."""
+    roles = get_roles(sorted(set(names)), require_active=require_active)
+    if actor is not None and not can_grant_roles(actor, roles):
         raise ForbiddenError("You cannot grant one or more of these roles.")
+
+
+def check_manage(actor: User, user: User) -> None:
+    """Accounts holding permissions the actor lacks are off limits (no lateral escalation)."""
+    if not can_manage_user(actor, user):
+        raise ForbiddenError("You cannot manage an account with more access than your own.")
 
 
 def create_user(data: dict[str, Any], actor: User | None) -> User:
@@ -108,7 +87,7 @@ def create_user(data: dict[str, Any], actor: User | None) -> User:
         errors["roles"] = ["Assign at least one role."]
     if errors:
         raise ValidationError(details=errors)
-    _check_grant(actor, data["roles"])
+    check_grant(actor, data["roles"])
     if db.session.scalar(select(User.id).where(User.email == email)):
         raise ConflictError(details={"email": ["An account with this email already exists."]})
     user = User(
@@ -131,6 +110,8 @@ def create_user(data: dict[str, Any], actor: User | None) -> User:
 
 
 def update_user(user: User, data: dict[str, Any], actor: User) -> User:
+    if user.id != actor.id:
+        check_manage(actor, user)
     details: dict[str, Any] = {}
     if "display_name" in data and data["display_name"].strip() != user.display_name:
         details["display_name"] = {"from": user.display_name, "to": data["display_name"].strip()}
@@ -141,7 +122,8 @@ def update_user(user: User, data: dict[str, Any], actor: User) -> User:
         before = user.role_names
         if sorted(set(data["roles"])) != before:
             # Changing roles requires holding every permission involved (no escalation).
-            _check_grant(actor, sorted(set(data["roles"]) | set(before)))
+            # Roles already held may be inactive; set_user_roles rejects inactive new ones.
+            check_grant(actor, sorted(set(data["roles"]) | set(before)), require_active=False)
             set_user_roles(user, data["roles"], assigned_by=actor)
             db.session.flush()
             details["roles"] = {"from": before, "to": user.role_names}
@@ -167,6 +149,7 @@ def update_user(user: User, data: dict[str, Any], actor: User) -> User:
 
 
 def reset_password(user: User, new_password: str, actor: User) -> None:
+    check_manage(actor, user)
     if problems := password_problems(new_password, email=user.email):
         raise ValidationError(details={"password": problems})
     user.password_hash = hash_password(new_password)
