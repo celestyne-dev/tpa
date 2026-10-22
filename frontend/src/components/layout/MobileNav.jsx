@@ -3,14 +3,16 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 import { ButtonLink } from "@/components/ui/Button";
-import { routes } from "@/config/navigation";
+import { useHeaderCta } from "@/hooks/useHeaderCta";
 import { useNavigation } from "@/hooks/useNavigation";
 import { NavItem } from "./NavItem";
 
 /** Accessible mobile navigation dialog: focus trap, Escape to close, focus restore, scroll lock. */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
-  const { primary } = useNavigation();
+  const { mobile } = useNavigation();
+  const cta = useHeaderCta();
+  const items = mobile.filter((item) => item.visibility !== "desktop");
   const { pathname } = useLocation();
   const panelId = useId();
   const triggerRef = useRef(null);
@@ -104,26 +106,53 @@ export function MobileNav() {
             </div>
             <nav aria-label="Mobile" className="flex-1 overflow-y-auto px-3 py-6 sm:px-6">
               <ul className="space-y-1">
-                {primary.map((item) => (
-                  <li key={item.href}>
-                    <NavItem
-                      href={item.href}
-                      external={item.external}
-                      newTab={item.newTab}
-                      variant="mobile"
-                      onClick={() => setOpen(false)}
-                    >
-                      {item.label}
-                    </NavItem>
-                  </li>
-                ))}
+                {items.map((item) =>
+                  item.children ? (
+                    <li key={`group-${item.label}`} className="pt-3">
+                      <p className="px-4 pb-1 text-xs font-semibold tracking-[0.16em] text-sage-700 uppercase">
+                        {item.label}
+                      </p>
+                      <ul>
+                        {item.children
+                          .filter((child) => child.visibility !== "desktop")
+                          .map((child) => (
+                            <li key={`${child.href}-${child.label}`}>
+                              <NavItem
+                                href={child.href}
+                                external={child.external}
+                                newTab={child.newTab}
+                                variant="mobileChild"
+                                onClick={() => setOpen(false)}
+                              >
+                                {child.label}
+                              </NavItem>
+                            </li>
+                          ))}
+                      </ul>
+                    </li>
+                  ) : (
+                    <li key={`${item.href}-${item.label}`}>
+                      <NavItem
+                        href={item.href}
+                        external={item.external}
+                        newTab={item.newTab}
+                        variant="mobile"
+                        onClick={() => setOpen(false)}
+                      >
+                        {item.label}
+                      </NavItem>
+                    </li>
+                  ),
+                )}
               </ul>
             </nav>
-            <div className="border-t border-charcoal/[0.08] p-5 sm:px-8">
-              <ButtonLink to={routes.newsletter} className="w-full" onClick={() => setOpen(false)}>
-                The Positive Reset Newsletter
-              </ButtonLink>
-            </div>
+            {cta && (
+              <div className="border-t border-charcoal/[0.08] p-5 sm:px-8">
+                <ButtonLink to={cta.href} className="w-full" onClick={() => setOpen(false)}>
+                  {cta.label}
+                </ButtonLink>
+              </div>
+            )}
           </div>,
           document.body,
         )}

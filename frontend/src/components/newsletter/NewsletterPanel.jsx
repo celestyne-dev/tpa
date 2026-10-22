@@ -17,10 +17,13 @@ export function NewsletterPanel({
   headingLevel: Heading = "h2",
   description = DEFAULT_DESCRIPTION,
   showLearnMore = true,
+  title,
+  eyebrow = "Weekly newsletter",
   className,
 }) {
   const { data: site } = useSite();
   const name = site?.newsletter?.name ?? siteConfig.newsletterName;
+  const heading = title || name;
   const isOpen = site?.newsletter?.is_open === true;
 
   return (
@@ -40,11 +43,13 @@ export function NewsletterPanel({
         <span className="mx-auto grid size-14 place-items-center rounded-full bg-ivory/10 text-gold-300">
           <Mail aria-hidden className="size-6" />
         </span>
-        <p className="mt-6 text-sm font-semibold tracking-[0.16em] text-gold-300 uppercase">
-          Weekly newsletter
-        </p>
-        <Heading className="mt-3 text-4xl font-medium text-ivory sm:text-5xl">{name}</Heading>
-        <p className="mt-5 text-lg text-sage-100">{description}</p>
+        {eyebrow && (
+          <p className="mt-6 text-sm font-semibold tracking-[0.16em] text-gold-300 uppercase">
+            {eyebrow}
+          </p>
+        )}
+        <Heading className="mt-3 text-4xl font-medium text-ivory sm:text-5xl">{heading}</Heading>
+        {description && <p className="mt-5 text-lg text-sage-100">{description}</p>}
 
         {!isOpen && (
           <div className="mx-auto mt-8 max-w-lg rounded-2xl border border-ivory/15 bg-ivory/5 px-6 py-5">

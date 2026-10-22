@@ -61,6 +61,13 @@ export function createFakeApi(overrides = {}) {
         : notFound(),
     ),
     getProducts: vi.fn(async () => ({ data: fx.products })),
+    getPage: vi.fn(async (path) => {
+      if (path === "/") return { data: fx.homePage };
+      return fx.cmsPages[path] ? { data: fx.cmsPages[path] } : notFound("Page not found.");
+    }),
+    getPages: vi.fn(async () => ({
+      data: Object.values(fx.cmsPages).map((p) => ({ path: p.path, title: p.title })),
+    })),
     ...overrides,
   };
 }

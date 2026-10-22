@@ -35,3 +35,15 @@ export const siteConfig = {
   },
   newsletterName: "The Positive Reset",
 };
+
+/**
+ * Apply CMS settings that affect absolute URLs and indexing. The CMS can set the
+ * canonical address (Super Admin) and can only *restrict* indexing: the build's
+ * VITE_ALLOW_INDEXING must also allow it. Called by the prerenderer and on start-up.
+ */
+export function configureSite(site) {
+  const canonical = normaliseOrigin(site?.seo?.canonical_site_url);
+  if (canonical) siteConfig.url = canonical;
+  siteConfig.allowIndexing =
+    env.VITE_ALLOW_INDEXING === "true" && site?.seo?.allow_indexing !== false;
+}

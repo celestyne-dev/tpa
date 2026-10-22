@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -12,6 +13,7 @@ from ..utils.validation import is_https_url
 from .admin.announcement_admin import public_announcements
 from .branding_service import public_branding
 from .navigation_service import public_navigation
+from .serializers import iso
 from .settings_service import get_values
 
 
@@ -103,5 +105,7 @@ def get_site_settings() -> dict[str, Any]:
         },
         "navigation": public_navigation(),
         "announcements": public_announcements(),
+        # Lets the browser hydrate time-limited content exactly as it was rendered.
+        "generated_at": iso(datetime.now(UTC)),
         "cms_overrides": overridden_builtin_paths(),
     }

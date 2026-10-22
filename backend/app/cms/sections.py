@@ -393,7 +393,7 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
         "variants": {
             "cards_3": "Three columns",
             "cards_2": "Two columns",
-            "single": "One at a time",
+            "single": "Large, one per row",
         },
         "fields": {
             "eyebrow": EYEBROW,

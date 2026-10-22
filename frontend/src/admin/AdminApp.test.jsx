@@ -221,9 +221,12 @@ describe("settings", () => {
 describe("public site is unaffected", () => {
   it("still renders the public homepage alongside the admin routes", async () => {
     renderApp("/");
-    expect(screen.getByRole("heading", { level: 1, name: /A Better Mindset/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /A Better Mindset/ }),
+    ).toBeInTheDocument();
     // Let the homepage's API-driven sections finish loading inside the test.
-    expect(await screen.findByRole("link", { name: "Positive Mindset" })).toBeInTheDocument();
+    const topics = await screen.findByRole("region", { name: "Explore What Matters to You" });
+    expect(within(topics).getByRole("link", { name: "Positive Mindset" })).toBeInTheDocument();
     expect(
       await screen.findByRole("link", { name: "How to Reframe a Negative Thought" }),
     ).toBeInTheDocument();

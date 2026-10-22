@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { useSite } from "@/hooks/useContent";
-import { organizationJsonLd, websiteJsonLd } from "@/utils/structuredData";
+import { siteJsonLd } from "@/utils/structuredData";
+import { AnnouncementBar } from "./AnnouncementBar";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 import { SkipLink } from "./SkipLink";
@@ -10,7 +11,7 @@ import { SkipLink } from "./SkipLink";
 /** Public site shell. Site settings failures degrade gracefully (no social links). */
 export function RootLayout() {
   const { data: site } = useSite();
-  const socialLinks = site?.social_links ?? [];
+  const branding = site?.branding ?? {};
   const { pathname } = useLocation();
   const mainRef = useRef(null);
   const firstRender = useRef(true);
@@ -26,14 +27,21 @@ export function RootLayout() {
   }, [pathname]);
 
   return (
-    <div className="flex min-h-dvh flex-col overflow-x-clip">
+    <div
+      className="flex min-h-dvh flex-col overflow-x-clip bg-ivory"
+      data-palette={branding.palette ?? "classic"}
+      data-type={branding.typography ?? "classic"}
+      data-buttons={branding.button_shape ?? "pill"}
+      data-images={branding.image_style ?? "rounded"}
+    >
       <SkipLink />
+      <AnnouncementBar site={site} />
       <SiteHeader />
       <main ref={mainRef} id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
         <Outlet />
       </main>
       <SiteFooter site={site} />
-      <JsonLd data={[organizationJsonLd(socialLinks), websiteJsonLd()]} />
+      <JsonLd data={siteJsonLd(site)} />
     </div>
   );
 }

@@ -17,19 +17,31 @@ export function buildHead({
   siteName,
   socialTitle,
   socialDescription,
+  fullTitle: exactTitle,
+  branding,
 }) {
   // CMS-managed SEO defaults (GET /api/v1/site) take precedence over build-time config.
   const name = siteName || siteConfig.name;
-  const defaultImage = defaults?.default_og_image
-    ? { src: defaults.default_og_image, width: 1200, height: 630, alt: name }
-    : siteConfig.defaultOgImage;
+  const brandImage = branding?.social_image?.src
+    ? {
+        src: branding.social_image.src,
+        width: branding.social_image.width,
+        height: branding.social_image.height,
+        alt: branding.social_image.alt || name,
+      }
+    : null;
+  const defaultImage =
+    brandImage ??
+    (defaults?.default_og_image
+      ? { src: defaults.default_og_image, width: 1200, height: 630, alt: name }
+      : siteConfig.defaultOgImage);
   if (description === siteConfig.description && defaults?.default_description) {
     description = defaults.default_description;
   }
   if (image === siteConfig.defaultOgImage) image = defaultImage;
-  const fullTitle = title
-    ? `${title} | ${name}`
-    : defaults?.default_title || siteConfig.defaultTitle;
+  const fullTitle =
+    exactTitle ||
+    (title ? `${title} | ${name}` : defaults?.default_title || siteConfig.defaultTitle);
   const url = absoluteUrl(path, siteConfig.url);
   const imageUrl = absoluteUrl(image.src, siteConfig.url);
   let robots = "index, follow, max-image-preview:large";
@@ -63,10 +75,19 @@ export function buildHead({
     (article.tags ?? []).forEach((t) => meta.push({ property: "article:tag", content: t }));
   }
 
+  const links = [{ rel: "canonical", href: canonicalUrl ?? url }];
+  const favicon = branding?.favicon;
+  if (favicon) {
+    links.push(
+      { rel: "icon", href: favicon.ico, sizes: "48x48" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: favicon.png32 },
+      { rel: "apple-touch-icon", sizes: "180x180", href: favicon.apple },
+    );
+  }
   return {
     title: fullTitle,
     meta,
-    links: [{ rel: "canonical", href: canonicalUrl ?? url }],
+    links,
     jsonLd: Array.isArray(jsonLd) ? jsonLd : [jsonLd],
   };
 }

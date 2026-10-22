@@ -7,12 +7,14 @@ import { StrictMode } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { App } from "./app/App";
+import { configureSite } from "./config/site";
 import { createAdminApi } from "./services/adminApi";
 import { createAppStore } from "./store";
 
 const container = document.getElementById("root");
 const preloadedState = window.__TPA_STATE__;
 delete window.__TPA_STATE__;
+if (preloadedState?.site?.data) configureSite(preloadedState.site.data);
 const adminApi = createAdminApi();
 const store = createAppStore({ preloadedState, adminApi });
 

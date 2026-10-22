@@ -11,11 +11,13 @@ export function ArticleCard({
   variant = "default",
   headingLevel: Heading = "h3",
   priority = false,
+  tone = "white",
 }) {
   const feature = variant === "feature";
   return (
     <Card
       interactive
+      tone={tone}
       className={cn(
         "group flex h-full flex-col overflow-hidden",
         feature && "md:grid md:grid-cols-[1.15fr_1fr]",

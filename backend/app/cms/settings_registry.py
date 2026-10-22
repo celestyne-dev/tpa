@@ -228,6 +228,14 @@ SETTINGS += [
         _const(True),
     ),
     SettingDef(
+        "branding.wordmark_subline",
+        "Small line under the site name",
+        "Branding",
+        "string",
+        _const("Mindset · Growth · Confidence"),
+        60,
+    ),
+    SettingDef(
         "branding.favicon_media_id",
         "Favicon",
         "Branding",

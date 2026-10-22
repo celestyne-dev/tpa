@@ -163,7 +163,7 @@ HOME_SECTIONS = [
             "heading": "Resources for Your Personal Growth Journey",
             "description": "Thoughtfully created guides and practical tools to help you take "
             "the next step.",
-            "count": 3,
+            "count": 4,
             "footnote": "These titles are in development and not yet available to purchase.",
             "cta": _cta("Visit the shop", "/shop", "outline"),
         },

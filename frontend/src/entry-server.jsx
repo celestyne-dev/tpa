@@ -10,7 +10,7 @@ import { createAppStore } from "./store";
 
 export { routeTable } from "./routes/routeConfig";
 export { staticRoutes, routes } from "./config/navigation";
-export { siteConfig } from "./config/site";
+export { configureSite, siteConfig } from "./config/site";
 export { safeJson } from "./utils/structuredData";
 
 export function createServerApi(baseURL) {

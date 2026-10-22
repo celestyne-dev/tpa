@@ -14,16 +14,19 @@ import { ContactPage } from "@/pages/ContactPage";
 import { FreeResourcesPage } from "@/pages/FreeResourcesPage";
 import { HomePage } from "@/pages/HomePage";
 import { NewsletterPage } from "@/pages/NewsletterPage";
-import { NotFoundPage } from "@/pages/NotFoundPage";
+import { CmsRoute } from "@/pages/CmsPage";
 import { PartnerPage } from "@/pages/PartnerPage";
 import { PrivacyPolicyPage } from "@/pages/PrivacyPolicyPage";
 import { ShopPage } from "@/pages/ShopPage";
 import { TermsPage } from "@/pages/TermsPage";
 import { TopicPage } from "@/pages/TopicPage";
+import { withCmsOverride } from "@/routes/cmsOverride";
 import { fetchArticle, fetchArticles } from "@/store/slices/articlesSlice";
+import { fetchPage } from "@/store/slices/pagesSlice";
 import { fetchProducts } from "@/store/slices/productsSlice";
 import { fetchSite } from "@/store/slices/siteSlice";
 import { fetchTopic, fetchTopics } from "@/store/slices/topicsSlice";
+import { normalisePath } from "@/utils/pagePath";
 
 /**
  * Public route table. `load` returns the thunks whose data a page needs; the
@@ -34,7 +37,7 @@ export const routeTable = [
   {
     path: routes.home,
     Component: HomePage,
-    load: () => [fetchTopics(), fetchArticles(FEATURED_QUERY), fetchProducts()],
+    load: () => [fetchPage({ path: "/" })],
   },
   {
     path: routes.articles,
@@ -58,23 +61,40 @@ export const routeTable = [
   { path: routes.shop, Component: ShopPage, load: () => [fetchProducts()] },
   {
     path: routes.freeResources,
-    Component: FreeResourcesPage,
-    load: () => [fetchArticles(LATEST_QUERY)],
+    Component: withCmsOverride(FreeResourcesPage, routes.freeResources),
+    load: () => [fetchArticles(LATEST_QUERY), fetchPage({ path: routes.freeResources })],
   },
-  { path: routes.newsletter, Component: NewsletterPage },
-  { path: routes.partner, Component: PartnerPage },
-  { path: routes.about, Component: AboutPage, load: () => [fetchTopics()] },
-  { path: routes.contact, Component: ContactPage },
-  { path: routes.privacy, Component: PrivacyPolicyPage },
-  { path: routes.terms, Component: TermsPage },
-  { path: routes.affiliate, Component: AffiliateDisclosurePage },
-  { path: "*", Component: NotFoundPage },
+  ...[
+    [routes.newsletter, NewsletterPage],
+    [routes.partner, PartnerPage],
+    [routes.contact, ContactPage],
+    [routes.privacy, PrivacyPolicyPage],
+    [routes.terms, TermsPage],
+    [routes.affiliate, AffiliateDisclosurePage],
+  ].map(([path, Page]) => ({
+    path,
+    Component: withCmsOverride(Page, path),
+    load: () => [fetchPage({ path })],
+  })),
+  {
+    path: routes.about,
+    Component: withCmsOverride(AboutPage, routes.about),
+    load: () => [fetchTopics(), fetchPage({ path: routes.about })],
+  },
+  {
+    path: "*",
+    Component: CmsRoute,
+    load: (_params, pathname) => {
+      const path = normalisePath(pathname);
+      return path && path !== "/" ? [fetchPage({ path })] : [];
+    },
+  },
 ];
 
 /** Thunks to dispatch before rendering `pathname` (site settings are always needed). */
 export function getRouteLoaders(pathname) {
   const matches = matchRoutes(routeTable, pathname) ?? [];
   const match = matches[matches.length - 1];
-  const extra = match?.route.load ? match.route.load(match.params) : [];
+  const extra = match?.route.load ? match.route.load(match.params, pathname) : [];
   return [fetchSite(), ...extra];
 }

@@ -42,6 +42,54 @@
   --shadow-lift: 0 2px 4px rgb(36 34 31 / 0.05), 0 18px 40px -16px rgb(36 34 31 / 0.2);
 }
 
+/*
+ * Approved brand presets (Admin › Branding), applied by the public layout as
+ * data attributes. Only these combinations exist; each palette keeps WCAG AA
+ * contrast for text on ivory/cream and ivory text on sage/charcoal
+ * (checked in src/components/sections/brandPresets.test.js).
+ */
+[data-palette="evergreen"] {
+  --color-sage-50: #eef3ec;
+  --color-sage-100: #dce8d6;
+  --color-sage-600: #4a6640;
+  --color-sage-700: #3a5232;
+  --color-sage-800: #2c3f26;
+}
+
+[data-palette="golden_hour"] {
+  --color-cream: #f6ecda;
+  --color-gold-100: #f6e3bd;
+  --color-gold-300: #e2c079;
+  --color-gold-400: #cf9f4c;
+  --color-gold-500: #a87a2c;
+}
+
+[data-type="modern"] :is(h1, h2, h3, h4) {
+  font-family: var(--font-sans);
+  letter-spacing: -0.025em;
+}
+
+[data-type="editorial"] :is(h1, h2) {
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+[data-buttons="rounded"] .tpa-button {
+  border-radius: 0.75rem;
+}
+
+[data-buttons="square"] .tpa-button {
+  border-radius: 0.25rem;
+}
+
+[data-images="soft"] {
+  --radius-card: 0.75rem;
+}
+
+[data-images="square"] {
+  --radius-card: 0.25rem;
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;

@@ -119,6 +119,7 @@ def public_branding(values: dict[str, Any]) -> dict[str, Any]:
         "logo": logo,
         "logo_alt": _logo(values.get("branding.logo_alt_media_id")) or logo,
         "show_wordmark": values.get("branding.show_wordmark", True) is not False,
+        "wordmark_subline": values.get("branding.wordmark_subline") or "",
         "favicon": favicon,
         "social_image": social.as_image("social") if social else None,
         "palette": values.get("branding.palette") or "classic",

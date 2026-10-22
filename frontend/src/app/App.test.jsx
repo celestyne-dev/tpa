@@ -9,13 +9,18 @@ beforeAll(preloadAdminApp);
 describe("homepage", () => {
   it("renders the hero and API-driven sections", async () => {
     const { api } = renderApp("/");
-    expect(screen.getByRole("heading", { level: 1, name: /A Better Mindset/ })).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: "Positive Mindset" })).toHaveAttribute(
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /A Better Mindset/ }),
+    ).toBeInTheDocument();
+    const topicsSection = screen.getByRole("region", { name: "Explore What Matters to You" });
+    expect(within(topicsSection).getByRole("link", { name: "Positive Mindset" })).toHaveAttribute(
       "href",
       "/topics/positive-mindset",
     );
     // Only featured topics appear on the homepage.
-    expect(screen.queryByRole("link", { name: "Emotional Well-being" })).not.toBeInTheDocument();
+    expect(
+      within(topicsSection).queryByRole("link", { name: "Emotional Well-being" }),
+    ).not.toBeInTheDocument();
     expect(
       await screen.findByRole("link", { name: "How to Reframe a Negative Thought" }),
     ).toBeInTheDocument();
@@ -25,9 +30,10 @@ describe("homepage", () => {
     expect(
       screen.getByRole("heading", { name: "Let's Create Something Meaningful Together" }),
     ).toBeInTheDocument();
-    expect(api.getArticles).toHaveBeenCalledWith(
-      expect.objectContaining({ featured: true, page_size: 3 }),
-    );
+    // One resolved page request: the API already includes the featured articles and topics.
+    expect(api.getPage).toHaveBeenCalledWith("/");
+    expect(api.getArticles).not.toHaveBeenCalled();
+    expect(api.getTopics).not.toHaveBeenCalled();
     await waitFor(() =>
       expect(document.title).toBe(
         "Think Positive Always — Practical Inspiration for Personal Growth",
@@ -68,7 +74,7 @@ describe("routing", () => {
   it("renders a 404 page for unknown URLs", async () => {
     renderApp("/does-not-exist");
     expect(
-      screen.getByRole("heading", { name: "This page took a different path" }),
+      await screen.findByRole("heading", { name: "This page took a different path" }),
     ).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe("Page not found | Think Positive Always"));
     expect(document.querySelector('meta[name="robots"]').content).toMatch(/noindex/);
@@ -188,11 +194,13 @@ describe("API error handling", () => {
       getTopics: reject,
       getArticles: reject,
       getProducts: reject,
+      getPage: reject,
     });
     renderApp("/", { api });
-    expect(screen.getByRole("heading", { level: 1, name: /A Better Mindset/ })).toBeInTheDocument();
-    expect(await screen.findByText("We couldn't load the topics")).toBeInTheDocument();
-    expect(await screen.findByText("We couldn't load the latest articles")).toBeInTheDocument();
+    expect(await screen.findByText("We couldn't load the homepage")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    // The shell keeps working with built-in navigation fallbacks.
+    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
   });
 });

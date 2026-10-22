@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { siteConfig } from "@/config/site";
+import { useSite } from "@/hooks/useContent";
 import { cn } from "@/utils/format";
 
 export function LogoMark({ className }) {
@@ -18,32 +19,55 @@ export function LogoMark({ className }) {
   );
 }
 
+/** Site logo: the CMS logo image (Branding) or the built-in mark, plus the wordmark. */
 export function Logo({ invert = false }) {
+  const { data: site } = useSite();
+  const branding = site?.branding ?? {};
+  const name = site?.name ?? siteConfig.name;
+  const image = invert ? (branding.logo_alt ?? branding.logo) : branding.logo;
+  const showWordmark = branding.show_wordmark !== false || !image;
+  const subline = branding.wordmark_subline ?? "Mindset · Growth · Confidence";
   return (
     <Link
       to="/"
       className="group inline-flex items-center gap-3 rounded-md"
-      aria-label={`${siteConfig.name} — home`}
+      aria-label={`${name} — home`}
     >
-      <LogoMark />
-      <span className="flex flex-col leading-none">
-        <span
-          className={cn(
-            "font-serif text-[1.2rem] font-medium tracking-tight sm:text-[1.3rem]",
-            invert ? "text-ivory" : "text-charcoal",
+      {image ? (
+        <img
+          src={image.src}
+          srcSet={image.srcset || undefined}
+          sizes="160px"
+          width={image.width}
+          height={image.height}
+          alt=""
+          className={cn("h-10 w-auto", !showWordmark && "h-12")}
+        />
+      ) : (
+        <LogoMark />
+      )}
+      {showWordmark && (
+        <span className="flex flex-col leading-none">
+          <span
+            className={cn(
+              "font-serif text-[1.2rem] font-medium tracking-tight sm:text-[1.3rem]",
+              invert ? "text-ivory" : "text-charcoal",
+            )}
+          >
+            {name}
+          </span>
+          {subline && (
+            <span
+              className={cn(
+                "mt-1 text-[0.65rem] font-semibold tracking-[0.22em] uppercase",
+                invert ? "text-gold-300" : "text-sage-700",
+              )}
+            >
+              {subline}
+            </span>
           )}
-        >
-          Think Positive Always
         </span>
-        <span
-          className={cn(
-            "mt-1 text-[0.65rem] font-semibold tracking-[0.22em] uppercase",
-            invert ? "text-gold-300" : "text-sage-700",
-          )}
-        >
-          Mindset · Growth · Confidence
-        </span>
-      </span>
+      )}
     </Link>
   );
 }

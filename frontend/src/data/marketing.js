@@ -9,7 +9,6 @@ import {
   Compass,
   Download,
   FileText,
-  Footprints,
   Handshake,
   HeartHandshake,
   Lightbulb,
@@ -22,37 +21,6 @@ import {
   Sparkles,
   Sprout,
 } from "lucide-react";
-
-export const whyPillars = [
-  {
-    icon: HeartHandshake,
-    title: "Grounded in real life",
-    text: "Encouragement that acknowledges real challenges: setbacks, change, uncertainty, and the ordinary pressures of everyday life.",
-  },
-  {
-    icon: Compass,
-    title: "Practical, not just positive",
-    text: "Clear mindset and personal growth advice you can apply today, without empty slogans or unrealistic promises.",
-  },
-  {
-    icon: NotebookPen,
-    title: "Made for reflection",
-    text: "Content that invites you to pause, ask better questions, and understand yourself with more honesty and kindness.",
-  },
-  {
-    icon: Footprints,
-    title: "Designed for action",
-    text: "Resources built to help you take meaningful next steps, so insight becomes progress you can feel.",
-  },
-];
-
-export const partnershipOpportunities = [
-  "Sponsored content",
-  "Brand storytelling",
-  "Digital campaigns",
-  "Newsletter sponsorships",
-  "Relevant resource partnerships",
-];
 
 export const partnershipFormats = [
   {

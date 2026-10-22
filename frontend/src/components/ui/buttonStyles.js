@@ -1,7 +1,8 @@
 import { cn } from "@/utils/format";
 
+// "tpa-button" lets the CMS button-shape preset (Admin › Branding) adjust the corners.
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-[1.1em] [&_svg]:shrink-0";
+  "tpa-button inline-flex items-center justify-center gap-2 rounded-full font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:size-[1.1em] [&_svg]:shrink-0";
 
 const variants = {
   primary: "bg-sage-700 text-ivory hover:bg-sage-800 shadow-soft",
@@ -9,6 +10,8 @@ const variants = {
   outline: "border border-charcoal/25 text-charcoal hover:border-charcoal hover:bg-charcoal/5",
   ghost: "text-sage-700 hover:bg-sage-100 hover:text-sage-800",
   light: "bg-ivory text-charcoal hover:bg-cream",
+  // For dark section backgrounds (CMS design presets).
+  outlineLight: "border border-ivory/40 text-ivory hover:border-ivory hover:bg-ivory/10",
 };
 
 const sizes = {

@@ -4,25 +4,52 @@ import { absoluteUrl } from "./format";
 
 const url = (path) => absoluteUrl(path, siteConfig.url);
 
-export function organizationJsonLd(socialLinks = []) {
+/** Organization entity from CMS settings (name, logo, social profiles). */
+export function organizationJsonLd(site) {
+  const socialLinks = site?.social_links ?? [];
+  const logo = site?.seo?.organization_logo?.src ?? site?.branding?.logo?.src;
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: siteConfig.name,
-    alternateName: siteConfig.shortName,
+    name: site?.name ?? siteConfig.name,
+    alternateName: site?.short_name ?? siteConfig.shortName,
     url: siteConfig.url,
-    description: siteConfig.description,
+    description: site?.description ?? siteConfig.description,
+    ...(logo && { logo: url(logo) }),
     ...(socialLinks.length > 0 && { sameAs: socialLinks.map((s) => s.url) }),
   };
 }
 
-export function websiteJsonLd() {
+export function websiteJsonLd(site) {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: siteConfig.name,
+    name: site?.name ?? siteConfig.name,
     url: siteConfig.url,
     inLanguage: siteConfig.language,
+  };
+}
+
+/** Site-wide entities, honouring the CMS switches (both on by default). */
+export function siteJsonLd(site) {
+  const out = [];
+  if (site?.seo?.organization_schema !== false) out.push(organizationJsonLd(site));
+  if (site?.seo?.website_schema !== false) out.push(websiteJsonLd(site));
+  return out;
+}
+
+/** A CMS page: accurate modified time from its last publish (or shared content change). */
+export function webPageJsonLd(page) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: page.seo?.title || page.title,
+    url: url(page.path),
+    ...(page.seo?.description && { description: page.seo.description }),
+    ...(page.published_at && { datePublished: page.published_at }),
+    ...(page.updated_at && { dateModified: page.updated_at }),
+    inLanguage: siteConfig.language,
+    isPartOf: { "@type": "WebSite", url: siteConfig.url },
   };
 }
 

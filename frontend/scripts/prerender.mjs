@@ -7,6 +7,7 @@
  * 3. Renders every public route to dist/<route>/index.html with its title,
  *    meta description, canonical URL, Open Graph tags, JSON-LD, full content
  *    and the serialised Redux state used for hydration.
+ *    Published CMS pages (GET /api/v1/pages) are rendered the same way.
  * 4. Writes dist/404.html, dist/admin/index.html (client-only admin shell),
  *    dist/sitemap.xml (from GET /api/v1/sitemap: only published, indexable,
  *    self-canonical URLs, with image entries), dist/robots.txt,
@@ -28,9 +29,8 @@ const mode = process.env.NODE_ENV === "development" ? "development" : "productio
 const env = { ...loadEnv(mode, root, ""), ...process.env };
 const apiUrl = (env.PRERENDER_API_URL || "http://127.0.0.1:5000/api/v1").replace(/\/$/, "");
 
-const { render, createServerApi, staticRoutes, routes, siteConfig, safeJson } = await import(
-  pathToFileURL(ssrEntry).href
-);
+const { render, createServerApi, staticRoutes, routes, siteConfig, configureSite, safeJson } =
+  await import(pathToFileURL(ssrEntry).href);
 const api = createServerApi(apiUrl);
 
 function fail(message) {
@@ -57,6 +57,40 @@ async function fetchAllArticles() {
     all.push(...data);
     if (!meta?.pagination?.has_next) return all;
   }
+}
+
+const attr = (value) =>
+  String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+/** CMS favicon (Admin › Branding) replaces the built-in /icon.svg links. */
+function applyBranding(template, site) {
+  const favicon = site?.branding?.favicon;
+  if (!favicon) return template;
+  const links = [
+    `<link rel="icon" href="${attr(favicon.ico)}" sizes="48x48" />`,
+    `<link rel="icon" type="image/png" sizes="32x32" href="${attr(favicon.png32)}" />`,
+    `<link rel="apple-touch-icon" href="${attr(favicon.apple)}" />`,
+  ].join("\n    ");
+  return template
+    .replace(/<link rel="icon"[^>]*>/g, "")
+    .replace(/<link rel="apple-touch-icon"[^>]*>/g, "")
+    .replace("<!--app-head-->", `${links}\n    <!--app-head-->`);
+}
+
+function buildManifest(site, base) {
+  const favicon = site?.branding?.favicon;
+  return {
+    ...base,
+    name: site?.name ?? base.name,
+    short_name: site?.short_name ?? base.short_name,
+    description: site?.tagline ?? base.description,
+    icons: favicon
+      ? [
+          { src: favicon.png192, sizes: "192x192", type: "image/png" },
+          { src: favicon.png512, sizes: "512x512", type: "image/png" },
+        ]
+      : base.icons,
+  };
 }
 
 function injectTemplate(template, { head, html, state }) {
@@ -113,21 +147,31 @@ function buildRobots() {
 
 await checkApi();
 
-const template = await readFile(path.join(distDir, "index.html"), "utf8");
+// CMS settings that affect every page: canonical address, indexing, favicon, manifest.
+const site = (await api.getSite()).data;
+configureSite(site);
+
+const template = applyBranding(await readFile(path.join(distDir, "index.html"), "utf8"), site);
 for (const marker of ["<!--app-head-->", "<!--app-html-->", "<!--app-state-->"]) {
   if (!template.includes(marker)) fail(`dist/index.html is missing the ${marker} marker.`);
 }
 
-const [topicsRes, articles, sitemapRes, redirectsRes] = await Promise.all([
+const [topicsRes, articles, sitemapRes, redirectsRes, cmsPagesRes] = await Promise.all([
   api.getTopics(),
   fetchAllArticles(),
   api.getSitemap(),
   api.getRedirects(),
+  api.getPages(),
 ]);
 const topics = topicsRes.data;
+const staticPaths = new Set(staticRoutes.map((r) => r.path));
 
 const pages = [
   ...staticRoutes,
+  // Published CMS pages only (the public API never lists drafts or archived pages).
+  ...cmsPagesRes.data
+    .filter((p) => !staticPaths.has(p.path))
+    .map((p) => ({ path: p.path, priority: 0.6, changefreq: "monthly" })),
   ...topics.map((t) => ({ path: routes.topic(t.slug), priority: 0.7, changefreq: "weekly" })),
   ...articles.map((a) => ({
     path: routes.article(a.slug),
@@ -172,6 +216,11 @@ await writeFile(
   JSON.stringify(redirectsRes.data, null, 2) + "\n",
 );
 await writeFile(path.join(distDir, "robots.txt"), buildRobots());
+const baseManifest = JSON.parse(await readFile(path.join(distDir, "manifest.webmanifest"), "utf8"));
+await writeFile(
+  path.join(distDir, "manifest.webmanifest"),
+  JSON.stringify(buildManifest(site, baseManifest), null, 2) + "\n",
+);
 await writeFile(
   path.join(distDir, "prerender-manifest.json"),
   JSON.stringify(
@@ -180,6 +229,7 @@ await writeFile(
       siteUrl: siteConfig.url,
       indexing: siteConfig.allowIndexing,
       apiUrl,
+      cmsPages: cmsPagesRes.data.map((p) => p.path),
       pages: manifest,
     },
     null,

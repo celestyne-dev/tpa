@@ -6,6 +6,7 @@ import {
   selectArticle,
   selectArticleList,
 } from "@/store/slices/articlesSlice";
+import { fetchPage, selectPage } from "@/store/slices/pagesSlice";
 import { fetchProducts, selectProducts } from "@/store/slices/productsSlice";
 import { fetchSite, selectSite } from "@/store/slices/siteSlice";
 import { fetchTopic, fetchTopics, selectTopic, selectTopicList } from "@/store/slices/topicsSlice";
@@ -72,4 +73,11 @@ export function useProducts() {
   const entry = useSelector(selectProducts);
   const load = useCallback((force) => fetchProducts({ force }), []);
   return useResource(entry, load, [load], (s) => s.items);
+}
+
+/** A published CMS page by path (resolved sections; drafts are never returned). */
+export function usePage(path) {
+  const entry = useSelector(selectPage(path));
+  const load = useCallback((force) => fetchPage({ path, force }), [path]);
+  return useResource(entry, load, [load], (s) => s.data);
 }
