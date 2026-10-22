@@ -1,5 +1,12 @@
-# Nginx site for Think Positive Always (example — adjust domain/paths).
-# Static prerendered frontend + Flask API behind Gunicorn.
+# Nginx site for Think Positive Always (example — adjust domain and paths).
+#
+# - Static prerendered site from the *current* release (atomically switched symlink
+#   maintained by the publishing worker: PUBLISH_CURRENT_LINK).
+# - Optimised media from MEDIA_ROOT/public (never the private originals).
+# - Flask API behind Gunicorn.
+# - CMS redirects: paths without a static file are answered by Flask (/_redirect),
+#   which returns a real 301/302/307/308 or 404 (then the prerendered 404 page).
+#   No Nginx reload is needed when redirects change.
 
 upstream tpa_api {
     server 127.0.0.1:8000;
@@ -11,15 +18,22 @@ server {
     server_name example.com www.example.com;   # TODO: real domain once confirmed
     # Add TLS (e.g. certbot --nginx) before launch.
 
-    root /var/www/tpa/frontend/dist;
+    root /var/www/tpa-site/current;            # = PUBLISH_CURRENT_LINK
     index index.html;
 
-    # Legacy URL redirects from the previous TPA website (see redirects.conf.example).
-    include /etc/nginx/snippets/tpa-redirects.conf;
+    # Optional hand-written legacy rules (prefer the CMS redirect manager).
+    # include /etc/nginx/snippets/tpa-redirects.conf;
 
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header X-Frame-Options SAMEORIGIN always;
+
+    # Compress text (HTML, CSS, JS, JSON, XML, SVG). Images are already optimised.
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 6;
+    gzip_types text/css application/javascript application/json application/xml image/svg+xml text/plain;
 
     location /api/ {
         proxy_pass http://tpa_api;
@@ -31,6 +45,30 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 30s;
         client_max_body_size 2m;
+    }
+
+    # Image uploads are processed synchronously (validation + optimisation).
+    location /api/v1/admin/media {
+        proxy_pass http://tpa_api;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        client_max_body_size 21m;               # MEDIA_MAX_UPLOAD_MB + 1
+    }
+
+    # Optimised media. Paths contain a version (v1, v2 ...) and never change once
+    # written, so they can be cached for a year. Private originals live outside this
+    # directory (MEDIA_ROOT/private) and are never served.
+    location /media/ {
+        alias /var/lib/tpa/media/public/;       # = MEDIA_ROOT/public/
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Content-Type-Options nosniff always;
+        try_files $uri =404;
     }
 
     # Fingerprinted build assets: cache for a year.
@@ -48,15 +86,22 @@ server {
         try_files $uri /admin/index.html;
     }
 
-    # Prerendered pages: /articles/slug -> /articles/slug/index.html.
-    # Unknown URLs return the prerendered 404 page with a real 404 status.
+    # Prerendered pages: /articles/slug -> /articles/slug/index.html. HTML revalidates
+    # quickly so removed articles disappear soon after a rebuild.
     location / {
-        try_files $uri $uri/index.html =404;
-        add_header Cache-Control "public, max-age=300";
+        try_files $uri $uri/index.html @tpa_fallback;
+        add_header Cache-Control "public, max-age=300, must-revalidate";
     }
 
-    error_page 404 /404.html;
-    location = /404.html { internal; }
+    # No static file: ask Flask for a CMS redirect, else show the 404 page (status 404).
+    location @tpa_fallback {
+        proxy_pass http://tpa_api/_redirect$uri;
+        proxy_set_header Host $host;
+        proxy_intercept_errors on;
+        error_page 404 /404.html;
+    }
 
+    location = /404.html { internal; }
     location = /prerender-manifest.json { deny all; }
+    location = /redirects.json { deny all; }
 }

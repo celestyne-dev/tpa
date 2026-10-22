@@ -9,11 +9,13 @@ Group=www-data
 WorkingDirectory=/var/www/tpa/backend
 EnvironmentFile=/var/www/tpa/backend/.env
 Environment=FLASK_CONFIG=production
-ExecStart=/var/www/tpa/backend/.venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
+# --timeout covers synchronous image optimisation of large uploads.
+ExecStart=/var/www/tpa/backend/.venv/bin/gunicorn --workers 3 --timeout 120 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
+UMask=0022
 
 [Install]
 WantedBy=multi-user.target

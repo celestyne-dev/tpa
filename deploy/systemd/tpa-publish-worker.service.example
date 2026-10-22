@@ -1,0 +1,32 @@
+# /etc/systemd/system/tpa-publish-worker.service  (example)
+#
+# Runs queued site builds one at a time and publishes due scheduled articles.
+# Builds run `npm run build` (prerender reads PUBLISH_API_URL) and are released
+# atomically by switching PUBLISH_CURRENT_LINK. The live site is untouched when a
+# build fails.
+[Unit]
+Description=Think Positive Always publishing worker
+After=network.target postgresql.service tpa-api.service
+Wants=tpa-api.service
+
+[Service]
+User=tpa
+Group=www-data
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+# Node must be on PATH for the build (adjust for nvm/nodesource installs).
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi publish worker --interval 5
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0022
+# Least privilege: only the build output, releases and instance data are writable.
+ProtectSystem=strict
+ReadWritePaths=/var/www/tpa/frontend /var/www/tpa-site /var/www/tpa/backend/instance
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

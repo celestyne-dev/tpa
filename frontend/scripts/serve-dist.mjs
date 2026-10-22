@@ -7,6 +7,7 @@
  * Usage: npm run serve:dist  (PORT, API_PROXY_TARGET, SERVE_DIR to serve a release)
  */
 import { createReadStream } from "node:fs";
+import { createGzip } from "node:zlib";
 import { stat } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
@@ -48,14 +49,25 @@ async function resolveFile(urlPath) {
   return null;
 }
 
-function send(res, status, file) {
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".svg", ".json", ".xml", ".txt"]);
+
+function send(res, status, file, req) {
   const headers = { "Content-Type": types[path.extname(file)] ?? "application/octet-stream" };
+  // Like Nginx gzip: compress text responses when the client accepts it.
+  const gzip =
+    COMPRESSIBLE.has(path.extname(file)) && /\bgzip\b/.test(req?.headers["accept-encoding"] ?? "");
+  if (gzip) {
+    headers["Content-Encoding"] = "gzip";
+    headers.Vary = "Accept-Encoding";
+  }
   // Same policy as Nginx: fingerprinted assets are immutable, HTML always revalidates.
   if (file.includes(`${path.sep}assets${path.sep}`))
     headers["Cache-Control"] = "public, max-age=31536000, immutable";
   else if (file.endsWith(".html")) headers["Cache-Control"] = "no-cache";
   res.writeHead(status, headers);
-  createReadStream(file).pipe(res);
+  const stream = createReadStream(file);
+  if (gzip) stream.pipe(createGzip()).pipe(res);
+  else stream.pipe(res);
 }
 
 function proxy(req, res, targetPath, onMissing) {
@@ -93,13 +105,13 @@ http
       return;
     }
     const file = await resolveFile(pathname);
-    if (file) send(res, 200, file);
+    if (file) send(res, 200, file, req);
     else if (pathname === "/admin" || pathname.startsWith("/admin/"))
-      send(res, 200, path.join(distDir, "admin", "index.html"));
+      send(res, 200, path.join(distDir, "admin", "index.html"), req);
     else
       // Like Nginx's @fallback: CMS redirects (real 301/308) first, then the 404 page.
       proxy(req, res, `/_redirect${pathname}`, () =>
-        send(res, 404, path.join(distDir, "404.html")),
+        send(res, 404, path.join(distDir, "404.html"), req),
       );
   })
   .listen(port, () =>

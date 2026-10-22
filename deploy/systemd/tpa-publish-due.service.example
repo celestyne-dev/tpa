@@ -1,0 +1,15 @@
+# /etc/systemd/system/tpa-publish-due.service  (optional, example)
+# Only needed if the worker runs with --no-scheduler. The command is idempotent and
+# locked, so overlapping runs cannot publish an article twice.
+[Unit]
+Description=Think Positive Always: publish due scheduled articles
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=tpa
+Group=www-data
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi content publish-due

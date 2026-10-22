@@ -736,9 +736,9 @@ export function ArticleEditorPage() {
                       <Send aria-hidden />
                       Publish now
                     </Button>
-                    <div className="flex items-end gap-2">
+                    <div className="flex flex-wrap items-end gap-2">
                       <TextField
-                        className="flex-1"
+                        className="min-w-0 flex-1 basis-44"
                         label="Schedule for"
                         type="datetime-local"
                         value={scheduleAt}

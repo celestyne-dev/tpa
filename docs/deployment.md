@@ -35,9 +35,43 @@ pg_dump --format=custom --file=/var/backups/tpa-$(date +%F).dump "$DATABASE_URL"
 
 Back up before every migration, and keep off-server copies.
 
-## Scheduled publishing (optional)
+## Directories and permissions (Batch 03)
 
-Scheduled articles go live only when `flask --app wsgi content publish-due` runs, followed by a rebuild. You can run both from a systemd timer or cron job, for example every 15 minutes, with `scripts/build-production.sh` pointing at the live API.
+```bash
+sudo useradd --system --home /var/www/tpa --shell /usr/sbin/nologin tpa   # if not present
+sudo mkdir -p /var/lib/tpa/media /var/www/tpa-site/releases
+sudo chown -R tpa:www-data /var/lib/tpa/media /var/www/tpa-site /var/www/tpa/frontend /var/www/tpa/backend/instance
+sudo chmod 750 /var/lib/tpa/media && sudo chmod 2755 /var/www/tpa-site
+# backend/.env
+MEDIA_ROOT=/var/lib/tpa/media                 # public/ is served by Nginx at /media, private/ never
+PUBLISH_RELEASES_DIR=/var/www/tpa-site/releases
+PUBLISH_CURRENT_LINK=/var/www/tpa-site/current
+FRONTEND_BUILD_MANIFEST=/var/www/tpa-site/current/prerender-manifest.json
+FRONTEND_DIR=/var/www/tpa/frontend
+PUBLISH_API_URL=http://127.0.0.1:8000/api/v1
+SITE_URL=https://example.com
+```
+
+Nginx (user `www-data`) needs read access to `/var/lib/tpa/media/public` and `/var/www/tpa-site`, but not to `/var/lib/tpa/media/private`, which holds the retained originals: `sudo chmod 750 /var/lib/tpa/media/private` (owner `tpa`).
+
+## Publishing worker and scheduling
+
+```bash
+sudo cp deploy/systemd/tpa-publish-worker.service.example /etc/systemd/system/tpa-publish-worker.service
+sudo cp deploy/systemd/tpa-media-prune.service.example /etc/systemd/system/tpa-media-prune.service
+sudo cp deploy/systemd/tpa-media-prune.timer.example /etc/systemd/system/tpa-media-prune.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now tpa-publish-worker tpa-media-prune.timer
+journalctl -u tpa-publish-worker -f
+```
+
+The worker polls every 5 seconds. It publishes due scheduled articles (idempotent and locked), then runs queued builds one at a time: `npm run build` against `PUBLISH_API_URL`, verification, a copy to a new release directory and an atomic `current` symlink switch. A failed build leaves the live release in place and is retried with backoff. Build history and retries are in `/admin/publishing`.
+
+Optional: run the scheduler from a timer instead (`tpa-publish-due.service`/`.timer`) and start the worker with `--no-scheduler`.
+
+First release after upgrading: `flask --app wsgi publish request && sudo systemctl start tpa-publish-worker`, then point Nginx `root` at `/var/www/tpa-site/current`.
+
+**Cloud/CDN deployment** is not configured. To mirror each release elsewhere, set `PUBLISH_DEPLOY_COMMAND` (a JSON argv, e.g. rsync to a CDN origin). CDN cache purging must be added per provider.
 
 ## API service (Gunicorn + systemd)
 
@@ -47,7 +81,22 @@ sudo systemctl daemon-reload && sudo systemctl enable --now tpa-api
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
-## Frontend build
+## Upgrading from Batch 02
+
+```bash
+cd /var/www/tpa && git fetch && git checkout <release tag or branch>
+pg_dump --format=custom --file=/var/backups/tpa-$(date +%F)-pre-batch03.dump "$DATABASE_URL"
+cd backend && .venv/bin/pip install -r requirements.txt     # adds Pillow
+set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db upgrade                       # a817c9636960
+.venv/bin/flask --app wsgi rbac sync                        # should report all zeros
+cd ../frontend && npm ci
+sudo systemctl restart tpa-api && sudo systemctl enable --now tpa-publish-worker
+```
+
+Rollback: stop the worker, restore the dump with `pg_restore --clean`, or run `flask --app wsgi db downgrade` (drops the Batch 03 tables and columns, including revisions, redirects and jobs; uploaded files stay on disk), check out the previous release, and point Nginx back at the previous `dist/`.
+
+## Frontend build (manual)
 
 ```bash
 cd /var/www/tpa/frontend && npm ci
@@ -67,4 +116,4 @@ sudo nginx -t && sudo systemctl reload nginx
 # TLS: sudo certbot --nginx -d example.com -d www.example.com
 ```
 
-Nginx serves the prerendered files, serves the admin shell for `/admin/*` with `no-store` and `noindex`, returns `404.html` with HTTP 404 for unknown URLs, applies legacy 301 redirects, caches `/assets/` immutably, and proxies `/api/` to Gunicorn.
+Nginx serves the current release (`/var/www/tpa-site/current`), serves `/media/` from `MEDIA_ROOT/public` with immutable caching, sends paths without a static file to Flask `/_redirect/…` for CMS redirects (real 301/302/307/308 responses, otherwise the prerendered 404 page), gzips text, raises the upload body limit for `/api/v1/admin/media`, and serves serves the admin shell for `/admin/*` with `no-store` and `noindex`, returns `404.html` with HTTP 404 for unknown URLs, applies legacy 301 redirects, caches `/assets/` immutably, and proxies `/api/` to Gunicorn.

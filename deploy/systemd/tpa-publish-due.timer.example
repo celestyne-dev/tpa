@@ -1,0 +1,11 @@
+# /etc/systemd/system/tpa-publish-due.timer  (optional, example)
+[Unit]
+Description=Run tpa-publish-due every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
