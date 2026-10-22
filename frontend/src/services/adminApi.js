@@ -81,6 +81,18 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
   const patch = (url, body) => data(client.patch(url, body));
   const put = (url, body) => data(client.put(url, body));
   const del = (url) => data(client.delete(url));
+  const upload = (url, file, fields = {}, onProgress) => {
+    const form = new FormData();
+    form.append("file", file);
+    Object.entries(fields).forEach(([k, v]) => v != null && v !== "" && form.append(k, v));
+    return data(
+      client.post(url, form, {
+        timeout: 120000,
+        onUploadProgress: (event) =>
+          onProgress?.(event.total ? Math.round((event.loaded / event.total) * 100) : null),
+      }),
+    );
+  };
 
   const collection = (name) => ({
     list: (params) => get(`/${name}`, params),
@@ -116,13 +128,50 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       restore: (id) => post(`/articles/${id}/restore`),
       submit: (id) => post(`/articles/${id}/submit`),
       approve: (id) => post(`/articles/${id}/approve`),
+      publishChanges: (id, lockVersion) =>
+        post(`/articles/${id}/publish-changes`, { lock_version: lockVersion ?? null }),
+      discardChanges: (id) => post(`/articles/${id}/discard-changes`),
+      revisions: (id) => get(`/articles/${id}/revisions`),
+      revision: (id, revisionId) => get(`/articles/${id}/revisions/${revisionId}`),
+      compareRevisions: (id, from, to) => get(`/articles/${id}/revisions/compare`, { from, to }),
+      restoreRevision: (id, revisionId, lockVersion) =>
+        post(`/articles/${id}/revisions/${revisionId}/restore`, {
+          lock_version: lockVersion ?? null,
+        }),
+      seoChecks: (id) => get(`/articles/${id}/seo-checks`),
+      slugCheck: (slug, exclude) => get("/articles/slug-check", { slug, exclude }),
       preview: (id) => get(`/articles/${id}/preview`),
     },
     topics: collection("topics"),
     tags: collection("tags"),
     authors: collection("authors"),
-    media: { list: () => get("/media") },
-    publishing: { status: () => get("/publishing/status") },
+    media: {
+      list: (params) => get("/media", params),
+      get: (id) => get(`/media/${id}`),
+      stats: () => get("/media/stats"),
+      upload: (file, fields, onProgress) => upload("/media", file, fields, onProgress),
+      update: (id, body) => patch(`/media/${id}`, body),
+      replace: (id, file, onProgress) => upload(`/media/${id}/replace`, file, {}, onProgress),
+      archive: (id) => post(`/media/${id}/archive`),
+      restore: (id) => post(`/media/${id}/restore`),
+      remove: (id) => del(`/media/${id}`),
+    },
+    publishing: {
+      status: () => get("/publishing/status"),
+      jobs: (params) => get("/publishing/jobs", params),
+      request: () => post("/publishing/jobs"),
+      retry: (id) => post(`/publishing/jobs/${id}/retry`),
+      cancel: (id) => post(`/publishing/jobs/${id}/cancel`),
+    },
+    seo: { overview: () => get("/seo/overview") },
+    redirects: {
+      list: (params) => get("/redirects", params),
+      create: (body) => post("/redirects", body),
+      update: (id, body) => patch(`/redirects/${id}`, body),
+      remove: (id) => del(`/redirects/${id}`),
+      import: (csv, dryRun) => post("/redirects/import", { csv, dry_run: dryRun }),
+      exportUrl: () => `${baseURL}/redirects/export`,
+    },
     pages: {
       list: () => get("/pages"),
       get: (id) => get(`/pages/${id}`),

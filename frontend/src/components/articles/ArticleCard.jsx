@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { ContentImage } from "@/components/ui/ContentImage";
+import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { routes } from "@/config/navigation";
 import { cn } from "@/utils/format";
 import { ArticleMeta } from "./ArticleMeta";
@@ -31,6 +31,7 @@ export function ArticleCard({
           image={article.image}
           fill
           priority={priority}
+          sizes={feature ? "(min-width: 768px) 55vw, 100vw" : IMAGE_SIZES.card}
           className="object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:group-hover:scale-100"
         />
         {article.source === "sample" && (

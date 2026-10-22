@@ -9,6 +9,10 @@ const tones = {
   archived: "bg-charcoal/10 text-muted",
   disabled: "bg-red-50 text-red-800",
   inactive: "bg-charcoal/10 text-muted",
+  pending: "bg-gold-100 text-gold-700",
+  running: "bg-sage-100 text-sage-800",
+  failed: "bg-red-50 text-red-800",
+  cancelled: "bg-charcoal/10 text-muted",
 };
 
 export function StatusBadge({ status, className }) {

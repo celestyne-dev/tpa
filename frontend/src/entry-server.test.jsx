@@ -16,7 +16,7 @@ describe("prerender (entry-server)", () => {
     expect(result.head).toMatch(
       /<link data-seo rel="canonical" href="[^"]+\/articles\/reframing-negative-thoughts"/,
     );
-    expect(result.head).toContain('"@type":"Article"');
+    expect(result.head).toContain('"@type":"BlogPosting"');
     expect(result.state.articles.bySlug["reframing-negative-thoughts"].status).toBe("succeeded");
   });
 

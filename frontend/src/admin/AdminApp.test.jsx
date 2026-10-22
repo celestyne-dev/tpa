@@ -162,7 +162,7 @@ describe("articles", () => {
     });
     await user.click(await screen.findByRole("button", { name: "Publish now" }));
     await waitFor(() => expect(adminApi.articles.publish).toHaveBeenCalledWith("7", null));
-    expect(await screen.findByText(/static site updates after the next build/)).toBeInTheDocument();
+    expect(await screen.findByText(/site rebuild has been queued/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Unpublish" })).toBeInTheDocument();
   });
 

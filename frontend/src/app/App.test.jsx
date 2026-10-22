@@ -132,7 +132,7 @@ describe("articles", () => {
     const jsonLd = [...document.querySelectorAll('head script[type="application/ld+json"]')].map(
       (s) => JSON.parse(s.textContent),
     );
-    expect(jsonLd.map((d) => d["@type"])).toEqual(["Article", "BreadcrumbList"]);
+    expect(jsonLd.map((d) => d["@type"])).toEqual(["BlogPosting", "BreadcrumbList"]);
   });
 
   it("shows not-found for unknown article and topic slugs", async () => {

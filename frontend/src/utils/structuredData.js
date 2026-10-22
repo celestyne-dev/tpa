@@ -26,16 +26,41 @@ export function websiteJsonLd() {
   };
 }
 
+function imageObject(image) {
+  return {
+    "@type": "ImageObject",
+    url: url(image.src),
+    width: image.width,
+    height: image.height,
+    ...(image.caption && { caption: image.caption }),
+  };
+}
+
+/** Person only for authors marked as real people; editorial bylines stay organisational. */
+function authorEntity(article) {
+  const profile = article.author_profile;
+  if (profile?.is_person) {
+    return {
+      "@type": "Person",
+      name: profile.name,
+      ...(profile.bio && { description: profile.bio }),
+      ...(profile.image?.src && { image: url(profile.image.src) }),
+    };
+  }
+  return { "@type": "Organization", name: article.author.name, url: siteConfig.url };
+}
+
 export function articleJsonLd(article) {
+  const images = [article.seo?.og_image, article.image].filter((i) => i?.src);
   return {
     "@context": "https://schema.org",
-    "@type": "Article",
+    "@type": "BlogPosting",
     headline: article.title,
-    description: article.excerpt,
-    image: [url(article.image.src)],
+    description: article.seo?.description ?? article.excerpt,
+    image: images.map(imageObject),
     datePublished: article.published_at,
     dateModified: article.updated_at ?? article.published_at,
-    author: { "@type": "Organization", name: article.author.name, url: siteConfig.url },
+    author: authorEntity(article),
     publisher: { "@type": "Organization", name: siteConfig.name, url: siteConfig.url },
     mainEntityOfPage: { "@type": "WebPage", "@id": url(routes.article(article.slug)) },
     ...(article.topic && { articleSection: article.topic.name }),

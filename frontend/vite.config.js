@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         "/api": { target: apiProxyTarget, changeOrigin: true },
+        // Uploaded, optimised media (Flask serves them in development; Nginx in production).
+        "/media": { target: apiProxyTarget, changeOrigin: true },
       },
     },
     preview: { port: 4173 },

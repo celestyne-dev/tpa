@@ -13,5 +13,8 @@ export function createContentApi(client = createApiClient()) {
     getArticles: (params) => get("/articles", params),
     getArticle: (slug) => get(`/articles/${encodeURIComponent(slug)}`),
     getProducts: () => get("/products"),
+    getSitemap: () => get("/sitemap"),
+    getRedirects: () => get("/redirects"),
+    resolveRedirect: (path) => get("/redirects/resolve", { path }),
   };
 }

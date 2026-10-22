@@ -8,7 +8,7 @@ import { Seo } from "@/components/seo/Seo";
 import { Badge } from "@/components/ui/Badge";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Container } from "@/components/ui/Container";
-import { ContentImage } from "@/components/ui/ContentImage";
+import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Notice } from "@/components/ui/Notice";
 import { Section } from "@/components/ui/Section";
@@ -51,6 +51,8 @@ export function ArticleDetailPage() {
         canonicalUrl={article.canonical_url ?? undefined}
         noIndex={article.seo?.no_index}
         image={article.seo?.og_image ?? undefined}
+        socialTitle={article.seo?.og_title}
+        socialDescription={article.seo?.og_description}
         type="article"
         article={{
           publishedTime: article.published_at,
@@ -97,7 +99,13 @@ export function ArticleDetailPage() {
         <div className="bg-gradient-to-b from-cream from-50% to-ivory to-50%">
           <Container>
             <div className="relative mx-auto aspect-[16/10] max-w-4xl overflow-hidden rounded-[var(--radius-card)] bg-beige shadow-soft">
-              <ContentImage image={article.image} fill priority className="object-cover" />
+              <ContentImage
+                image={article.image}
+                fill
+                priority
+                sizes={IMAGE_SIZES.hero}
+                className="object-cover"
+              />
             </div>
           </Container>
         </div>

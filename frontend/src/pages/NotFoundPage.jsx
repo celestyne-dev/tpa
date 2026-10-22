@@ -1,15 +1,41 @@
 import { ArrowRight, Compass } from "lucide-react";
-import { useContext } from "react";
-import { Link } from "react-router";
+import { useContext, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Seo } from "@/components/seo/Seo";
 import { HeadContext } from "@/components/seo/headContext";
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { mainNav, routes } from "@/config/navigation";
+import { createContentApi } from "@/services/contentApi";
+
+/**
+ * Old links reached through client-side navigation: follow a CMS redirect if one
+ * exists. (Direct visits get a real 301/308 from the server; this is a fallback.)
+ */
+function useRedirectFallback() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (pathname === "/404") return undefined;
+    let cancelled = false;
+    createContentApi()
+      .resolveRedirect(pathname)
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data.destination.startsWith("/")) navigate(data.destination, { replace: true });
+        else window.location.replace(data.destination);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, navigate]);
+}
 
 export function NotFoundPage() {
   const collector = useContext(HeadContext);
   collector?.setStatus(404);
+  useRedirectFallback();
   const suggestions = mainNav.filter((item) => item.href !== routes.home);
 
   return (

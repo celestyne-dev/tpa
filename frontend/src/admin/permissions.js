@@ -11,6 +11,8 @@ export const ARTICLE_ACCESS = [
 export const TAXONOMY_READ = [...ARTICLE_ACCESS, "topics.manage", "tags.manage", "authors.manage"];
 export const SETTINGS_ACCESS = ["settings.manage", "seo.manage"];
 export const ROLE_READ = ["roles.manage", "roles.assign", "users.view"];
+export const SEO_READ = ["seo.view", "seo.manage"];
+export const REDIRECT_READ = ["redirects.manage", "seo.view"];
 
 /** Permissions granted by the chosen roles (inactive roles grant nothing); null = all. */
 export function previewPermissions(roles, chosen) {

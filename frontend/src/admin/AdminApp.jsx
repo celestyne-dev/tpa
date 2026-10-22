@@ -9,6 +9,12 @@ import { NotificationProvider } from "./components/Notifications";
 import { AccountPage } from "./pages/AccountPage";
 import { ActivatePage } from "./pages/ActivatePage";
 import { ArticleEditorPage } from "./pages/ArticleEditorPage";
+import { ArticlePreviewPage } from "./pages/ArticlePreviewPage";
+import { MediaLibraryPage } from "./pages/MediaLibraryPage";
+import { PublishingPage } from "./pages/PublishingPage";
+import { RedirectsPage } from "./pages/RedirectsPage";
+import { SeoPage } from "./pages/SeoPage";
+import { WorkflowPage } from "./pages/WorkflowPage";
 import { ArticlesPage } from "./pages/ArticlesPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -21,7 +27,14 @@ import { RolesPage } from "./pages/RolesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TaxonomyPage } from "./pages/TaxonomyPage";
 import { UsersPage } from "./pages/UsersPage";
-import { ARTICLE_ACCESS, ROLE_READ, SETTINGS_ACCESS, TAXONOMY_READ } from "./permissions";
+import {
+  ARTICLE_ACCESS,
+  REDIRECT_READ,
+  ROLE_READ,
+  SEO_READ,
+  SETTINGS_ACCESS,
+  TAXONOMY_READ,
+} from "./permissions";
 
 /** `rule` is one permission key or a list of alternatives (any one suffices). */
 const guarded = (rule, element) =>
@@ -60,6 +73,15 @@ export default function AdminApp() {
             path="articles/:id/edit"
             element={guarded(ARTICLE_ACCESS, <ArticleEditorPage />)}
           />
+          <Route
+            path="articles/:id/preview"
+            element={guarded("articles.preview", <ArticlePreviewPage />)}
+          />
+          <Route path="workflow" element={guarded(ARTICLE_ACCESS, <WorkflowPage />)} />
+          <Route path="media" element={guarded("media.view", <MediaLibraryPage />)} />
+          <Route path="seo" element={guarded(SEO_READ, <SeoPage />)} />
+          <Route path="redirects" element={guarded(REDIRECT_READ, <RedirectsPage />)} />
+          <Route path="publishing" element={guarded("publishing.view", <PublishingPage />)} />
           <Route path="topics" element={guarded(TAXONOMY_READ, <TaxonomyPage kind="topics" />)} />
           <Route path="tags" element={guarded(TAXONOMY_READ, <TaxonomyPage kind="tags" />)} />
           <Route path="authors" element={guarded(TAXONOMY_READ, <TaxonomyPage kind="authors" />)} />

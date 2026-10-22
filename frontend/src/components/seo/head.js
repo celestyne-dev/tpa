@@ -15,6 +15,8 @@ export function buildHead({
   jsonLd = [],
   defaults,
   siteName,
+  socialTitle,
+  socialDescription,
 }) {
   // CMS-managed SEO defaults (GET /api/v1/site) take precedence over build-time config.
   const name = siteName || siteConfig.name;
@@ -37,8 +39,8 @@ export function buildHead({
   const meta = [
     { name: "description", content: description },
     { name: "robots", content: robots },
-    { property: "og:title", content: title ?? name },
-    { property: "og:description", content: description },
+    { property: "og:title", content: socialTitle ?? title ?? name },
+    { property: "og:description", content: socialDescription ?? description },
     { property: "og:url", content: url },
     { property: "og:site_name", content: name },
     { property: "og:locale", content: siteConfig.locale },
@@ -48,8 +50,8 @@ export function buildHead({
     { property: "og:image:height", content: String(image.height) },
     { property: "og:image:alt", content: image.alt },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: title ?? name },
-    { name: "twitter:description", content: description },
+    { name: "twitter:title", content: socialTitle ?? title ?? name },
+    { name: "twitter:description", content: socialDescription ?? description },
     { name: "twitter:image", content: imageUrl },
   ];
   if (type === "article" && article) {

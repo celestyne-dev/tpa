@@ -8,6 +8,7 @@ import { AdminPageHeader } from "../components/AdminPageHeader";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "../components/Fields";
+import { ImageChooser } from "../components/media/ImageChooser";
 import { Modal } from "../components/Modal";
 import { useNotify } from "../components/notifyContext";
 import { StatusBadge } from "../components/StatusBadge";
@@ -56,6 +57,7 @@ const CONFIG = {
         ],
       },
       { name: "featured", label: "Feature on the homepage", type: "checkbox" },
+      { name: "featured_image_id", label: "Topic image", type: "image" },
       { name: "seo_title", label: "SEO title" },
       { name: "seo_description", label: "SEO description", type: "textarea" },
     ],
@@ -70,6 +72,7 @@ const CONFIG = {
       featured: false,
       seo_title: "",
       seo_description: "",
+      featured_image_id: null,
     },
   },
   authors: {
@@ -83,6 +86,13 @@ const CONFIG = {
       { name: "display_name", label: "Display name", required: true },
       { name: "slug", label: "Slug", hint: "Leave empty to generate from the name." },
       { name: "bio", label: "Short biography", type: "textarea", rows: 4 },
+      { name: "profile_image_id", label: "Portrait", type: "image" },
+      {
+        name: "is_person",
+        label: "This is a real person",
+        hint: "Adds schema.org Person data for this author. Leave unticked for team or editorial bylines.",
+        type: "checkbox",
+      },
       {
         name: "status",
         label: "Status",
@@ -93,7 +103,14 @@ const CONFIG = {
         ],
       },
     ],
-    defaults: { display_name: "", slug: "", bio: "", status: "active" },
+    defaults: {
+      display_name: "",
+      slug: "",
+      bio: "",
+      status: "active",
+      profile_image_id: null,
+      is_person: false,
+    },
   },
   tags: {
     title: "Tags",
@@ -153,9 +170,26 @@ function FormFields({ fields, form, setForm, error }) {
         <CheckboxField
           key={f.name}
           label={f.label}
+          hint={f.hint}
           checked={Boolean(form[f.name])}
           onChange={onChange}
         />
+      );
+    if (f.type === "image")
+      return (
+        <div key={f.name}>
+          <p className="mb-1 text-sm font-medium">{f.label}</p>
+          <ImageChooser
+            label={f.label.toLowerCase()}
+            mediaId={form[f.name] ?? null}
+            onChange={(id) => setForm((v) => ({ ...v, [f.name]: id }))}
+          />
+          {common.error && (
+            <p role="alert" className="mt-1 text-sm text-red-800">
+              {common.error}
+            </p>
+          )}
+        </div>
       );
     return (
       <TextField

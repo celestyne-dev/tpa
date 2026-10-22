@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { createFakeAdminApi, makeArticle } from "@/test/adminFake";
+import { createFakeAdminApi, makeArticle, ROLE_PERMS } from "@/test/adminFake";
 import { renderApp } from "@/test/utils";
 
 describe("roles & permissions navigation", () => {
@@ -130,9 +130,11 @@ describe("assigning multiple roles", () => {
     await user.click(await screen.findByRole("button", { name: "Edit Ngozi Writer" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit administrator" });
     const preview = within(dialog).getByTestId("effective-preview");
-    expect(preview).toHaveTextContent("Effective permissions: 16");
+    const editorCount = ROLE_PERMS.editor.length;
+    expect(preview).toHaveTextContent(`Effective permissions: ${editorCount}`);
     await user.click(within(dialog).getByRole("checkbox", { name: /Analyst/ }));
-    expect(preview).toHaveTextContent("Effective permissions: 17"); // + analytics.view
+    // Analyst adds analytics.view (its other permissions overlap with Editor's).
+    expect(preview).toHaveTextContent(`Effective permissions: ${editorCount + 1}`);
     await user.click(within(dialog).getByRole("checkbox", { name: /Super Admin/ }));
     expect(preview).toHaveTextContent("all permissions (Super Admin)");
     // Inactive roles cannot be newly assigned, so they are not offered.

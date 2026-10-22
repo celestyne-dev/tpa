@@ -3,31 +3,37 @@ import {
   BadgeCheck,
   CalendarClock,
   ClipboardCheck,
+  ExternalLink,
   Eye,
   RotateCcw,
   Save,
   Send,
   Trash2,
   Undo2,
+  UploadCloud,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { ArticleBody } from "@/components/articles/ArticleBody";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { formatDateTime } from "@/utils/format";
+import { cn, formatDateTime } from "@/utils/format";
 import { useAdminApi } from "../adminApiContext";
-import { fieldError } from "../components/fieldError";
 import { AdminPageHeader } from "../components/AdminPageHeader";
 import { BlockEditor } from "../components/BlockEditor";
-import { cleanBlocks } from "../components/blocks";
+import { cleanBlocks, countWords, readingMinutes } from "../components/blocks";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { fieldError } from "../components/fieldError";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "../components/Fields";
+import { ImageChooser, MediaThumb } from "../components/media/ImageChooser";
 import { Modal } from "../components/Modal";
 import { useNotify } from "../components/notifyContext";
+import { RevisionsPanel } from "../components/RevisionsPanel";
+import { SeoPanel } from "../components/SeoPanel";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAdminQuery } from "../hooks/useAdminQuery";
+import { useAutosave } from "../hooks/useAutosave";
 import { usePermissions } from "../hooks/usePermissions";
 import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
 
@@ -46,12 +52,20 @@ const EMPTY = {
   social_image_id: "",
   seo_title: "",
   meta_description: "",
+  social_title: "",
+  social_description: "",
   canonical_url: "",
   noindex: false,
   original_url: "",
   original_slug: "",
 };
 const FIELDS = Object.keys(EMPTY);
+const TABS = [
+  ["content", "Content"],
+  ["details", "Details"],
+  ["seo", "SEO"],
+  ["history", "History"],
+];
 
 function toForm(article) {
   const form = {};
@@ -62,7 +76,7 @@ function toForm(article) {
   return form;
 }
 
-function toPayload(form, { includeSlug }) {
+function toPayload(form, { includeSlug, includeIndexing }) {
   const idOrNull = (v) => (v === "" || v === null ? null : Number(v));
   const payload = {
     ...form,
@@ -74,7 +88,16 @@ function toPayload(form, { includeSlug }) {
     secondary_topic_ids: form.secondary_topic_ids.map(Number),
     tag_ids: form.tag_ids.map(Number),
   };
+  ["seo_title", "meta_description", "social_title", "social_description", "canonical_url"].forEach(
+    (k) => {
+      if (payload[k] === "") payload[k] = null;
+    },
+  );
   if (!includeSlug) delete payload.slug;
+  if (!includeIndexing) {
+    delete payload.canonical_url;
+    delete payload.noindex;
+  }
   return payload;
 }
 
@@ -104,6 +127,16 @@ function MultiSelect({ legend, options, value, onChange }) {
   );
 }
 
+const AUTOSAVE_TEXT = {
+  idle: "",
+  pending: "Unsaved changes…",
+  saving: "Saving…",
+  saved: "All changes saved",
+  error: "Autosave failed — retrying",
+  offline: "Offline — will save when reconnected",
+  conflict: "Autosave paused (edit conflict)",
+};
+
 export function ArticleEditorPage() {
   const { id } = useParams();
   const isNew = !id;
@@ -118,36 +151,44 @@ export function ArticleEditorPage() {
   );
   const refs = useAdminQuery(
     () =>
-      Promise.all([
-        api.topics.list(),
-        api.authors.list(),
-        api.tags.list(),
-        // The media library needs media.view; without it the picker is simply empty.
-        api.media.list().catch(() => ({ data: [] })),
-      ]).then(([topics, authors, tags, media]) => ({
-        data: { topics: topics.data, authors: authors.data, tags: tags.data, media: media.data },
-      })),
+      Promise.all([api.topics.list(), api.authors.list(), api.tags.list()]).then(
+        ([topics, authors, tags]) => ({
+          data: { topics: topics.data, authors: authors.data, tags: tags.data },
+        }),
+      ),
     [],
+  );
+  const seoChecks = useAdminQuery(
+    () => (isNew ? Promise.resolve({ data: null }) : api.articles.seoChecks(id)),
+    [id],
   );
 
   const [form, setForm] = useState(EMPTY);
   const [saved, setSaved] = useState(EMPTY);
+  const [lockVersion, setLockVersion] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [scheduleAt, setScheduleAt] = useState("");
+  const [tab, setTab] = useState("content");
+  const [historyKey, setHistoryKey] = useState(0);
 
   const record = article.data;
   // The server computes what this user may do with this article (ownership included).
   const allowed = record?.can ?? {};
   const canWrite = isNew ? can("articles.create") : Boolean(allowed.edit);
-  // Sync the form when the article (re)loads.
+  const status = record?.status ?? "draft";
+  const isLive = status === "published";
+
+  // Load the form once per article. Later server responses are applied explicitly
+  // (never by re-syncing), so an in-flight autosave cannot overwrite fresh typing.
   const [loadedFor, setLoadedFor] = useState(null);
-  if (record && loadedFor !== record.updated_at) {
-    setLoadedFor(record.updated_at);
+  if (record && loadedFor !== record.id) {
+    setLoadedFor(record.id);
     setForm(toForm(record));
     setSaved(toForm(record));
+    setLockVersion(record.lock_version);
   }
 
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(saved), [form, saved]);
@@ -161,8 +202,41 @@ export function ArticleEditorPage() {
     if (isNew) {
       setForm(EMPTY);
       setSaved(EMPTY);
+      setLockVersion(null);
     }
   }
+
+  const payloadOptions = {
+    includeSlug: isNew || Boolean(allowed.edit_slug),
+    includeIndexing: isNew ? false : Boolean(allowed.edit_indexing),
+  };
+  const words = countWords(form.body);
+
+  const applyServer = (res, sentForm) => {
+    const data = res.data;
+    setLockVersion(data.lock_version);
+    if (sentForm) setSaved(sentForm);
+    article.setData((current) => ({ ...current, ...data, lock_version: data.lock_version }));
+    seoChecks.reload();
+    setHistoryKey((k) => k + 1);
+  };
+
+  const autosave = useAutosave({
+    enabled: !isNew && canWrite && !busy,
+    dirty,
+    payload: form,
+    lockVersion,
+    save: (body, version) =>
+      api.articles.update(id, {
+        ...toPayload(body, payloadOptions),
+        mode: "autosave",
+        lock_version: version,
+      }),
+    onSaved: (res, sentForm) => {
+      setError(null);
+      applyServer(res, sentForm);
+    },
+  });
 
   const set = (field) => (e) =>
     setForm((f) => ({
@@ -173,20 +247,26 @@ export function ArticleEditorPage() {
   const save = async () => {
     setBusy(true);
     setError(null);
+    const sent = form;
     try {
-      const payload = toPayload(form, { includeSlug: isNew || !record?.slug_locked });
+      const payload = toPayload(sent, payloadOptions);
       if (isNew) {
         const res = await api.articles.create(payload);
-        setSaved(form);
+        setSaved(sent);
         notify("Draft created.");
         navigate(`/admin/articles/${res.data.id}/edit`, { replace: true });
       } else {
-        const res = await api.articles.update(id, payload);
-        article.setData(res.data);
-        notify("Changes saved.");
+        const res = await api.articles.update(id, { ...payload, lock_version: lockVersion });
+        applyServer(res, sent);
+        notify(
+          res.meta?.save_result === "pending"
+            ? "Changes saved for review. The live article changes when a publisher publishes them."
+            : "Changes saved.",
+        );
       }
     } catch (err) {
       setError(err);
+      if (err.code === "edit_conflict") setConfirm("conflict");
       notify(err.status === 400 ? "Please fix the highlighted fields." : err.message, "error");
     } finally {
       setBusy(false);
@@ -202,13 +282,21 @@ export function ArticleEditorPage() {
           ? await api.articles.publish(id, null)
           : action === "schedule"
             ? await api.articles.publish(id, new Date(scheduleAt).toISOString())
-            : await api.articles[action](id);
+            : action === "publishChanges"
+              ? await api.articles.publishChanges(id, lockVersion)
+              : await api.articles[action](id);
       if (action === "remove") {
         notify(message);
         navigate("/admin/articles", { replace: true });
         return;
       }
+      if (res.data?.lock_version) setLockVersion(res.data.lock_version);
       article.setData(res.data);
+      if (["discardChanges", "publishChanges"].includes(action)) {
+        setForm(toForm(res.data));
+        setSaved(toForm(res.data));
+      }
+      seoChecks.reload();
       notify(message);
     } catch (err) {
       setError(err);
@@ -220,6 +308,25 @@ export function ArticleEditorPage() {
       setBusy(false);
       setConfirm(null);
     }
+  };
+
+  const reloadLatest = async () => {
+    const res = await api.articles.get(id);
+    article.setData(res.data);
+    setForm(toForm(res.data));
+    setSaved(toForm(res.data));
+    setLockVersion(res.data.lock_version);
+    autosave.clearConflict();
+    setConfirm(null);
+    notify("Loaded the latest version.");
+  };
+
+  const keepMine = async () => {
+    const res = await api.articles.get(id);
+    setLockVersion(res.data.lock_version);
+    autosave.clearConflict();
+    setConfirm(null);
+    notify("Your version will be saved over theirs on the next save.");
   };
 
   if (article.error)
@@ -240,8 +347,7 @@ export function ArticleEditorPage() {
       </div>
     );
 
-  const { topics, authors, tags, media } = refs.data;
-  const status = record?.status ?? "draft";
+  const { topics, authors, tags } = refs.data;
   const option = (items, labelKey) => [
     { value: "", label: "— Select —" },
     ...items.map((i) => ({
@@ -250,7 +356,12 @@ export function ArticleEditorPage() {
     })),
   ];
   const err = (name) => fieldError(error, name);
-  const featuredImage = media.find((m) => String(m.id) === String(form.featured_image_id));
+  const saveLabel = isNew
+    ? "Create draft"
+    : isLive && !allowed.save_live
+      ? "Save for review"
+      : "Save changes";
+  const conflictOpen = confirm === "conflict" || autosave.status === "conflict";
 
   return (
     <>
@@ -266,6 +377,19 @@ export function ArticleEditorPage() {
               <Eye aria-hidden />
               Preview
             </Button>
+            {!isNew && allowed.preview && (
+              <ButtonLink
+                to={`/admin/articles/${id}/preview`}
+                variant="ghost"
+                size="sm"
+                target="_blank"
+                rel="noopener"
+                data-allow-unsaved
+              >
+                <ExternalLink aria-hidden />
+                Full preview
+              </ButtonLink>
+            )}
             {canWrite && (
               <Button
                 size="sm"
@@ -273,12 +397,31 @@ export function ArticleEditorPage() {
                 disabled={busy || (!dirty && !isNew) || !form.title.trim()}
               >
                 <Save aria-hidden />
-                {isNew ? "Create draft" : "Save changes"}
+                {saveLabel}
               </Button>
             )}
           </>
         }
       />
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+        <span>
+          {words} words · {readingMinutes(words)} min read
+        </span>
+        {!isNew && canWrite && (
+          <span aria-live="polite" data-testid="autosave-status">
+            {AUTOSAVE_TEXT[autosave.status] || (dirty ? "Unsaved changes" : "")}
+            {autosave.lastSavedAt && autosave.status === "saved" && (
+              <> · {autosave.lastSavedAt.toLocaleTimeString()}</>
+            )}
+          </span>
+        )}
+        {record?.updated_at && <span>Last saved {formatDateTime(record.updated_at)}</span>}
+        {!isNew && status === "draft" && (
+          <span className="rounded-full bg-beige px-2 py-0.5 text-xs text-ink">
+            Draft — not visible on the website
+          </span>
+        )}
+      </div>
       {!canWrite && (
         <p className="mb-4 rounded-lg bg-beige px-4 py-2 text-sm">
           {record && can("articles.edit_own") && !can("articles.edit_any")
@@ -286,105 +429,240 @@ export function ArticleEditorPage() {
             : "You have read-only access to this article."}
         </p>
       )}
+      {record?.has_pending_changes && (
+        <div
+          role="status"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gold-300 bg-gold-100/60 px-4 py-3 text-sm"
+        >
+          <p>
+            <strong>Unpublished changes</strong> to {record.pending_fields.join(", ")}
+            {record.pending_by && <> by {record.pending_by.display_name}</>}. The live article is
+            unchanged until they are published.
+          </p>
+          <span className="flex gap-2">
+            {allowed.publish_changes && (
+              <Button
+                size="sm"
+                disabled={busy || dirty}
+                onClick={() =>
+                  runAction("publishChanges", "Changes published. The site rebuild is queued.")
+                }
+              >
+                <UploadCloud aria-hidden />
+                Publish changes
+              </Button>
+            )}
+            {allowed.discard_changes && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setConfirm("discard")}
+              >
+                Discard
+              </Button>
+            )}
+          </span>
+        </div>
+      )}
       {error?.status === 400 && error.details && (
         <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-900">
           {error.message || "Please fix the highlighted fields."}
         </div>
       )}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <fieldset disabled={!canWrite} className="min-w-0 space-y-5">
-          <div className="space-y-4 rounded-xl border border-charcoal/10 bg-white p-5">
-            <TextField
-              label="Title"
-              required
-              value={form.title}
-              onChange={set("title")}
-              error={err("title")}
-            />
-            <TextField
-              label="Slug"
-              value={form.slug}
-              onChange={set("slug")}
-              error={err("slug")}
-              disabled={record?.slug_locked}
-              hint={
-                record?.slug_locked
-                  ? "Locked after first publication to keep URLs stable."
-                  : "Leave empty to generate from the title."
-              }
-            />
-            <TextField
-              label="Subtitle"
-              value={form.subtitle}
-              onChange={set("subtitle")}
-              error={err("subtitle")}
-            />
-            <TextAreaField
-              label="Excerpt"
-              hint="Shown on article cards and as the default description."
-              value={form.excerpt}
-              onChange={set("excerpt")}
-              error={err("excerpt")}
-            />
-          </div>
-          <div className="rounded-xl border border-charcoal/10 bg-cream/40 p-5">
-            <BlockEditor
-              blocks={form.body}
-              onChange={set("body")}
-              errors={error?.details?.body}
+
+      <div
+        role="tablist"
+        aria-label="Editor sections"
+        className="mb-4 flex gap-1 overflow-x-auto border-b border-charcoal/10"
+      >
+        {TABS.filter(([key]) => key !== "history" || (!isNew && allowed.view_revisions)).map(
+          ([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              type="button"
+              id={`tab-${key}`}
+              aria-selected={tab === key}
+              aria-controls={`panel-${key}`}
+              onClick={() => setTab(key)}
+              className={cn(
+                "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium",
+                tab === key
+                  ? "border-sage-700 text-sage-800"
+                  : "border-transparent text-muted hover:text-charcoal",
+              )}
+            >
+              {label}
+              {key === "seo" &&
+                seoChecks.data?.counts?.warning + seoChecks.data?.counts?.error > 0 && (
+                  <span className="ml-1 rounded-full bg-gold-100 px-1.5 text-xs text-gold-700">
+                    {seoChecks.data.counts.warning + seoChecks.data.counts.error}
+                  </span>
+                )}
+            </button>
+          ),
+        )}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0">
+          {tab === "content" && (
+            <fieldset
+              id="panel-content"
+              role="tabpanel"
+              aria-labelledby="tab-content"
               disabled={!canWrite}
-            />
-          </div>
-          <details className="rounded-xl border border-charcoal/10 bg-white p-5">
-            <summary className="cursor-pointer font-medium">SEO and migration</summary>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <TextField
-                label="SEO title"
-                value={form.seo_title}
-                onChange={set("seo_title")}
-                error={err("seo_title")}
-              />
-              <TextField
-                label="Canonical URL"
-                placeholder="https://"
-                value={form.canonical_url}
-                onChange={set("canonical_url")}
-                error={err("canonical_url")}
-              />
-              <TextAreaField
-                className="sm:col-span-2"
-                label="Meta description"
-                value={form.meta_description}
-                onChange={set("meta_description")}
-                error={err("meta_description")}
+              className="space-y-5"
+            >
+              <div className="space-y-4 rounded-xl border border-charcoal/10 bg-white p-5">
+                <TextField
+                  label="Title"
+                  required
+                  value={form.title}
+                  onChange={set("title")}
+                  error={err("title")}
+                />
+                <TextField
+                  label="Subtitle"
+                  value={form.subtitle}
+                  onChange={set("subtitle")}
+                  error={err("subtitle")}
+                />
+                <TextAreaField
+                  label="Excerpt"
+                  hint="Shown on article cards and as the default description."
+                  value={form.excerpt}
+                  onChange={set("excerpt")}
+                  error={err("excerpt")}
+                />
+              </div>
+              <div className="rounded-xl border border-charcoal/10 bg-cream/40 p-3 sm:p-5">
+                <BlockEditor
+                  blocks={form.body}
+                  onChange={set("body")}
+                  errors={error?.details?.body}
+                  disabled={!canWrite}
+                />
+              </div>
+            </fieldset>
+          )}
+
+          {tab === "details" && (
+            <fieldset
+              id="panel-details"
+              role="tabpanel"
+              aria-labelledby="tab-details"
+              disabled={!canWrite}
+              className="space-y-4 rounded-xl border border-charcoal/10 bg-white p-5"
+            >
+              <legend className="sr-only">Article details</legend>
+              <div>
+                <p className="mb-1 text-sm font-medium">Featured image</p>
+                <ImageChooser
+                  label="featured image"
+                  mediaId={form.featured_image_id ? Number(form.featured_image_id) : null}
+                  onChange={(mediaId) => set("featured_image_id")(mediaId ?? "")}
+                  disabled={!canWrite}
+                />
+                {err("featured_image_id") && (
+                  <p role="alert" className="mt-1 text-sm text-red-800">
+                    {err("featured_image_id")}
+                  </p>
+                )}
+              </div>
+              <SelectField
+                label="Author"
+                options={option(authors, "display_name")}
+                value={String(form.author_id)}
+                onChange={set("author_id")}
+                error={err("author_id")}
               />
               <SelectField
-                label="Social sharing image"
-                options={option(media, "filename")}
-                value={String(form.social_image_id)}
-                onChange={set("social_image_id")}
-                error={err("social_image_id")}
+                label="Primary topic"
+                options={option(topics, "name")}
+                value={String(form.primary_topic_id)}
+                onChange={set("primary_topic_id")}
+                error={err("primary_topic_id")}
+              />
+              <MultiSelect
+                legend="Additional topics"
+                options={topics
+                  .filter((t) => String(t.id) !== String(form.primary_topic_id))
+                  .map((t) => ({ value: t.id, label: t.name }))}
+                value={form.secondary_topic_ids}
+                onChange={set("secondary_topic_ids")}
+              />
+              <MultiSelect
+                legend="Tags"
+                options={tags.map((t) => ({ value: t.id, label: t.name }))}
+                value={form.tag_ids}
+                onChange={set("tag_ids")}
               />
               <CheckboxField
-                label="Hide from search engines (noindex)"
-                checked={form.noindex}
-                onChange={set("noindex")}
+                label="Featured article"
+                hint="Shown in featured sections."
+                checked={form.featured}
+                onChange={set("featured")}
               />
-              <TextField
-                label="Original URL"
-                value={form.original_url}
-                onChange={set("original_url")}
-                error={err("original_url")}
+              <details className="rounded-lg border border-charcoal/10 p-4">
+                <summary className="cursor-pointer text-sm font-medium">Migration details</summary>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <TextField
+                    label="Original URL"
+                    value={form.original_url}
+                    onChange={set("original_url")}
+                    error={err("original_url")}
+                  />
+                  <TextField
+                    label="Original slug"
+                    value={form.original_slug}
+                    onChange={set("original_slug")}
+                    error={err("original_slug")}
+                  />
+                </div>
+              </details>
+            </fieldset>
+          )}
+
+          {tab === "seo" && (
+            <fieldset id="panel-seo" role="tabpanel" aria-labelledby="tab-seo" disabled={!canWrite}>
+              <SeoPanel
+                articleId={isNew ? undefined : Number(id)}
+                form={{ ...form, first_published: Boolean(record?.first_published_at) }}
+                set={set}
+                can={allowed}
+                slugLocked={Boolean(record?.slug_locked)}
+                checks={seoChecks.data}
+                err={err}
+                onRefreshChecks={isNew ? undefined : seoChecks.reload}
               />
-              <TextField
-                label="Original slug"
-                value={form.original_slug}
-                onChange={set("original_slug")}
-                error={err("original_slug")}
+            </fieldset>
+          )}
+
+          {tab === "history" && !isNew && (
+            <div id="panel-history" role="tabpanel" aria-labelledby="tab-history">
+              <RevisionsPanel
+                articleId={Number(id)}
+                canRestore={Boolean(allowed.restore_revision)}
+                lockVersion={lockVersion}
+                refreshKey={historyKey}
+                onRestored={(res) => {
+                  setLockVersion(res.data.lock_version);
+                  article.setData(res.data);
+                  setForm(toForm(res.data));
+                  setSaved(toForm(res.data));
+                  seoChecks.reload();
+                  notify(
+                    res.meta?.save_result === "pending"
+                      ? "Revision restored as unpublished changes."
+                      : "Revision restored.",
+                  );
+                }}
               />
             </div>
-          </details>
-        </fieldset>
+          )}
+        </div>
 
         <aside className="space-y-5">
           <section
@@ -452,10 +730,7 @@ export function ArticleEditorPage() {
                       size="sm"
                       disabled={busy || dirty}
                       onClick={() =>
-                        runAction(
-                          "publish",
-                          "Article published. The static site updates after the next build.",
-                        )
+                        runAction("publish", "Article published. The site rebuild has been queued.")
                       }
                     >
                       <Send aria-hidden />
@@ -480,8 +755,8 @@ export function ArticleEditorPage() {
                       </Button>
                     </div>
                     <p className="text-xs text-muted">
-                      Scheduled articles go live when the publish-due task runs and the site is
-                      rebuilt.
+                      Times use your browser&apos;s time zone and are stored in UTC. Scheduled
+                      articles go live automatically (publishing worker).
                     </p>
                   </>
                 )}
@@ -549,64 +824,15 @@ export function ArticleEditorPage() {
                 </p>
               )}
           </section>
-
-          <fieldset
-            disabled={!canWrite}
-            className="space-y-4 rounded-xl border border-charcoal/10 bg-white p-5"
-          >
-            <legend className="sr-only">Article details</legend>
-            <SelectField
-              label="Author"
-              options={option(authors, "display_name")}
-              value={String(form.author_id)}
-              onChange={set("author_id")}
-              error={err("author_id")}
-            />
-            <SelectField
-              label="Primary topic"
-              options={option(topics, "name")}
-              value={String(form.primary_topic_id)}
-              onChange={set("primary_topic_id")}
-              error={err("primary_topic_id")}
-            />
-            <MultiSelect
-              legend="Additional topics"
-              options={topics
-                .filter((t) => String(t.id) !== String(form.primary_topic_id))
-                .map((t) => ({ value: t.id, label: t.name }))}
-              value={form.secondary_topic_ids}
-              onChange={set("secondary_topic_ids")}
-            />
-            <MultiSelect
-              legend="Tags"
-              options={tags.map((t) => ({ value: t.id, label: t.name }))}
-              value={form.tag_ids}
-              onChange={set("tag_ids")}
-            />
-            <SelectField
-              label="Featured image"
-              options={option(media, "filename")}
-              value={String(form.featured_image_id)}
-              onChange={set("featured_image_id")}
-              error={err("featured_image_id")}
-            />
-            {featuredImage?.url && (
-              <img
-                src={featuredImage.url}
-                alt={featuredImage.alt_text}
-                className="aspect-[16/10] w-full rounded-lg bg-beige object-cover"
-              />
-            )}
-            <CheckboxField
-              label="Featured article"
-              hint="Shown in featured sections."
-              checked={form.featured}
-              onChange={set("featured")}
-            />
-          </fieldset>
-          <ButtonLink to="/admin/articles" variant="ghost" size="sm">
+          {form.featured_image_id && tab !== "details" && (
+            <section className="rounded-xl border border-charcoal/10 bg-white p-4">
+              <p className="mb-2 text-sm font-medium">Featured image</p>
+              <MediaThumb id={Number(form.featured_image_id)} className="aspect-[16/10] w-full" />
+            </section>
+          )}
+          <Link to="/admin/articles" className="inline-block text-sm text-sage-700 hover:underline">
             ← Back to articles
-          </ButtonLink>
+          </Link>
         </aside>
       </div>
 
@@ -614,7 +840,7 @@ export function ArticleEditorPage() {
         open={preview}
         onClose={() => setPreview(false)}
         title="Preview"
-        description="How the article body will read on the website (unsaved changes included)."
+        description="How the article body will read on the website (unsaved changes included). Images show once chosen."
         size="lg"
       >
         <article>
@@ -622,15 +848,12 @@ export function ArticleEditorPage() {
           {form.subtitle && (
             <p className="mt-2 font-serif text-lg text-muted italic">{form.subtitle}</p>
           )}
-          {featuredImage?.url && (
-            <img
-              src={featuredImage.url}
-              alt={featuredImage.alt_text}
-              className="mt-4 aspect-[16/10] w-full rounded-xl object-cover"
-            />
-          )}
           <div className="mt-6">
-            <ArticleBody blocks={cleanBlocks(form.body)} />
+            <ArticleBody
+              blocks={cleanBlocks(form.body).filter(
+                (b) => !["image", "gallery", "related"].includes(b.type),
+              )}
+            />
           </div>
         </article>
       </Modal>
@@ -664,6 +887,39 @@ export function ArticleEditorPage() {
         onCancel={() => setConfirm(null)}
         onConfirm={() => runAction("remove", "Article deleted.")}
       />
+      <ConfirmDialog
+        open={confirm === "discard"}
+        title="Discard unpublished changes?"
+        message="The working copy returns to the live article. Earlier versions stay in the history."
+        confirmLabel="Discard changes"
+        tone="danger"
+        busy={busy}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => runAction("discardChanges", "Unpublished changes discarded.")}
+      />
+      <Modal
+        open={conflictOpen}
+        onClose={() => setConfirm(null)}
+        title="Someone else changed this article"
+        description={
+          autosave.conflict?.updated_by || error?.details?.updated_by
+            ? `Last saved by ${autosave.conflict?.updated_by ?? error?.details?.updated_by}.`
+            : undefined
+        }
+        footer={
+          <>
+            <Button variant="outline" onClick={reloadLatest}>
+              Load their version
+            </Button>
+            <Button onClick={keepMine}>Keep my version</Button>
+          </>
+        }
+      >
+        <p className="text-ink">
+          Your changes were not saved, to avoid overwriting newer work. Load the latest version
+          (your unsaved edits are discarded), or keep your version and save it over theirs.
+        </p>
+      </Modal>
     </>
   );
 }

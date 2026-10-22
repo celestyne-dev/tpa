@@ -17,11 +17,22 @@ const ALL = [
   "tags.manage",
   "authors.manage",
   "media.view",
+  "media.upload",
+  "media.edit",
+  "media.replace",
+  "media.delete",
+  "articles.view_revisions",
+  "articles.restore_revisions",
+  "articles.preview",
   "pages.view",
   "pages.edit",
   "navigation.manage",
   "settings.manage",
   "seo.manage",
+  "seo.view",
+  "redirects.manage",
+  "publishing.view",
+  "publishing.manage",
   "users.view",
   "users.manage",
   "roles.manage",
@@ -43,6 +54,14 @@ export const ROLE_PERMS = {
     "tags.manage",
     "authors.manage",
     "media.view",
+    "media.upload",
+    "media.edit",
+    "media.replace",
+    "articles.view_revisions",
+    "articles.restore_revisions",
+    "articles.preview",
+    "seo.view",
+    "publishing.view",
     "pages.view",
     "pages.edit",
   ],
@@ -53,14 +72,40 @@ export const ROLE_PERMS = {
     "articles.archive",
     "media.view",
     "pages.view",
+    "articles.view_revisions",
+    "articles.preview",
+    "publishing.view",
   ],
-  analyst: ["dashboard.view", "analytics.view", "articles.view", "media.view"],
+  analyst: [
+    "dashboard.view",
+    "analytics.view",
+    "articles.view",
+    "media.view",
+    "articles.preview",
+    "seo.view",
+    "publishing.view",
+  ],
   content_writer: [
     "dashboard.view",
     "articles.create",
     "articles.edit_own",
     "articles.submit_review",
     "media.view",
+    "media.upload",
+    "articles.view_revisions",
+    "articles.restore_revisions",
+    "articles.preview",
+  ],
+  content_editor: [
+    "dashboard.view",
+    ...ARTICLES,
+    "articles.submit_review",
+    "media.view",
+    "media.upload",
+    "media.edit",
+    "articles.view_revisions",
+    "articles.restore_revisions",
+    "articles.preview",
   ],
   administrator: ALL.filter((p) => !["roles.manage", "roles.assign"].includes(p)),
   // A specialised role without dashboard access, used to test landing routes.
@@ -85,6 +130,19 @@ export function articleCan(article, permissions = ALL, userId = 1) {
     archive: has("articles.archive") && status !== "archived",
     restore: has("articles.archive") && status === "archived",
     delete: has("articles.delete") && !article.slug_locked && status === "draft",
+    publish_changes:
+      has("articles.publish") && status === "published" && article.has_pending_changes,
+    discard_changes:
+      Boolean(article.has_pending_changes) &&
+      (has("articles.edit_any") || (has("articles.edit_own") && owner && status === "draft")),
+    view_revisions: has("articles.view_revisions"),
+    restore_revision:
+      has("articles.restore_revisions") &&
+      (has("articles.edit_any") || (has("articles.edit_own") && owner && status === "draft")),
+    preview: has("articles.preview"),
+    edit_slug: !article.first_published_at || has("seo.manage"),
+    edit_indexing: has("seo.manage"),
+    save_live: has("articles.publish"),
   };
 }
 
@@ -107,6 +165,68 @@ const unauthorized = () =>
       message: "Authentication is required.",
     }),
   );
+
+export function makeMedia(overrides = {}) {
+  return {
+    id: 3,
+    filename: "calm-lake",
+    title: "Calm lake",
+    alt_text: "A calm lake at dawn",
+    caption: "",
+    credit: "",
+    source_url: null,
+    url: "/media/abc/v1/calm-lake-1280.jpg",
+    thumbnail_url: "/media/abc/v1/calm-lake-320.webp",
+    mime_type: "image/jpeg",
+    width: 1600,
+    height: 1000,
+    size_bytes: 250000,
+    status: "active",
+    managed: true,
+    usage_count: 1,
+    missing_alt: false,
+    focal_point: { x: 0.5, y: 0.5 },
+    created_at: "2026-10-20T10:00:00.000Z",
+    updated_at: "2026-10-20T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+export function mediaDetail(item) {
+  return {
+    ...item,
+    version: item.version ?? 1,
+    original: {
+      filename: `${item.filename}.jpg`,
+      mime_type: "image/jpeg",
+      size_bytes: 400000,
+      retained: true,
+    },
+    variants: [
+      {
+        preset: "responsive",
+        format: "webp",
+        width: 320,
+        height: 200,
+        size_bytes: 12000,
+        url: item.thumbnail_url,
+      },
+      {
+        preset: "responsive",
+        format: "jpeg",
+        width: 1280,
+        height: 800,
+        size_bytes: 140000,
+        url: item.url,
+      },
+    ],
+    variants_size_bytes: 152000,
+    image: { src: item.url, alt: item.alt_text, width: item.width, height: item.height },
+    usage: item.usage_count
+      ? [{ type: "article", id: 7, label: "Finding Calm", field: "featured image", public: false }]
+      : [],
+  };
+}
 
 export function makeArticle(overrides = {}) {
   return {
@@ -138,6 +258,11 @@ export function makeArticle(overrides = {}) {
     original_slug: null,
     slug_locked: false,
     review_status: "none",
+    lock_version: 1,
+    has_pending_changes: false,
+    pending_fields: [],
+    social_title: null,
+    social_description: null,
     submitted_at: null,
     approved_at: null,
     created_by: { id: 1, display_name: "Site Owner" },
@@ -215,6 +340,67 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
   let user = role ? adminUser(role) : null;
   let current = article;
   let roles = makeRoles();
+  let media = [
+    makeMedia(),
+    makeMedia({ id: 4, filename: "old-sign", title: "Old sign", status: "archived" }),
+  ];
+  let redirects = [
+    {
+      id: 1,
+      source_path: "/2019/05/old-post",
+      destination: "/articles/finding-calm",
+      status_code: 301,
+      is_active: true,
+      origin: "import",
+      note: "",
+      updated_at: "2026-10-20T10:00:00.000Z",
+    },
+  ];
+  const jobs = [
+    {
+      id: 2,
+      status: "failed",
+      reasons: ["article_published"],
+      attempts: 3,
+      max_attempts: 3,
+      created_at: "2026-10-21T10:00:00.000Z",
+      duration_seconds: 12.5,
+      error: "The build command failed (exit code 1).",
+      log_tail: "vite build failed",
+      release: null,
+    },
+    {
+      id: 1,
+      status: "succeeded",
+      reasons: ["manual_request"],
+      attempts: 1,
+      max_attempts: 3,
+      created_at: "2026-10-20T10:00:00.000Z",
+      finished_at: "2026-10-20T10:01:00.000Z",
+      duration_seconds: 48.2,
+      release: "20261020-100000-job1",
+      error: null,
+      log_tail: "built",
+    },
+  ];
+  let revisions = [
+    {
+      id: 12,
+      number: 2,
+      kind: "manual",
+      summary: "Changed title",
+      editor: { id: 1, display_name: "Site Owner" },
+      updated_at: "2026-10-21T10:00:00.000Z",
+    },
+    {
+      id: 11,
+      number: 1,
+      kind: "manual",
+      summary: "Created",
+      editor: { id: 1, display_name: "Site Owner" },
+      updated_at: "2026-10-20T10:00:00.000Z",
+    },
+  ];
   const ok = (data, meta) => Promise.resolve({ data, meta });
   // Articles carry server-computed capabilities for the signed-in user.
   const withCan = (a) => ({ ...a, can: articleCan(a, user?.permissions ?? [], user?.id) });
@@ -379,8 +565,15 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
         return ok(withCan(current));
       }),
       update: vi.fn((id, body) => {
-        current = { ...current, ...body, updated_at: new Date().toISOString() };
-        return ok(withCan(current));
+        // eslint-disable-next-line no-unused-vars
+        const { mode, lock_version, change_summary, ...content } = body;
+        current = {
+          ...current,
+          ...content,
+          lock_version: (current.lock_version ?? 1) + 1,
+          updated_at: new Date().toISOString(),
+        };
+        return Promise.resolve({ data: withCan(current), meta: { save_result: "saved" } });
       }),
       submit: vi.fn(() => {
         current = { ...current, review_status: "submitted", updated_at: new Date().toISOString() };
@@ -391,6 +584,61 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
         return ok(withCan(current));
       }),
       remove: vi.fn(() => ok({ deleted: true })),
+      publishChanges: vi.fn(() => {
+        current = { ...current, has_pending_changes: false, pending_fields: [] };
+        return ok(withCan(current));
+      }),
+      discardChanges: vi.fn(() => {
+        current = { ...current, has_pending_changes: false, pending_fields: [] };
+        return ok(withCan(current));
+      }),
+      revisions: vi.fn(() => ok(revisions)),
+      revision: vi.fn((id, rid) => ok({ ...revisions.find((r) => r.id === rid), snapshot: {} })),
+      compareRevisions: vi.fn(() =>
+        ok({
+          from: revisions[1],
+          to: revisions[0],
+          fields: [{ field: "title", label: "title", from: "Old title", to: "Finding Calm" }],
+          blocks: [
+            { index: 0, change: "changed", from: "paragraph: Hi", to: "paragraph: Hello world." },
+          ],
+        }),
+      ),
+      restoreRevision: vi.fn((id, rid) => {
+        current = { ...current, title: "Old title", lock_version: (current.lock_version ?? 1) + 1 };
+        revisions = [
+          {
+            id: 13,
+            number: 3,
+            kind: "restore",
+            summary: `Restored revision #${rid === 11 ? 1 : 2}`,
+            editor: null,
+            updated_at: "2026-10-22T10:00:00.000Z",
+          },
+          ...revisions,
+        ];
+        return Promise.resolve({ data: withCan(current), meta: { save_result: "saved" } });
+      }),
+      seoChecks: vi.fn(() =>
+        ok({
+          checks: [
+            {
+              code: "missing_meta_description",
+              severity: "warning",
+              message: "No meta description.",
+              field: "meta_description",
+            },
+          ],
+          counts: { error: 0, warning: 1, info: 0 },
+          preview: {
+            title: current.title,
+            url: "https://example.org/articles/finding-calm",
+            description: "",
+            indexable: true,
+          },
+        }),
+      ),
+      slugCheck: vi.fn((slug) => ok({ slug, valid: true, available: slug !== "taken" })),
       publish: vi.fn(() => {
         current = {
           ...current,
@@ -452,19 +700,254 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
       reassign: vi.fn(),
     },
     media: {
-      list: vi.fn(() =>
-        ok([
-          {
-            id: 3,
-            filename: "calm.svg",
-            url: "/images/articles/calm.svg",
-            alt_text: "Calm",
-            mime_type: "image/svg+xml",
+      list: vi.fn((params = {}) => {
+        const rows = media.filter(
+          (m) =>
+            (params.status === "archived" ? m.status === "archived" : m.status !== "archived") &&
+            (!params.q || m.filename.includes(params.q) || m.title.includes(params.q)) &&
+            (params.usage !== "missing_alt" || m.missing_alt),
+        );
+        return ok(rows, {
+          pagination: {
+            page: 1,
+            page_size: 30,
+            total: rows.length,
+            total_pages: 1,
+            has_next: false,
+            has_prev: false,
           },
-        ]),
+        });
+      }),
+      get: vi.fn((id) => ok(mediaDetail(media.find((m) => m.id === Number(id)) ?? media[0]))),
+      stats: vi.fn(() =>
+        ok({
+          assets: 1,
+          originals_bytes: 400000,
+          variants_bytes: 250000,
+          superseded_bytes: 0,
+          max_upload_mb: 20,
+          avif_enabled: true,
+          accepted_types: ["image/jpeg", "image/png"],
+          presets: [],
+        }),
+      ),
+      upload: vi.fn((file, fields, onProgress) => {
+        onProgress?.(60);
+        const created = makeMedia({
+          id: 50 + media.length,
+          filename: file.name.replace(/\..*$/, ""),
+        });
+        media = [created, ...media];
+        return ok({ ...mediaDetail(created), duplicate: false });
+      }),
+      update: vi.fn((id, body) => {
+        media = media.map((m) =>
+          m.id === Number(id) ? { ...m, ...body, missing_alt: !body.alt_text && m.missing_alt } : m,
+        );
+        return ok(mediaDetail(media.find((m) => m.id === Number(id))));
+      }),
+      replace: vi.fn((id) =>
+        ok({ ...mediaDetail(media.find((m) => m.id === Number(id))), version: 2 }),
+      ),
+      archive: vi.fn((id) => {
+        media = media.map((m) => (m.id === Number(id) ? { ...m, status: "archived" } : m));
+        return ok(mediaDetail(media.find((m) => m.id === Number(id))));
+      }),
+      restore: vi.fn((id) => ok(mediaDetail(media.find((m) => m.id === Number(id))))),
+      remove: vi.fn(() => ok({ deleted: true })),
+      publishChanges: vi.fn(() => {
+        current = { ...current, has_pending_changes: false, pending_fields: [] };
+        return ok(withCan(current));
+      }),
+      discardChanges: vi.fn(() => {
+        current = { ...current, has_pending_changes: false, pending_fields: [] };
+        return ok(withCan(current));
+      }),
+      revisions: vi.fn(() => ok(revisions)),
+      revision: vi.fn((id, rid) => ok({ ...revisions.find((r) => r.id === rid), snapshot: {} })),
+      compareRevisions: vi.fn(() =>
+        ok({
+          from: revisions[1],
+          to: revisions[0],
+          fields: [{ field: "title", label: "title", from: "Old title", to: "Finding Calm" }],
+          blocks: [
+            { index: 0, change: "changed", from: "paragraph: Hi", to: "paragraph: Hello world." },
+          ],
+        }),
+      ),
+      restoreRevision: vi.fn((id, rid) => {
+        current = { ...current, title: "Old title", lock_version: (current.lock_version ?? 1) + 1 };
+        revisions = [
+          {
+            id: 13,
+            number: 3,
+            kind: "restore",
+            summary: `Restored revision #${rid === 11 ? 1 : 2}`,
+            editor: null,
+            updated_at: "2026-10-22T10:00:00.000Z",
+          },
+          ...revisions,
+        ];
+        return Promise.resolve({ data: withCan(current), meta: { save_result: "saved" } });
+      }),
+      seoChecks: vi.fn(() =>
+        ok({
+          checks: [
+            {
+              code: "missing_meta_description",
+              severity: "warning",
+              message: "No meta description.",
+              field: "meta_description",
+            },
+          ],
+          counts: { error: 0, warning: 1, info: 0 },
+          preview: {
+            title: current.title,
+            url: "https://example.org/articles/finding-calm",
+            description: "",
+            indexable: true,
+          },
+        }),
+      ),
+      slugCheck: vi.fn((slug) => ok({ slug, valid: true, available: slug !== "taken" })),
+    },
+    publishing: {
+      status: vi.fn(() => ok({ jobs: {} })),
+      jobs: vi.fn(() =>
+        ok(jobs, {
+          pagination: { page: 1, page_size: 20, total: jobs.length, total_pages: 1 },
+          summary: {
+            running: null,
+            pending: null,
+            last_success: jobs.find((j) => j.status === "succeeded") ?? null,
+            last_failure: jobs.find((j) => j.status === "failed") ?? null,
+          },
+        }),
+      ),
+      request: vi.fn(() => ok({ id: 99, status: "pending" })),
+      retry: vi.fn(() => ok({ id: 100, status: "pending" })),
+      cancel: vi.fn(() => ok({ id: 3, status: "cancelled" })),
+    },
+    seo: {
+      overview: vi.fn(() =>
+        ok({
+          published_articles: 6,
+          totals: {
+            missing_seo_title: 6,
+            missing_meta_description: 2,
+            featured_alt_missing: 0,
+            missing_featured_image: 0,
+            noindex: 1,
+            broken_internal_link: 1,
+            external_canonical: 0,
+          },
+          articles_with_issues: [
+            {
+              id: 8,
+              title: "Quiet Confidence",
+              slug: "quiet-confidence",
+              issues: [
+                {
+                  code: "broken_internal_link",
+                  severity: "warning",
+                  message: "The link /articles/gone does not point to a published page.",
+                },
+              ],
+            },
+          ],
+          articles_with_issues_total: 1,
+          redirects: { total: 2, active: 1 },
+          sitemap: { urls: 25, articles: 5, images: 9, indexing_enabled_in_build: false },
+          build: { last_build_at: null, indexing_enabled: false, rebuild_required: true },
+        }),
       ),
     },
-    publishing: { status: vi.fn() },
+    redirects: {
+      list: vi.fn(() =>
+        ok(redirects, {
+          pagination: { page: 1, page_size: 50, total: redirects.length, total_pages: 1 },
+        }),
+      ),
+      create: vi.fn((body) => {
+        if (body.source_path === body.destination)
+          return Promise.reject(
+            new ApiError({
+              status: 400,
+              code: "validation_error",
+              message: "One or more parameters are invalid.",
+              details: { destination: ["A path cannot redirect to itself."] },
+            }),
+          );
+        const created = { id: 10 + redirects.length, origin: "manual", ...body };
+        redirects = [created, ...redirects];
+        return ok(created);
+      }),
+      update: vi.fn((id, body) => ok({ id, ...body })),
+      remove: vi.fn(() => ok({ deleted: true })),
+      publishChanges: vi.fn(() => {
+        current = { ...current, has_pending_changes: false, pending_fields: [] };
+        return ok(withCan(current));
+      }),
+      discardChanges: vi.fn(() => {
+        current = { ...current, has_pending_changes: false, pending_fields: [] };
+        return ok(withCan(current));
+      }),
+      revisions: vi.fn(() => ok(revisions)),
+      revision: vi.fn((id, rid) => ok({ ...revisions.find((r) => r.id === rid), snapshot: {} })),
+      compareRevisions: vi.fn(() =>
+        ok({
+          from: revisions[1],
+          to: revisions[0],
+          fields: [{ field: "title", label: "title", from: "Old title", to: "Finding Calm" }],
+          blocks: [
+            { index: 0, change: "changed", from: "paragraph: Hi", to: "paragraph: Hello world." },
+          ],
+        }),
+      ),
+      restoreRevision: vi.fn((id, rid) => {
+        current = { ...current, title: "Old title", lock_version: (current.lock_version ?? 1) + 1 };
+        revisions = [
+          {
+            id: 13,
+            number: 3,
+            kind: "restore",
+            summary: `Restored revision #${rid === 11 ? 1 : 2}`,
+            editor: null,
+            updated_at: "2026-10-22T10:00:00.000Z",
+          },
+          ...revisions,
+        ];
+        return Promise.resolve({ data: withCan(current), meta: { save_result: "saved" } });
+      }),
+      seoChecks: vi.fn(() =>
+        ok({
+          checks: [
+            {
+              code: "missing_meta_description",
+              severity: "warning",
+              message: "No meta description.",
+              field: "meta_description",
+            },
+          ],
+          counts: { error: 0, warning: 1, info: 0 },
+          preview: {
+            title: current.title,
+            url: "https://example.org/articles/finding-calm",
+            description: "",
+            indexable: true,
+          },
+        }),
+      ),
+      slugCheck: vi.fn((slug) => ok({ slug, valid: true, available: slug !== "taken" })),
+      import: vi.fn((csv, dryRun) =>
+        ok({
+          created: dryRun ? 0 : 1,
+          valid: 1,
+          errors: [{ row: 2, source_path: "/admin", error: "This path cannot be redirected." }],
+        }),
+      ),
+      exportUrl: () => "/api/v1/admin/redirects/export",
+    },
     pages: {
       list: vi.fn(() => ok([])),
       get: vi.fn(),
@@ -565,6 +1048,61 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
         return ok({ ...updated, users: [], pending_invitations: 0 });
       }),
       remove: vi.fn(() => ok({ deleted: true })),
+      publishChanges: vi.fn(() => {
+        current = { ...current, has_pending_changes: false, pending_fields: [] };
+        return ok(withCan(current));
+      }),
+      discardChanges: vi.fn(() => {
+        current = { ...current, has_pending_changes: false, pending_fields: [] };
+        return ok(withCan(current));
+      }),
+      revisions: vi.fn(() => ok(revisions)),
+      revision: vi.fn((id, rid) => ok({ ...revisions.find((r) => r.id === rid), snapshot: {} })),
+      compareRevisions: vi.fn(() =>
+        ok({
+          from: revisions[1],
+          to: revisions[0],
+          fields: [{ field: "title", label: "title", from: "Old title", to: "Finding Calm" }],
+          blocks: [
+            { index: 0, change: "changed", from: "paragraph: Hi", to: "paragraph: Hello world." },
+          ],
+        }),
+      ),
+      restoreRevision: vi.fn((id, rid) => {
+        current = { ...current, title: "Old title", lock_version: (current.lock_version ?? 1) + 1 };
+        revisions = [
+          {
+            id: 13,
+            number: 3,
+            kind: "restore",
+            summary: `Restored revision #${rid === 11 ? 1 : 2}`,
+            editor: null,
+            updated_at: "2026-10-22T10:00:00.000Z",
+          },
+          ...revisions,
+        ];
+        return Promise.resolve({ data: withCan(current), meta: { save_result: "saved" } });
+      }),
+      seoChecks: vi.fn(() =>
+        ok({
+          checks: [
+            {
+              code: "missing_meta_description",
+              severity: "warning",
+              message: "No meta description.",
+              field: "meta_description",
+            },
+          ],
+          counts: { error: 0, warning: 1, info: 0 },
+          preview: {
+            title: current.title,
+            url: "https://example.org/articles/finding-calm",
+            description: "",
+            indexable: true,
+          },
+        }),
+      ),
+      slugCheck: vi.fn((slug) => ok({ slug, valid: true, available: slug !== "taken" })),
       permissions: vi.fn(() => ok(CATALOGUE)),
     },
     invitations: {

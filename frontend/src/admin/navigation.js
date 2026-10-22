@@ -1,7 +1,6 @@
 import {
   BarChart3,
   BookOpen,
-  FileText,
   FolderTree,
   GraduationCap,
   Handshake,
@@ -22,8 +21,19 @@ import {
   Users,
   Crown,
   KeyRound,
+  Images,
+  KanbanSquare,
+  Rocket,
+  Signpost,
 } from "lucide-react";
-import { ARTICLE_ACCESS, ROLE_READ, SETTINGS_ACCESS, TAXONOMY_READ } from "./permissions";
+import {
+  ARTICLE_ACCESS,
+  REDIRECT_READ,
+  ROLE_READ,
+  SEO_READ,
+  SETTINGS_ACCESS,
+  TAXONOMY_READ,
+} from "./permissions";
 
 /**
  * Sidebar sections. Items are shown only when the user holds `permission`, or at
@@ -49,6 +59,13 @@ export const adminSections = [
       { label: "Topics", to: "/admin/topics", icon: FolderTree, anyOf: TAXONOMY_READ },
       { label: "Tags", to: "/admin/tags", icon: Tags, anyOf: TAXONOMY_READ },
       { label: "Authors", to: "/admin/authors", icon: UserRound, anyOf: TAXONOMY_READ },
+      { label: "Media Library", to: "/admin/media", icon: Images, permission: "media.view" },
+      {
+        label: "Editorial Workflow",
+        to: "/admin/workflow",
+        icon: KanbanSquare,
+        anyOf: ARTICLE_ACCESS,
+      },
     ],
   },
   {
@@ -56,6 +73,8 @@ export const adminSections = [
     items: [
       { label: "Pages", to: "/admin/pages", icon: LayoutTemplate, permission: "pages.view" },
       { label: "Navigation", to: "/admin/navigation", icon: Menu, permission: "navigation.manage" },
+      { label: "SEO", to: "/admin/seo", icon: Search, anyOf: SEO_READ },
+      { label: "Redirects", to: "/admin/redirects", icon: Signpost, anyOf: REDIRECT_READ },
       { label: "Settings", to: "/admin/settings", icon: Settings, anyOf: SETTINGS_ACCESS },
     ],
   },
@@ -68,6 +87,12 @@ export const adminSections = [
         to: "/admin/roles",
         icon: KeyRound,
         anyOf: ROLE_READ,
+      },
+      {
+        label: "Publishing Jobs",
+        to: "/admin/publishing",
+        icon: Rocket,
+        permission: "publishing.view",
       },
       { label: "Audit log", to: "/admin/audit-log", icon: ScrollText, permission: "audit.view" },
     ],
@@ -86,7 +111,5 @@ export const plannedModules = [
   { label: "Courses", icon: GraduationCap },
   { label: "Memberships", icon: Crown },
   { label: "Analytics", icon: BarChart3 },
-  { label: "SEO tools", icon: Search },
-  { label: "Media library", icon: BookOpen },
-  { label: "Licensing", icon: FileText },
+  { label: "eBooks & licensing", icon: BookOpen },
 ];

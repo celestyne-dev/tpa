@@ -8,7 +8,12 @@
  *    meta description, canonical URL, Open Graph tags, JSON-LD, full content
  *    and the serialised Redux state used for hydration.
  * 4. Writes dist/404.html, dist/admin/index.html (client-only admin shell),
- *    dist/sitemap.xml, dist/robots.txt and dist/prerender-manifest.json.
+ *    dist/sitemap.xml (from GET /api/v1/sitemap: only published, indexable,
+ *    self-canonical URLs, with image entries), dist/robots.txt,
+ *    dist/redirects.json and dist/prerender-manifest.json.
+ *
+ * Drafts and private previews are never fetched: the public API only returns
+ * published content.
  */
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -74,17 +79,28 @@ function outputPath(route) {
 const xmlEscape = (value) =>
   String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+const absolute = (value) => new URL(value, siteConfig.url).toString();
+
 function buildSitemap(entries) {
   const body = entries
     .map((e) => {
-      const parts = [`    <loc>${xmlEscape(new URL(e.path, siteConfig.url).toString())}</loc>`];
-      if (e.lastmod) parts.push(`    <lastmod>${e.lastmod}</lastmod>`);
+      const parts = [`    <loc>${xmlEscape(absolute(e.path))}</loc>`];
+      if (e.lastmod) parts.push(`    <lastmod>${e.lastmod.slice(0, 10)}</lastmod>`);
       if (e.changefreq) parts.push(`    <changefreq>${e.changefreq}</changefreq>`);
       if (e.priority !== undefined) parts.push(`    <priority>${e.priority}</priority>`);
+      for (const image of e.images ?? []) {
+        parts.push(
+          `    <image:image>\n      <image:loc>${xmlEscape(absolute(image.loc))}</image:loc>\n    </image:image>`,
+        );
+      }
       return `  <url>\n${parts.join("\n")}\n  </url>`;
     })
     .join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" ` +
+    `xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${body}\n</urlset>\n`
+  );
 }
 
 function buildRobots() {
@@ -102,7 +118,12 @@ for (const marker of ["<!--app-head-->", "<!--app-html-->", "<!--app-state-->"])
   if (!template.includes(marker)) fail(`dist/index.html is missing the ${marker} marker.`);
 }
 
-const [topicsRes, articles] = await Promise.all([api.getTopics(), fetchAllArticles()]);
+const [topicsRes, articles, sitemapRes, redirectsRes] = await Promise.all([
+  api.getTopics(),
+  fetchAllArticles(),
+  api.getSitemap(),
+  api.getRedirects(),
+]);
 const topics = topicsRes.data;
 
 const pages = [
@@ -113,8 +134,6 @@ const pages = [
     priority: 0.8,
     changefreq: "monthly",
     lastmod: (a.updated_at ?? a.published_at).slice(0, 10),
-    // Articles whose canonical points elsewhere are rendered but kept out of the sitemap.
-    inSitemap: !a.canonical_url,
   })),
 ];
 
@@ -146,9 +165,11 @@ await writeFile(
   }),
 );
 
+// The API decides what is indexable (noindex, external canonicals, drafts excluded).
+await writeFile(path.join(distDir, "sitemap.xml"), buildSitemap(sitemapRes.data));
 await writeFile(
-  path.join(distDir, "sitemap.xml"),
-  buildSitemap(pages.filter((p) => p.inSitemap !== false)),
+  path.join(distDir, "redirects.json"),
+  JSON.stringify(redirectsRes.data, null, 2) + "\n",
 );
 await writeFile(path.join(distDir, "robots.txt"), buildRobots());
 await writeFile(
