@@ -1,0 +1,53 @@
+# Nginx site for Think Positive Always (example — adjust domain/paths).
+# Static prerendered frontend + Flask API behind Gunicorn.
+
+upstream tpa_api {
+    server 127.0.0.1:8000;
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    server_name example.com www.example.com;   # TODO: real domain once confirmed
+    # Add TLS (e.g. certbot --nginx) before launch.
+
+    root /var/www/tpa/frontend/dist;
+    index index.html;
+
+    # Legacy URL redirects from the previous TPA website (see redirects.conf.example).
+    include /etc/nginx/snippets/tpa-redirects.conf;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header X-Frame-Options SAMEORIGIN always;
+
+    location /api/ {
+        proxy_pass http://tpa_api;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # Fingerprinted build assets: cache for a year.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Prerendered pages: /articles/slug -> /articles/slug/index.html.
+    # Unknown URLs return the prerendered 404 page with a real 404 status.
+    location / {
+        try_files $uri $uri/index.html =404;
+        add_header Cache-Control "public, max-age=300";
+    }
+
+    error_page 404 /404.html;
+    location = /404.html { internal; }
+
+    location = /prerender-manifest.json { deny all; }
+}

@@ -1,0 +1,602 @@
+[
+  {
+    "id": "sample-001",
+    "slug": "small-steps-after-a-hard-season",
+    "title": "Small Steps Forward After a Hard Season",
+    "subtitle": "You do not have to rebuild everything at once. You only have to begin.",
+    "excerpt": "When life has knocked you off course, the path back rarely starts with a grand plan. It starts with one small, honest step and the permission to go slowly.",
+    "topic_slug": "resilience-starting-over",
+    "secondary_topic_slugs": [
+      "emotional-well-being"
+    ],
+    "tags": [
+      "resilience",
+      "starting over",
+      "self-compassion"
+    ],
+    "author": {
+      "slug": "tpa-editorial",
+      "name": "Think Positive Always Editorial"
+    },
+    "published_at": "2026-09-29T09:00:00.000Z",
+    "status": "published",
+    "featured": true,
+    "image": {
+      "src": "/images/articles/small-steps-after-a-hard-season.svg",
+      "alt": "Abstract illustration of a soft sunrise over layered sage hills",
+      "width": 1600,
+      "height": 1000
+    },
+    "source": "sample",
+    "body": [
+      {
+        "type": "paragraph",
+        "text": "Hard seasons have a way of shrinking the world. A job ends, a relationship changes, health falters, or a plan you counted on quietly falls apart. Afterward, even ordinary tasks can feel heavy, and the idea of building a new life can feel impossibly large."
+      },
+      {
+        "type": "paragraph",
+        "text": "Here is the encouraging truth: you do not need to see the whole road to take the next step. Recovery is rarely a single breakthrough. It is a series of small, deliberate choices that slowly add up to momentum."
+      },
+      {
+        "type": "heading",
+        "text": "Acknowledge where you actually are"
+      },
+      {
+        "type": "paragraph",
+        "text": "Before moving forward, it helps to be honest about the present. Many people rush to feel better and skip the step of naming what happened. Try writing a few sentences that describe the season you have been through without judgment. What changed? What did you lose? What are you still carrying?"
+      },
+      {
+        "type": "paragraph",
+        "text": "Naming your experience is not dwelling on it. It is creating a clear starting point, the way a map needs a 'you are here' marker before it can show you a route."
+      },
+      {
+        "type": "heading",
+        "text": "Shrink the next step until it feels possible"
+      },
+      {
+        "type": "paragraph",
+        "text": "When motivation is low, big goals can feel discouraging. Instead, ask: what is one thing I could do today that my future self would thank me for? Keep it small enough that you can do it even on a difficult day."
+      },
+      {
+        "type": "list",
+        "items": [
+          "Take a ten-minute walk outside.",
+          "Reply to one message you have been avoiding.",
+          "Prepare one nourishing meal.",
+          "Write down three things that still matter to you.",
+          "Go to bed thirty minutes earlier tonight."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "None of these will change your life on their own. Together, repeated over weeks, they rebuild trust with yourself. Each completed step is evidence that you can still move."
+      },
+      {
+        "type": "heading",
+        "text": "Let progress be uneven"
+      },
+      {
+        "type": "paragraph",
+        "text": "Healing is not a straight line. You may have a strong week followed by a day when everything feels hard again. That does not mean you are back at the beginning. It means you are human. Treat setbacks as information, not failure, and return to your small steps when you can."
+      },
+      {
+        "type": "quote",
+        "text": "Starting again is not proof that you failed. It is proof that you are still willing to try."
+      },
+      {
+        "type": "heading",
+        "text": "Lean on support"
+      },
+      {
+        "type": "paragraph",
+        "text": "You were not meant to rebuild alone. A trusted friend, a family member, a community group, or a qualified professional can offer perspective when your own view feels clouded. If you are struggling with persistent low mood, anxiety, or thoughts of harming yourself, please reach out to a licensed mental health professional or local emergency services."
+      },
+      {
+        "type": "heading",
+        "text": "A gentle reflection"
+      },
+      {
+        "type": "paragraph",
+        "text": "Before you close this page, consider one question: what is the smallest step forward I can take in the next 24 hours? Write it down. Then, when you have done it, notice that you kept a promise to yourself. That is how new beginnings are built, one honest step at a time."
+      }
+    ],
+    "seo": {
+      "og_image": {
+        "src": "/og/small-steps-after-a-hard-season.png",
+        "alt": "Small Steps Forward After a Hard Season",
+        "width": 1200,
+        "height": 630
+      }
+    }
+  },
+  {
+    "id": "sample-002",
+    "slug": "reframing-negative-thoughts",
+    "title": "How to Reframe a Negative Thought Without Pretending",
+    "subtitle": "Realistic optimism starts with curiosity, not forced positivity.",
+    "excerpt": "Thinking positively does not mean ignoring what is hard. It means learning to question unhelpful thoughts and choose a perspective that gives you room to act.",
+    "topic_slug": "positive-mindset",
+    "secondary_topic_slugs": [
+      "emotional-well-being"
+    ],
+    "tags": [
+      "mindset",
+      "reframing",
+      "realistic optimism"
+    ],
+    "author": {
+      "slug": "tpa-editorial",
+      "name": "Think Positive Always Editorial"
+    },
+    "published_at": "2026-09-22T09:00:00.000Z",
+    "status": "published",
+    "featured": true,
+    "image": {
+      "src": "/images/articles/reframing-negative-thoughts.svg",
+      "alt": "Abstract illustration of a warm gold sun partly hidden behind soft clouds",
+      "width": 1600,
+      "height": 1000
+    },
+    "source": "sample",
+    "body": [
+      {
+        "type": "paragraph",
+        "text": "Most of us have heard the advice to 'just think positive.' It sounds simple, but when you are disappointed, worried, or exhausted, being told to look on the bright side can feel dismissive. A healthier approach is not to replace every negative thought with a cheerful one. It is to look at your thoughts with curiosity and ask whether they are telling the whole story."
+      },
+      {
+        "type": "heading",
+        "text": "Notice the thought first"
+      },
+      {
+        "type": "paragraph",
+        "text": "Thoughts often arrive so quickly that they feel like facts. 'I always mess this up.' 'Nobody cares what I think.' 'Things never work out for me.' The first step is simply to notice the thought and name it: I am having the thought that I always mess this up."
+      },
+      {
+        "type": "paragraph",
+        "text": "That small shift creates distance. You are no longer inside the thought; you are observing it. From there, you can decide what to do with it."
+      },
+      {
+        "type": "heading",
+        "text": "Ask three honest questions"
+      },
+      {
+        "type": "list",
+        "ordered": true,
+        "items": [
+          "Is this thought completely true, or is it partly true?",
+          "What evidence do I have for and against it?",
+          "What would I say to a friend who had this thought?"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "These questions are not designed to talk you out of real problems. They help you separate the situation from the story you are telling about it. Often you will find that 'always' was really 'sometimes,' and 'never' was really 'not yet.'"
+      },
+      {
+        "type": "heading",
+        "text": "Choose a more balanced alternative"
+      },
+      {
+        "type": "paragraph",
+        "text": "A useful reframe is believable. If 'I am amazing at everything' feels false, your mind will reject it. Try something balanced instead: 'This did not go the way I hoped, and I can learn from it.' Or: 'I am finding this difficult, and I have handled difficult things before.'"
+      },
+      {
+        "type": "quote",
+        "text": "Realistic optimism is the belief that, while things may be hard, your actions still matter."
+      },
+      {
+        "type": "heading",
+        "text": "Turn perspective into action"
+      },
+      {
+        "type": "paragraph",
+        "text": "The value of a reframe is that it opens up possibilities. Once your thought shifts from 'this is hopeless' to 'this is hard, and there is something I can try,' ask yourself what that something is. A helpful perspective should lead naturally to a next step, however small."
+      },
+      {
+        "type": "heading",
+        "text": "Practise, do not perfect"
+      },
+      {
+        "type": "paragraph",
+        "text": "Like any skill, reframing gets easier with practice. You might try it once a day, perhaps by writing down one difficult thought each evening and working through the three questions. Over time, you may notice that you catch unhelpful patterns sooner and recover from them more quickly."
+      },
+      {
+        "type": "paragraph",
+        "text": "A positive mindset is not a mood you must maintain. It is a practice you can return to, especially on the days when it is hardest."
+      }
+    ],
+    "seo": {
+      "og_image": {
+        "src": "/og/reframing-negative-thoughts.png",
+        "alt": "How to Reframe a Negative Thought Without Pretending",
+        "width": 1200,
+        "height": 630
+      }
+    }
+  },
+  {
+    "id": "sample-003",
+    "slug": "building-quiet-confidence",
+    "title": "Building Quiet Confidence That Does Not Need Applause",
+    "subtitle": "Steady self-belief grows from evidence, self-respect, and kept promises.",
+    "excerpt": "Confidence is often mistaken for loudness. The most durable kind is quieter: a steady sense that you can handle what comes, even without anyone else's approval.",
+    "topic_slug": "confidence-self-worth",
+    "secondary_topic_slugs": [
+      "personal-growth"
+    ],
+    "tags": [
+      "confidence",
+      "self-worth",
+      "self-trust"
+    ],
+    "author": {
+      "slug": "tpa-editorial",
+      "name": "Think Positive Always Editorial"
+    },
+    "published_at": "2026-09-15T09:00:00.000Z",
+    "status": "published",
+    "featured": true,
+    "image": {
+      "src": "/images/articles/building-quiet-confidence.svg",
+      "alt": "Abstract illustration of a single olive leaf beside a calm circular form",
+      "width": 1600,
+      "height": 1000
+    },
+    "source": "sample",
+    "body": [
+      {
+        "type": "paragraph",
+        "text": "When we picture confidence, we often imagine someone commanding a room: speaking first, never hesitating, seemingly free of doubt. But many genuinely confident people are calm rather than loud. Their confidence is not a performance. It is a quiet trust in themselves."
+      },
+      {
+        "type": "heading",
+        "text": "Confidence follows action"
+      },
+      {
+        "type": "paragraph",
+        "text": "A common trap is waiting to feel confident before trying something new. In practice, the order is usually reversed. We act, we survive the discomfort, we learn, and confidence grows from the evidence. Each time you do something slightly outside your comfort zone, you add to a private record that says: I can handle this."
+      },
+      {
+        "type": "heading",
+        "text": "Keep small promises to yourself"
+      },
+      {
+        "type": "paragraph",
+        "text": "Self-trust works much like trust in any relationship. It grows when promises are kept. If you regularly tell yourself you will do something and then do not, part of you learns not to believe your own word. Start with commitments so small they are almost impossible to break, then build from there."
+      },
+      {
+        "type": "heading",
+        "text": "Separate your worth from your results"
+      },
+      {
+        "type": "paragraph",
+        "text": "Your performance on a given day is information about that day. It is not a verdict on your value as a person. When you can hold that distinction, mistakes become less threatening, and you become more willing to take the risks that growth requires."
+      },
+      {
+        "type": "list",
+        "items": [
+          "Notice when you link a single outcome to your whole identity.",
+          "Replace 'I am a failure' with 'That attempt did not work.'",
+          "Remember qualities you value in yourself that have nothing to do with achievement."
+        ]
+      },
+      {
+        "type": "quote",
+        "text": "You do not have to earn the right to take up space. You only have to decide to stop shrinking."
+      },
+      {
+        "type": "heading",
+        "text": "Limit the comparison loop"
+      },
+      {
+        "type": "paragraph",
+        "text": "Comparison can quietly erode confidence, especially when we compare our everyday reality to someone else's highlights. Try comparing yourself with who you were a year ago instead. What have you learned? What can you do now that once felt difficult?"
+      },
+      {
+        "type": "heading",
+        "text": "A practice for this week"
+      },
+      {
+        "type": "paragraph",
+        "text": "Each evening, write down one thing you did that took a little courage, no matter how small. Speaking up in a meeting, setting a boundary, trying something unfamiliar. At the end of the week, read the list. That is your evidence. That is what quiet confidence is made of."
+      }
+    ],
+    "seo": {
+      "og_image": {
+        "src": "/og/building-quiet-confidence.png",
+        "alt": "Building Quiet Confidence That Does Not Need Applause",
+        "width": 1200,
+        "height": 630
+      }
+    }
+  },
+  {
+    "id": "sample-004",
+    "slug": "setting-boundaries-without-guilt",
+    "title": "Setting Boundaries Without Carrying the Guilt",
+    "subtitle": "Healthy limits are not walls. They are the foundation for honest connection.",
+    "excerpt": "Saying no can feel uncomfortable, especially to people you care about. Learn why boundaries protect your relationships and how to set them with clarity and kindness.",
+    "topic_slug": "relationships-boundaries",
+    "secondary_topic_slugs": [
+      "confidence-self-worth"
+    ],
+    "tags": [
+      "boundaries",
+      "relationships",
+      "communication"
+    ],
+    "author": {
+      "slug": "tpa-editorial",
+      "name": "Think Positive Always Editorial"
+    },
+    "published_at": "2026-09-08T09:00:00.000Z",
+    "status": "published",
+    "featured": true,
+    "image": {
+      "src": "/images/articles/setting-boundaries-without-guilt.svg",
+      "alt": "Abstract illustration of two overlapping circles in sage and gold",
+      "width": 1600,
+      "height": 1000
+    },
+    "source": "sample",
+    "body": [
+      {
+        "type": "paragraph",
+        "text": "Many people struggle to set boundaries because they worry about disappointing others. Saying yes feels kinder in the moment, even when it leaves us exhausted, resentful, or stretched too thin. Over time, though, a lack of boundaries can quietly damage the very relationships we were trying to protect."
+      },
+      {
+        "type": "heading",
+        "text": "What a boundary really is"
+      },
+      {
+        "type": "paragraph",
+        "text": "A boundary is a clear statement of what you will and will not do. It is not a demand that someone else change. 'You need to stop calling me so late' is a request. 'I am not available for calls after 9 p.m.; I will reply the next morning' is a boundary, because it describes your own action."
+      },
+      {
+        "type": "heading",
+        "text": "Why guilt shows up"
+      },
+      {
+        "type": "paragraph",
+        "text": "Guilt often appears when we act differently from what others expect or from roles we have played for years. Feeling guilty does not necessarily mean you have done something wrong. Sometimes it simply means you are doing something new."
+      },
+      {
+        "type": "quote",
+        "text": "A boundary that protects your peace is not an act of rejection. It is an act of honesty."
+      },
+      {
+        "type": "heading",
+        "text": "A simple framework"
+      },
+      {
+        "type": "list",
+        "ordered": true,
+        "items": [
+          "Get clear on what you need and why it matters to you.",
+          "State it briefly and kindly, without over-explaining.",
+          "Describe what you will do, not what they must do.",
+          "Follow through consistently, even when it is uncomfortable."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "For example: 'I would love to help, but I cannot take this on this week. I could help next Thursday if that works.' It is warm, clear, and honest about your capacity."
+      },
+      {
+        "type": "heading",
+        "text": "Expect some adjustment"
+      },
+      {
+        "type": "paragraph",
+        "text": "When you begin setting boundaries, some people may be surprised. That is normal. Most healthy relationships adapt and even improve, because both people know where they stand. If someone consistently ignores or punishes your boundaries, that is important information about the relationship."
+      },
+      {
+        "type": "heading",
+        "text": "Start small"
+      },
+      {
+        "type": "paragraph",
+        "text": "You do not need to overhaul every relationship overnight. Choose one area where a boundary would make a meaningful difference, perhaps your evenings, your weekends, or a recurring request, and practise there first. Each time you honour your own limits, it becomes a little easier, and the guilt a little lighter."
+      }
+    ],
+    "seo": {
+      "og_image": {
+        "src": "/og/setting-boundaries-without-guilt.png",
+        "alt": "Setting Boundaries Without Carrying the Guilt",
+        "width": 1200,
+        "height": 630
+      }
+    }
+  },
+  {
+    "id": "sample-005",
+    "slug": "designing-an-intentional-morning",
+    "title": "Designing an Intentional Morning You Will Actually Keep",
+    "subtitle": "Forget the perfect routine. Build one that fits your real life.",
+    "excerpt": "The best morning routine is not the one with the most steps. It is the one that helps you start the day feeling grounded, and that you can return to even on busy days.",
+    "topic_slug": "habits-intentional-living",
+    "secondary_topic_slugs": [
+      "positive-mindset"
+    ],
+    "tags": [
+      "habits",
+      "routines",
+      "intentional living"
+    ],
+    "author": {
+      "slug": "tpa-editorial",
+      "name": "Think Positive Always Editorial"
+    },
+    "published_at": "2026-09-01T09:00:00.000Z",
+    "status": "published",
+    "featured": true,
+    "image": {
+      "src": "/images/articles/designing-an-intentional-morning.svg",
+      "alt": "Abstract illustration of a rising sun framed by a window arch",
+      "width": 1600,
+      "height": 1000
+    },
+    "source": "sample",
+    "body": [
+      {
+        "type": "paragraph",
+        "text": "Online, morning routines can look elaborate: early alarms, long workouts, meditation, journaling, cold showers, and a carefully prepared breakfast. For most people, that is not realistic every day. The good news is that an intentional morning does not need to be long. It needs to be yours."
+      },
+      {
+        "type": "heading",
+        "text": "Start with how you want to feel"
+      },
+      {
+        "type": "paragraph",
+        "text": "Instead of copying someone else's checklist, ask how you would like to feel by the time your day properly begins. Calm? Focused? Energised? Connected? Your answer helps you choose activities that serve a purpose rather than adding tasks for their own sake."
+      },
+      {
+        "type": "heading",
+        "text": "Choose one anchor habit"
+      },
+      {
+        "type": "paragraph",
+        "text": "An anchor habit is a single, simple practice you do most mornings, regardless of how the rest of the day unfolds. It might be drinking a glass of water before checking your phone, stepping outside for a few minutes of daylight, or writing one intention for the day."
+      },
+      {
+        "type": "list",
+        "items": [
+          "Pick something that takes five minutes or less.",
+          "Attach it to something you already do, such as making coffee.",
+          "Keep it the same for at least two weeks before adding more."
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Protect the first few minutes"
+      },
+      {
+        "type": "paragraph",
+        "text": "For many of us, the phone is the first thing we reach for. Messages, news, and notifications can pull us into other people's priorities before we have had a chance to set our own. Even delaying screens by ten minutes can make the start of the day feel noticeably calmer."
+      },
+      {
+        "type": "quote",
+        "text": "How you begin the day does not decide everything, but it gives you a steadier place to begin from."
+      },
+      {
+        "type": "heading",
+        "text": "Have a minimum version"
+      },
+      {
+        "type": "paragraph",
+        "text": "Some mornings will be rushed. Children need attention, you oversleep, or work starts early. Decide in advance what the minimum version of your routine looks like, perhaps one deep breath and one intention. Keeping the habit alive, even briefly, matters more than doing it perfectly."
+      },
+      {
+        "type": "heading",
+        "text": "Review and adjust"
+      },
+      {
+        "type": "paragraph",
+        "text": "At the end of each week, ask what helped and what felt like a chore. Keep what works and let go of the rest. An intentional morning is not a fixed formula; it evolves as your life does."
+      }
+    ],
+    "seo": {
+      "og_image": {
+        "src": "/og/designing-an-intentional-morning.png",
+        "alt": "Designing an Intentional Morning You Will Actually Keep",
+        "width": 1200,
+        "height": 630
+      }
+    }
+  },
+  {
+    "id": "sample-006",
+    "slug": "growth-through-weekly-reflection",
+    "title": "Why a Weekly Reflection Can Change the Way You Grow",
+    "subtitle": "Fifteen minutes of honest review can turn busy weeks into meaningful progress.",
+    "excerpt": "Growth does not only happen when we push forward. It also happens when we pause long enough to notice what we are learning. A weekly reflection makes that pause a habit.",
+    "topic_slug": "personal-growth",
+    "secondary_topic_slugs": [
+      "habits-intentional-living"
+    ],
+    "tags": [
+      "reflection",
+      "journaling",
+      "self-awareness"
+    ],
+    "author": {
+      "slug": "tpa-editorial",
+      "name": "Think Positive Always Editorial"
+    },
+    "published_at": "2026-08-25T09:00:00.000Z",
+    "status": "published",
+    "featured": false,
+    "image": {
+      "src": "/images/articles/growth-through-weekly-reflection.svg",
+      "alt": "Abstract illustration of an open journal with a sprouting stem",
+      "width": 1600,
+      "height": 1000
+    },
+    "source": "sample",
+    "body": [
+      {
+        "type": "paragraph",
+        "text": "Weeks can pass in a blur of tasks, messages, and obligations. We stay busy, yet it can be hard to say what we actually learned or how we have grown. A short weekly reflection gives you a chance to step back, notice patterns, and make thoughtful adjustments."
+      },
+      {
+        "type": "heading",
+        "text": "Why reflection matters"
+      },
+      {
+        "type": "paragraph",
+        "text": "Experience alone does not guarantee growth. Reflection is what turns experience into insight. When you look back on your week with honesty and curiosity, you begin to see what gives you energy, what drains it, and where your choices align with the person you want to become."
+      },
+      {
+        "type": "heading",
+        "text": "Five questions to guide you"
+      },
+      {
+        "type": "list",
+        "ordered": true,
+        "items": [
+          "What went well this week, and what helped it go well?",
+          "What felt difficult, and what did it teach me?",
+          "When did I feel most like myself?",
+          "What do I want to do differently next week?",
+          "What am I grateful for right now?"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "You do not need to answer every question every week. Choose the two or three that feel most relevant and write freely for a few minutes."
+      },
+      {
+        "type": "quote",
+        "text": "Looking back with kindness is one of the most practical ways to move forward with wisdom."
+      },
+      {
+        "type": "heading",
+        "text": "Make it easy to return to"
+      },
+      {
+        "type": "paragraph",
+        "text": "Choose a consistent time, such as Sunday evening or Friday afternoon, and keep your notes in one place. A simple notebook works well. Over time, those pages become a record of your growth that you can revisit when you need perspective or encouragement."
+      },
+      {
+        "type": "heading",
+        "text": "Be honest, and be kind"
+      },
+      {
+        "type": "paragraph",
+        "text": "Reflection is not an opportunity to criticise yourself. If something went poorly, describe it plainly and look for the lesson. Treat yourself the way a supportive mentor would: honest about what needs attention, and generous about the effort you are making."
+      },
+      {
+        "type": "paragraph",
+        "text": "Try it this week. Set aside fifteen minutes, answer a few questions, and notice how it feels to end the week with intention rather than exhaustion."
+      }
+    ],
+    "seo": {
+      "og_image": {
+        "src": "/og/growth-through-weekly-reflection.png",
+        "alt": "Why a Weekly Reflection Can Change the Way You Grow",
+        "width": 1200,
+        "height": 630
+      }
+    }
+  }
+]

@@ -1,44 +1,41 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-/build
-next-env.d.ts
-*.tsbuildinfo
-
-# environment
-.env
-.env*.local
-.env.development
-.env.production
-!.env.example
-
-# logs
+# ---- Node / frontend ----
+node_modules/
+frontend/dist/
+frontend/.ssr/
+frontend/coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.vite/
 
-# OS / editor
+# ---- Python / backend ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/instance/
+*.db
+*.sqlite3
+
+# ---- Environment (never commit secrets) ----
+.env
+.env.*
+!.env.example
+*.pem
+
+# ---- Legacy Next.js artifacts (pre-migration) ----
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# ---- OS / editors ----
 .DS_Store
 Thumbs.db
-*.pem
+.idea/
 .vscode/*
 !.vscode/extensions.json
-.idea
-
-# deployment
-.vercel
-.netlify
-
-# supabase local
-supabase/.temp
-supabase/.branches

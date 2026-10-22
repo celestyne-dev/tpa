@@ -1,0 +1,6 @@
+# Permanent redirects from the previous TPA website to preserve SEO signals.
+# Copy to /etc/nginx/snippets/tpa-redirects.conf and add one line per moved URL.
+# Keep article slugs identical wherever possible so most URLs need no redirect.
+#
+# location = /2023/05/how-to-start-again/ { return 301 /articles/how-to-start-again; }
+# location = /category/mindset/           { return 301 /topics/positive-mindset; }

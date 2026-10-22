@@ -1,0 +1,19 @@
+# /etc/systemd/system/tpa-api.service  (example)
+[Unit]
+Description=Think Positive Always API (Gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=tpa
+Group=www-data
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+ExecStart=/var/www/tpa/backend/.venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
