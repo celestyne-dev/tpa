@@ -187,6 +187,10 @@ def seed_cms_defaults() -> dict[str, int]:
         )
     db.session.flush()
     counts.update(seed_commerce_catalogue())
+    from .newsletter.starter import ensure_automations, ensure_templates
+
+    counts["email_templates"] = ensure_templates()
+    counts["email_automations"] = ensure_automations()
     return counts
 
 

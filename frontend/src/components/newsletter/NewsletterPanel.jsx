@@ -4,16 +4,23 @@ import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { useSite } from "@/hooks/useContent";
 import { cn } from "@/utils/format";
+import { LeadMagnetForm } from "./LeadMagnetForm";
+import { NewsletterSignupForm } from "./NewsletterSignupForm";
 
 const DEFAULT_DESCRIPTION =
   "One thoughtful email each week to help you reset your mindset, find perspective, and keep moving forward.";
 
 /**
- * Newsletter presentation. Until a real email provider is integrated
- * (site.newsletter.is_open from the API), it shows an honest coming-soon
- * state and never collects addresses.
+ * Newsletter presentation. It shows the real (double opt-in) signup form only when the
+ * API reports that sending and consent wording are configured (site.newsletter.is_open);
+ * otherwise an honest coming-soon state that never collects addresses. With a lead
+ * magnet it offers the free resource instead, with subscribing as a separate choice.
  */
 export function NewsletterPanel({
+  source = "other",
+  sourceDetail = "",
+  showFirstName = true,
+  leadMagnet = null,
   headingLevel: Heading = "h2",
   description = DEFAULT_DESCRIPTION,
   showLearnMore = true,
@@ -51,7 +58,26 @@ export function NewsletterPanel({
         <Heading className="mt-3 text-4xl font-medium text-ivory sm:text-5xl">{heading}</Heading>
         {description && <p className="mt-5 text-lg text-sage-100">{description}</p>}
 
-        {!isOpen && (
+        {leadMagnet?.available ? (
+          <LeadMagnetForm
+            leadMagnet={leadMagnet}
+            showFirstName={showFirstName}
+            tone="dark"
+            className="mx-auto mt-8 text-left"
+          />
+        ) : (
+          isOpen && (
+            <NewsletterSignupForm
+              source={source}
+              sourceDetail={sourceDetail}
+              showFirstName={showFirstName}
+              tone="dark"
+              className="mt-8"
+            />
+          )
+        )}
+
+        {!isOpen && !leadMagnet?.available && (
           <div className="mx-auto mt-8 max-w-lg rounded-2xl border border-ivory/15 bg-ivory/5 px-6 py-5">
             <p className="font-medium text-ivory">Sign-ups are opening soon.</p>
             <p className="mt-1 text-[0.95rem] text-sage-100">

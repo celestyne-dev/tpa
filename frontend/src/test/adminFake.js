@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 import { createBuilderFake } from "./builderFake";
 import { COMMERCE_PERMS, createCommerceAdminFake } from "./commerceFake";
+import { NEWSLETTER_EDITING, NEWSLETTER_PERMS, createNewsletterAdminFake } from "./newsletterFake";
 
 // Mirrors backend/app/auth/permissions.py (available permissions only, plus sensitive ones).
 const ARTICLES = ["articles.view", "articles.create", "articles.edit_own", "articles.edit_any"];
@@ -50,6 +51,7 @@ const ALL = [
   "roles.assign",
   "audit.view",
   ...COMMERCE_PERMS,
+  ...NEWSLETTER_PERMS,
 ];
 
 export const ROLE_PERMS = {
@@ -191,7 +193,19 @@ export const ROLE_PERMS = {
     "media.upload",
     "publishing.view",
   ],
-  marketing_manager: ["dashboard.view", "analytics.view", "homepage.view", "announcements.manage"],
+  marketing_manager: [
+    "dashboard.view",
+    "analytics.view",
+    "homepage.view",
+    "announcements.manage",
+    ...NEWSLETTER_EDITING,
+    "subscribers.view",
+    "lead_magnets.manage",
+  ],
+  newsletter_manager: [
+    "dashboard.view",
+    ...NEWSLETTER_PERMS.filter((p) => p !== "email_settings.manage"),
+  ],
   // A specialised role without dashboard access, used to test landing routes.
   pages_only: ["pages.view"],
 };
@@ -1335,6 +1349,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     audit: { list: vi.fn(() => ok([], { pagination: null })) },
     ...createBuilderFake(() => user),
     ...createCommerceAdminFake(() => user),
+    ...createNewsletterAdminFake(() => user),
   };
 }
 

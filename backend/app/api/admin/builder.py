@@ -320,6 +320,7 @@ class BuilderOptionsResource(Resource):
             select(Author).where(Author.status == "active").order_by(Author.display_name)
         )
         from ...models import Product, ProductCollection
+        from ...services.newsletter.lead_magnets import options as lead_magnet_options
 
         products = db.session.scalars(
             select(Product).where(Product.status != "archived").order_by(Product.title)
@@ -347,6 +348,7 @@ class BuilderOptionsResource(Resource):
                     for t in topics
                 ],
                 "authors": [{"id": a.id, "name": a.display_name} for a in authors],
+                "lead_magnets": lead_magnet_options(),
             }
         )
 

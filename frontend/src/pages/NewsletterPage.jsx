@@ -58,7 +58,7 @@ export function NewsletterPage() {
       </Section>
 
       <Section spacing="sm" size="wide" aria-label="Subscription status">
-        <NewsletterPanel showLearnMore={false} />
+        <NewsletterPanel showLearnMore={false} source="newsletter_page" />
       </Section>
 
       <Section tone="cream" size="narrow" aria-labelledby="promise-heading">

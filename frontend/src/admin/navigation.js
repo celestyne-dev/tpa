@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   Link2,
-  Mail,
   Megaphone,
   Menu,
   Package,
@@ -34,6 +33,11 @@ import {
   Layers,
   Receipt,
   Boxes,
+  Inbox,
+  Send,
+  Workflow,
+  Gift,
+  AtSign,
 } from "lucide-react";
 import {
   ARTICLE_ACCESS,
@@ -106,6 +110,35 @@ export const adminSections = [
     ],
   },
   {
+    title: "Newsletter",
+    items: [
+      {
+        label: "Subscribers",
+        to: "/admin/subscribers",
+        icon: Inbox,
+        permission: "subscribers.view",
+      },
+      {
+        label: "Newsletters",
+        to: "/admin/newsletters",
+        icon: Send,
+        permission: "newsletters.view",
+      },
+      {
+        label: "Automations",
+        to: "/admin/email-automations",
+        icon: Workflow,
+        anyOf: ["email_automations.manage", "newsletters.view"],
+      },
+      {
+        label: "Lead magnets",
+        to: "/admin/lead-magnets",
+        icon: Gift,
+        permission: "lead_magnets.manage",
+      },
+    ],
+  },
+  {
     title: "Website",
     items: [
       { label: "Homepage", to: "/admin/homepage", icon: Home, permission: "homepage.view" },
@@ -152,6 +185,12 @@ export const adminSections = [
         icon: CreditCard,
         anyOf: ["payments.configure", "payments.view_events"],
       },
+      {
+        label: "Email Settings",
+        to: "/admin/email-settings",
+        icon: AtSign,
+        permission: "email_settings.manage",
+      },
       { label: "Audit log", to: "/admin/audit-log", icon: ScrollText, permission: "audit.view" },
     ],
   },
@@ -159,7 +198,6 @@ export const adminSections = [
 
 /** Business modules scheduled for later batches. Displayed as "Planned", never as links. */
 export const plannedModules = [
-  { label: "Newsletter", icon: Mail },
   { label: "Partnerships", icon: Handshake },
   { label: "Advertising", icon: Megaphone },
   { label: "Affiliates", icon: Link2 },

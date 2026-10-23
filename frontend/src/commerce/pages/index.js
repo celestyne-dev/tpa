@@ -10,3 +10,9 @@ export { RegisterPage, ResetPasswordPage, SignInPage, VerifyEmailPage } from "./
 export { CartPage } from "./CartPage";
 export { CheckoutCompletePage } from "./CheckoutCompletePage";
 export { CheckoutPage } from "./CheckoutPage";
+export {
+  NewsletterConfirmPage,
+  NewsletterPreferencesPage,
+  NewsletterUnsubscribePage,
+  ResourceAccessPage,
+} from "./NewsletterPages";

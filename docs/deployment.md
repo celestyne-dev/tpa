@@ -154,6 +154,28 @@ MAIL_BACKEND=smtp                                  # receipts and download instr
 
 Rollback: restore the dump with `pg_restore --clean` (preferred), or run `flask --app wsgi db downgrade`. The downgrade drops every commerce table (products, customers, orders, payments, entitlements) and removes the Batch 05 permissions. Private files stay on disk. Check out the previous release and repoint `current`.
 
+## Upgrading from Batch 05 (newsletter)
+
+```bash
+pg_dump --format=custom --file=/var/backups/tpa-$(date +%F)-pre-batch06.dump "$DATABASE_URL"
+cd /var/www/tpa/backend && set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db upgrade                  # 0ded798b0061
+.venv/bin/flask --app wsgi rbac sync                   # should report all zeros
+.venv/bin/flask --app wsgi newsletter seed-defaults    # starter templates + draft automations
+sudo cp ../deploy/systemd/tpa-email-worker.service.example /etc/systemd/system/tpa-email-worker.service
+sudo systemctl daemon-reload && sudo systemctl enable --now tpa-email-worker
+sudo systemctl restart tpa-api
+.venv/bin/flask --app wsgi newsletter status           # mode stays "disabled" until configured
+```
+
+Before bulk sending:
+
+- Configure SMTP and `NEWSLETTER_FROM_EMAIL` on an authenticated domain (SPF, DKIM and DMARC from your provider; see `docs/newsletter.md`).
+- Set `EMAIL_FEEDBACK_SECRET` and, for bounce and complaint handling, a provider webhook adapter.
+- Send a test in **test** mode.
+- Only then set `NEWSLETTER_LIVE_ALLOWED=true` and complete the checklist in `/admin/email-settings`.
+- No Nginx change is needed: `/api/v1/newsletter/`, `/api/v1/lead-magnets/` and `/api/v1/email/` are served by the existing `/api/` location.
+
 ## Frontend build (manual)
 
 ```bash

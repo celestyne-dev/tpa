@@ -338,6 +338,76 @@ def commerce_seed_catalogue():
     click.echo("Catalogue: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
+newsletter_cli = AppGroup("newsletter", help="The Positive Reset: email queue, automations.")
+
+
+@newsletter_cli.command("worker")
+@click.option("--once", is_flag=True, help="Run a single pass, then exit.")
+@click.option("--interval", default=10, show_default=True, help="Seconds between passes.")
+def newsletter_worker(once: bool, interval: int):
+    """Send queued email, run automations and scheduled campaigns (tpa-email-worker)."""
+    import signal
+    import time
+
+    from .services.newsletter import queue
+    from .services.newsletter.worker import run_cycle
+
+    stop = {"flag": False}
+
+    def _stop(*_):
+        stop["flag"] = True
+
+    signal.signal(signal.SIGTERM, _stop)
+    signal.signal(signal.SIGINT, _stop)
+    worker = queue.worker_id()
+    click.echo(f"Email worker {worker} started.")
+    while not stop["flag"]:
+        result = run_cycle(worker=worker)
+        delivery = result.get("delivery")
+        if isinstance(delivery, dict) and delivery.get("sent"):
+            click.echo(f"Processed {delivery['sent']} message(s): {delivery['statuses']}")
+        db.session.remove()
+        if once:
+            break
+        for _ in range(max(1, interval) * 5):
+            if stop["flag"]:
+                break
+            time.sleep(0.2)
+    click.echo("Email worker stopped.")
+
+
+@newsletter_cli.command("status")
+def newsletter_status():
+    """Show sending mode, readiness and queue counts (never prints credentials)."""
+    from sqlalchemy import func, select
+
+    from .models import EmailMessage
+    from .services.newsletter import config as email_config
+
+    click.echo(
+        f"Sending mode: {email_config.sending_mode()} | backend: {email_config.backend_name()} "
+        f"(configured: {email_config.backend_configured()}) | signup open: "
+        f"{email_config.signup_open()}"
+    )
+    for check in email_config.readiness()["checks"]:
+        click.echo(f"[{'x' if check['ok'] else ' '}] {check['label']}")
+    rows = db.session.execute(
+        select(EmailMessage.status, func.count()).group_by(EmailMessage.status)
+    ).all()
+    click.echo("Queue: " + (", ".join(f"{s}={n}" for s, n in rows) or "empty"))
+
+
+@newsletter_cli.command("seed-defaults")
+def newsletter_seed_defaults():
+    """Add the starter email templates and (draft) automations that are missing."""
+    from .services.newsletter.starter import ensure_automations, ensure_templates
+
+    templates = ensure_templates()
+    automations = ensure_automations()
+    db.session.commit()
+    click.echo(f"Added {templates} template(s) and {automations} automation(s).")
+
+
 def register_cli(app: Flask) -> None:
     for group in (
         admin_cli,
@@ -348,5 +418,6 @@ def register_cli(app: Flask) -> None:
         publish_cli,
         media_cli,
         commerce_cli,
+        newsletter_cli,
     ):
         app.cli.add_command(group)

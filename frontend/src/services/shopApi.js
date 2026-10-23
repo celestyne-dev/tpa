@@ -59,5 +59,19 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
     verifyOrder: (id) => post(`/checkout/orders/${enc(id)}/verify`),
     retryOrder: (id) => post(`/checkout/orders/${enc(id)}/retry`),
     cancelOrder: (id) => post(`/checkout/orders/${enc(id)}/cancel`),
+    // The Positive Reset newsletter and free resources (cookieless; signed links).
+    newsletterStatus: () => get("/newsletter/status"),
+    subscribe: (body) => post("/newsletter/subscribe", body),
+    confirmSubscription: (token) => post("/newsletter/confirm", { token }),
+    newsletterPreferences: (token) => post("/newsletter/preferences", { token }),
+    updateNewsletterPreferences: (token, body) =>
+      client.put("/newsletter/preferences", { ...body, token }).then((r) => r.data),
+    unsubscribe: (token, body = {}) => post("/newsletter/unsubscribe", { ...body, token }),
+    eraseSubscription: (token) => post("/newsletter/erase", { token }),
+    leadMagnet: (slug) => get(`/lead-magnets/${enc(slug)}`),
+    claimLeadMagnet: (slug, body) => post(`/lead-magnets/${enc(slug)}/claim`, body),
+    leadMagnetAccess: (token) => post("/lead-magnets/access", { token }),
+    leadMagnetDownload: (token, fileId) =>
+      post("/lead-magnets/access/download", { token, file_id: fileId }),
   };
 }

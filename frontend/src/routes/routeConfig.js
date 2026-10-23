@@ -85,6 +85,10 @@ export const routeTable = [
     [routes.register, commerce.RegisterRoute],
     [routes.verifyEmail, commerce.VerifyEmailRoute],
     [routes.resetPassword, commerce.ResetPasswordRoute],
+    [routes.newsletterConfirm, commerce.NewsletterConfirmRoute],
+    [routes.newsletterPreferences, commerce.NewsletterPreferencesRoute],
+    [routes.newsletterUnsubscribe, commerce.NewsletterUnsubscribeRoute],
+    [routes.resourceAccess, commerce.ResourceAccessRoute],
   ].map(([path, Component]) => ({ path, Component, private: true })),
   {
     path: routes.freeResources,

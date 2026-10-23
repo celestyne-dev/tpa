@@ -19,6 +19,10 @@ export const routes = {
   resetPassword: "/account/reset-password",
   freeResources: "/free-resources",
   newsletter: "/newsletter",
+  newsletterConfirm: "/newsletter/confirm",
+  newsletterPreferences: "/newsletter/preferences",
+  newsletterUnsubscribe: "/newsletter/unsubscribe",
+  resourceAccess: "/resources/access",
   partner: "/partner-with-us",
   about: "/about",
   contact: "/contact",
@@ -87,6 +91,10 @@ export const privateRoutes = [
   routes.register,
   routes.verifyEmail,
   routes.resetPassword,
+  routes.newsletterConfirm,
+  routes.newsletterPreferences,
+  routes.newsletterUnsubscribe,
+  routes.resourceAccess,
 ];
 
 /** Static, indexable routes (dynamic article/topic routes come from the API). */

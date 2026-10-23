@@ -569,6 +569,9 @@ def test_batch05_upgrade_preserves_data_and_grants_commerce_roles_only(tmp_path)
         assert bundle.product_type == "bundle" and bundle.status == "draft"
         assert len(bundle.bundle_items) == 3
         assert db.session.scalar(db.select(db.func.count(ProductPrice.id))) == 0
+        db.session.rollback()
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)  # the code catalogue is ahead of this revision
         assert set(sync_rbac().values()) == {0}
         db.session.rollback()
         db.session.remove()
@@ -613,3 +616,110 @@ def test_starter_catalogue_never_overwrites_admin_products(app):
             db.select(Product).where(Product.slug == "the-power-of-starting-again")
         )
         assert mine.title == "Our real edition" and mine.status == "draft"
+
+
+NEWSLETTER_TABLES = {
+    "SUBSCRIBERS",
+    "SUBSCRIBER_TAGS",
+    "SUBSCRIBER_TAG_LINKS",
+    "SUBSCRIBER_EVENTS",
+    "SUBSCRIBER_SEGMENTS",
+    "EMAIL_SUPPRESSIONS",
+    "EMAIL_TEMPLATES",
+    "EMAIL_CAMPAIGNS",
+    "EMAIL_MESSAGES",
+    "EMAIL_AUTOMATIONS",
+    "EMAIL_AUTOMATION_STEPS",
+    "EMAIL_AUTOMATION_ENROLLMENTS",
+    "EMAIL_AUTOMATION_EVENTS",
+    "LEAD_MAGNETS",
+    "LEAD_MAGNET_CLAIMS",
+}
+
+
+def test_batch06_upgrade_adds_newsletter_tables_only_and_preserves_data(tmp_path):
+    app = _app(tmp_path, "batch06.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="758d4c510551")
+        conn = db.session
+        now = "2026-10-23 09:00:00"
+        ids = {}
+        for email, role in (
+            ("editor@example.org", "editor"),
+            ("news@example.org", "newsletter_manager"),
+            ("mkt@example.org", "marketing_manager"),
+        ):
+            uid = conn.execute(
+                text(
+                    "INSERT INTO users (email, display_name, password_hash, status, "
+                    "session_version, created_at, updated_at) VALUES (:e, 'U', 'x', 'active', 1, "
+                    ":n, :n) RETURNING id"
+                ),
+                {"e": email, "n": now},
+            ).scalar_one()
+            conn.execute(
+                text(
+                    "INSERT INTO user_roles (user_id, role_id, assigned_at) "
+                    "SELECT :u, id, :n FROM roles WHERE name = :r"
+                ),
+                {"u": uid, "r": role, "n": now},
+            )
+            ids[role] = uid
+        conn.execute(
+            text(
+                "INSERT INTO customers (public_id, email, display_name, status, "
+                "is_test_account, support_notes, created_at, updated_at) "
+                "VALUES ('c1', 'buyer@example.com', 'B', 'active', 0, '', :n, :n)"
+            ),
+            {"n": now},
+        )
+        conn.commit()
+        tables = ("users", "roles", "user_roles", "customers", "products", "site_settings", "pages")
+        before = {t: conn.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in tables}
+        conn.remove()
+
+        statements = []
+
+        def capture(_conn, _cursor, statement, *_args):
+            statements.append(statement.upper())
+
+        event.listen(db.engine, "before_cursor_execute", capture)
+        upgrade(directory=MIGRATIONS, revision="0ded798b0061")
+        event.remove(db.engine, "before_cursor_execute", capture)
+        assert not [s for s in statements if "DROP TABLE" in s or "_ALEMBIC_TMP" in s]
+        assert not [s for s in statements if s.lstrip().startswith("ALTER TABLE")]
+        created = {
+            s.split("CREATE TABLE ")[1].split(" ")[0].strip()
+            for s in statements
+            if "CREATE TABLE" in s
+        }
+        assert created == NEWSLETTER_TABLES
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in before
+        }
+        assert after == before
+        # Customers are never turned into subscribers.
+        assert db.session.execute(text("SELECT COUNT(*) FROM subscribers")).scalar_one() == 0
+
+        from app.models import User
+
+        editor = effective_permissions(db.session.get(User, ids["editor"]))
+        assert not {p for p in editor if p.split(".")[0] in ("newsletters", "subscribers")}
+        news = effective_permissions(db.session.get(User, ids["newsletter_manager"]))
+        assert {"newsletters.send", "subscribers.export", "lead_magnets.manage"} <= news
+        assert "email_settings.manage" not in news
+        mkt = effective_permissions(db.session.get(User, ids["marketing_manager"]))
+        assert "newsletters.edit" in mkt and "newsletters.send" not in mkt
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+
+        downgrade(directory=MIGRATIONS, revision="758d4c510551")
+        names = {t.upper() for t in inspect(db.engine).get_table_names()}
+        assert not names & NEWSLETTER_TABLES
+        available = db.session.execute(
+            text("SELECT is_available FROM permissions WHERE key = 'subscribers.view'")
+        ).scalar_one()
+        assert not available
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)

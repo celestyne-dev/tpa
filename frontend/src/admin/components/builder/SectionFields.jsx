@@ -505,6 +505,22 @@ function Field({ spec, value, onChange, errors, path, variant, disabled }) {
           onChange={(e) => onChange(Number(e.target.value) || null)}
         />
       );
+    case "lead_magnet":
+      return (
+        <SelectField
+          className={className}
+          label={spec.label}
+          value={value ?? ""}
+          disabled={disabled}
+          error={error}
+          hint={spec.help}
+          options={[
+            { value: "", label: spec.required ? "Choose a free resource…" : "None" },
+            ...(options.lead_magnets ?? []),
+          ]}
+          onChange={(e) => onChange(e.target.value || null)}
+        />
+      );
     case "string_list":
       return (
         <TextAreaField

@@ -108,7 +108,9 @@ describe("dashboard and role-aware navigation", () => {
     const nav = screen.getAllByRole("navigation", { name: "Admin" })[0];
     await user.click(within(nav).getByRole("button", { name: "Planned modules" }));
     const planned = within(nav).getByRole("list", { name: /Planned modules/ });
-    expect(within(planned).getByText("Newsletter")).toBeInTheDocument();
+    expect(within(planned).getByText("Partnerships")).toBeInTheDocument();
+    // The newsletter shipped in Batch 06: it is a real section now.
+    expect(within(planned).queryByText("Newsletter")).not.toBeInTheDocument();
     // Commerce shipped in Batch 05: it is a real section now, not a planned module.
     expect(within(planned).queryByText("Digital products")).not.toBeInTheDocument();
     expect(within(planned).queryAllByRole("link")).toHaveLength(0);

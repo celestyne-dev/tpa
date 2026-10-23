@@ -43,8 +43,15 @@ def test_templates_are_seeded_with_available_non_sensitive_permissions_only(app)
             assert role.permission_keys <= AVAILABLE_PERMISSIONS
             assert not role.permission_keys & SENSITIVE_PERMISSIONS
         # Future-module templates only reach the dashboard until their modules exist.
-        for key in ("affiliate_manager", "partnerships_manager", "newsletter_manager"):
+        for key in ("affiliate_manager", "partnerships_manager"):
             assert roles[key].permission_keys == {"dashboard.view"}
+        # Newsletter templates (Batch 06): exports stay with the Newsletter Manager and
+        # sending settings with the Super Admin.
+        assert "subscribers.export" in roles["newsletter_manager"].permission_keys
+        assert "newsletters.send" not in roles["marketing_manager"].permission_keys
+        for key in ("newsletter_manager", "marketing_manager", "administrator"):
+            assert "email_settings.manage" not in roles[key].permission_keys
+        assert "subscribers.export" not in roles["administrator"].permission_keys
         # Commerce templates (Batch 05) reach their modules, never payment configuration.
         assert "products.manage_prices" in roles["product_manager"].permission_keys
         assert "refunds.issue" in roles["orders_manager"].permission_keys

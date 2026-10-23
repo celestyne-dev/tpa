@@ -504,7 +504,14 @@ function BlockFields({ block, index, onChange, errors }) {
 }
 
 /** Structured content editor (validated data blocks; no HTML). */
-export function BlockEditor({ blocks, onChange, errors, disabled = false }) {
+export function BlockEditor({
+  blocks,
+  onChange,
+  errors,
+  disabled = false,
+  allowed,
+  legend = "Content",
+}) {
   const update = (index, block) => onChange(blocks.map((b, i) => (i === index ? block : b)));
   const move = (index, delta) => {
     const next = [...blocks];
@@ -519,10 +526,14 @@ export function BlockEditor({ blocks, onChange, errors, disabled = false }) {
   };
   const remove = (index) => onChange(blocks.filter((_, i) => i !== index));
   const add = (key) => onChange([...blocks, BLOCK_TEMPLATES[key].make()]);
+  // ``allowed`` limits the "Add" choices (e.g. email-safe blocks for newsletters).
+  const templates = Object.entries(BLOCK_TEMPLATES).filter(
+    ([key]) => !allowed || allowed.includes(key),
+  );
 
   return (
     <fieldset disabled={disabled} className="space-y-3">
-      <legend className="mb-2 text-sm font-semibold text-charcoal">Content</legend>
+      <legend className="mb-2 text-sm font-semibold text-charcoal">{legend}</legend>
       {blocks.length === 0 && (
         <p className="rounded-xl border border-dashed border-charcoal/20 bg-cream/50 p-6 text-center text-sm text-muted">
           No content yet. Add a paragraph or heading to begin.
@@ -576,7 +587,7 @@ export function BlockEditor({ blocks, onChange, errors, disabled = false }) {
         aria-label="Add a block"
       >
         <span className="text-sm text-muted">Add:</span>
-        {Object.entries(BLOCK_TEMPLATES).map(([key, t]) => (
+        {templates.map(([key, t]) => (
           <button
             key={key}
             type="button"

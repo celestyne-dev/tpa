@@ -119,6 +119,11 @@ def publish_due_scheduled(now: datetime | None = None) -> dict[str, Any]:
                 if article.first_published_at is None:
                     article.first_published_at = article.published_at
                 record_public_change("article", article.id, "scheduled_published", None)
+                from .newsletter.automations import record_event
+
+                record_event(
+                    "article_published", f"article:{article.id}", {"article_id": article.id}
+                )
                 audit_service.record(
                     "article.published",
                     "article",

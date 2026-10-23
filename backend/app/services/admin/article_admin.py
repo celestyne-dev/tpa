@@ -655,6 +655,9 @@ def publish(article: Article, when: datetime | None, actor: User) -> Article:
         article.first_published_at = article.first_published_at or now
         action = "article.published"
         record_public_change("article", article.id, "article_published", actor)
+        from ..newsletter.automations import record_event
+
+        record_event("article_published", f"article:{article.id}", {"article_id": article.id})
     article.updated_by_id = actor.id
     audit_service.record(
         action,

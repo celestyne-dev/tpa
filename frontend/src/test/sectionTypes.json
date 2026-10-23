@@ -26,7 +26,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -209,7 +209,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -236,7 +236,7 @@
         "label": "Community figure caption",
         "max": 300,
         "show_for": ["with_stat"],
-        "help": "The figure itself comes from Settings › LinkedIn follower count (verified)."
+        "help": "The figure itself comes from Settings \u203a LinkedIn follower count (verified)."
       },
       {
         "name": "media",
@@ -371,7 +371,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -560,7 +560,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -731,7 +731,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -889,7 +889,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -1176,7 +1176,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "message",
@@ -1312,7 +1312,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -1461,7 +1461,7 @@
     "type": "newsletter_cta",
     "label": "Newsletter signup",
     "category": "Engagement",
-    "description": "The Positive Reset panel. It shows an honest “opening soon” notice until a real email provider is connected; it never collects addresses.",
+    "description": "The Positive Reset signup form (double opt-in). It collects addresses only when email sending and consent wording are configured; until then it shows an honest \u201copening soon\u201d notice.",
     "reusable_only": false,
     "single_use": false,
     "variants": [
@@ -1496,9 +1496,21 @@
         "max": 300
       },
       {
+        "name": "show_first_name",
+        "type": "boolean",
+        "label": "Ask for a first name (optional field)",
+        "default": true
+      },
+      {
+        "name": "lead_magnet",
+        "type": "lead_magnet",
+        "label": "Free resource (optional)",
+        "help": "Offer an active lead magnet with this form. Subscribing stays optional unless the lead magnet itself says otherwise."
+      },
+      {
         "name": "show_learn_more",
         "type": "boolean",
-        "label": "Show “What to expect” link",
+        "label": "Show \u201cWhat to expect\u201d link",
         "default": true
       }
     ],
@@ -1576,6 +1588,8 @@
         "eyebrow": "Weekly newsletter",
         "heading": "",
         "description": "One thoughtful email each week to help you reset your mindset, find perspective, and keep moving forward.",
+        "show_first_name": true,
+        "lead_magnet": null,
         "show_learn_more": true
       },
       "design": {
@@ -1591,10 +1605,150 @@
     }
   },
   {
+    "type": "lead_magnet_signup",
+    "label": "Free resource signup",
+    "category": "Engagement",
+    "description": "Offers a free resource (a lead magnet with real files) by secure email link. Newsletter opt-in is a separate, unticked choice.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "card",
+        "label": "Card"
+      },
+      {
+        "value": "split",
+        "label": "Split"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label",
+        "max": 80,
+        "default": "Free resource"
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "help": "Leave empty to use the resource title."
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "lead_magnet",
+        "type": "lead_magnet",
+        "label": "Free resource",
+        "required": true
+      },
+      {
+        "name": "show_first_name",
+        "type": "boolean",
+        "label": "Ask for a first name (optional field)",
+        "default": false
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "width",
+        "label": "Content width",
+        "choices": [
+          {
+            "value": "narrow",
+            "label": "Narrow"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "wide",
+            "label": "Wide"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "card",
+      "content": {
+        "eyebrow": "Free resource",
+        "heading": "",
+        "description": "",
+        "lead_magnet": null,
+        "show_first_name": false
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md",
+        "width": "wide"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
     "type": "product_previews",
     "label": "Digital product showcase",
     "category": "Engagement",
-    "description": "Products from the shop catalogue: featured, newest, hand-picked, a collection or bundles. Prices appear only for products on sale; everything else is shown as an honest “coming soon” preview.",
+    "description": "Products from the shop catalogue: featured, newest, hand-picked, a collection or bundles. Prices appear only for products on sale; everything else is shown as an honest \u201ccoming soon\u201d preview.",
     "reusable_only": false,
     "single_use": false,
     "variants": [
@@ -1609,7 +1763,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -1811,7 +1965,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -2120,7 +2274,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -2287,7 +2441,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -2434,7 +2588,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -2691,7 +2845,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -2918,7 +3072,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -3138,7 +3292,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",
@@ -3466,7 +3620,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. “From the journal”."
+        "help": "Optional, e.g. \u201cFrom the journal\u201d."
       },
       {
         "name": "heading",

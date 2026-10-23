@@ -39,6 +39,12 @@ import { EntitlementsPage } from "./pages/EntitlementsPage";
 import { OrderDetailPage } from "./pages/OrderDetailPage";
 import { OrdersPage } from "./pages/OrdersPage";
 import { PaymentSettingsPage } from "./pages/PaymentSettingsPage";
+import { AutomationDetailPage, AutomationsPage } from "./pages/newsletter/AutomationsPage";
+import { EmailSettingsPage } from "./pages/newsletter/EmailSettingsPage";
+import { LeadMagnetsPage } from "./pages/newsletter/LeadMagnetsPage";
+import { NewsletterEditorPage } from "./pages/newsletter/NewsletterEditorPage";
+import { NewslettersPage } from "./pages/newsletter/NewslettersPage";
+import { SubscriberDetailPage, SubscribersPage } from "./pages/newsletter/SubscribersPage";
 import { ProductCollectionsPage } from "./pages/ProductCollectionsPage";
 import { ProductEditorPage } from "./pages/ProductEditorPage";
 import { ProductPreviewPage } from "./pages/ProductPreviewPage";
@@ -121,6 +127,35 @@ export default function AdminApp() {
               ["payments.configure", "payments.view_events"],
               <PaymentSettingsPage />,
             )}
+          />
+          <Route path="subscribers" element={guarded("subscribers.view", <SubscribersPage />)} />
+          <Route
+            path="subscribers/:id"
+            element={guarded("subscribers.view", <SubscriberDetailPage />)}
+          />
+          <Route path="newsletters" element={guarded("newsletters.view", <NewslettersPage />)} />
+          <Route
+            path="newsletters/:id"
+            element={guarded("newsletters.view", <NewsletterEditorPage />)}
+          />
+          <Route
+            path="email-automations"
+            element={guarded(["email_automations.manage", "newsletters.view"], <AutomationsPage />)}
+          />
+          <Route
+            path="email-automations/:id"
+            element={guarded(
+              ["email_automations.manage", "newsletters.view"],
+              <AutomationDetailPage />,
+            )}
+          />
+          <Route
+            path="lead-magnets"
+            element={guarded("lead_magnets.manage", <LeadMagnetsPage />)}
+          />
+          <Route
+            path="email-settings"
+            element={guarded("email_settings.manage", <EmailSettingsPage />)}
           />
           <Route path="articles" element={guarded(ARTICLE_ACCESS, <ArticlesPage />)} />
           <Route path="articles/new" element={guarded("articles.create", <ArticleEditorPage />)} />

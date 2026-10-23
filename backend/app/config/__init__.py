@@ -179,6 +179,35 @@ class BaseConfig:
     # accounts staff mark as test accounts). Refused in production.
     PAYMENTS_TEST_CHECKOUT_PUBLIC = _bool("PAYMENTS_TEST_CHECKOUT_PUBLIC", False)
 
+    # ---- Newsletter & email marketing (The Positive Reset) ----
+    # Delivery backend for newsletter mail: none | console (development) | memory (tests) |
+    # smtp. Defaults to MAIL_BACKEND. Credentials stay in the environment.
+    NEWSLETTER_MAIL_BACKEND = os.environ.get("NEWSLETTER_MAIL_BACKEND", "")
+    # Sender address on a domain with SPF, DKIM and DMARC configured for the provider.
+    NEWSLETTER_FROM_EMAIL = os.environ.get("NEWSLETTER_FROM_EMAIL", "")
+    # Optional separate SMTP account for bulk mail (falls back to MAIL_SMTP_*).
+    NEWSLETTER_SMTP_HOST = os.environ.get("NEWSLETTER_SMTP_HOST", "")
+    NEWSLETTER_SMTP_PORT = _int("NEWSLETTER_SMTP_PORT", 0)
+    NEWSLETTER_SMTP_USERNAME = os.environ.get("NEWSLETTER_SMTP_USERNAME", "")
+    NEWSLETTER_SMTP_PASSWORD = os.environ.get("NEWSLETTER_SMTP_PASSWORD", "")
+    NEWSLETTER_SEND_RATE_PER_MINUTE = _int("NEWSLETTER_SEND_RATE_PER_MINUTE", 60)
+    NEWSLETTER_BATCH_SIZE = _int("NEWSLETTER_BATCH_SIZE", 50)
+    NEWSLETTER_MAX_ATTEMPTS = _int("NEWSLETTER_MAX_ATTEMPTS", 5)
+    NEWSLETTER_STALE_CLAIM_MINUTES = _int("NEWSLETTER_STALE_CLAIM_MINUTES", 15)
+    # Addresses that receive mail while the sending mode is "test" (comma-separated).
+    NEWSLETTER_TEST_RECIPIENTS = _list("NEWSLETTER_TEST_RECIPIENTS", "")
+    NEWSLETTER_CONFIRM_TTL_HOURS = _int("NEWSLETTER_CONFIRM_TTL_HOURS", 72)
+    # Deployment-level switch: live (bulk) sending can only be enabled when true, in
+    # addition to the readiness checklist in /admin/email-settings.
+    NEWSLETTER_LIVE_ALLOWED = _bool("NEWSLETTER_LIVE_ALLOWED", False)
+    # Shared secret for signed bounce/complaint/delivery feedback (HMAC-SHA256).
+    EMAIL_FEEDBACK_SECRET = os.environ.get("EMAIL_FEEDBACK_SECRET", "")
+    LEAD_MAGNET_LINK_TTL_HOURS = _int("LEAD_MAGNET_LINK_TTL_HOURS", 72)
+    LEAD_MAGNET_MAX_DOWNLOADS = _int("LEAD_MAGNET_MAX_DOWNLOADS", 10)
+    RATELIMIT_NEWSLETTER_SIGNUP = os.environ.get(
+        "RATELIMIT_NEWSLETTER_SIGNUP", "5 per minute;30 per hour"
+    )
+
     # ---- SEO / redirects ----
     # Public website origin (matches VITE_SITE_URL); used for canonical checks and sitemaps.
     SITE_URL = os.environ.get("SITE_URL", "http://localhost:5173").rstrip("/")
@@ -252,6 +281,11 @@ class TestingConfig(BaseConfig):
     PRODUCT_FILES_SCAN_COMMAND = ""
     MEDIA_SERVE_FROM_FLASK = True
     PUBLISH_DEBOUNCE_SECONDS = 0
+    NEWSLETTER_MAIL_BACKEND = "memory"
+    NEWSLETTER_FROM_EMAIL = "newsletter@example.org"
+    NEWSLETTER_LIVE_ALLOWED = False
+    NEWSLETTER_TEST_RECIPIENTS = ["tester@example.org"]
+    EMAIL_FEEDBACK_SECRET = "testing-feedback-secret"
 
 
 class ProductionConfig(BaseConfig):
@@ -282,6 +316,8 @@ class ProductionConfig(BaseConfig):
         api_base = os.environ.get("PAYSTACK_API_BASE", "https://api.paystack.co").rstrip("/")
         if api_base != "https://api.paystack.co":
             missing.append("PAYSTACK_API_BASE (must be https://api.paystack.co in production)")
+        if os.environ.get("NEWSLETTER_MAIL_BACKEND", "").lower() in {"console", "memory"}:
+            missing.append("NEWSLETTER_MAIL_BACKEND (console/memory are not allowed in production)")
         if _bool("PAYMENTS_TEST_CHECKOUT_PUBLIC"):
             missing.append("PAYMENTS_TEST_CHECKOUT_PUBLIC (development only)")
         if missing:

@@ -2,7 +2,7 @@
 
 The commercial home of **Think Positive Always (TPA)**: personal development articles, digital products, free resources, the newsletter, and brand partnerships.
 
-The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`. Since Batch 04, the homepage, CMS pages, branding, header, footer, menus and announcements are all managed in the CMS too, with a visual section builder (see [`docs/cms-guide.md`](docs/cms-guide.md)). Batch 05 adds the digital product shop: a product CMS, private product files, customer accounts, orders, Paystack payments (test mode only until explicitly activated), secure downloads, refunds and revenue reports (see [`docs/commerce.md`](docs/commerce.md)).
+The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`. Since Batch 04, the homepage, CMS pages, branding, header, footer, menus and announcements are all managed in the CMS too, with a visual section builder (see [`docs/cms-guide.md`](docs/cms-guide.md)). Batch 05 adds the digital product shop: a product CMS, private product files, customer accounts, orders, Paystack payments (test mode only until explicitly activated), secure downloads, refunds and revenue reports (see [`docs/commerce.md`](docs/commerce.md)). Batch 06 adds The Positive Reset newsletter: double opt-in subscribers with consent records, campaigns, a rate-limited email queue, automations and lead magnets (see [`docs/newsletter.md`](docs/newsletter.md)).
 
 ## 1. Technology stack
 
@@ -93,6 +93,7 @@ Key backend variables (all documented in `backend/.env.example`):
 | `CUSTOMER_*`, `RATELIMIT_CUSTOMER_REGISTER`, `RATELIMIT_CHECKOUT`            | Customer sessions, verification/reset link lifetimes, rate limits                                                                                                                                       |
 | `PAYSTACK_SECRET_KEY`, `PAYSTACK_API_BASE`, `PAYSTACK_*`                     | Paystack (server-side only; `sk_test_` for development). The webhook is verified with the secret key                                                                                                    |
 | `PAYMENTS_LIVE_ALLOWED`                                                      | Deployment switch: live checkout is impossible unless `true` **and** the admin readiness checklist passes. Default `false`                                                                              |
+| `NEWSLETTER_*`, `EMAIL_FEEDBACK_SECRET`, `LEAD_MAGNET_*`                     | Newsletter delivery (SMTP, sender, rate limits, test recipients, live switch), signed bounce/complaint feedback, free-resource links (`docs/newsletter.md`)                                             |
 | `PAYMENTS_TEST_CHECKOUT_PUBLIC`                                              | Development only: any verified customer may use test checkout. Refused in production                                                                                                                    |
 
 Frontend variables (`VITE_SITE_URL`, `VITE_ALLOW_INDEXING`, `VITE_API_BASE_URL`, `PRERENDER_API_URL`) are unchanged from Batch 01. No Paystack key belongs in the frontend: checkout uses Paystack's hosted page, started by the server.
@@ -139,6 +140,13 @@ The Vite dev server proxies `/api` to Flask, so the admin's HttpOnly cookies are
   - `de3d968df6ce` (Batch 04): page builder, shared sections and announcements. See [Upgrading to Batch 04](#upgrading-to-batch-04) below.
 
   - `758d4c510551` (Batch 05): digital commerce. See [Upgrading to Batch 05](#upgrading-to-batch-05) below.
+
+  - `0ded798b0061` (Batch 06): newsletter, email marketing and lead magnets.
+    - Adds new tables only; no existing table is altered, and no subscribers are created.
+    - Adds the newsletter permissions and makes `subscribers.view` and `subscribers.export` available.
+    - Grants go to the Administrator, Newsletter Manager and Marketing Manager templates.
+    - Downgrade drops the newsletter tables.
+    - After upgrading: `flask --app wsgi rbac sync` (should report zeros) and `flask --app wsgi newsletter seed-defaults` (starter templates, plus automations as drafts).
 
 ### Upgrading to Batch 05
 
@@ -343,11 +351,11 @@ Future-module permissions are also in the catalogue but marked **unavailable** a
 
 ## 9. Admin routes
 
-`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/articles/:id/preview` (private preview), `/admin/workflow` (editorial board), `/admin/media` (media library), `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/homepage` (homepage builder), `/admin/pages` (and `/admin/pages/:id`, `/admin/pages/:id/preview`), `/admin/shared-sections` (shared sections and global CTAs), `/admin/branding`, `/admin/navigation`, `/admin/footer`, `/admin/announcements`, `/admin/seo` (SEO audit), `/admin/redirects`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`), `/admin/publishing` (publishing jobs), `/admin/audit-log`, `/admin/account` (change password). Commerce (Batch 05): `/admin/products` (and `/admin/products/:id`, `/admin/products/:id/preview`), `/admin/product-collections`, `/admin/bundles`, `/admin/orders` (and `/admin/orders/:id`), `/admin/customers` (and `/admin/customers/:id`), `/admin/entitlements`, `/admin/reports/revenue`, `/admin/payments` (Super Admin).
+`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/articles/:id/preview` (private preview), `/admin/workflow` (editorial board), `/admin/media` (media library), `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/homepage` (homepage builder), `/admin/pages` (and `/admin/pages/:id`, `/admin/pages/:id/preview`), `/admin/shared-sections` (shared sections and global CTAs), `/admin/branding`, `/admin/navigation`, `/admin/footer`, `/admin/announcements`, `/admin/seo` (SEO audit), `/admin/redirects`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`), `/admin/publishing` (publishing jobs), `/admin/audit-log`, `/admin/account` (change password). Commerce (Batch 05): `/admin/products` (and `/admin/products/:id`, `/admin/products/:id/preview`), `/admin/product-collections`, `/admin/bundles`, `/admin/orders` (and `/admin/orders/:id`), `/admin/customers` (and `/admin/customers/:id`), `/admin/entitlements`, `/admin/reports/revenue`, `/admin/payments` (Super Admin). Newsletter (Batch 06): `/admin/subscribers` (and `/admin/subscribers/:id`), `/admin/newsletters` (and `/admin/newsletters/:id`), `/admin/email-automations` (and `/:id`), `/admin/lead-magnets`, `/admin/email-settings` (Super Admin).
 
 Public customer routes: `/shop`, `/shop/collections/:slug`, `/shop/:productSlug`, `/cart`, `/checkout`, `/checkout/complete`, `/account` (overview, `orders`, `library`, `settings`), `/account/login`, `/account/register`, `/account/verify-email`, `/account/reset-password`.
 
-The sidebar shows only what the signed-in user may use. The **Commerce** section holds Products, Categories & Collections, Bundles, Orders, Customers, Download Entitlements and Revenue Reports; **Administration** adds Payment Settings. Modules that do not exist yet (newsletter, partnerships, advertising, affiliates, courses, memberships, analytics) are listed as **Planned**, without links.
+The sidebar shows only what the signed-in user may use. The **Commerce** section holds Products, Categories & Collections, Bundles, Orders, Customers, Download Entitlements and Revenue Reports; **Administration** adds Payment Settings. The **Newsletter** section holds Subscribers, Newsletters, Automations and Lead magnets; **Administration** adds Email Settings. Modules that do not exist yet (partnerships, advertising, affiliates, courses, memberships, analytics) are listed as **Planned**, without links.
 
 ## 10. Media library and image optimisation
 

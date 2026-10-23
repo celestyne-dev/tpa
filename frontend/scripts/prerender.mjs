@@ -150,7 +150,7 @@ function buildRobots() {
     // Previews, staging and local builds must never be indexed.
     return "User-agent: *\nDisallow: /\n";
   }
-  return `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /account\nDisallow: /cart\nDisallow: /checkout\n\nSitemap: ${siteConfig.url}/sitemap.xml\n`;
+  return `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /account\nDisallow: /cart\nDisallow: /checkout\nDisallow: /newsletter/\nDisallow: /resources/access\n\nSitemap: ${siteConfig.url}/sitemap.xml\n`;
 }
 
 await checkApi();

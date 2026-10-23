@@ -304,14 +304,22 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
         "label": "Newsletter signup",
         "category": "Engagement",
         "description": (
-            "The Positive Reset panel. It shows an honest “opening soon” notice until a "
-            "real email provider is connected; it never collects addresses."
+            "The Positive Reset signup form (double opt-in). It collects addresses only when "
+            "email sending and consent wording are configured; until then it shows an honest "
+            "“opening soon” notice."
         ),
         "variants": {"panel": "Panel", "compact": "Compact"},
         "fields": {
             "eyebrow": text("Small label", 80, default="Weekly newsletter"),
             "heading": text("Heading", 120, help="Leave empty to use the newsletter name."),
             "description": textarea("Description", 300),
+            "show_first_name": _f("boolean", "Ask for a first name (optional field)", default=True),
+            "lead_magnet": _f(
+                "lead_magnet",
+                "Free resource (optional)",
+                help="Offer an active lead magnet with this form. Subscribing stays optional "
+                "unless the lead magnet itself says otherwise.",
+            ),
             "show_learn_more": _f("boolean", "Show “What to expect” link", default=True),
         },
         "design": ["background", "spacing", "width"],
@@ -322,6 +330,30 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
                 "description": "One thoughtful email each week to help you reset your mindset, "
                 "find perspective, and keep moving forward."
             },
+        },
+    },
+    "lead_magnet_signup": {
+        "label": "Free resource signup",
+        "category": "Engagement",
+        "description": (
+            "Offers a free resource (a lead magnet with real files) by secure email link. "
+            "Newsletter opt-in is a separate, unticked choice."
+        ),
+        "variants": {"card": "Card", "split": "Split"},
+        "fields": {
+            "eyebrow": text("Small label", 80, default="Free resource"),
+            "heading": text("Heading", 120, help="Leave empty to use the resource title."),
+            "description": textarea("Description", 400),
+            "lead_magnet": _f("lead_magnet", "Free resource", required=True),
+            "show_first_name": _f(
+                "boolean", "Ask for a first name (optional field)", default=False
+            ),
+        },
+        "design": ["background", "spacing", "width"],
+        "defaults": {
+            "variant": "card",
+            "design": {"background": "cream", "spacing": "md", "width": "wide"},
+            "content": {},
         },
     },
     "product_previews": {
@@ -835,6 +867,22 @@ def _clean_field(name, spec, value, variant, content, errors, refs, path):
             "product_collection": "product_collection",
         }[kind]
         return _clean_id_list(value, ref_kind, spec, required, errors, path, refs)
+    if kind == "lead_magnet":
+        if value in (None, ""):
+            if required:
+                errors[path] = ["Choose a free resource."]
+            return None
+        from sqlalchemy import select
+
+        from ..extensions import db
+        from ..models import LeadMagnet
+
+        if not isinstance(value, str) or not db.session.scalar(
+            select(LeadMagnet.id).where(LeadMagnet.slug == value, LeadMagnet.status != "archived")
+        ):
+            errors[path] = ["Choose a free resource from the list."]
+            return None
+        return value
     if kind == "select":
         value = spec.get("default") if value in (None, "") else value
         if value not in spec["choices"]:

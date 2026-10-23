@@ -40,6 +40,12 @@ from .commerce import PRIVATE_PREFIXES, PUBLIC_COMMERCE_ROUTES  # noqa: E402
 for resource, path in PUBLIC_COMMERCE_ROUTES:
     api.add_resource(resource, path, endpoint=f"shop_{resource.__name__.lower()}")
 
+# ---- Newsletter, lead magnets and email provider feedback ------------------------
+from .newsletter import NEWSLETTER_PRIVATE_PREFIXES, PUBLIC_NEWSLETTER_ROUTES  # noqa: E402
+
+for resource, path in PUBLIC_NEWSLETTER_ROUTES:
+    api.add_resource(resource, path, endpoint=f"newsletter_{resource.__name__.lower()}")
+
 # ---- Admin API ------------------------------------------------------------------
 from flask import request  # noqa: E402
 
@@ -69,7 +75,7 @@ def _admin_no_store(response):
         # Admin data (including draft previews) is never cached or indexed.
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
-    elif request.path.startswith(PRIVATE_PREFIXES):
+    elif request.path.startswith(PRIVATE_PREFIXES + NEWSLETTER_PRIVATE_PREFIXES):
         response.headers.setdefault("Cache-Control", "no-store")
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
         response.headers["Vary"] = "Cookie"

@@ -825,6 +825,11 @@ def publish(product: Product, actor: User) -> Product:
         "product.published", "product", product.id, actor=actor, details={"slug": product.slug}
     )
     record_public_change("product", product.id, "product_published", actor)
+    if catalogue.readiness(product)["purchasable"]:
+        from ..newsletter.automations import record_event
+
+        # Announced once, and only when it can really be bought (never "coming soon").
+        record_event("product_published", f"product:{product.id}", {"product_id": product.id})
     return product
 
 

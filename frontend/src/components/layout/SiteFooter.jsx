@@ -4,6 +4,7 @@ import { Container } from "@/components/ui/Container";
 import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { useNavigation } from "@/hooks/useNavigation";
+import { NewsletterSignupForm } from "@/components/newsletter/NewsletterSignupForm";
 import { Logo } from "./Logo";
 
 const DEFAULT_FOOTER_TEXT =
@@ -84,6 +85,20 @@ export function SiteFooter({ site }) {
             <p className="mt-6 text-[0.95rem] leading-relaxed">
               {settings.text || DEFAULT_FOOTER_TEXT}
             </p>
+            {site?.newsletter?.is_open && (
+              <div className="mt-6">
+                <p className="font-medium text-ivory">
+                  Get {site.newsletter.name ?? siteConfig.newsletterName} by email
+                </p>
+                <NewsletterSignupForm
+                  compact
+                  source="footer"
+                  showFirstName={false}
+                  tone="dark"
+                  className="mx-0 mt-3"
+                />
+              </div>
+            )}
             {settings.show_newsletter_link !== false && (
               <Link
                 to={routes.newsletter}

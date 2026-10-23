@@ -91,6 +91,18 @@ class Permission(StrEnum):
     NEWSLETTERS_MANAGE = "newsletters.manage"
     SUBSCRIBERS_VIEW = "subscribers.view"
     SUBSCRIBERS_EXPORT = "subscribers.export"
+    SUBSCRIBERS_MANAGE = "subscribers.manage"
+    NEWSLETTERS_VIEW = "newsletters.view"
+    NEWSLETTERS_CREATE = "newsletters.create"
+    NEWSLETTERS_EDIT = "newsletters.edit"
+    NEWSLETTERS_PUBLISH = "newsletters.publish"
+    NEWSLETTERS_SEND = "newsletters.send"
+    NEWSLETTERS_SCHEDULE = "newsletters.schedule"
+    NEWSLETTERS_REPORTS = "newsletters.reports"
+    EMAIL_TEMPLATES_MANAGE = "email_templates.manage"
+    EMAIL_AUTOMATIONS_MANAGE = "email_automations.manage"
+    LEAD_MAGNETS_MANAGE = "lead_magnets.manage"
+    EMAIL_SETTINGS_MANAGE = "email_settings.manage"
     COURSES_MANAGE = "courses.manage"
     MEMBERSHIPS_MANAGE = "memberships.manage"
     FINANCE_VIEW = "finance.view"
@@ -441,24 +453,77 @@ CATALOGUE: list[PermissionDef] = [
     ),
     _d(
         P.NEWSLETTERS_MANAGE,
-        "Manage newsletters",
+        "Manage newsletters (superseded)",
         "Newsletters & subscribers",
         "newsletters",
         available=False,
+        description="Replaced in Batch 06 by the specific newsletters.* permissions.",
     ),
+    _d(P.SUBSCRIBERS_VIEW, "View subscribers", "Newsletters & subscribers", "newsletters"),
     _d(
-        P.SUBSCRIBERS_VIEW,
-        "View subscribers",
+        P.SUBSCRIBERS_MANAGE,
+        "Manage subscribers",
         "Newsletters & subscribers",
         "newsletters",
-        available=False,
+        description="Tags, segments, imports (quarantined), unsubscribes and suppressions.",
     ),
     _d(
         P.SUBSCRIBERS_EXPORT,
         "Export subscribers",
         "Newsletters & subscribers",
         "newsletters",
-        available=False,
+        description="Download subscriber personal data and consent records (audited).",
+    ),
+    _d(P.NEWSLETTERS_VIEW, "View newsletters", "Newsletters & subscribers", "newsletters"),
+    _d(P.NEWSLETTERS_CREATE, "Create newsletters", "Newsletters & subscribers", "newsletters"),
+    _d(P.NEWSLETTERS_EDIT, "Edit newsletter drafts", "Newsletters & subscribers", "newsletters"),
+    _d(
+        P.NEWSLETTERS_PUBLISH,
+        "Approve newsletters",
+        "Newsletters & subscribers",
+        "newsletters",
+        description="Approve a campaign for sending (any later edit withdraws the approval).",
+    ),
+    _d(
+        P.NEWSLETTERS_SEND,
+        "Send newsletters",
+        "Newsletters & subscribers",
+        "newsletters",
+        description="Send an approved campaign to its audience.",
+    ),
+    _d(
+        P.NEWSLETTERS_SCHEDULE,
+        "Schedule newsletters",
+        "Newsletters & subscribers",
+        "newsletters",
+    ),
+    _d(
+        P.NEWSLETTERS_REPORTS,
+        "View newsletter reports",
+        "Newsletters & subscribers",
+        "newsletters",
+    ),
+    _d(
+        P.EMAIL_TEMPLATES_MANAGE,
+        "Manage email templates",
+        "Newsletters & subscribers",
+        "newsletters",
+    ),
+    _d(
+        P.EMAIL_AUTOMATIONS_MANAGE,
+        "Manage email automations",
+        "Newsletters & subscribers",
+        "newsletters",
+    ),
+    _d(P.LEAD_MAGNETS_MANAGE, "Manage lead magnets", "Newsletters & subscribers", "newsletters"),
+    _d(
+        P.EMAIL_SETTINGS_MANAGE,
+        "Configure email sending",
+        "Newsletters & subscribers",
+        "newsletters",
+        sensitive=True,
+        description="Sending mode (disabled/test/live), sender identity, consent wording and "
+        "deliverability confirmations.",
     ),
     _d(P.COURSES_MANAGE, "Manage courses", "Courses & memberships", "courses", available=False),
     _d(
@@ -708,18 +773,19 @@ TEMPLATE_ROLES: list[RoleSpec] = [
     RoleSpec(
         "marketing_manager",
         "Marketing Manager",
-        "Reviews content performance; will manage advertising and campaigns.",
+        "Reviews content performance, drafts newsletters and lead magnets; will manage "
+        "advertising.",
         "template",
         _set(P.DASHBOARD_VIEW, P.ANALYTICS_VIEW, P.ARTICLES_VIEW),
-        planned=_set(P.ADVERTISING_VIEW, P.ADVERTISING_MANAGE, P.NEWSLETTERS_MANAGE),
+        planned=_set(P.ADVERTISING_VIEW, P.ADVERTISING_MANAGE),
     ),
     RoleSpec(
         "newsletter_manager",
         "Newsletter Manager",
-        "Will manage The Positive Reset newsletter and subscribers.",
+        "Manages The Positive Reset newsletter, subscribers, automations and lead magnets.",
         "template",
         _set(P.DASHBOARD_VIEW),
-        planned=_set(P.NEWSLETTERS_MANAGE, P.SUBSCRIBERS_VIEW, P.SUBSCRIBERS_EXPORT),
+        planned=frozenset(),
     ),
     RoleSpec(
         "seo_manager",
@@ -878,12 +944,40 @@ BATCH_05_GRANTS: dict[str, frozenset[str]] = {
     "marketing_manager": _set(P.PRODUCTS_VIEW),
 }
 
+NEWSLETTER_EDITING = _set(
+    P.NEWSLETTERS_VIEW, P.NEWSLETTERS_CREATE, P.NEWSLETTERS_EDIT, P.NEWSLETTERS_REPORTS
+)
+NEWSLETTER_ALL = NEWSLETTER_EDITING | _set(
+    P.NEWSLETTERS_PUBLISH,
+    P.NEWSLETTERS_SEND,
+    P.NEWSLETTERS_SCHEDULE,
+    P.EMAIL_TEMPLATES_MANAGE,
+    P.EMAIL_AUTOMATIONS_MANAGE,
+    P.LEAD_MAGNETS_MANAGE,
+)
+BATCH_06_GRANTS: dict[str, frozenset[str]] = {
+    # Bulk exports and sending settings stay with the Newsletter Manager / Super Admin.
+    "administrator": NEWSLETTER_ALL | _set(P.SUBSCRIBERS_VIEW, P.SUBSCRIBERS_MANAGE),
+    "newsletter_manager": NEWSLETTER_ALL
+    | _set(
+        P.SUBSCRIBERS_VIEW,
+        P.SUBSCRIBERS_MANAGE,
+        P.SUBSCRIBERS_EXPORT,
+        P.MEDIA_VIEW,
+        P.ARTICLES_VIEW,
+        P.PRODUCTS_VIEW,
+    ),
+    "marketing_manager": NEWSLETTER_EDITING
+    | _set(P.SUBSCRIBERS_VIEW, P.LEAD_MAGNETS_MANAGE, P.MEDIA_VIEW),
+}
+
 
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
         BATCH_03_GRANTS.get(spec.key, frozenset())
         | BATCH_04_GRANTS.get(spec.key, frozenset())
         | BATCH_05_GRANTS.get(spec.key, frozenset())
+        | BATCH_06_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

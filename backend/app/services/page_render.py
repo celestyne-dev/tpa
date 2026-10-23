@@ -352,8 +352,17 @@ def _computed(
     elif section_type == "brand_intro":
         data["stat_value"] = settings.get("community.linkedin_followers_label") or None
     elif section_type == "newsletter_cta":
-        data["newsletter_name"] = "The Positive Reset"
-        data["is_open"] = bool(settings.get("newsletter.is_open"))
+        from .newsletter.config import public_status
+        from .newsletter.lead_magnets import public_info
+
+        status = public_status()
+        data["newsletter_name"] = status["name"]
+        data["is_open"] = status["signup_open"]
+        data["lead_magnet"] = public_info(content.get("lead_magnet"))
+    elif section_type == "lead_magnet_signup":
+        from .newsletter.lead_magnets import public_info
+
+        data["lead_magnet"] = public_info(content.get("lead_magnet"))
     elif section_type == "contact_details":
         contact = settings.get("contact.email") or None
         data["email"] = contact if content.get("show_email") else None

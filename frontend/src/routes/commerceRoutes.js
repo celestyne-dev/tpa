@@ -11,3 +11,7 @@ export const SignInRoute = lazyPage("SignInPage");
 export const RegisterRoute = lazyPage("RegisterPage");
 export const VerifyEmailRoute = lazyPage("VerifyEmailPage");
 export const ResetPasswordRoute = lazyPage("ResetPasswordPage");
+export const NewsletterConfirmRoute = lazyPage("NewsletterConfirmPage");
+export const NewsletterPreferencesRoute = lazyPage("NewsletterPreferencesPage");
+export const NewsletterUnsubscribeRoute = lazyPage("NewsletterUnsubscribePage");
+export const ResourceAccessRoute = lazyPage("ResourceAccessPage");

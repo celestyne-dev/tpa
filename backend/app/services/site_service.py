@@ -65,11 +65,7 @@ def get_site_settings() -> dict[str, Any]:
                 f"more than {label.rstrip('+')} people who follow {v['site.name']} on LinkedIn"
             ),
         },
-        "newsletter": {
-            "name": "The Positive Reset",
-            "cadence": "weekly",
-            "is_open": bool(v["newsletter.is_open"]),
-        },
+        "newsletter": _newsletter(),
         "contact": {
             "email": contact,
             "partnerships_email": v["contact.partnerships_email"] or contact,
@@ -121,4 +117,22 @@ def get_site_settings() -> dict[str, Any]:
         # Lets the browser hydrate time-limited content exactly as it was rendered.
         "generated_at": iso(datetime.now(UTC)),
         "cms_overrides": overridden_builtin_paths(),
+    }
+
+
+def _newsletter() -> dict:
+    """Signup is open only when sending and consent wording are configured (not merely
+    when the "sign-ups open" setting is on)."""
+    from .newsletter.config import get_settings, public_status
+
+    status = public_status()
+    return {
+        "name": status["name"],
+        "tagline": status["tagline"],
+        "cadence": "weekly",
+        "is_open": status["signup_open"],
+        "consent_text": status["consent_text"],
+        "consent_version": get_settings()["email.consent_version"] if status["signup_open"] else "",
+        "preferences": status["preferences"],
+        "default_preferences": status["default_preferences"],
     }

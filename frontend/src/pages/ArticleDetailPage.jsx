@@ -155,7 +155,7 @@ export function ArticleDetailPage() {
       )}
 
       <Section spacing="sm" size="wide" aria-label="Newsletter">
-        <NewsletterPanel />
+        <NewsletterPanel source="article" sourceDetail={routes.article(slug)} />
       </Section>
     </>
   );

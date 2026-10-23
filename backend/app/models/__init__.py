@@ -47,6 +47,23 @@ from .customer import (
     Entitlement,
     EntitlementEvent,
 )
+from .newsletter import (
+    Campaign,
+    EmailAutomation,
+    EmailAutomationEnrollment,
+    EmailAutomationEvent,
+    EmailAutomationStep,
+    EmailMessage,
+    EmailSuppression,
+    EmailTemplate,
+    LeadMagnet,
+    LeadMagnetClaim,
+    Subscriber,
+    SubscriberEvent,
+    SubscriberSegment,
+    SubscriberTag,
+    subscriber_tag_links,
+)
 from .orders import (
     EmailDelivery,
     Order,
@@ -69,6 +86,21 @@ from .user import (
 )
 
 __all__ = [
+    "Campaign",
+    "EmailAutomation",
+    "EmailAutomationEnrollment",
+    "EmailAutomationEvent",
+    "EmailAutomationStep",
+    "EmailMessage",
+    "EmailSuppression",
+    "EmailTemplate",
+    "LeadMagnet",
+    "LeadMagnetClaim",
+    "Subscriber",
+    "SubscriberEvent",
+    "SubscriberSegment",
+    "SubscriberTag",
+    "subscriber_tag_links",
     "BundleItem",
     "Product",
     "ProductCategory",

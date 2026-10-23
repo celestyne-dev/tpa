@@ -1,0 +1,30 @@
+# /etc/systemd/system/tpa-email-worker.service  (example)
+#
+# The Positive Reset email worker: sends queued email in rate-limited batches,
+# starts scheduled campaigns, runs automations and recovers safely after restarts.
+# Separate from the publishing worker so site builds never delay email (or vice versa).
+# Nothing is sent while the sending mode in /admin/email-settings is "disabled".
+[Unit]
+Description=Think Positive Always email worker
+After=network.target postgresql.service tpa-api.service
+Wants=tpa-api.service
+
+[Service]
+User=tpa
+Group=www-data
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi newsletter worker --interval 10
+Restart=always
+RestartSec=10
+# Give an in-flight batch time to record its results before stopping.
+TimeoutStopSec=60
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/www/tpa /var/lib/tpa
+
+[Install]
+WantedBy=multi-user.target

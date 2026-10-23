@@ -1,4 +1,6 @@
+import { useLocation } from "react-router";
 import { Check, Mail } from "lucide-react";
+import { LeadMagnetForm } from "@/components/newsletter/LeadMagnetForm";
 import { NewsletterPanel } from "@/components/newsletter/NewsletterPanel";
 import { ProductCard } from "@/components/products/ProductCard";
 import { useDisplayCurrency } from "@/hooks/useShop";
@@ -61,12 +63,13 @@ export function BrandIntroSection({ section }) {
 }
 
 /**
- * The Positive Reset panel. Until a real provider is connected it shows an honest
- * "opening soon" notice and never collects email addresses.
+ * The Positive Reset panel: the real signup form once sending is configured, otherwise
+ * an honest "opening soon" notice that never collects email addresses.
  */
 export function NewsletterSection({ section }) {
   const { data, variant } = section;
   const { level } = useSectionContext();
+  const { pathname } = useLocation();
   return (
     <SectionShell section={section} label="Newsletter" width={section.design?.width ?? "wide"}>
       <NewsletterPanel
@@ -75,8 +78,51 @@ export function NewsletterSection({ section }) {
         eyebrow={data.eyebrow}
         description={data.description}
         showLearnMore={data.show_learn_more !== false}
+        showFirstName={data.show_first_name !== false}
+        leadMagnet={data.lead_magnet}
+        source={pathname === "/" ? "homepage" : "page_section"}
+        sourceDetail={pathname}
         className={variant === "compact" ? "py-10 sm:py-12" : undefined}
       />
+    </SectionShell>
+  );
+}
+
+/** A free resource (lead magnet) delivered by secure email link. Hidden when unavailable. */
+export function LeadMagnetSection({ section }) {
+  const { data, key, variant } = section;
+  const { dark } = useSectionContext();
+  const magnet = data.lead_magnet;
+  if (!magnet?.available) return null;
+  const id = `${key}-heading`;
+  return (
+    <SectionShell section={section} labelledBy={id} width={section.design?.width ?? "wide"}>
+      <div
+        className={
+          variant === "split" ? "grid items-start gap-10 lg:grid-cols-2" : "mx-auto max-w-2xl"
+        }
+      >
+        <div>
+          {data.eyebrow && (
+            <p className="text-gold-600 text-sm font-semibold tracking-[0.16em] uppercase">
+              {data.eyebrow}
+            </p>
+          )}
+          <h2 id={id} className="mt-2 text-3xl font-medium sm:text-4xl">
+            {data.heading || magnet.title}
+          </h2>
+          <p className="mt-4 text-lg text-muted">{data.description || magnet.description}</p>
+          {magnet.formats?.length > 0 && (
+            <p className="mt-3 text-sm text-muted">Format: {magnet.formats.join(", ")}</p>
+          )}
+        </div>
+        <LeadMagnetForm
+          leadMagnet={magnet}
+          showFirstName={data.show_first_name === true}
+          tone={dark ? "dark" : "light"}
+          className={variant === "split" ? "" : "mt-8"}
+        />
+      </div>
     </SectionShell>
   );
 }
