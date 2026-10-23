@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  BookOpen,
   FolderTree,
   GraduationCap,
   Handshake,
@@ -30,6 +29,11 @@ import {
   PanelBottom,
   Palette,
   Bell,
+  BadgeCheck,
+  CreditCard,
+  Layers,
+  Receipt,
+  Boxes,
 } from "lucide-react";
 import {
   ARTICLE_ACCESS,
@@ -75,6 +79,33 @@ export const adminSections = [
     ],
   },
   {
+    title: "Commerce",
+    items: [
+      { label: "Products", to: "/admin/products", icon: Package, permission: "products.view" },
+      {
+        label: "Categories & Collections",
+        to: "/admin/product-collections",
+        icon: Layers,
+        permission: "products.view",
+      },
+      { label: "Bundles", to: "/admin/bundles", icon: Boxes, permission: "products.view" },
+      { label: "Orders", to: "/admin/orders", icon: ShoppingBag, permission: "orders.view" },
+      { label: "Customers", to: "/admin/customers", icon: Users, permission: "customers.view" },
+      {
+        label: "Download Entitlements",
+        to: "/admin/entitlements",
+        icon: BadgeCheck,
+        anyOf: ["entitlements.view", "downloads.audit"],
+      },
+      {
+        label: "Revenue Reports",
+        to: "/admin/reports/revenue",
+        icon: Receipt,
+        permission: "finance.view",
+      },
+    ],
+  },
+  {
     title: "Website",
     items: [
       { label: "Homepage", to: "/admin/homepage", icon: Home, permission: "homepage.view" },
@@ -115,6 +146,12 @@ export const adminSections = [
         icon: Rocket,
         permission: "publishing.view",
       },
+      {
+        label: "Payment Settings",
+        to: "/admin/payments",
+        icon: CreditCard,
+        anyOf: ["payments.configure", "payments.view_events"],
+      },
       { label: "Audit log", to: "/admin/audit-log", icon: ScrollText, permission: "audit.view" },
     ],
   },
@@ -122,9 +159,6 @@ export const adminSections = [
 
 /** Business modules scheduled for later batches. Displayed as "Planned", never as links. */
 export const plannedModules = [
-  { label: "Digital products", icon: Package },
-  { label: "Orders", icon: ShoppingBag },
-  { label: "Customers", icon: Users },
   { label: "Newsletter", icon: Mail },
   { label: "Partnerships", icon: Handshake },
   { label: "Advertising", icon: Megaphone },
@@ -132,5 +166,4 @@ export const plannedModules = [
   { label: "Courses", icon: GraduationCap },
   { label: "Memberships", icon: Crown },
   { label: "Analytics", icon: BarChart3 },
-  { label: "eBooks & licensing", icon: BookOpen },
 ];

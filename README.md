@@ -2,7 +2,7 @@
 
 The commercial home of **Think Positive Always (TPA)**: personal development articles, digital products, free resources, the newsletter, and brand partnerships.
 
-The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`. Since Batch 04, the homepage, CMS pages, branding, header, footer, menus and announcements are all managed in the CMS too, with a visual section builder (see [`docs/cms-guide.md`](docs/cms-guide.md)).
+The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`. Since Batch 04, the homepage, CMS pages, branding, header, footer, menus and announcements are all managed in the CMS too, with a visual section builder (see [`docs/cms-guide.md`](docs/cms-guide.md)). Batch 05 adds the digital product shop: a product CMS, private product files, customer accounts, orders, Paystack payments (test mode only until explicitly activated), secure downloads, refunds and revenue reports (see [`docs/commerce.md`](docs/commerce.md)).
 
 ## 1. Technology stack
 
@@ -30,23 +30,29 @@ tpa/
 │       │   └── navigation.js   Sidebar sections and planned modules
 │       ├── components/ …       Public design system; components/sections/ renders CMS sections
 │       ├── pages/              Public pages
-│       ├── services/           apiClient.js, contentApi.js (public), adminApi.js (admin, cookie + CSRF aware)
-│       └── store/              Redux slices: site, topics, articles, products, auth
+│       ├── commerce/           Cart store, currency helpers, customer area pages (lazy chunk: cart, checkout, account)
+│       ├── services/           apiClient.js, contentApi.js (public), shopApi.js (customer), adminApi.js (admin, cookie + CSRF aware)
+│       └── store/              Redux slices: site, topics, articles, products, customer, auth
 ├── backend/
 │   ├── app/
-│   │   ├── api/                Public /api/v1 resources; api/admin/ for /api/v1/admin resources
+│   │   ├── api/                Public /api/v1 resources; commerce.py (shop, account, checkout, downloads, webhook); api/admin/ for /api/v1/admin
+│   │   ├── commerce/           Currencies, product type registry, private file validation, starter catalogue
+│   │   ├── payments/           Payment provider abstraction, Paystack client, payment settings and readiness
 │   │   ├── auth/               permissions.py (roles → permissions), decorators.py, session.py (JWT cookies), passwords.py, roles.py
 │   │   ├── cms/                blocks.py (article blocks), sections.py (section registry), design.py (style presets),
 │   │   │                       routing.py (reserved paths), templates.py (page templates), settings_registry.py, defaults.py
 │   │   ├── models/             SQLAlchemy models (user, content, cms, audit, portable types)
 │   │   ├── schemas/            Marshmallow request schemas (strict) and public response schemas
-│   │   ├── services/           Public queries, admin services, audit, settings, navigation, publication, seed
+│   │   ├── services/           Public queries, admin services, audit, settings, navigation, publication, seed;
+│   │   │                       services/commerce/ (catalogue, products, files, customers, checkout, payments, downloads, orders)
+│   │   ├── storage/            Media storage and private product file storage (local; S3 slots)
 │   │   ├── data/               JSON fixtures: import source for the sample content and products dataset
 │   │   └── cli.py              flask admin / seed / cms / content commands
 │   ├── migrations/             Alembic migrations (version-controlled)
+│   ├── scripts/paystack_mock.py  Local, loopback-only Paystack stand-in for development and E2E (no money moves)
 │   └── tests/                  pytest suite
 ├── deploy/                     Nginx and systemd examples
-├── docs/                       architecture.md, deployment.md, cms-guide.md (website management)
+├── docs/                       architecture.md, deployment.md, cms-guide.md (website management), commerce.md (shop and payments)
 └── scripts/build-production.sh
 ```
 
@@ -65,25 +71,31 @@ cp frontend/.env.example frontend/.env.local  # VITE_* values are public; never 
 
 Key backend variables (all documented in `backend/.env.example`):
 
-| Variable                                             | Purpose                                                                                                                                                                                                 |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `FLASK_CONFIG`                                       | `development` (default), `testing` or `production`                                                                                                                                                      |
-| `SECRET_KEY`, `JWT_SECRET_KEY`                       | Required in production (JWT key at least 32 characters). Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`                                                                   |
-| `DATABASE_URL`                                       | PostgreSQL in production. Development defaults to `backend/instance/tpa-dev.db` (SQLite)                                                                                                                |
-| `ACCESS_TOKEN_MINUTES`, `REFRESH_TOKEN_DAYS`         | Session lifetimes (default 15 minutes / 14 days)                                                                                                                                                        |
-| `JWT_COOKIE_SECURE`                                  | Forced on in production; Secure cookies need HTTPS                                                                                                                                                      |
-| `RATELIMIT_STORAGE_URI`                              | `memory://` for one process; use Redis when running several Gunicorn workers                                                                                                                            |
-| `CORS_ORIGINS`, `TRUST_PROXY`                        | Approved browser origins (also used for the admin Origin check); set `TRUST_PROXY=1` behind Nginx                                                                                                       |
-| `FRONTEND_BUILD_MANIFEST`                            | Where the prerender manifest is read for the "rebuild required" indicator                                                                                                                               |
-| `MAIL_BACKEND`                                       | `none`, `console` (development only: links printed in the Flask terminal) or `smtp` (`MAIL_SMTP_*`, `MAIL_FROM`). Development defaults to `console`; production refuses `console`                       |
-| `ADMIN_BASE_URL`                                     | Public admin origin used in invitation and reset links (default `http://localhost:5173`)                                                                                                                |
-| `INVITATION_TTL_HOURS`, `PASSWORD_RESET_TTL_MINUTES` | Link lifetimes (default 72 hours / 60 minutes)                                                                                                                                                          |
-| `TEST_DATABASE_URL`                                  | Optional: run pytest against a disposable PostgreSQL database                                                                                                                                           |
-| `MEDIA_*`                                            | Media storage and limits: `MEDIA_ROOT`, `MEDIA_STORAGE`, `MEDIA_PUBLIC_BASE_URL`, `MEDIA_MAX_UPLOAD_MB`, `MEDIA_MAX_PIXELS`, `MEDIA_MAX_DIMENSION`, `MEDIA_RETENTION`, `MEDIA_ENABLE_AVIF` (section 10) |
-| `SITE_URL`, `REDIRECT_ALLOWED_HOSTS`                 | Public site origin for canonical checks and sitemaps; external hosts redirects may point to                                                                                                             |
-| `PUBLISH_*`, `FRONTEND_DIR`                          | Publishing worker: release directories, debounce, retries, build timeout, build/deploy commands (section 13)                                                                                            |
+| Variable                                                                     | Purpose                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FLASK_CONFIG`                                                               | `development` (default), `testing` or `production`                                                                                                                                                      |
+| `SECRET_KEY`, `JWT_SECRET_KEY`                                               | Required in production (JWT key at least 32 characters). Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`                                                                   |
+| `DATABASE_URL`                                                               | PostgreSQL in production. Development defaults to `backend/instance/tpa-dev.db` (SQLite)                                                                                                                |
+| `ACCESS_TOKEN_MINUTES`, `REFRESH_TOKEN_DAYS`                                 | Session lifetimes (default 15 minutes / 14 days)                                                                                                                                                        |
+| `JWT_COOKIE_SECURE`                                                          | Forced on in production; Secure cookies need HTTPS                                                                                                                                                      |
+| `RATELIMIT_STORAGE_URI`                                                      | `memory://` for one process; use Redis when running several Gunicorn workers                                                                                                                            |
+| `CORS_ORIGINS`, `TRUST_PROXY`                                                | Approved browser origins (also used for the admin Origin check); set `TRUST_PROXY=1` behind Nginx                                                                                                       |
+| `FRONTEND_BUILD_MANIFEST`                                                    | Where the prerender manifest is read for the "rebuild required" indicator                                                                                                                               |
+| `MAIL_BACKEND`                                                               | `none`, `console` (development only: links printed in the Flask terminal) or `smtp` (`MAIL_SMTP_*`, `MAIL_FROM`). Development defaults to `console`; production refuses `console`                       |
+| `ADMIN_BASE_URL`                                                             | Public admin origin used in invitation and reset links (default `http://localhost:5173`)                                                                                                                |
+| `INVITATION_TTL_HOURS`, `PASSWORD_RESET_TTL_MINUTES`                         | Link lifetimes (default 72 hours / 60 minutes)                                                                                                                                                          |
+| `TEST_DATABASE_URL`                                                          | Optional: run pytest against a disposable PostgreSQL database                                                                                                                                           |
+| `MEDIA_*`                                                                    | Media storage and limits: `MEDIA_ROOT`, `MEDIA_STORAGE`, `MEDIA_PUBLIC_BASE_URL`, `MEDIA_MAX_UPLOAD_MB`, `MEDIA_MAX_PIXELS`, `MEDIA_MAX_DIMENSION`, `MEDIA_RETENTION`, `MEDIA_ENABLE_AVIF` (section 10) |
+| `SITE_URL`, `REDIRECT_ALLOWED_HOSTS`                                         | Public site origin for canonical checks and sitemaps; external hosts redirects may point to                                                                                                             |
+| `PUBLISH_*`, `FRONTEND_DIR`                                                  | Publishing worker: release directories, debounce, retries, build timeout, build/deploy commands (section 13)                                                                                            |
+| `PRODUCT_FILES_*`, `PRODUCT_ZIP_*`, `PRODUCT_FILE_MAX_MB`                    | Private product file storage, limits, optional malware scanner, X-Accel-Redirect prefix (`docs/commerce.md`)                                                                                            |
+| `DOWNLOAD_LINK_TTL_SECONDS`, `DOWNLOAD_LINK_MAX_USES`, `RATELIMIT_DOWNLOADS` | Short-lived download links and download rate limits                                                                                                                                                     |
+| `CUSTOMER_*`, `RATELIMIT_CUSTOMER_REGISTER`, `RATELIMIT_CHECKOUT`            | Customer sessions, verification/reset link lifetimes, rate limits                                                                                                                                       |
+| `PAYSTACK_SECRET_KEY`, `PAYSTACK_API_BASE`, `PAYSTACK_*`                     | Paystack (server-side only; `sk_test_` for development). The webhook is verified with the secret key                                                                                                    |
+| `PAYMENTS_LIVE_ALLOWED`                                                      | Deployment switch: live checkout is impossible unless `true` **and** the admin readiness checklist passes. Default `false`                                                                              |
+| `PAYMENTS_TEST_CHECKOUT_PUBLIC`                                              | Development only: any verified customer may use test checkout. Refused in production                                                                                                                    |
 
-Frontend variables (`VITE_SITE_URL`, `VITE_ALLOW_INDEXING`, `VITE_API_BASE_URL`, `PRERENDER_API_URL`) are unchanged from Batch 01.
+Frontend variables (`VITE_SITE_URL`, `VITE_ALLOW_INDEXING`, `VITE_API_BASE_URL`, `PRERENDER_API_URL`) are unchanged from Batch 01. No Paystack key belongs in the frontend: checkout uses Paystack's hosted page, started by the server.
 
 Backend Python dependencies now include **Pillow** (pinned in `requirements.txt`; its wheels bundle libwebp, libavif and LittleCMS, so no system packages are needed on Ubuntu x86-64). Check codec support with `python -c "import PIL.features as f; print(f.check('webp'), f.check('avif'))"`. If AVIF is unavailable, uploads still work and only WebP plus JPEG/PNG are produced.
 
@@ -125,6 +137,34 @@ The Vite dev server proxies `/api` to Flask, so the admin's HttpOnly cookies are
   - `a817c9636960` (Batch 03): media library, revisions, redirects and publishing jobs. It adds the `media_variants`, `article_revisions`, `redirects` and `publish_jobs` tables; new `media_assets` columns (public id, title, caption, credit, status, checksum, retained original, focal point, version …), new `articles` columns (social title/description, `lock_version`, pending changes) and `authors.is_person`, using `ALTER TABLE … ADD COLUMN` and unique indexes only (no table rebuilds). It brings the permission catalogue up to date and grants the new permissions to the built-in roles and to role templates that still exist; custom roles are unchanged. Existing built-in `/images/…` media keep working. Downgrade removes the new tables, columns and permissions, but uploaded files on disk are left in place.
 
   - `de3d968df6ce` (Batch 04): page builder, shared sections and announcements. See [Upgrading to Batch 04](#upgrading-to-batch-04) below.
+
+  - `758d4c510551` (Batch 05): digital commerce. See [Upgrading to Batch 05](#upgrading-to-batch-05) below.
+
+### Upgrading to Batch 05
+
+Migration `758d4c510551` (revises `de3d968df6ce`):
+
+- **Adds tables only**:
+  - catalogue: `products`, `product_categories`, `product_collections` (+ items), `product_prices`, `product_files`, `product_file_versions`, `bundle_items`, `product_revisions`;
+  - customers: `customers`, `customer_sessions`, `customer_tokens`;
+  - orders and payments: `orders`, `order_items`, `payment_attempts`, `payment_transactions`, `payment_events`, `receipts`, `refunds`, `email_deliveries`;
+  - access: `entitlements`, `entitlement_events`, `download_grants`, `download_events`.
+  - No existing table is altered or rebuilt.
+- **Permissions:**
+  - Adds `products.*`, `orders.view/manage/export`, `customers.view/support/manage`, `entitlements.view/manage`, `downloads.audit`, `finance.view/export` and `payments.view_events`.
+  - Makes the previously planned `refunds.issue` and `payments.configure` available. These are the "orders.refund" and "payments.manage_settings" capabilities; `payments.configure` stays sensitive and Super Admin only.
+  - Grants follow [Roles and permissions](#8-roles-and-permissions). Existing role templates receive these grants on top of any edits (templates you deleted stay deleted); custom roles gain nothing automatically. Users, roles and assignments are untouched.
+- **Starter catalogue:** inserts five products as published _coming soon_ (no prices, no files, nothing purchasable) and the bundle "The Fresh Start Collection" as a draft. It only inserts slugs that do not exist yet.
+- **Checkout is disabled** (`payments.checkout_mode = disabled`) until a Super Admin changes it in `/admin/payments`.
+- **Downgrade** drops the new tables and the new permissions, and marks `refunds.issue`/`payments.configure` as planned again. Private files on disk are left in place.
+
+```bash
+# 1. back up (see above), then:
+flask --app wsgi db upgrade        # applies 758d4c510551
+flask --app wsgi rbac sync         # should report all zeros
+flask --app wsgi commerce payments-status
+flask --app wsgi publish request   # rebuild: prerenders /shop product and collection pages
+```
 
 ### Upgrading to Batch 04
 
@@ -172,12 +212,15 @@ flask --app wsgi db upgrade
 
 ### Database model overview
 
-| Area       | Tables                                                                                                                                                                                                |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Access     | `users`, `roles`, `user_roles` (who assigned, when), `permissions`, `role_permissions`, `refresh_tokens` (rotation and revocation), `account_tokens` (hashed, single-use invitation and reset tokens) |
-| Editorial  | `articles` (JSON/JSONB blocks, status, SEO, canonical, provenance), `topics`, `tags`, `authors`, `article_topics`, `article_tags`, `media_assets` (public/private metadata)                           |
-| CMS        | `site_settings` (registered, validated keys), `navigation_menus`, `navigation_items`, `pages`, `page_sections` (approved types and variants)                                                          |
-| Operations | `audit_logs` (sanitised), `content_revisions` (public-affecting changes, drives the rebuild indicator)                                                                                                |
+| Area       | Tables                                                                                                                                                                                                                                                               |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Access     | `users`, `roles`, `user_roles` (who assigned, when), `permissions`, `role_permissions`, `refresh_tokens` (rotation and revocation), `account_tokens` (hashed, single-use invitation and reset tokens)                                                                |
+| Editorial  | `articles` (JSON/JSONB blocks, status, SEO, canonical, provenance), `topics`, `tags`, `authors`, `article_topics`, `article_tags`, `media_assets` (public/private metadata)                                                                                          |
+| CMS        | `site_settings` (registered, validated keys), `navigation_menus`, `navigation_items`, `pages`, `page_sections` (approved types and variants)                                                                                                                         |
+| Operations | `audit_logs` (sanitised), `content_revisions` (public-affecting changes, drives the rebuild indicator)                                                                                                                                                               |
+| Catalogue  | `products` (draft fields + published snapshot), `product_categories`, `product_collections`, `product_prices` (minor units + currency), `product_files`, `product_file_versions` (private storage keys, checksums, scan status), `bundle_items`, `product_revisions` |
+| Customers  | `customers`, `customer_sessions` (hashed tokens), `customer_tokens` (verification/reset), `entitlements`, `entitlement_events`, `download_grants`, `download_events`                                                                                                 |
+| Orders     | `orders`, `order_items` (price snapshots), `payment_attempts`, `payment_transactions`, `payment_events` (deduplicated, sanitised), `receipts`, `refunds`, `email_deliveries`                                                                                         |
 
 All timestamps are timezone-aware UTC. Statuses are enforced with check constraints. Slugs are unique, and foreign keys use `RESTRICT` where deletion would orphan content.
 
@@ -225,7 +268,7 @@ Roles, permissions and their links live in the database. The permission catalogu
 **Role kinds**
 
 - **Built-in (system)**: Super Admin, Editor, Moderator and Analyst. They are protected and cannot be edited, deactivated or deleted. Super Admin (`grants_all`) resolves to every permission, including sensitive ones and those of future modules.
-- **Templates**: Administrator, Editor-in-Chief, Content Editor, Content Writer, Product Manager, Orders Manager, Customer Support, Partnerships Manager, Affiliate Manager, Marketing Manager, Newsletter Manager, SEO Manager, Website Manager and Finance Manager. They are seeded once and editable afterwards. Templates for modules that do not exist yet (products, orders, customers, partnerships, affiliates, newsletters, finance) grant only `dashboard.view`. Their intended permissions are shown as _Planned_ and stay locked until the module ships.
+- **Templates**: Administrator, Editor-in-Chief, Content Editor, Content Writer, Product Manager, Orders Manager, Customer Support, Partnerships Manager, Affiliate Manager, Marketing Manager, Newsletter Manager, SEO Manager, Website Manager and Finance Manager. They are seeded once and editable afterwards. Templates for modules that do not exist yet (partnerships, affiliates, newsletters) grant only `dashboard.view`. Their intended permissions are shown as _Planned_ and stay locked until the module ships.
 - **Custom**: roles a Super Admin creates at `/admin/roles`.
 
 **Permission catalogue** (✓ = built-in role holds it; templates are listed at `/admin/roles`)
@@ -263,12 +306,24 @@ Roles, permissions and their links live in the database. The permission catalogu
 | users.view, users.manage, audit.view                                          |      ✓      |        |           |         |
 | roles.manage, roles.assign, settings.security, payments.configure (sensitive) |      ✓      |        |           |         |
 | settings.technical (indexing switch, canonical site URL; sensitive)           |      ✓      |        |           |         |
+| products.\*, orders.\*, refunds.issue, customers.\*, entitlements.\*          |      ✓      |        |           |         |
+| downloads.audit, finance.view, finance.export, payments.view_events           |      ✓      |        |           |         |
 
 Batch 03 template grants: Administrator and Editor-in-Chief get all media permissions, revisions, preview, SEO audit and publishing management (Administrator also redirects); Content Editor gets upload, edit, revisions and preview; Content Writer gets upload, revisions and preview (restores only on their own drafts); SEO Manager gets media alt-text editing, preview, SEO audit and redirects; Website Manager gets upload, edit, replace, SEO audit and publishing status; Marketing Manager gets preview and the SEO audit. Templates you have already edited keep your other changes.
 
 Batch 04 template grants: Administrator and Website Manager get every website permission above (not the sensitive one); Marketing Manager gets `homepage.view` and `announcements.manage`; Editor-in-Chief and SEO Manager get `homepage.view`. Content Writer and Analyst gain nothing.
 
-Future-module permissions are also in the catalogue but marked **unavailable** and cannot be granted: products, orders, refunds, customers, partnerships, advertising, affiliates, newsletters, subscribers, courses, memberships and finance.
+Batch 05 template grants:
+
+- **Administrator:** every product permission, plus orders (view, manage, export), customers (all), entitlements (all), downloads audit, payment events and finance view.
+- **Product Manager:** every product permission, plus media view, upload and edit.
+- **Orders Manager:** products view, orders (view, manage, export), refunds, customers (view, support), entitlements (all), downloads audit and payment events.
+- **Customer Support:** products view, orders view, customers (view, support), entitlements view and downloads audit.
+- **Finance Manager:** products view, orders (view, export), refunds, payment events and finance (view, export).
+- **Marketing Manager:** products view.
+- **Editorial roles:** nothing. Payment settings (`payments.configure`) remain Super Admin only.
+
+Future-module permissions are also in the catalogue but marked **unavailable** and cannot be granted: partnerships, advertising, affiliates, newsletters, subscribers, courses and memberships.
 
 **Rules enforced by the API**
 
@@ -288,9 +343,11 @@ Future-module permissions are also in the catalogue but marked **unavailable** a
 
 ## 9. Admin routes
 
-`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/articles/:id/preview` (private preview), `/admin/workflow` (editorial board), `/admin/media` (media library), `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/homepage` (homepage builder), `/admin/pages` (and `/admin/pages/:id`, `/admin/pages/:id/preview`), `/admin/shared-sections` (shared sections and global CTAs), `/admin/branding`, `/admin/navigation`, `/admin/footer`, `/admin/announcements`, `/admin/seo` (SEO audit), `/admin/redirects`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`), `/admin/publishing` (publishing jobs), `/admin/audit-log`, `/admin/account` (change password).
+`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/articles/:id/preview` (private preview), `/admin/workflow` (editorial board), `/admin/media` (media library), `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/homepage` (homepage builder), `/admin/pages` (and `/admin/pages/:id`, `/admin/pages/:id/preview`), `/admin/shared-sections` (shared sections and global CTAs), `/admin/branding`, `/admin/navigation`, `/admin/footer`, `/admin/announcements`, `/admin/seo` (SEO audit), `/admin/redirects`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`), `/admin/publishing` (publishing jobs), `/admin/audit-log`, `/admin/account` (change password). Commerce (Batch 05): `/admin/products` (and `/admin/products/:id`, `/admin/products/:id/preview`), `/admin/product-collections`, `/admin/bundles`, `/admin/orders` (and `/admin/orders/:id`), `/admin/customers` (and `/admin/customers/:id`), `/admin/entitlements`, `/admin/reports/revenue`, `/admin/payments` (Super Admin).
 
-The sidebar shows only what the signed-in user may use. Future commercial modules (products, orders, customers, newsletter, partnerships, advertising, affiliates, courses, memberships, analytics, eBooks/licensing) are listed as **Planned**, without links.
+Public customer routes: `/shop`, `/shop/collections/:slug`, `/shop/:productSlug`, `/cart`, `/checkout`, `/checkout/complete`, `/account` (overview, `orders`, `library`, `settings`), `/account/login`, `/account/register`, `/account/verify-email`, `/account/reset-password`.
+
+The sidebar shows only what the signed-in user may use. The **Commerce** section holds Products, Categories & Collections, Bundles, Orders, Customers, Download Entitlements and Revenue Reports; **Administration** adds Payment Settings. Modules that do not exist yet (newsletter, partnerships, advertising, affiliates, courses, memberships, analytics) are listed as **Planned**, without links.
 
 ## 10. Media library and image optimisation
 
@@ -375,7 +432,7 @@ failure ─► live release untouched; retried with backoff (1, 2, 4 min) up to 
 ```bash
 # Backend
 cd backend && source .venv/bin/activate
-python -m pytest                     # auth, RBAC, CMS, page builder, media, editorial, SEO, publishing, migrations
+python -m pytest                     # auth, RBAC, CMS, page builder, media, editorial, SEO, publishing, commerce, migrations
 ruff check . && ruff format --check .
 # Optional: run the suite against PostgreSQL
 TEST_DATABASE_URL=postgresql+psycopg://user:pass@127.0.0.1:5432/tpa_pytest python -m pytest
@@ -386,6 +443,8 @@ npm run check                        # ESLint + Prettier + Vitest
 npm run build                        # needs the API running (or use ../scripts/build-production.sh)
 npm run serve:dist                   # preview the static build at http://localhost:4173 (proxies /api to :5000)
 ```
+
+Payments in tests never touch the network. The pytest fixture replaces only the HTTP call of the real Paystack provider class, so signature checks, payload parsing and verification all run through production code. The PostgreSQL run also covers concurrent fulfilment. For manual or browser testing, use the loopback-only mock in `backend/scripts/paystack_mock.py` (see `docs/commerce.md`); no real charges are possible with it.
 
 ## 16. Security precautions
 
@@ -398,10 +457,28 @@ npm run serve:dist                   # preview the static build at http://localh
 - Deleting topics, authors or tags that articles still use is refused (reassign or archive instead). Articles are archived; only never-published drafts can be deleted.
 - Uploads: content sniffing, size, dimension and pixel limits, no SVG, metadata stripped, random storage keys, atomic writes. Originals live in private storage that is never served. Media still in use cannot be deleted.
 - Redirect destinations are restricted to site paths and allow-listed hosts (no open redirects). Video embeds are limited to YouTube/Vimeo IDs.
+- **Commerce:**
+  - Paid files live in private storage outside every web root, and are delivered only through short-lived, hashed, session-bound download tokens after an entitlement check.
+  - An order becomes paid only after **server-side** verification with Paystack of the reference, amount, currency and mode. Browser redirects are never trusted.
+  - Webhooks must carry a valid HMAC-SHA512 signature and are deduplicated.
+  - Fulfilment is idempotent (conditional updates plus unique constraints).
+  - The Paystack secret lives only in the environment and is never shown in the admin.
+  - Live checkout requires `PAYMENTS_LIVE_ALLOWED=true` plus the readiness checklist.
+  - Customer sessions are separate from admin sessions, with CSRF and Origin checks.
 - Admin API responses (including previews) are `no-store` and `noindex`. The publishing worker runs with least-privilege systemd settings, and failed builds never replace the live site.
 
 ## 17. Known limitations and deferred features
 
 - **Working now:** media uploads and optimisation, the media library, the advanced editor, autosave, revisions, pending changes, previews, workflow, scheduling via the worker, SEO checks and dashboard, sitemap with images, redirects, the publishing queue with atomic releases, and (Batch 04) the CMS-controlled homepage, page builder, shared sections, global CTAs, branding, navigation, footer and announcements.
 - **Limitations:** image processing runs inside the upload request (large files can take a few seconds; Gunicorn `--timeout 120`). The S3 storage adapter and CDN purging are not activated. Revisions record field and block-level differences, not character-level diffs. Search Console and ranking data are not connected. The page builder has no autosave (explicit Save draft plus an unsaved-changes warning) and no character-level diff between page revisions. Built-in listing and detail pages (articles, topics) keep their layouts in code; their header, footer, branding and announcements are CMS-controlled. Changes appear after the queued rebuild, not instantly.
-- **Deferred:** self-service "forgot password", branded email templates, product catalogue and checkout (Paystack), customers and orders, newsletter provider integration, memberships, courses, affiliates, advertising, analytics, two-factor authentication, and migration of the previous website's articles (redirect import is ready for it).
+- **Commerce (Batch 05) working now:** product CMS, private files, storefront, cart, customer accounts, orders, Paystack checkout (test mode verified end to end against a local mock; sandbox keys supported), webhooks, secure downloads, manual and provider refunds, receipts, emails and revenue reports.
+  - **Not done:** live payments have not been activated or tested with real money, and must not be until the live activation checklist in `docs/commerce.md` is complete.
+  - **Commerce limitations:**
+    - The S3 private-storage adapter is a slot only.
+    - Malware scanning needs an external scanner command (none ships).
+    - No tax/VAT calculation or tax invoices.
+    - No discount codes.
+    - Emails are plain text and need SMTP for real delivery.
+    - Courses and memberships remain planned product types.
+    - The shop pages add about 9 KB (gzip) to the main public bundle, because they are prerendered.
+- **Deferred:** self-service "forgot password" for administrators, branded HTML email templates, newsletter provider integration, memberships, courses, affiliates, advertising, analytics, two-factor authentication, and migration of the previous website's articles (redirect import is ready for it).

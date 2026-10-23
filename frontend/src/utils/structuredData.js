@@ -113,3 +113,35 @@ export function breadcrumbJsonLd(items) {
 export function safeJson(data) {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
+
+/**
+ * Product structured data with accurate offers only: an Offer is included per
+ * real price when the product can be bought now. Coming-soon and free products
+ * get no Offer. No ratings, reviews or stock counts are ever emitted.
+ */
+export function productJsonLd(product) {
+  const image = product.seo?.og_image ?? product.cover;
+  const offers =
+    product.availability === "available"
+      ? product.prices.map((price) => ({
+          "@type": "Offer",
+          price: price.amount,
+          priceCurrency: price.currency,
+          availability: "https://schema.org/InStock",
+          url: url(routes.product(product.slug)),
+          ...(price.promotion_ends_at && { priceValidUntil: price.promotion_ends_at.slice(0, 10) }),
+        }))
+      : [];
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    description: product.seo?.description || product.description,
+    sku: product.id,
+    url: url(routes.product(product.slug)),
+    ...(image?.src && { image: [url(image.src)] }),
+    brand: { "@type": "Brand", name: siteConfig.name },
+    ...(product.categories?.[0] && { category: product.categories[0].name }),
+    ...(offers.length && { offers: offers.length === 1 ? offers[0] : offers }),
+  };
+}

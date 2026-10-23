@@ -163,9 +163,12 @@ def test_article_detail_not_found(client):
 
 def test_product_list(client):
     body = client.get("/api/v1/products").get_json()
-    assert body["meta"]["total"] == 4
+    # The starter catalogue: five published "coming soon" placeholders (the draft bundle
+    # is not public), with no prices and nothing purchasable.
+    assert body["meta"]["total"] == 5
     titles = [p["title"] for p in body["data"]]
     assert "The Power of Starting Again" in titles
     for product in body["data"]:
         assert product["availability"] == "coming-soon"
+        assert product["prices"] == [] and product["purchasable"] is False
         assert "price" not in product

@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
+import * as fx from "@/test/fixtures";
 import { createFakeApi, preloadAdminApp, renderApp } from "@/test/utils";
 
 beforeAll(preloadAdminApp);
@@ -42,7 +43,13 @@ describe("homepage", () => {
   });
 
   it("shows product previews as coming soon with no purchase actions", async () => {
-    renderApp("/shop");
+    const api = createFakeApi({
+      getProducts: vi.fn(async () => ({
+        data: fx.products,
+        meta: { display_currencies: ["USD"] },
+      })),
+    });
+    renderApp("/shop", { api });
     expect(await screen.findByRole("heading", { name: "Know Your Worth" })).toBeInTheDocument();
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
     expect(

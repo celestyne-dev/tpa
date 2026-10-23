@@ -136,7 +136,11 @@ def publish_due_scheduled(now: datetime | None = None) -> dict[str, Any]:
             )
     pages = _publish_due_pages(now)
     rebuild = _visibility_boundaries_passed(now)
+    from .commerce.payments import expire_orders
+
+    expired = expire_orders(now)
     return {
+        "expired_orders": expired,
         "published": published + pages["published"],
         "failed": failed + pages["failed"],
         "boundary_rebuild": rebuild,
@@ -176,7 +180,11 @@ def _visibility_boundaries_passed(now: datetime) -> bool:
     marker.value = now.isoformat()
     if last is None:
         return False
-    crossed = any(last < t <= now for t in visibility_boundaries() + announcement_boundaries())
+    from .commerce.catalogue import price_boundaries
+
+    crossed = any(
+        last < t <= now for t in visibility_boundaries() + announcement_boundaries()
+    ) or any(t <= now for t in price_boundaries(last))
     if crossed:
         request_build("scheduled_visibility", None)
     return crossed

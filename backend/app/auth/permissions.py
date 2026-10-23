@@ -63,12 +63,25 @@ class Permission(StrEnum):
     SEO_MANAGE = "seo.manage"
     PRODUCTS_VIEW = "products.view"
     PRODUCTS_MANAGE = "products.manage"
+    PRODUCTS_CREATE = "products.create"
+    PRODUCTS_EDIT = "products.edit"
+    PRODUCTS_PUBLISH = "products.publish"
+    PRODUCTS_ARCHIVE = "products.archive"
+    PRODUCTS_MANAGE_PRICES = "products.manage_prices"
+    PRODUCTS_MANAGE_FILES = "products.manage_files"
+    PRODUCTS_MANAGE_BUNDLES = "products.manage_bundles"
     ORDERS_VIEW = "orders.view"
     ORDERS_MANAGE = "orders.manage"
+    ORDERS_EXPORT = "orders.export"
     REFUNDS_ISSUE = "refunds.issue"
     PAYMENTS_CONFIGURE = "payments.configure"
+    PAYMENTS_VIEW_EVENTS = "payments.view_events"
     CUSTOMERS_VIEW = "customers.view"
+    CUSTOMERS_SUPPORT = "customers.support"
     CUSTOMERS_MANAGE = "customers.manage"
+    ENTITLEMENTS_VIEW = "entitlements.view"
+    ENTITLEMENTS_MANAGE = "entitlements.manage"
+    DOWNLOADS_AUDIT = "downloads.audit"
     PARTNERSHIPS_VIEW = "partnerships.view"
     PARTNERSHIPS_MANAGE = "partnerships.manage"
     ADVERTISING_VIEW = "advertising.view"
@@ -81,6 +94,7 @@ class Permission(StrEnum):
     COURSES_MANAGE = "courses.manage"
     MEMBERSHIPS_MANAGE = "memberships.manage"
     FINANCE_VIEW = "finance.view"
+    FINANCE_EXPORT = "finance.export"
     FINANCE_MANAGE = "finance.manage"
     USERS_VIEW = "users.view"
     USERS_MANAGE = "users.manage"
@@ -295,27 +309,112 @@ CATALOGUE: list[PermissionDef] = [
         "Publishing",
         "publishing",
     ),
-    _d(P.PRODUCTS_VIEW, "View digital products", "Digital products", "products", available=False),
+    _d(
+        P.PRODUCTS_VIEW,
+        "View products",
+        "Digital products",
+        "products",
+        description="See the product catalogue, drafts, files list and history.",
+    ),
+    _d(P.PRODUCTS_CREATE, "Create and duplicate products", "Digital products", "products"),
+    _d(
+        P.PRODUCTS_EDIT,
+        "Edit product drafts",
+        "Digital products",
+        "products",
+        description="Descriptions, images, categories, collections, FAQs and SEO (as a draft).",
+    ),
+    _d(
+        P.PRODUCTS_PUBLISH,
+        "Publish products",
+        "Digital products",
+        "products",
+        description="Publish, unpublish, schedule availability and put products on sale.",
+    ),
+    _d(P.PRODUCTS_ARCHIVE, "Archive and restore products", "Digital products", "products"),
+    _d(
+        P.PRODUCTS_MANAGE_PRICES,
+        "Set and approve prices",
+        "Digital products",
+        "products",
+        description="Prices, compare-at and promotional prices in each currency.",
+    ),
+    _d(
+        P.PRODUCTS_MANAGE_FILES,
+        "Manage private product files",
+        "Digital products",
+        "products",
+        description="Upload, replace, deactivate and download deliverable files.",
+    ),
+    _d(
+        P.PRODUCTS_MANAGE_BUNDLES,
+        "Manage bundles",
+        "Digital products",
+        "products",
+        description="Choose which products a bundle includes.",
+    ),
     _d(
         P.PRODUCTS_MANAGE,
-        "Manage products and pricing",
+        "Manage products (legacy)",
         "Digital products",
         "products",
         available=False,
+        description="Replaced by the granular product permissions above.",
     ),
-    _d(P.ORDERS_VIEW, "View orders", "Orders & refunds", "orders", available=False),
-    _d(P.ORDERS_MANAGE, "Manage orders", "Orders & refunds", "orders", available=False),
-    _d(P.REFUNDS_ISSUE, "Issue refunds", "Orders & refunds", "orders", available=False),
+    _d(P.ORDERS_VIEW, "View orders", "Orders & refunds", "orders"),
+    _d(
+        P.ORDERS_MANAGE,
+        "Manage orders",
+        "Orders & refunds",
+        "orders",
+        description="Re-check payments, cancel unpaid orders, resend receipts and add notes.",
+    ),
+    _d(P.ORDERS_EXPORT, "Export orders", "Orders & refunds", "orders"),
+    _d(
+        P.REFUNDS_ISSUE,
+        "Issue refunds",
+        "Orders & refunds",
+        "orders",
+        description="Request and record refunds (provider refunds only when configured).",
+    ),
+    _d(
+        P.PAYMENTS_VIEW_EVENTS,
+        "View payment events",
+        "Orders & refunds",
+        "payments",
+        description="Payment attempts, provider webhooks and verification results.",
+    ),
     _d(
         P.PAYMENTS_CONFIGURE,
         "Configure payments",
         "Orders & refunds",
         "payments",
-        available=False,
         sensitive=True,
+        description="Payment provider, test/live mode, currencies and checkout availability.",
     ),
-    _d(P.CUSTOMERS_VIEW, "View customers", "Customers", "customers", available=False),
-    _d(P.CUSTOMERS_MANAGE, "Manage customers", "Customers", "customers", available=False),
+    _d(P.CUSTOMERS_VIEW, "View customers", "Customers", "customers"),
+    _d(
+        P.CUSTOMERS_SUPPORT,
+        "Assist customers",
+        "Customers",
+        "customers",
+        description="Resend verification and password-reset emails, add support notes.",
+    ),
+    _d(
+        P.CUSTOMERS_MANAGE,
+        "Manage customer accounts",
+        "Customers",
+        "customers",
+        description="Disable or reactivate accounts, mark test accounts, process deletions.",
+    ),
+    _d(P.ENTITLEMENTS_VIEW, "View download access", "Customers", "entitlements"),
+    _d(
+        P.ENTITLEMENTS_MANAGE,
+        "Grant and revoke download access",
+        "Customers",
+        "entitlements",
+    ),
+    _d(P.DOWNLOADS_AUDIT, "View download activity", "Customers", "entitlements"),
     _d(P.PARTNERSHIPS_VIEW, "View partnerships", "Partnerships", "partnerships", available=False),
     _d(
         P.PARTNERSHIPS_MANAGE,
@@ -369,7 +468,14 @@ CATALOGUE: list[PermissionDef] = [
         "memberships",
         available=False,
     ),
-    _d(P.FINANCE_VIEW, "View finance reports", "Finance", "finance", available=False),
+    _d(
+        P.FINANCE_VIEW,
+        "View revenue reports",
+        "Finance",
+        "finance",
+        description="Sales, refunds and downloads by currency and product.",
+    ),
+    _d(P.FINANCE_EXPORT, "Export revenue reports", "Finance", "finance"),
     _d(P.FINANCE_MANAGE, "Manage finance", "Finance", "finance", available=False),
     _d(P.USERS_VIEW, "View administrators", "Users, roles & audit", "users"),
     _d(
@@ -562,26 +668,26 @@ TEMPLATE_ROLES: list[RoleSpec] = [
     RoleSpec(
         "product_manager",
         "Product Manager",
-        "Will manage the digital product catalogue and pricing.",
+        "Manages the digital product catalogue, files, prices and bundles.",
         "template",
         _set(P.DASHBOARD_VIEW),
-        planned=_set(P.PRODUCTS_VIEW, P.PRODUCTS_MANAGE),
+        planned=frozenset(),
     ),
     RoleSpec(
         "orders_manager",
         "Orders Manager",
-        "Will manage orders and refunds.",
+        "Manages orders, refunds and customer download access.",
         "template",
         _set(P.DASHBOARD_VIEW),
-        planned=_set(P.ORDERS_VIEW, P.ORDERS_MANAGE, P.REFUNDS_ISSUE, P.CUSTOMERS_VIEW),
+        planned=frozenset(),
     ),
     RoleSpec(
         "customer_support",
         "Customer Support",
-        "Will help customers with orders and account questions.",
+        "Helps customers with orders, downloads and account questions.",
         "template",
         _set(P.DASHBOARD_VIEW),
-        planned=_set(P.CUSTOMERS_VIEW, P.ORDERS_VIEW),
+        planned=frozenset(),
     ),
     RoleSpec(
         "partnerships_manager",
@@ -640,10 +746,10 @@ TEMPLATE_ROLES: list[RoleSpec] = [
     RoleSpec(
         "finance_manager",
         "Finance Manager",
-        "Will review revenue and financial reports.",
+        "Reviews revenue reports, payments and refunds.",
         "template",
         _set(P.DASHBOARD_VIEW),
-        planned=_set(P.FINANCE_VIEW, P.FINANCE_MANAGE),
+        planned=_set(P.FINANCE_MANAGE),
     ),
 ]
 
@@ -710,8 +816,75 @@ BATCH_04_IMPLIED: dict[str, frozenset[str]] = {
 }
 
 
+# Batch 05 additions (digital products, orders, customers, payments, downloads).
+# Editorial-only roles gain nothing; refunds, exports and payment configuration stay
+# with the roles responsible for them (payments.configure is Super Admin only).
+PRODUCTS_ALL = _set(
+    P.PRODUCTS_VIEW,
+    P.PRODUCTS_CREATE,
+    P.PRODUCTS_EDIT,
+    P.PRODUCTS_PUBLISH,
+    P.PRODUCTS_ARCHIVE,
+    P.PRODUCTS_MANAGE_PRICES,
+    P.PRODUCTS_MANAGE_FILES,
+    P.PRODUCTS_MANAGE_BUNDLES,
+)
+BATCH_05_GRANTS: dict[str, frozenset[str]] = {
+    "administrator": PRODUCTS_ALL
+    | _set(
+        P.ORDERS_VIEW,
+        P.ORDERS_MANAGE,
+        P.ORDERS_EXPORT,
+        P.CUSTOMERS_VIEW,
+        P.CUSTOMERS_SUPPORT,
+        P.CUSTOMERS_MANAGE,
+        P.ENTITLEMENTS_VIEW,
+        P.ENTITLEMENTS_MANAGE,
+        P.DOWNLOADS_AUDIT,
+        P.PAYMENTS_VIEW_EVENTS,
+        P.FINANCE_VIEW,
+    ),
+    "product_manager": PRODUCTS_ALL | _set(P.MEDIA_VIEW, P.MEDIA_UPLOAD, P.MEDIA_EDIT),
+    "orders_manager": _set(
+        P.PRODUCTS_VIEW,
+        P.ORDERS_VIEW,
+        P.ORDERS_MANAGE,
+        P.ORDERS_EXPORT,
+        P.REFUNDS_ISSUE,
+        P.CUSTOMERS_VIEW,
+        P.CUSTOMERS_SUPPORT,
+        P.ENTITLEMENTS_VIEW,
+        P.ENTITLEMENTS_MANAGE,
+        P.DOWNLOADS_AUDIT,
+        P.PAYMENTS_VIEW_EVENTS,
+    ),
+    "customer_support": _set(
+        P.PRODUCTS_VIEW,
+        P.ORDERS_VIEW,
+        P.CUSTOMERS_VIEW,
+        P.CUSTOMERS_SUPPORT,
+        P.ENTITLEMENTS_VIEW,
+        P.DOWNLOADS_AUDIT,
+    ),
+    "finance_manager": _set(
+        P.PRODUCTS_VIEW,
+        P.ORDERS_VIEW,
+        P.ORDERS_EXPORT,
+        P.REFUNDS_ISSUE,
+        P.PAYMENTS_VIEW_EVENTS,
+        P.FINANCE_VIEW,
+        P.FINANCE_EXPORT,
+    ),
+    "marketing_manager": _set(P.PRODUCTS_VIEW),
+}
+
+
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
-    extra = BATCH_03_GRANTS.get(spec.key, frozenset()) | BATCH_04_GRANTS.get(spec.key, frozenset())
+    extra = (
+        BATCH_03_GRANTS.get(spec.key, frozenset())
+        | BATCH_04_GRANTS.get(spec.key, frozenset())
+        | BATCH_05_GRANTS.get(spec.key, frozenset())
+    )
     if not extra:
         return spec
     return RoleSpec(

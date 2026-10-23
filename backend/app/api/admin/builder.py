@@ -319,8 +319,28 @@ class BuilderOptionsResource(Resource):
         authors = db.session.scalars(
             select(Author).where(Author.status == "active").order_by(Author.display_name)
         )
+        from ...models import Product, ProductCollection
+
+        products = db.session.scalars(
+            select(Product).where(Product.status != "archived").order_by(Product.title)
+        )
+        collections = db.session.scalars(select(ProductCollection).order_by(ProductCollection.name))
         return success(
             {
+                "products": [
+                    {
+                        "id": p.id,
+                        "title": p.title,
+                        "status": p.status,
+                        "type": p.product_type,
+                        "note": None if p.status == "published" else "Not published (hidden)",
+                    }
+                    for p in products
+                ],
+                "product_collections": [
+                    {"id": c.id, "name": c.name, "slug": c.slug, "active": c.is_active}
+                    for c in collections
+                ],
                 "articles": [{"id": a.id, "title": a.title, "slug": a.slug} for a in articles],
                 "topics": [
                     {"id": t.id, "name": t.name, "slug": t.slug, "featured": t.featured}
@@ -386,7 +406,25 @@ class LinkOptionsResource(Resource):
             {"label": a.title, "url": f"/articles/{a.slug}", "group": "Articles"}
             for a in db.session.scalars(stmt.order_by(Article.published_at.desc()).limit(20))
         ]
-        return success(builtin + pages + topics + articles)
+        from ...models import Product, ProductCollection
+
+        products = [
+            {"label": p.title, "url": f"/shop/{p.published_slug}", "group": "Shop products"}
+            for p in db.session.scalars(
+                select(Product).where(Product.status == "published").order_by(Product.title)
+            )
+            if p.published_slug and match(p.title, p.published_slug)
+        ]
+        collections = [
+            {"label": c.name, "url": f"/shop/collections/{c.slug}", "group": "Shop collections"}
+            for c in db.session.scalars(
+                select(ProductCollection)
+                .where(ProductCollection.is_active.is_(True))
+                .order_by(ProductCollection.name)
+            )
+            if match(c.name, c.slug)
+        ]
+        return success(builtin + pages + topics + articles + products + collections)
 
 
 def seo_service_static_labels() -> dict[str, str]:

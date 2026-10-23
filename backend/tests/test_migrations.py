@@ -406,6 +406,8 @@ def test_batch04_upgrade_converts_homepage_without_losing_edits(tmp_path):
             not {"homepage.publish", "pages.publish", "pages.create", "settings.technical"}
             & granted
         )
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)  # the catalogue matches the code only at head
         assert set(sync_rbac().values()) == {0}
         db.session.rollback()
         db.session.remove()
@@ -420,3 +422,194 @@ def test_batch04_upgrade_converts_homepage_without_losing_edits(tmp_path):
         upgrade(directory=MIGRATIONS)
         page = db.session.get(Page, page_id)
         assert {s.key: s for s in page.sections}["welcome"].content["heading"] == "Welcome, friend"
+
+
+COMMERCE_TABLES = {
+    "PRODUCTS",
+    "PRODUCT_CATEGORIES",
+    "PRODUCT_CATEGORY_LINKS",
+    "PRODUCT_TAGS",
+    "PRODUCT_COLLECTIONS",
+    "PRODUCT_COLLECTION_ITEMS",
+    "PRODUCT_PRICES",
+    "PRODUCT_FILES",
+    "PRODUCT_FILE_VERSIONS",
+    "PRODUCT_REVISIONS",
+    "BUNDLE_ITEMS",
+    "CUSTOMERS",
+    "CUSTOMER_SESSIONS",
+    "CUSTOMER_TOKENS",
+    "ORDERS",
+    "ORDER_ITEMS",
+    "PAYMENT_ATTEMPTS",
+    "PAYMENT_TRANSACTIONS",
+    "PAYMENT_EVENTS",
+    "RECEIPTS",
+    "REFUNDS",
+    "EMAIL_DELIVERIES",
+    "ENTITLEMENTS",
+    "ENTITLEMENT_EVENTS",
+    "DOWNLOAD_GRANTS",
+    "DOWNLOAD_EVENTS",
+}
+
+
+def test_batch05_upgrade_preserves_data_and_grants_commerce_roles_only(tmp_path):
+    app = _app(tmp_path, "batch05.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="de3d968df6ce")
+        conn = db.session
+        now = "2026-10-20 09:00:00"
+        ids = {}
+        for email, role in (
+            ("editor@example.org", "editor"),
+            ("pm@example.org", "product_manager"),
+            ("help@example.org", "customer_support"),
+        ):
+            uid = conn.execute(
+                text(
+                    "INSERT INTO users (email, display_name, password_hash, status, "
+                    "session_version, created_at, updated_at) VALUES (:e, 'U', 'x', 'active', 1, "
+                    ":n, :n) RETURNING id"
+                ),
+                {"e": email, "n": now},
+            ).scalar_one()
+            conn.execute(
+                text(
+                    "INSERT INTO user_roles (user_id, role_id, assigned_at) "
+                    "SELECT :u, id, :n FROM roles WHERE name = :r"
+                ),
+                {"u": uid, "r": role, "n": now},
+            )
+            ids[role] = uid
+        role_id = conn.execute(
+            text(
+                "INSERT INTO roles (name, label, description, kind, is_active, grants_all) "
+                "VALUES ('helper', 'Helper', '', 'custom', 1, 0) RETURNING id"
+            )
+        ).scalar_one()
+        conn.execute(
+            text(
+                "INSERT INTO role_permissions (role_id, permission_id) "
+                "SELECT :r, id FROM permissions WHERE key = 'pages.view'"
+            ),
+            {"r": role_id},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO site_settings (key, value, updated_at) "
+                "VALUES ('site.name', '\"TPA Test\"', :n)"
+            ),
+            {"n": now},
+        )
+        conn.commit()
+        before = {
+            t: conn.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one()
+            for t in ("users", "roles", "user_roles", "role_permissions", "site_settings", "pages")
+        }
+        conn.remove()
+
+        statements = []
+
+        def capture(_conn, _cursor, statement, *_args):
+            statements.append(statement.upper())
+
+        event.listen(db.engine, "before_cursor_execute", capture)
+        upgrade(directory=MIGRATIONS, revision="758d4c510551")
+        event.remove(db.engine, "before_cursor_execute", capture)
+        assert not [s for s in statements if "DROP TABLE" in s or "_ALEMBIC_TMP" in s]
+        assert not [s for s in statements if s.lstrip().startswith("ALTER TABLE")]
+        created = {
+            s.split("CREATE TABLE ")[1].split(" ")[0].strip()
+            for s in statements
+            if "CREATE TABLE" in s
+        }
+        assert created == COMMERCE_TABLES
+
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in before
+        }
+        assert {k: v for k, v in after.items() if k != "role_permissions"} == {
+            k: v for k, v in before.items() if k != "role_permissions"
+        }
+        assert after["role_permissions"] > before["role_permissions"]
+
+        from app.models import Product, ProductPrice, Role, User
+
+        editor = effective_permissions(db.session.get(User, ids["editor"]))
+        assert not {
+            p
+            for p in editor
+            if p.split(".")[0]
+            in (
+                "products",
+                "orders",
+                "finance",
+                "payments",
+                "customers",
+                "entitlements",
+                "downloads",
+                "refunds",
+            )
+        }
+        pm = effective_permissions(db.session.get(User, ids["product_manager"]))
+        assert {"products.manage_prices", "products.manage_files", "products.publish"} <= pm
+        assert "payments.configure" not in pm and "orders.view" not in pm
+        support = effective_permissions(db.session.get(User, ids["customer_support"]))
+        assert {"orders.view", "customers.support"} <= support and "refunds.issue" not in support
+        helper = db.session.get(Role, role_id)
+        assert helper.permission_keys == {"pages.view"}  # custom roles unchanged
+
+        products = db.session.scalars(db.select(Product).order_by(Product.id)).all()
+        assert len(products) == 6
+        live = [p for p in products if p.status == "published"]
+        assert len(live) == 5 and all(p.sales_status == "coming_soon" for p in live)
+        assert all(p.page_count is None and p.published_snapshot for p in live)
+        bundle = products[-1]
+        assert bundle.product_type == "bundle" and bundle.status == "draft"
+        assert len(bundle.bundle_items) == 3
+        assert db.session.scalar(db.select(db.func.count(ProductPrice.id))) == 0
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+
+        downgrade(directory=MIGRATIONS, revision="de3d968df6ce")
+        tables = {t.upper() for t in inspect(db.engine).get_table_names()}
+        assert not tables & COMMERCE_TABLES
+        assert (
+            db.session.execute(text("SELECT COUNT(*) FROM users")).scalar_one() == before["users"]
+        )
+        available = db.session.execute(
+            text("SELECT is_available FROM permissions WHERE key = 'products.view'")
+        ).scalar_one()
+        assert not available
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert db.session.scalar(db.select(db.func.count(Product.id))) == 6
+
+
+def test_starter_catalogue_never_overwrites_admin_products(app):
+    import secrets
+
+    from app.models import Product
+    from app.services.seed_service import seed_commerce_catalogue
+
+    with app.app_context():
+        db.session.add(
+            Product(
+                public_id=secrets.token_hex(8),
+                slug="the-power-of-starting-again",
+                product_type="ebook",
+                title="Our real edition",
+                status="draft",
+            )
+        )
+        db.session.commit()
+        first = seed_commerce_catalogue()
+        second = seed_commerce_catalogue()
+        db.session.commit()
+        assert first["products"] == 5 and second["products"] == 0
+        mine = db.session.scalar(
+            db.select(Product).where(Product.slug == "the-power-of-starting-again")
+        )
+        assert mine.title == "Our real edition" and mine.status == "draft"

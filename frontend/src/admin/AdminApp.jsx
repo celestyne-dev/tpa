@@ -34,6 +34,16 @@ import { RolesPage } from "./pages/RolesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TaxonomyPage } from "./pages/TaxonomyPage";
 import { UsersPage } from "./pages/UsersPage";
+import { CustomerDetailPage, CustomersPage } from "./pages/CustomersPage";
+import { EntitlementsPage } from "./pages/EntitlementsPage";
+import { OrderDetailPage } from "./pages/OrderDetailPage";
+import { OrdersPage } from "./pages/OrdersPage";
+import { PaymentSettingsPage } from "./pages/PaymentSettingsPage";
+import { ProductCollectionsPage } from "./pages/ProductCollectionsPage";
+import { ProductEditorPage } from "./pages/ProductEditorPage";
+import { ProductPreviewPage } from "./pages/ProductPreviewPage";
+import { BundlesPage, ProductsPage } from "./pages/ProductsPage";
+import { RevenueReportPage } from "./pages/RevenueReportPage";
 import {
   ARTICLE_ACCESS,
   PAGE_READ,
@@ -74,6 +84,10 @@ export default function AdminApp() {
           element={<RequireAuth>{guarded(PAGE_READ, <PagePreviewPage />)}</RequireAuth>}
         />
         <Route
+          path="products/:id/preview"
+          element={<RequireAuth>{guarded("products.view", <ProductPreviewPage />)}</RequireAuth>}
+        />
+        <Route
           path="preview-frame/:id"
           element={<RequireAuth>{guarded(PAGE_READ, <PreviewFramePage />)}</RequireAuth>}
         />
@@ -85,6 +99,29 @@ export default function AdminApp() {
           }
         >
           <Route index element={<AdminIndex />} />
+          <Route path="products" element={guarded("products.view", <ProductsPage />)} />
+          <Route path="products/:id" element={guarded("products.view", <ProductEditorPage />)} />
+          <Route path="bundles" element={guarded("products.view", <BundlesPage />)} />
+          <Route
+            path="product-collections"
+            element={guarded("products.view", <ProductCollectionsPage />)}
+          />
+          <Route path="orders" element={guarded("orders.view", <OrdersPage />)} />
+          <Route path="orders/:id" element={guarded("orders.view", <OrderDetailPage />)} />
+          <Route path="customers" element={guarded("customers.view", <CustomersPage />)} />
+          <Route path="customers/:id" element={guarded("customers.view", <CustomerDetailPage />)} />
+          <Route
+            path="entitlements"
+            element={guarded(["entitlements.view", "downloads.audit"], <EntitlementsPage />)}
+          />
+          <Route path="reports/revenue" element={guarded("finance.view", <RevenueReportPage />)} />
+          <Route
+            path="payments"
+            element={guarded(
+              ["payments.configure", "payments.view_events"],
+              <PaymentSettingsPage />,
+            )}
+          />
           <Route path="articles" element={guarded(ARTICLE_ACCESS, <ArticlesPage />)} />
           <Route path="articles/new" element={guarded("articles.create", <ArticleEditorPage />)} />
           <Route

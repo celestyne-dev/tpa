@@ -1594,7 +1594,7 @@
     "type": "product_previews",
     "label": "Digital product showcase",
     "category": "Engagement",
-    "description": "Upcoming eBooks and resources as honest “coming soon” previews. Purchasing stays disabled until the shop launches.",
+    "description": "Products from the shop catalogue: featured, newest, hand-picked, a collection or bundles. Prices appear only for products on sale; everything else is shown as an honest “coming soon” preview.",
     "reusable_only": false,
     "single_use": false,
     "variants": [
@@ -1625,12 +1625,62 @@
         "max": 400
       },
       {
+        "name": "mode",
+        "type": "select",
+        "label": "Which products",
+        "choices": [
+          {
+            "value": "featured",
+            "label": "Featured first, then the catalogue order"
+          },
+          {
+            "value": "latest",
+            "label": "Newest products"
+          },
+          {
+            "value": "manual",
+            "label": "Choose products"
+          },
+          {
+            "value": "collection",
+            "label": "A collection"
+          },
+          {
+            "value": "bundles",
+            "label": "Bundles"
+          }
+        ],
+        "default": "featured"
+      },
+      {
+        "name": "products",
+        "type": "products",
+        "label": "Products",
+        "max_items": 6,
+        "show_for_mode": "manual",
+        "help": "Only published products are shown, in this order."
+      },
+      {
+        "name": "collection",
+        "type": "product_collection",
+        "label": "Collection",
+        "max_items": 1,
+        "show_for_mode": "collection"
+      },
+      {
         "name": "count",
         "type": "number",
         "label": "Number of products",
         "min": 1,
         "max": 6,
         "default": 3
+      },
+      {
+        "name": "show_prices",
+        "type": "boolean",
+        "label": "Show prices for products on sale",
+        "default": true,
+        "help": "Prices are always shown with their currency (e.g. USD 12.00)."
       },
       {
         "name": "footnote",
@@ -1714,7 +1764,11 @@
         "eyebrow": "",
         "heading": "Coming soon",
         "description": "",
+        "mode": "featured",
+        "products": [],
+        "collection": [],
         "count": 3,
+        "show_prices": true,
         "footnote": "These titles are in development and not yet available to purchase.",
         "cta": {
           "label": "",

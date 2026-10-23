@@ -1,4 +1,4 @@
-# Website management guide (Batch 04)
+# Website management guide (Batches 04–05)
 
 This guide is for the people who run the website day to day. Everything described here happens in the admin dashboard at `/admin`. You never need to edit code to change the homepage, add a page, update the menus or run an announcement.
 
@@ -30,7 +30,7 @@ The homepage is a list of **sections**. The left column (the outline) shows them
 
 If you try to leave with unsaved changes, the editor warns you. If somebody else saved the same page while you were editing, you will see an **edit conflict** message. You can then load their version or keep yours. Work is never silently overwritten.
 
-**Collections update themselves.** _Featured articles_, _Latest articles_, _Selected article collection_ and _Topic cards_ draw from published content. An unpublished article never appears, even if you picked it. _Digital product showcase_ shows planned products as "Coming soon", with no prices and no purchase buttons, until the shop exists.
+**Collections update themselves.** _Featured articles_, _Latest articles_, _Selected article collection_ and _Topic cards_ draw from published content. An unpublished article never appears, even if you picked it. _Digital product showcase_ draws from the shop catalogue (featured, newest, hand-picked in your order, one collection, or bundles). Prices and buttons appear only for products that can really be bought. Anything else shows as an honest "Coming soon" preview, and drafts never appear.
 
 ## 2. Section types
 
@@ -47,7 +47,7 @@ If you try to leave with unsaved changes, the editor warns you. If somebody else
 | Inspirational message       | A short encouraging message with an optional button                                             |
 | Image and text feature      | An image beside a heading, text and buttons                                                     |
 | Newsletter signup           | The Positive Reset panel: an honest “opening soon” notice; it collects no email addresses yet   |
-| Digital product showcase    | Coming-soon eBooks and resources; purchasing is disabled                                        |
+| Digital product showcase    | Real products from the shop: choose the mode, products or collection, count, prices and CTA     |
 | Promotional banner          | A bold banner for a campaign, series or release                                                 |
 | Call to action              | A focused invitation with one or two buttons                                                    |
 | Testimonials                | Genuine words from readers or partners, shared with permission (no invented reviews or ratings) |
@@ -100,7 +100,67 @@ A slim bar above the header. It is never a popup. Each announcement has a messag
 
 Contact details, social profiles, SEO defaults (title pattern, default description, organisation details for structured data) and sitemap options. **Technical** settings (allowing search-engine indexing and the canonical site address) are visible to Super Admins only. They can only make indexing _stricter_ than the deployment configuration, never looser. Settings save and publish together, so the button reads **Save and publish**.
 
-## 9. Who can do what
+## 9. The shop (Batch 05)
+
+The full reference is in `docs/commerce.md`. Day to day:
+
+**Products (`/admin/products`).** Create a product, choose its type and write the details on the editor tabs:
+
+- **Details:** title, subtitle, type and categories.
+- **Description & FAQ:** description, benefits, who it is for, what is included, FAQs.
+- **Images:** cover image from the media library, or a designed cover.
+- **Files:** private files.
+- **Pricing:** one price per currency, typed as a normal amount such as `12.50`; an optional compare-at price and promotion dates.
+- **Bundle:** for bundles only.
+- **SEO.**
+- **Sales & publishing:** coming soon or on sale, and the availability dates.
+- **History.**
+
+Then:
+
+- **Save draft** keeps your changes private. **Preview** shows exactly how the page will look.
+- **Publish** makes the published version public. A product can be published as _Coming soon_, so it is visible but cannot be bought, or _On sale_.
+- Publishing refuses, with the reason, when something is missing (for example "No deliverable files uploaded.").
+- The **Problems** filter ("Missing files or invalid setup") lists every product with missing files, missing prices or another problem.
+- **Duplicate** copies a product as a new draft. **Archive** removes it from the shop without deleting orders or customers' access.
+
+Write only what is true: no invented page counts, testimonials, reviews or results.
+
+**Prices and currencies.** Each currency has its own price, and nothing is converted automatically. A product with no KES price simply can't be bought in KES. Changing a price never changes past orders: each order keeps the price that was paid.
+
+**Files.** Upload PDF, EPUB or ZIP files on the **Files** tab.
+
+- They go to private storage, never the media library, and customers only get them through their library after a confirmed payment.
+- A file can be refused, with the reason shown (for example a PDF containing JavaScript, or a ZIP with unsafe contents).
+- **Upload a new version** to correct a file. New buyers get the latest version, and earlier buyers get both the latest version and the one they bought.
+- **Deactivate** stops offering a file to new buyers.
+
+**Collections and categories (`/admin/product-collections`).** Collections have their own shop page and can be shown on the homepage. Categories power the shop filters.
+
+**Bundles (`/admin/bundles`).** A bundle includes other products. Buyers receive every included product, and keep them even if you later change the bundle.
+
+**Orders, customers and access.**
+
+- `/admin/orders` shows each order with its payment verification (what Paystack confirmed), the provider events, emails (and whether they were really sent), downloads and history.
+- Staff can add notes, resend a receipt, re-check a payment with Paystack, or start a refund.
+- `/admin/customers` helps customers: resend a verification or password-reset email, see their library, grant access with a reason.
+- `/admin/entitlements` lists and audits access and downloads.
+
+**Refunds.**
+
+- Unless Paystack refunds are switched on in Payment settings, a refund is a two-step manual process. First record the request. Then refund the customer in the Paystack dashboard, and press **Record completed refund** with the Paystack reference.
+- Nothing is ever shown as refunded before that.
+- Choose whether access to the files ends when the refund completes.
+
+**Reports (`/admin/reports/revenue`).** Totals are per currency, never added together, and test payments are kept apart from live ones.
+
+**Payment settings (`/admin/payments`, Super Admin only).** Checkout is **disabled** until you change it here.
+
+- **Test mode** uses Paystack test keys, no real money moves, and only customers you mark as test accounts can pay.
+- **Live mode** stays locked until every readiness check passes, including the deployment switch and your confirmations.
+- Secret keys are never shown or entered here; they live in the server configuration.
+
+## 10. Who can do what
 
 | Task                                     | Permission                                 | Built-in roles                               |
 | ---------------------------------------- | ------------------------------------------ | -------------------------------------------- |
@@ -115,3 +175,20 @@ Contact details, social profiles, SEO defaults (title pattern, default descripti
 | Technical SEO settings                   | `settings.technical` (sensitive)           | Super Admin only                             |
 
 The Administrator and Website Manager templates receive all of the website permissions above, except the sensitive one. Marketing Manager gets announcements. Editor-in-Chief and SEO Manager can view the homepage builder. Analyst and Content Writer gain nothing new. Other people can be given exactly what they need at `/admin/roles`.
+
+Shop permissions:
+
+| Task                            | Permission                                                                   | Typical roles                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| View / create / edit products   | `products.view` / `products.create` / `products.edit`                        | Product Manager, Administrator (Marketing Manager: view)                               |
+| Publish or archive products     | `products.publish` / `products.archive`                                      | Product Manager, Administrator                                                         |
+| Prices, files, bundles          | `products.manage_prices`, `products.manage_files`, `products.manage_bundles` | Product Manager, Administrator                                                         |
+| Orders (view, manage, export)   | `orders.view`, `orders.manage`, `orders.export`                              | Orders Manager, Administrator, Customer Support (view), Finance Manager (view, export) |
+| Refunds                         | `refunds.issue`                                                              | Orders Manager, Finance Manager                                                        |
+| Customers                       | `customers.view`, `customers.support`, `customers.manage`                    | Customer Support, Orders Manager, Administrator                                        |
+| Access and downloads            | `entitlements.view`, `entitlements.manage`, `downloads.audit`                | Orders Manager, Administrator, Customer Support (view, audit)                          |
+| Revenue reports                 | `finance.view`, `finance.export`                                             | Finance Manager (Administrator: view)                                                  |
+| Payment events                  | `payments.view_events`                                                       | Orders Manager, Finance Manager, Administrator                                         |
+| Payment settings and going live | `payments.configure` (sensitive)                                             | Super Admin only                                                                       |
+
+Editorial roles (Editor, Content Editor, Content Writer, Moderator, Analyst) have no shop permissions.

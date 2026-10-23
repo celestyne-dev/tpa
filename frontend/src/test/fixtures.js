@@ -108,6 +108,14 @@ export const products = [
     description: "An encouraging guide.",
     format: "eBook",
     availability: "coming-soon",
+    purchasable: false,
+    is_free: false,
+    type: "ebook",
+    type_label: "eBook",
+    formats: [],
+    prices: [],
+    categories: [],
+    collections: [],
     topic_slugs: ["positive-mindset"],
     highlights: ["Exercises"],
     cover_theme: "olive",
@@ -124,6 +132,12 @@ export const site = {
   contact: { email: null, partnerships_email: null },
   social_links: [],
   media_kit_url: null,
+  shop: {
+    title: "Tools for Your Growth Journey",
+    intro: "Original eBooks, workbooks and journals.",
+    notice: "",
+    display_currencies: ["USD", "KES"],
+  },
 };
 
 const cta = (label, href, style = null) => ({ label, href, external: false, style });

@@ -29,8 +29,16 @@ const mode = process.env.NODE_ENV === "development" ? "development" : "productio
 const env = { ...loadEnv(mode, root, ""), ...process.env };
 const apiUrl = (env.PRERENDER_API_URL || "http://127.0.0.1:5000/api/v1").replace(/\/$/, "");
 
-const { render, createServerApi, staticRoutes, routes, siteConfig, configureSite, safeJson } =
-  await import(pathToFileURL(ssrEntry).href);
+const {
+  render,
+  createServerApi,
+  staticRoutes,
+  privateRoutes,
+  routes,
+  siteConfig,
+  configureSite,
+  safeJson,
+} = await import(pathToFileURL(ssrEntry).href);
 const api = createServerApi(apiUrl);
 
 function fail(message) {
@@ -142,7 +150,7 @@ function buildRobots() {
     // Previews, staging and local builds must never be indexed.
     return "User-agent: *\nDisallow: /\n";
   }
-  return `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\n\nSitemap: ${siteConfig.url}/sitemap.xml\n`;
+  return `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /account\nDisallow: /cart\nDisallow: /checkout\n\nSitemap: ${siteConfig.url}/sitemap.xml\n`;
 }
 
 await checkApi();
@@ -156,13 +164,16 @@ for (const marker of ["<!--app-head-->", "<!--app-html-->", "<!--app-state-->"])
   if (!template.includes(marker)) fail(`dist/index.html is missing the ${marker} marker.`);
 }
 
-const [topicsRes, articles, sitemapRes, redirectsRes, cmsPagesRes] = await Promise.all([
-  api.getTopics(),
-  fetchAllArticles(),
-  api.getSitemap(),
-  api.getRedirects(),
-  api.getPages(),
-]);
+const [topicsRes, articles, sitemapRes, redirectsRes, cmsPagesRes, productsRes, collectionsRes] =
+  await Promise.all([
+    api.getTopics(),
+    fetchAllArticles(),
+    api.getSitemap(),
+    api.getRedirects(),
+    api.getPages(),
+    api.getProducts(),
+    api.getCollections(),
+  ]);
 const topics = topicsRes.data;
 const staticPaths = new Set(staticRoutes.map((r) => r.path));
 
@@ -173,6 +184,11 @@ const pages = [
     .filter((p) => !staticPaths.has(p.path))
     .map((p) => ({ path: p.path, priority: 0.6, changefreq: "monthly" })),
   ...topics.map((t) => ({ path: routes.topic(t.slug), priority: 0.7, changefreq: "weekly" })),
+  // Published products and collections (drafts and archived products are never listed).
+  ...productsRes.data.map((p) => ({ path: routes.product(p.slug) })),
+  ...collectionsRes.data.map((c) => ({ path: routes.collection(c.slug) })),
+  // Private customer pages: noindex shells; customer data only ever loads in the browser.
+  ...privateRoutes.map((path) => ({ path })),
   ...articles.map((a) => ({
     path: routes.article(a.slug),
     priority: 0.8,
@@ -230,6 +246,7 @@ await writeFile(
       indexing: siteConfig.allowIndexing,
       apiUrl,
       cmsPages: cmsPagesRes.data.map((p) => p.path),
+      products: productsRes.data.map((p) => routes.product(p.slug)),
       pages: manifest,
     },
     null,

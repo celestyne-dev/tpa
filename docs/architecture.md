@@ -7,24 +7,30 @@ Browser ──► Nginx ──► /var/www/tpa-site/current (atomic release syml
                  │      └── /admin/*         client-only admin SPA shell (noindex, no-store)
                  ├──► /media/*  ──► MEDIA_ROOT/public (optimised images, immutable)
                  ├──► @fallback ──► Flask /_redirect/<path> (CMS redirects: 301/302/307/308 or 404)
+                 ├──► /_protected_downloads/* (internal only) ──► PRODUCT_FILES_ROOT (X-Accel-Redirect)
                  └──► /api/* ──► Gunicorn ──► Flask app factory
-                                              ├── api/          public /api/v1 (GET only, CORS allow-list)
+                                              ├── api/          public /api/v1 (content GETs; shop, cart quote)
+                                              ├── api/commerce  customer account, checkout, downloads (customer cookie + CSRF + Origin)
+                                              │                 and the Paystack webhook (HMAC-SHA512 signature only)
                                               ├── api/admin/    /api/v1/admin (JWT cookies + CSRF + RBAC)
+                                              ├── payments/     provider abstraction, Paystack client, payment settings
+                                              ├── commerce/     currencies, product types, private file validation
                                               ├── auth/         permissions, decorators, sessions, passwords
                                               ├── cms/          blocks, section registry, design presets, routing, templates, settings
                                               ├── services/     public queries, admin services, audit, publication
                                               ├── media/        Pillow validation + optimisation
-                                              ├── storage/      local storage (S3 adapter slot)
+                                              ├── storage/      public media + private product files (local; S3 slots)
                                               └── models/       SQLAlchemy → PostgreSQL (SQLite locally)
 
 systemd: tpa-publish-worker ──► publish_jobs queue ──► npm run build ──► releases/<id> ──► current
+                          └──► scheduled publishing, order expiry, product file scanning
 ```
 
 Flask is the single source of truth. The public React app reads content through `contentApi`; the admin uses `adminApi` (an Axios instance with cookie credentials, CSRF headers and single-flight session refresh). Redux holds shared public content and the admin **profile** (never tokens); individual admin screens keep their data locally via `useAdminQuery`.
 
 ## Content repository migration
 
-Batch 01 read JSON files through `LocalContentRepository`. Batch 02 moves topics and articles to SQLAlchemy queries in `services/topic_service.py` and `services/article_service.py`. The public response shapes are unchanged, as the Batch 01 compatibility tests confirm. Products still come from the JSON dataset. The JSON fixtures remain as the import source for `flask seed sample-content`, which matches records by slug and never overwrites existing rows.
+Batch 01 read JSON files through `LocalContentRepository`. Batch 02 moves topics and articles to SQLAlchemy queries in `services/topic_service.py` and `services/article_service.py`. The public response shapes are unchanged, as the Batch 01 compatibility tests confirm. Since Batch 05, products come from the database as well (`services/commerce/catalogue.py`); the JSON product fixture is no longer read. The JSON fixtures remain as the import source for `flask seed sample-content`, which matches records by slug and never overwrites existing rows.
 
 ## Authorization
 
@@ -78,3 +84,25 @@ prerender.mjs ──► GET /site (branding, menus, footer, announcements, cms_o
 ## Migration readiness
 
 Articles keep `slug`, `original_slug`, `original_url`, `canonical_url`, `source` (`sample` | `original` | `migrated`) and `noindex`. Legacy URLs are handled by the CMS redirect manager (CSV import with a dry run, loop detection, real HTTP status codes via the Nginx → Flask fallback).
+
+## Digital commerce (Batch 05)
+
+```
+/shop, /shop/:slug (prerendered) ──► GET /shop/products (published snapshot + live price/readiness)
+cart (localStorage, ids only) ──► POST /cart/quote (server prices, availability, checkout status)
+/checkout ──► POST /checkout ──► order + items (price snapshots) ──► Paystack /transaction/initialize
+            browser ──► Paystack hosted page ──► /checkout/complete ──► POST …/verify ─┐
+Paystack ──► POST /payments/paystack/webhook (HMAC) ──► payment_events (dedupe) ──────┤
+                                                                                      ▼
+                    GET /transaction/verify/:ref ──► reference, amount, currency, mode checks
+                    ──► conditional UPDATE orders → paid (exactly once) ──► entitlements (unique grant keys)
+                    ──► receipt + emails (status recorded honestly)
+/account/library ──► POST …/downloads ──► hashed short-lived token ──► GET /downloads/:token
+                    ──► entitlement + session re-checked ──► stream or X-Accel-Redirect (audited)
+```
+
+- **Separation.** Customers have their own model, session table and cookies. Admin JWT cookies are never accepted on customer endpoints, and the customer cookie is never accepted on admin endpoints.
+- **Private files.** `storage/private_files.py` writes to a temporary file, validates it (`commerce/files.py`), then moves it atomically under a random key. Nothing under `PRODUCT_FILES_ROOT` is ever served directly.
+- **Payment truth.** Only provider-verified transactions change an order to paid. Webhooks and return pages share one code path (`services/commerce/payments.apply_verified`). Uniqueness constraints make replays, races and repeated clicks harmless.
+- **Settings vs secrets.** Non-secret payment settings are stored as site settings. The Paystack secret lives only in the environment. `payments/config.py` computes the effective mode and the readiness checks, and live mode is impossible without `PAYMENTS_LIVE_ALLOWED` plus the checklist.
+- **Frontend.** The public shop pages are part of the main SSR bundle so they can be prerendered. The private customer area (cart, checkout, account) is a lazily loaded chunk that is never prerendered with data. `ShopApiContext` supplies the customer API client, which sends the customer CSRF header.

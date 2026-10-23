@@ -197,6 +197,14 @@ def publish_worker(once: bool, interval: int, no_scheduler: bool):
             except Exception:  # never let the scheduler stop the worker
                 db.session.rollback()
                 current_app.logger.exception("Scheduled publishing failed")
+        try:
+            from .services.commerce.product_files import scan_pending
+
+            if scan_pending():
+                db.session.commit()
+        except Exception:  # never let scanning stop the worker
+            db.session.rollback()
+            current_app.logger.exception("Product file scanning failed")
         job = publishing.claim_next()
         if job is not None:
             click.echo(f"Building job {job.id} ({', '.join(job.reasons[:5])})...")
@@ -280,6 +288,65 @@ def media_verify():
     click.echo("All media files are present.")
 
 
+commerce_cli = AppGroup("commerce", help="Digital products, orders and payments.")
+
+
+@commerce_cli.command("expire-orders")
+def commerce_expire_orders():
+    """Cancel unpaid orders past their expiry time (the worker also does this)."""
+    from .services.commerce.payments import expire_orders
+
+    count = expire_orders()
+    db.session.commit()
+    click.echo(f"Cancelled {count} expired unpaid order(s).")
+
+
+@commerce_cli.command("scan-files")
+def commerce_scan_files():
+    """Run the configured malware scanner on product files awaiting a scan."""
+    from .services.commerce.product_files import scan_pending, scanner_configured
+
+    if not scanner_configured():
+        click.echo("PRODUCT_FILES_SCAN_COMMAND is not set; nothing to scan.")
+        return
+    counts = scan_pending(limit=100)
+    db.session.commit()
+    click.echo(", ".join(f"{k}={v}" for k, v in counts.items()))
+
+
+@commerce_cli.command("payments-status")
+def commerce_payments_status():
+    """Show payment configuration and checkout readiness (never prints secrets)."""
+    from .payments.config import effective_mode, provider_status, readiness
+
+    status = provider_status()
+    click.echo(
+        f"Provider: {status['label']} | key: "
+        f"{status['key_mode'] or 'not configured'} | effective checkout mode: {effective_mode()}"
+    )
+    for check in readiness()["checks"]:
+        click.echo(f"[{'x' if check['ok'] else ' '}] ({check['required_for']}) {check['label']}")
+
+
+@commerce_cli.command("seed-catalogue")
+def commerce_seed_catalogue():
+    """Create the starter categories, collection and coming-soon titles (only if missing)."""
+    from .services.seed_service import seed_commerce_catalogue
+
+    counts = seed_commerce_catalogue()
+    db.session.commit()
+    click.echo("Catalogue: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+
+
 def register_cli(app: Flask) -> None:
-    for group in (admin_cli, seed_cli, cms_cli, content_cli, rbac_cli, publish_cli, media_cli):
+    for group in (
+        admin_cli,
+        seed_cli,
+        cms_cli,
+        content_cli,
+        rbac_cli,
+        publish_cli,
+        media_cli,
+        commerce_cli,
+    ):
         app.cli.add_command(group)

@@ -166,6 +166,11 @@ class _Loader:
         self._settings: dict[str, Any] | None = None
         self.latest_dependency: datetime | None = None
 
+    def touch_products(self, products: list[dict[str, Any]]) -> None:
+        for product in products:
+            if product.get("published_at"):
+                self.touch(datetime.fromisoformat(product["published_at"].replace("Z", "+00:00")))
+
     def touch(self, value: datetime | None) -> None:
         if value and (self.latest_dependency is None or value > self.latest_dependency):
             self.latest_dependency = value
@@ -286,6 +291,8 @@ def _resolve_field(loader: _Loader, spec: dict[str, Any], value: Any, now: datet
             for i in value or []
             if i in loader.topics and loader.topics[i].status == "active"
         ]
+    if kind in ("products", "product_collection"):
+        return value or []  # resolved by the section's computed data
     if kind == "author":
         author = loader.authors.get(value) if value else None
         return _author_profile(author) if author and author.status == "active" else None
@@ -335,9 +342,13 @@ def _computed(
         elif mode == "all":
             data["topics"] = list_topics()
     elif section_type == "product_previews":
-        from .product_service import list_products
+        from .commerce.catalogue import products_for_section
 
-        data["products"] = [dict(p) for p in list_products()][: content.get("count") or 3]
+        data["products"] = products_for_section(content, content.get("count") or 3)
+        loader.touch_products(data["products"])
+        if not content.get("show_prices", True):
+            for product in data["products"]:
+                product["prices"] = []
     elif section_type == "brand_intro":
         data["stat_value"] = settings.get("community.linkedin_followers_label") or None
     elif section_type == "newsletter_cta":

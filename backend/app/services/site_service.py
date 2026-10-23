@@ -26,6 +26,13 @@ def _media_image(asset_id: Any, preset: str = "responsive") -> dict[str, Any] | 
     return asset.as_image(preset)
 
 
+def _display_currencies(v: dict[str, Any]) -> list[str]:
+    from ..commerce.currency import CURRENCIES
+
+    codes = [c.strip().upper() for c in str(v.get("shop.display_currencies") or "").split(",")]
+    return [c for c in dict.fromkeys(codes) if c in CURRENCIES] or ["USD"]
+
+
 def overridden_builtin_paths() -> list[str]:
     """Built-in pages currently replaced by a published CMS page."""
     live = db.session.scalars(
@@ -102,6 +109,12 @@ def get_site_settings() -> dict[str, Any]:
             }
             if v["footer.promo_text"]
             else None,
+        },
+        "shop": {
+            "title": v["shop.title"],
+            "intro": v["shop.intro"],
+            "notice": v["shop.notice"],
+            "display_currencies": _display_currencies(v),
         },
         "navigation": public_navigation(),
         "announcements": public_announcements(),

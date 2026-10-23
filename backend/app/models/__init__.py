@@ -13,6 +13,19 @@ from .cms import (
     ReusableSection,
     SiteSetting,
 )
+from .commerce import (
+    BundleItem,
+    Product,
+    ProductCategory,
+    ProductCollection,
+    ProductCollectionItem,
+    ProductFile,
+    ProductFileVersion,
+    ProductPrice,
+    ProductRevision,
+    product_categories,
+    product_tags,
+)
 from .content import (
     Article,
     ArticleRevision,
@@ -24,6 +37,25 @@ from .content import (
     Topic,
     article_tags,
     article_topics,
+)
+from .customer import (
+    Customer,
+    CustomerSession,
+    CustomerToken,
+    DownloadEvent,
+    DownloadGrant,
+    Entitlement,
+    EntitlementEvent,
+)
+from .orders import (
+    EmailDelivery,
+    Order,
+    OrderItem,
+    PaymentAttempt,
+    PaymentEvent,
+    PaymentTransaction,
+    Receipt,
+    Refund,
 )
 from .publishing import PublishJob, Redirect
 from .user import (
@@ -37,6 +69,32 @@ from .user import (
 )
 
 __all__ = [
+    "BundleItem",
+    "Product",
+    "ProductCategory",
+    "ProductCollection",
+    "ProductCollectionItem",
+    "ProductFile",
+    "ProductFileVersion",
+    "ProductPrice",
+    "ProductRevision",
+    "product_categories",
+    "product_tags",
+    "Customer",
+    "CustomerSession",
+    "CustomerToken",
+    "DownloadEvent",
+    "DownloadGrant",
+    "Entitlement",
+    "EntitlementEvent",
+    "EmailDelivery",
+    "Order",
+    "OrderItem",
+    "PaymentAttempt",
+    "PaymentEvent",
+    "PaymentTransaction",
+    "Receipt",
+    "Refund",
     "AccountToken",
     "Announcement",
     "GlobalCta",

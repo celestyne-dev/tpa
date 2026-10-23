@@ -297,9 +297,17 @@ function Field({ spec, value, onChange, errors, path, variant, disabled }) {
   const { options } = useBuilderLookups();
   const error = errorText(errors[path]);
   const required = isRequired(spec, variant);
-  const wide = ["textarea", "rich", "items", "cta", "articles", "topics", "string_list"].includes(
-    spec.type,
-  );
+  const wide = [
+    "textarea",
+    "rich",
+    "items",
+    "cta",
+    "articles",
+    "topics",
+    "products",
+    "product_collection",
+    "string_list",
+  ].includes(spec.type);
   const className = cn(wide && "sm:col-span-2");
   switch (spec.type) {
     case "text":
@@ -443,6 +451,41 @@ function Field({ spec, value, onChange, errors, path, variant, disabled }) {
             error={error}
             disabled={disabled}
             itemLabel={(t) => t.name}
+            onChange={onChange}
+          />
+        </div>
+      );
+    case "products":
+      return (
+        <div className={className}>
+          <OrderedPicker
+            label={spec.label}
+            items={options.products ?? []}
+            value={value}
+            max={spec.max_items ?? 6}
+            hint={spec.help}
+            error={error}
+            disabled={disabled}
+            itemLabel={(p) => (p.note ? `${p.title} — ${p.note}` : p.title)}
+            onChange={onChange}
+          />
+        </div>
+      );
+    case "product_collection":
+      return (
+        <div className={className}>
+          <OrderedPicker
+            label={spec.label}
+            items={(options.product_collections ?? []).map((c) => ({
+              ...c,
+              title: c.active ? c.name : `${c.name} (hidden)`,
+            }))}
+            value={value}
+            max={1}
+            hint={spec.help}
+            error={error}
+            disabled={disabled}
+            itemLabel={(c) => c.title}
             onChange={onChange}
           />
         </div>

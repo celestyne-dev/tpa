@@ -167,6 +167,39 @@ def usage_index() -> dict[int, list[dict[str, Any]]]:
                     "public": True,
                 },
             )
+    from ...models import Product, ProductCollection
+
+    for product in db.session.scalars(select(Product)):
+        base = {"type": "product", "id": product.id, "label": product.title}
+        for field, asset_id in (
+            ("cover (draft)", product.cover_media_id),
+            ("social image (draft)", product.social_image_id),
+        ):
+            add(asset_id, {**base, "field": field, "public": False})
+        for asset_id in product.gallery or []:
+            add(asset_id, {**base, "field": "gallery (draft)", "public": False})
+        snapshot = product.published_snapshot if product.status == "published" else None
+        if snapshot:
+            for field, asset_id in (
+                ("cover", snapshot.get("cover_media_id")),
+                ("social image", snapshot.get("social_image_id")),
+            ):
+                add(asset_id, {**base, "field": field, "public": True})
+            for asset_id in snapshot.get("gallery") or []:
+                add(asset_id, {**base, "field": "gallery", "public": True})
+    for collection in db.session.scalars(
+        select(ProductCollection).where(ProductCollection.cover_media_id.is_not(None))
+    ):
+        add(
+            collection.cover_media_id,
+            {
+                "type": "product_collection",
+                "id": collection.id,
+                "label": collection.name,
+                "field": "collection cover",
+                "public": collection.is_active,
+            },
+        )
     return index
 
 

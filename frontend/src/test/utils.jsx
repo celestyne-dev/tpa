@@ -3,9 +3,11 @@ import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import { App } from "@/app/App";
 import { loadAdminApp } from "@/routes/loadAdminApp";
+import { loadCommerce } from "@/routes/loadCommerce";
 import { ApiError } from "@/services/apiClient";
 import { createAppStore } from "@/store";
 import { createFakeAdminApi } from "./adminFake";
+import { createFakeShopApi, shopContentApi } from "./commerceFake";
 import * as fx from "./fixtures";
 
 export const notFound = (message = "Not found") =>
@@ -19,6 +21,11 @@ export const notFound = (message = "Not found") =>
  */
 export async function preloadAdminApp() {
   await loadAdminApp();
+}
+
+/** Same for the lazily loaded customer chunk (cart, checkout, account). */
+export async function preloadCommerce() {
+  await loadCommerce();
 }
 
 /** In-memory implementation of the content API used by the store's thunks. */
@@ -60,7 +67,7 @@ export function createFakeApi(overrides = {}) {
         ? { data: { article: fx.articleDetail, related: fx.articles.slice(1) } }
         : notFound(),
     ),
-    getProducts: vi.fn(async () => ({ data: fx.products })),
+    ...shopContentApi(),
     getPage: vi.fn(async (path) => {
       if (path === "/") return { data: fx.homePage };
       return fx.cmsPages[path] ? { data: fx.cmsPages[path] } : notFound("Page not found.");
@@ -74,13 +81,18 @@ export function createFakeApi(overrides = {}) {
 
 export function renderApp(
   path = "/",
-  { api = createFakeApi(), adminApi = createFakeAdminApi(), preloadedState } = {},
+  {
+    api = createFakeApi(),
+    adminApi = createFakeAdminApi(),
+    shopApi = createFakeShopApi(),
+    preloadedState,
+  } = {},
 ) {
-  const store = createAppStore({ api, adminApi, preloadedState });
+  const store = createAppStore({ api, adminApi, shopApi, preloadedState });
   const utils = render(
     <MemoryRouter initialEntries={[path]}>
-      <App store={store} adminApi={adminApi} />
+      <App store={store} adminApi={adminApi} shopApi={shopApi} />
     </MemoryRouter>,
   );
-  return { ...utils, store, api, adminApi };
+  return { ...utils, store, api, adminApi, shopApi };
 }

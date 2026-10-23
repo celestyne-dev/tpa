@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 import { createBuilderFake } from "./builderFake";
+import { COMMERCE_PERMS, createCommerceAdminFake } from "./commerceFake";
 
 // Mirrors backend/app/auth/permissions.py (available permissions only, plus sensitive ones).
 const ARTICLES = ["articles.view", "articles.create", "articles.edit_own", "articles.edit_any"];
@@ -48,6 +49,7 @@ const ALL = [
   "roles.manage",
   "roles.assign",
   "audit.view",
+  ...COMMERCE_PERMS,
 ];
 
 export const ROLE_PERMS = {
@@ -121,8 +123,56 @@ export const ROLE_PERMS = {
     "articles.preview",
   ],
   administrator: ALL.filter(
-    (p) => !["roles.manage", "roles.assign", "settings.technical"].includes(p),
+    (p) =>
+      ![
+        "roles.manage",
+        "roles.assign",
+        "settings.technical",
+        "payments.configure",
+        "refunds.issue",
+        "finance.export",
+      ].includes(p),
   ),
+  product_manager: [
+    "dashboard.view",
+    ...COMMERCE_PERMS.filter((p) => p.startsWith("products.")),
+    "media.view",
+    "media.upload",
+    "media.edit",
+  ],
+  orders_manager: [
+    "dashboard.view",
+    "products.view",
+    "orders.view",
+    "orders.manage",
+    "orders.export",
+    "refunds.issue",
+    "customers.view",
+    "customers.support",
+    "entitlements.view",
+    "entitlements.manage",
+    "downloads.audit",
+    "payments.view_events",
+  ],
+  customer_support: [
+    "dashboard.view",
+    "products.view",
+    "orders.view",
+    "customers.view",
+    "customers.support",
+    "entitlements.view",
+    "downloads.audit",
+  ],
+  finance_manager: [
+    "dashboard.view",
+    "products.view",
+    "orders.view",
+    "orders.export",
+    "refunds.issue",
+    "payments.view_events",
+    "finance.view",
+    "finance.export",
+  ],
   website_manager: [
     "dashboard.view",
     "homepage.view",
@@ -1284,6 +1334,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     },
     audit: { list: vi.fn(() => ok([], { pagination: null })) },
     ...createBuilderFake(() => user),
+    ...createCommerceAdminFake(() => user),
   };
 }
 

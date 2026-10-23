@@ -1,5 +1,6 @@
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
+import { HeaderShopLinks } from "./HeaderShopLinks";
 import { useHeaderCta } from "@/hooks/useHeaderCta";
 import { useNavigation } from "@/hooks/useNavigation";
 import { Logo } from "./Logo";
@@ -33,7 +34,8 @@ export function SiteHeader() {
             ))}
           </ul>
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <HeaderShopLinks />
           {cta && (
             <ButtonLink to={cta.href} size="sm" className="hidden lg:inline-flex">
               {cta.label}

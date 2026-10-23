@@ -117,12 +117,12 @@ export const shopPromise = [
   {
     icon: Download,
     title: "Digital delivery",
-    text: "Planned as downloadable digital products you can use on your own schedule.",
+    text: "Purchased resources stay in your account library, ready to download again whenever you need them.",
   },
   {
     icon: ShieldCheck,
     title: "Secure checkout",
-    text: "Purchases will be processed through a verified payment provider when the shop opens.",
+    text: "Payments are handled on Paystack's secure hosted page. We never see or store your card details.",
   },
 ];
 

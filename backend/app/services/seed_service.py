@@ -186,4 +186,122 @@ def seed_cms_defaults() -> dict[str, int]:
             )
         )
     db.session.flush()
+    counts.update(seed_commerce_catalogue())
+    return counts
+
+
+def seed_commerce_catalogue() -> dict[str, int]:
+    """Starter categories, coming-soon titles, collection and a draft bundle (only if missing)."""
+    import secrets
+    from datetime import UTC, datetime
+
+    from ..commerce import starter_catalogue as starter
+    from ..models import (
+        BundleItem,
+        Product,
+        ProductCategory,
+        ProductCollection,
+        ProductCollectionItem,
+        ProductRevision,
+    )
+    from .commerce.catalogue import snapshot_document
+
+    counts = {"product_categories": 0, "products": 0, "product_collections": 0}
+    categories = {c.slug: c for c in db.session.scalars(select(ProductCategory))}
+    for data in starter.CATEGORIES:
+        if data["slug"] not in categories:
+            category = ProductCategory(**data)
+            db.session.add(category)
+            categories[data["slug"]] = category
+            counts["product_categories"] += 1
+    db.session.flush()
+    existing = {p.slug: p for p in db.session.scalars(select(Product))} | {
+        p.published_slug: p for p in db.session.scalars(select(Product)) if p.published_slug
+    }
+    now = datetime.now(UTC)
+    for data in starter.PRODUCTS:
+        if data["slug"] in existing:
+            continue
+        product = Product(
+            public_id=secrets.token_hex(8),
+            slug=data["slug"],
+            product_type=data["product_type"],
+            title=data["title"],
+            subtitle=data["subtitle"],
+            short_description=data["short_description"],
+            description=validate_blocks(
+                [
+                    {"type": "paragraph", "text": data["short_description"]},
+                    {"type": "paragraph", "text": starter.PLACEHOLDER_NOTE},
+                ]
+            ),
+            benefits=data["benefits"],
+            format_label=data["format_label"],
+            cover_theme=data["cover_theme"],
+            featured_order=data["featured_order"],
+            is_featured=True,
+            status="published",
+            sales_status="coming_soon",
+            pricing_model="paid",
+        )
+        product.categories = [categories[c] for c in data["categories"]]
+        db.session.add(product)
+        db.session.flush()
+        product.published_snapshot = snapshot_document(product)
+        product.published_slug = product.slug
+        product.published_at = product.first_published_at = now
+        db.session.add(
+            ProductRevision(
+                product_id=product.id,
+                number=1,
+                kind="system",
+                summary="Starter catalogue (coming soon)",
+                snapshot=product.published_snapshot,
+            )
+        )
+        existing[product.slug] = product
+        counts["products"] += 1
+    spec = starter.COLLECTION
+    if not db.session.scalar(
+        select(ProductCollection.id).where(ProductCollection.slug == spec["slug"])
+    ):
+        collection = ProductCollection(
+            slug=spec["slug"], name=spec["name"], description=spec["description"], is_featured=True
+        )
+        db.session.add(collection)
+        db.session.flush()
+        for position, slug in enumerate(spec["products"]):
+            if slug in existing:
+                db.session.add(
+                    ProductCollectionItem(
+                        collection_id=collection.id, product_id=existing[slug].id, position=position
+                    )
+                )
+        counts["product_collections"] += 1
+    bundle = starter.BUNDLE
+    if bundle["slug"] not in existing:
+        product = Product(
+            public_id=secrets.token_hex(8),
+            slug=bundle["slug"],
+            product_type="bundle",
+            title=bundle["title"],
+            subtitle=bundle["subtitle"],
+            short_description=bundle["short_description"],
+            format_label=bundle["format_label"],
+            cover_theme=bundle["cover_theme"],
+            status="draft",
+            sales_status="coming_soon",
+            pricing_model="paid",
+        )
+        db.session.add(product)
+        db.session.flush()
+        for position, slug in enumerate(bundle["items"]):
+            if slug in existing:
+                db.session.add(
+                    BundleItem(
+                        bundle_id=product.id, product_id=existing[slug].id, position=position
+                    )
+                )
+        counts["products"] += 1
+    db.session.flush()
     return counts

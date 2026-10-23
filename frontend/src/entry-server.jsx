@@ -9,7 +9,7 @@ import { createContentApi } from "./services/contentApi";
 import { createAppStore } from "./store";
 
 export { routeTable } from "./routes/routeConfig";
-export { staticRoutes, routes } from "./config/navigation";
+export { privateRoutes, staticRoutes, routes } from "./config/navigation";
 export { configureSite, siteConfig } from "./config/site";
 export { safeJson } from "./utils/structuredData";
 

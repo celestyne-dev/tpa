@@ -4,6 +4,19 @@ export const routes = {
   article: (slug) => `/articles/${slug}`,
   topic: (slug) => `/topics/${slug}`,
   shop: "/shop",
+  product: (slug) => `/shop/${slug}`,
+  collection: (slug) => `/shop/collections/${slug}`,
+  cart: "/cart",
+  checkout: "/checkout",
+  checkoutComplete: "/checkout/complete",
+  account: "/account",
+  accountOrders: "/account/orders",
+  accountLibrary: "/account/library",
+  accountSettings: "/account/settings",
+  signIn: "/account/login",
+  register: "/account/register",
+  verifyEmail: "/account/verify-email",
+  resetPassword: "/account/reset-password",
   freeResources: "/free-resources",
   newsletter: "/newsletter",
   partner: "/partner-with-us",
@@ -59,6 +72,21 @@ export const footerNav = [
       { label: "Affiliate Disclosure", href: routes.affiliate },
     ],
   },
+];
+
+/** Private customer pages, prerendered as noindex shells (data loads in the browser). */
+export const privateRoutes = [
+  routes.cart,
+  routes.checkout,
+  routes.checkoutComplete,
+  routes.account,
+  routes.accountLibrary,
+  routes.accountOrders,
+  routes.accountSettings,
+  routes.signIn,
+  routes.register,
+  routes.verifyEmail,
+  routes.resetPassword,
 ];
 
 /** Static, indexable routes (dynamic article/topic routes come from the API). */

@@ -17,6 +17,8 @@ def app(tmp_path):
         "testing",
         {
             "MEDIA_ROOT": str(tmp_path / "media"),
+            "PRODUCT_FILES_ROOT": str(tmp_path / "product-files"),
+            "PRODUCT_FILES_MIN_FREE_MB": 0,
             "PUBLISH_RELEASES_DIR": str(tmp_path / "site" / "releases"),
             "PUBLISH_CURRENT_LINK": str(tmp_path / "site" / "current"),
         },
@@ -31,6 +33,11 @@ def app(tmp_path):
     yield app
     with app.app_context():
         db.session.remove()
+        if db.engine.dialect.name == "sqlite":
+            # Entitlement rows reference each other (bundles) with ON DELETE RESTRICT,
+            # which SQLite enforces while dropping a populated table.
+            with db.engine.connect() as conn:
+                conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
         db.drop_all()
 
 
@@ -195,3 +202,180 @@ def png_header_only(width, height):
     ihdr = struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)
     idat = zlib.compress(b"\x00" * 64)
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
+
+
+# ---- commerce fixtures -----------------------------------------------------------------
+
+TEST_SECRET = "sk_test_not_a_real_key_0123456789"
+
+
+class FakePaystack:
+    """In-memory Paystack API used by the real PaystackProvider code (no network, no charges).
+
+    Only ``_request`` is replaced, so request building, response parsing, signature
+    verification and event parsing all run through the production provider class.
+    """
+
+    def __init__(self, app):
+        from app.payments.paystack import PaystackProvider
+
+        with app.app_context():
+            self.provider = PaystackProvider(secret_key=TEST_SECRET)
+        self.provider._request = self._request
+        self.transactions = {}
+        self.refunds = {}
+        self.fail_initialize = False
+        self.fail_verify = False
+        self.calls = []
+        self._next_id = 5000
+
+    def _id(self):
+        self._next_id += 1
+        return self._next_id
+
+    def _request(self, method, path, body=None):
+        from app.payments.base import ProviderError
+
+        self.calls.append((method, path, body))
+        if path == "/transaction/initialize":
+            if self.fail_initialize:
+                raise ProviderError("Paystack: Currency not supported by merchant")
+            ref = body["reference"]
+            self.transactions[ref] = {
+                "id": self._id(),
+                "reference": ref,
+                "amount": int(body["amount"]),
+                "currency": body["currency"],
+                # What Paystack reports for an initialised transaction nobody has paid yet.
+                "status": "abandoned",
+                "domain": "test",
+                "channel": "card",
+                "paid_at": None,
+                "email": body["email"],
+            }
+            return {
+                "authorization_url": f"https://checkout.paystack.com/{ref.lower()}",
+                "access_code": f"ac_{ref.lower()}",
+                "reference": ref,
+            }
+        if path.startswith("/transaction/verify/"):
+            if self.fail_verify:
+                raise ProviderError("Paystack could not be reached. Please try again.")
+            ref = path.rsplit("/", 1)[1]
+            if ref not in self.transactions:
+                raise ProviderError("Paystack: Transaction reference not found")
+            return dict(self.transactions[ref])
+        if path == "/refund":
+            refund = {
+                "id": self._id(),
+                "status": "pending",
+                "amount": int(body["amount"]),
+                "currency": body["currency"],
+                "transaction": body["transaction"],
+            }
+            self.refunds[str(refund["id"])] = refund
+            return dict(refund)
+        if path.startswith("/refund/"):
+            return dict(self.refunds[path.rsplit("/", 1)[1]])
+        raise AssertionError(f"unexpected Paystack call {method} {path}")
+
+    def pay(self, reference, *, status="success", amount=None, currency=None, domain="test"):
+        tx = self.transactions[reference]
+        tx.update(status=status, domain=domain, paid_at="2026-10-23T10:00:00.000Z")
+        if amount is not None:
+            tx["amount"] = amount
+        if currency is not None:
+            tx["currency"] = currency
+        return tx
+
+    def webhook(self, event, data, secret=TEST_SECRET):
+        import hashlib
+        import hmac
+        import json
+
+        raw = json.dumps({"event": event, "data": data}).encode()
+        signature = hmac.new(secret.encode(), raw, hashlib.sha512).hexdigest()
+        return raw, {"x-paystack-signature": signature, "Content-Type": "application/json"}
+
+
+@pytest.fixture()
+def paystack(app):
+    fake = FakePaystack(app)
+    app.extensions["tpa_payment_provider"] = fake.provider
+    return fake
+
+
+def minimal_pdf(extra=b""):
+    return b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n" + extra + b"trailer\n<< >>\n%%EOF\n"
+
+
+def make_zip(entries, *, epub=False):
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        if epub:
+            archive.writestr(zipfile.ZipInfo("mimetype"), "application/epub+zip")
+        for name, data in entries.items():
+            archive.writestr(name, data, compress_type=zipfile.ZIP_DEFLATED)
+    return buf.getvalue()
+
+
+class Shopper:
+    """A customer browser session (cookies + customer CSRF header)."""
+
+    def __init__(self, client):
+        self.c = client
+
+    def headers(self):
+        cookie = self.c.get_cookie("tpa_customer_csrf")
+        return {"X-Customer-CSRF": cookie.value if cookie else ""}
+
+    def get(self, url, **kw):
+        return self.c.get(url, **kw)
+
+    def post(self, url, json=None):
+        return self.c.post(url, json=json if json is not None else {}, headers=self.headers())
+
+    def patch(self, url, json=None):
+        return self.c.patch(url, json=json or {}, headers=self.headers())
+
+
+def register_customer(app, email="reader@example.com", *, verify=True, test_account=True):
+    from app.models import Customer
+
+    shopper = Shopper(app.test_client())
+    res = shopper.c.post(
+        "/api/v1/account/register",
+        json={
+            "email": email,
+            "password": PASSWORD,
+            "display_name": "Reader",
+            "accept_terms": True,
+        },
+    )
+    assert res.status_code == 201, res.get_json()
+    if verify:
+        message = [m for m in MemoryBackend.outbox if m.to == email.lower()][-1]
+        token = message.text.split("#token=", 1)[1].split()[0]
+        assert shopper.post("/api/v1/account/verify-email", {"token": token}).status_code == 200
+    with app.app_context():
+        customer = db.session.scalar(db.select(Customer).where(Customer.email == email.lower()))
+        customer.is_test_account = test_account
+        db.session.commit()
+    return shopper
+
+
+def enable_test_checkout(app, currencies=("USD", "KES")):
+    from app.models import SiteSetting
+
+    with app.app_context():
+        for key, value in (
+            ("payments.checkout_mode", "test"),
+            ("payments.currencies", list(currencies)),
+        ):
+            record = db.session.get(SiteSetting, key) or SiteSetting(key=key)
+            record.value = value
+            db.session.add(record)
+        db.session.commit()

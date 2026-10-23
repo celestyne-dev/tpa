@@ -36,6 +36,8 @@ from ...models import (
     Page,
     PageRevision,
     PageSection,
+    Product,
+    ProductCollection,
     Redirect,
     ReusableSection,
     Topic,
@@ -351,6 +353,8 @@ def _ref_errors(refs, prefix: str) -> dict[str, list[str]]:
         "author": (Author, "This author no longer exists."),
         "cta": (GlobalCta, "This saved call to action no longer exists."),
         "reusable": (ReusableSection, "This shared section no longer exists."),
+        "product": (Product, "This product no longer exists."),
+        "product_collection": (ProductCollection, "This collection no longer exists."),
     }
     for kind, (model, message) in checks.items():
         wanted = refs.ids(kind)

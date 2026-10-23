@@ -343,8 +343,11 @@ def test_media_permissions(app, as_role):
     assert writer.upload(up, make_photo(320, 200), "r.jpg").status_code == 403
     assert writer.delete(f"{MEDIA}/{asset['id']}").status_code == 403
     assert writer.post(f"{MEDIA}/{asset['id']}/archive").status_code == 403
-    pm = as_role("product_manager")  # future-module template: no media access
-    assert pm.get(MEDIA).status_code == 403
+    affiliates = as_role("affiliate_manager")  # future-module template: no media access
+    assert affiliates.get(MEDIA).status_code == 403
+    pm = as_role("product_manager")  # uploads product covers, cannot delete media
+    assert pm.get(MEDIA).status_code == 200
+    assert pm.delete(f"{MEDIA}/{asset['id']}").status_code == 403
 
 
 def test_public_article_api_serves_responsive_images(seeded, as_role, client):

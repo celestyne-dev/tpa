@@ -17,13 +17,16 @@ import { NewsletterPage } from "@/pages/NewsletterPage";
 import { CmsRoute } from "@/pages/CmsPage";
 import { PartnerPage } from "@/pages/PartnerPage";
 import { PrivacyPolicyPage } from "@/pages/PrivacyPolicyPage";
+import { CollectionPage } from "@/pages/CollectionPage";
+import { ProductPage } from "@/pages/ProductPage";
 import { ShopPage } from "@/pages/ShopPage";
 import { TermsPage } from "@/pages/TermsPage";
 import { TopicPage } from "@/pages/TopicPage";
 import { withCmsOverride } from "@/routes/cmsOverride";
+import * as commerce from "@/routes/commerceRoutes";
 import { fetchArticle, fetchArticles } from "@/store/slices/articlesSlice";
 import { fetchPage } from "@/store/slices/pagesSlice";
-import { fetchProducts } from "@/store/slices/productsSlice";
+import { fetchCollection, fetchProduct, fetchProducts } from "@/store/slices/productsSlice";
 import { fetchSite } from "@/store/slices/siteSlice";
 import { fetchTopic, fetchTopics } from "@/store/slices/topicsSlice";
 import { normalisePath } from "@/utils/pagePath";
@@ -59,6 +62,30 @@ export const routeTable = [
     ],
   },
   { path: routes.shop, Component: ShopPage, load: () => [fetchProducts()] },
+  {
+    path: "/shop/collections/:slug",
+    Component: CollectionPage,
+    load: ({ slug }) => [fetchCollection({ slug })],
+  },
+  {
+    path: "/shop/:productSlug",
+    Component: ProductPage,
+    load: ({ productSlug }) => [fetchProduct({ slug: productSlug })],
+  },
+  // Private customer pages: rendered as shells (no customer data is ever prerendered).
+  ...[
+    [routes.cart, commerce.CartRoute],
+    [routes.checkout, commerce.CheckoutRoute],
+    [routes.checkoutComplete, commerce.CheckoutCompleteRoute],
+    [routes.account, commerce.AccountRoute],
+    [routes.accountLibrary, commerce.AccountLibraryRoute],
+    [routes.accountOrders, commerce.AccountOrdersRoute],
+    [routes.accountSettings, commerce.AccountSettingsRoute],
+    [routes.signIn, commerce.SignInRoute],
+    [routes.register, commerce.RegisterRoute],
+    [routes.verifyEmail, commerce.VerifyEmailRoute],
+    [routes.resetPassword, commerce.ResetPasswordRoute],
+  ].map(([path, Component]) => ({ path, Component, private: true })),
   {
     path: routes.freeResources,
     Component: withCmsOverride(FreeResourcesPage, routes.freeResources),

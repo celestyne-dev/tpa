@@ -356,6 +356,39 @@ SETTINGS += [
         "Drafts and noindex pages are always excluded.",
     ),
     SettingDef(
+        "shop.title", "Shop heading", "Shop", "string", _const("Tools for Your Growth Journey"), 120
+    ),
+    SettingDef(
+        "shop.intro",
+        "Shop introduction",
+        "Shop",
+        "text",
+        _const(
+            "Original eBooks, workbooks and journals designed to help you reflect, build "
+            "confidence, and take meaningful steps forward."
+        ),
+        400,
+    ),
+    SettingDef(
+        "shop.notice",
+        "Shop notice",
+        "Shop",
+        "text",
+        _const(""),
+        300,
+        "Optional short notice at the top of the shop (e.g. about a launch). Leave empty to hide.",
+    ),
+    SettingDef(
+        "shop.display_currencies",
+        "Display currencies",
+        "Shop",
+        "string",
+        _const("USD,KES"),
+        60,
+        "Comma-separated ISO codes shown in the shop, e.g. USD,KES. Products only show prices "
+        "set in these currencies; nothing is converted.",
+    ),
+    SettingDef(
         "seo.allow_indexing",
         "Allow search engines to index the site",
         "Technical",
@@ -421,6 +454,14 @@ def validate_setting(definition: SettingDef, value: Any) -> tuple[Any, str | Non
         if len(lines) > 50:
             return None, "At most 50 paths."
         return "\n".join(dict.fromkeys(lines)), None
+    if definition.key == "shop.display_currencies":
+        from ..commerce.currency import CURRENCIES
+
+        codes = [c.strip().upper() for c in value.split(",") if c.strip()]
+        bad = [c for c in codes if c not in CURRENCIES]
+        if bad or not codes:
+            return None, f"Use supported currency codes ({', '.join(CURRENCIES)})."
+        return ",".join(dict.fromkeys(codes)), None
     if definition.type == "https_url" and definition.key == "seo.canonical_site_url":
         from urllib.parse import urlparse
 

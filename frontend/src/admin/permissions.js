@@ -15,6 +15,13 @@ export const SHARED_ACCESS = ["reusable_sections.manage", "pages.edit", "homepag
 export const ROLE_READ = ["roles.manage", "roles.assign", "users.view"];
 export const SEO_READ = ["seo.view", "seo.manage"];
 export const REDIRECT_READ = ["redirects.manage", "seo.view"];
+export const PRODUCT_EDIT = [
+  "products.edit",
+  "products.publish",
+  "products.manage_prices",
+  "products.manage_files",
+  "products.manage_bundles",
+];
 
 /** Permissions granted by the chosen roles (inactive roles grant nothing); null = all. */
 export function previewPermissions(roles, chosen) {

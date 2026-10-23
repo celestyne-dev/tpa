@@ -34,6 +34,12 @@ api.add_resource(PageResolveResource, "/pages/resolve")
 api.add_resource(RedirectListPublicResource, "/redirects")
 api.add_resource(RedirectResolveResource, "/redirects/resolve")
 
+# ---- Storefront, customer accounts, checkout, downloads, payment webhooks -------
+from .commerce import PRIVATE_PREFIXES, PUBLIC_COMMERCE_ROUTES  # noqa: E402
+
+for resource, path in PUBLIC_COMMERCE_ROUTES:
+    api.add_resource(resource, path, endpoint=f"shop_{resource.__name__.lower()}")
+
 # ---- Admin API ------------------------------------------------------------------
 from flask import request  # noqa: E402
 
@@ -44,9 +50,16 @@ for resource, path in ADMIN_ROUTES:
     api.add_resource(resource, path, endpoint=f"admin_{resource.__name__.lower()}")
 
 
+WEBHOOK_PATHS = ("/api/v1/payments/",)
+
+
 @api_v1.before_request
 def _admin_origin_guard():
-    if request.path.startswith("/api/v1/admin"):
+    # Cookie-authenticated mutations (admin and customer) only from trusted origins.
+    # Provider webhooks authenticate with signatures instead.
+    if request.path.startswith(WEBHOOK_PATHS):
+        return
+    if request.path.startswith("/api/v1/admin") or request.path.startswith(PRIVATE_PREFIXES):
         check_origin()
 
 
@@ -56,4 +69,8 @@ def _admin_no_store(response):
         # Admin data (including draft previews) is never cached or indexed.
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    elif request.path.startswith(PRIVATE_PREFIXES):
+        response.headers.setdefault("Cache-Control", "no-store")
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        response.headers["Vary"] = "Cookie"
     return response

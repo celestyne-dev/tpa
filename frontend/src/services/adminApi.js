@@ -262,5 +262,68 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       resend: (id) => post(`/invitations/${id}/resend`),
     },
     audit: { list: (params) => get("/audit-log", params) },
+    products: {
+      list: (params) => get("/products", params),
+      options: () => get("/products/options"),
+      get: (id) => get(`/products/${id}`),
+      create: (body) => post("/products", body),
+      update: (id, body) => patch(`/products/${id}`, body),
+      action: (id, action) => post(`/products/${id}/${action}`),
+      preview: (id) => get(`/products/${id}/preview`),
+      revisions: (id) => get(`/products/${id}/revisions`),
+      restoreRevision: (id, revisionId) => post(`/products/${id}/revisions/${revisionId}/restore`),
+      setPrice: (id, body) => post(`/products/${id}/prices`, body),
+      removePrice: (id, priceId) => del(`/products/${id}/prices/${priceId}`),
+      setBundleItems: (id, productIds) =>
+        put(`/products/${id}/bundle-items`, { product_ids: productIds }),
+      files: (id) => get(`/products/${id}/files`),
+      uploadFile: (id, file, fields, onProgress) =>
+        upload(`/products/${id}/files`, file, fields, onProgress),
+      uploadVersion: (id, fileId, file, fields, onProgress) =>
+        upload(`/products/${id}/files/${fileId}/versions`, file, fields, onProgress),
+      updateFile: (id, fileId, body) => patch(`/products/${id}/files/${fileId}`, body),
+      fileDownloadUrl: (id, fileId, versionId) =>
+        `${baseURL}/products/${id}/files/${fileId}/versions/${versionId}/download`,
+    },
+    productCategories: collection("product-categories"),
+    productCollections: collection("product-collections"),
+    orders: {
+      list: (params) => get("/orders", params),
+      get: (id) => get(`/orders/${id}`),
+      verify: (id) => post(`/orders/${id}/verify`),
+      cancel: (id) => post(`/orders/${id}/cancel`),
+      resendReceipt: (id) => post(`/orders/${id}/resend-receipt`),
+      addNote: (id, note) => post(`/orders/${id}/notes`, { note }),
+      refund: (id, body) => post(`/orders/${id}/refunds`, body),
+      refundAction: (id, refundId, action, body) =>
+        post(`/orders/${id}/refunds/${refundId}/${action}`, body),
+      exportUrl: (params = {}) =>
+        `${baseURL}/orders/export?${new URLSearchParams(params).toString()}`,
+    },
+    customers: {
+      list: (params) => get("/customers", params),
+      get: (id) => get(`/customers/${id}`),
+      update: (id, body) => patch(`/customers/${id}`, body),
+      support: (id, action) => post(`/customers/${id}/${action}`),
+      anonymise: (id) => post(`/customers/${id}/anonymise`, { confirm: true }),
+      grant: (id, body) => post(`/customers/${id}/entitlements`, body),
+    },
+    entitlements: {
+      list: (params) => get("/entitlements", params),
+      action: (id, action, reason) => post(`/entitlements/${id}/${action}`, { reason }),
+    },
+    downloads: { list: (params) => get("/downloads", params) },
+    reports: {
+      revenue: (params) => get("/reports/revenue", params),
+      revenueExportUrl: (params = {}) =>
+        `${baseURL}/reports/revenue/export?${new URLSearchParams(params).toString()}`,
+    },
+    payments: {
+      settings: () => get("/payments/settings"),
+      update: (body) => patch("/payments/settings", body),
+      attest: (body) => put("/payments/attestation", body),
+      events: (params) => get("/payments/events", params),
+      reprocess: (id) => post(`/payments/events/${id}/reprocess`),
+    },
   };
 }

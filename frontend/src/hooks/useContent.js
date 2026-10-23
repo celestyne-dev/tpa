@@ -7,7 +7,14 @@ import {
   selectArticleList,
 } from "@/store/slices/articlesSlice";
 import { fetchPage, selectPage } from "@/store/slices/pagesSlice";
-import { fetchProducts, selectProducts } from "@/store/slices/productsSlice";
+import {
+  fetchCollection,
+  fetchProduct,
+  fetchProducts,
+  selectCollection,
+  selectProduct,
+  selectProducts,
+} from "@/store/slices/productsSlice";
 import { fetchSite, selectSite } from "@/store/slices/siteSlice";
 import { fetchTopic, fetchTopics, selectTopic, selectTopicList } from "@/store/slices/topicsSlice";
 import { Status } from "@/store/status";
@@ -72,7 +79,21 @@ export function useArticle(slug) {
 export function useProducts() {
   const entry = useSelector(selectProducts);
   const load = useCallback((force) => fetchProducts({ force }), []);
-  return useResource(entry, load, [load], (s) => s.items);
+  const result = useResource(entry, load, [load], (s) => s.items);
+  return { ...result, meta: entry?.meta ?? {} };
+}
+
+/** One published product (detail page). */
+export function useProduct(slug) {
+  const entry = useSelector(selectProduct(slug));
+  const load = useCallback((force) => fetchProduct({ slug, force }), [slug]);
+  return useResource(entry, load, [load], (s) => s.data);
+}
+
+export function useCollection(slug) {
+  const entry = useSelector(selectCollection(slug));
+  const load = useCallback((force) => fetchCollection({ slug, force }), [slug]);
+  return useResource(entry, load, [load], (s) => s.data);
 }
 
 /** A published CMS page by path (resolved sections; drafts are never returned). */

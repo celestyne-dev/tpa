@@ -132,7 +132,52 @@ class BaseConfig:
     MEDIA_RETENTION = os.environ.get("MEDIA_RETENTION", "original")
     MEDIA_ENABLE_AVIF = _bool("MEDIA_ENABLE_AVIF", True)
     MEDIA_SUPERSEDED_RETENTION_DAYS = _int("MEDIA_SUPERSEDED_RETENTION_DAYS", 14)
-    MAX_CONTENT_LENGTH = (_int("MEDIA_MAX_UPLOAD_MB", 20) + 1) * 1024 * 1024
+    # ---- Private digital product files (never public; see app/storage/private_files.py) ----
+    PRODUCT_FILES_STORAGE = os.environ.get("PRODUCT_FILES_STORAGE", "local")
+    PRODUCT_FILES_ROOT = os.environ.get("PRODUCT_FILES_ROOT") or str(INSTANCE_DIR / "product-files")
+    PRODUCT_FILE_MAX_MB = _int("PRODUCT_FILE_MAX_MB", 300)
+    PRODUCT_ZIP_MAX_UNCOMPRESSED_MB = _int("PRODUCT_ZIP_MAX_UNCOMPRESSED_MB", 1024)
+    PRODUCT_ZIP_MAX_ENTRIES = _int("PRODUCT_ZIP_MAX_ENTRIES", 2000)
+    PRODUCT_ZIP_MAX_RATIO = _int("PRODUCT_ZIP_MAX_RATIO", 100)
+    PRODUCT_FILES_MIN_FREE_MB = _int("PRODUCT_FILES_MIN_FREE_MB", 500)
+    # Optional malware scanner as a JSON argv list run by the background worker (no shell),
+    # e.g. ["clamdscan", "--no-summary", "--fdpass", "{path}"]. Exit 0 = clean, 1 = infected.
+    PRODUCT_FILES_SCAN_COMMAND = os.environ.get("PRODUCT_FILES_SCAN_COMMAND", "")
+    PRODUCT_FILES_SCAN_TIMEOUT_SECONDS = _int("PRODUCT_FILES_SCAN_TIMEOUT_SECONDS", 300)
+    # Nginx "internal" location that maps to PRODUCT_FILES_ROOT (X-Accel-Redirect). Empty:
+    # Flask streams the file itself.
+    PRODUCT_FILES_ACCEL_REDIRECT_PREFIX = os.environ.get("PRODUCT_FILES_ACCEL_REDIRECT_PREFIX", "")
+    DOWNLOAD_LINK_TTL_SECONDS = _int("DOWNLOAD_LINK_TTL_SECONDS", 300)
+    DOWNLOAD_LINK_MAX_USES = _int("DOWNLOAD_LINK_MAX_USES", 5)
+    RATELIMIT_DOWNLOADS = os.environ.get("RATELIMIT_DOWNLOADS", "30 per minute;300 per day")
+    MAX_CONTENT_LENGTH = (
+        (max(_int("MEDIA_MAX_UPLOAD_MB", 20), _int("PRODUCT_FILE_MAX_MB", 300)) + 1) * 1024 * 1024
+    )
+
+    # ---- Customer accounts (separate from administrators) ----
+    CUSTOMER_SESSION_DAYS = _int("CUSTOMER_SESSION_DAYS", 30)
+    CUSTOMER_COOKIE_SECURE = _bool("CUSTOMER_COOKIE_SECURE", False)
+    CUSTOMER_VERIFY_TTL_HOURS = _int("CUSTOMER_VERIFY_TTL_HOURS", 48)
+    CUSTOMER_RESET_TTL_MINUTES = _int("CUSTOMER_RESET_TTL_MINUTES", 60)
+    RATELIMIT_CUSTOMER_REGISTER = os.environ.get(
+        "RATELIMIT_CUSTOMER_REGISTER", "5 per minute;30 per hour"
+    )
+    RATELIMIT_CHECKOUT = os.environ.get("RATELIMIT_CHECKOUT", "10 per minute;60 per hour")
+
+    # ---- Payments (Paystack). Secrets stay in the environment, never in the database ----
+    PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY", "")
+    PAYSTACK_PUBLIC_KEY = os.environ.get("PAYSTACK_PUBLIC_KEY", "")
+    PAYSTACK_API_BASE = os.environ.get("PAYSTACK_API_BASE", "https://api.paystack.co").rstrip("/")
+    PAYSTACK_TIMEOUT_SECONDS = _int("PAYSTACK_TIMEOUT_SECONDS", 20)
+    # Optional extra check on webhook source addresses (comma-separated). Signatures are
+    # always verified regardless.
+    PAYSTACK_WEBHOOK_IPS = _list("PAYSTACK_WEBHOOK_IPS", "")
+    # Deployment-level switch: live (real money) checkout can only be enabled when true,
+    # in addition to the Super Admin readiness checklist in the admin.
+    PAYMENTS_LIVE_ALLOWED = _bool("PAYMENTS_LIVE_ALLOWED", False)
+    # Development only: let any signed-in customer use test-mode checkout (otherwise only
+    # accounts staff mark as test accounts). Refused in production.
+    PAYMENTS_TEST_CHECKOUT_PUBLIC = _bool("PAYMENTS_TEST_CHECKOUT_PUBLIC", False)
 
     # ---- SEO / redirects ----
     # Public website origin (matches VITE_SITE_URL); used for canonical checks and sitemaps.
@@ -198,6 +243,13 @@ class TestingConfig(BaseConfig):
     MAIL_BACKEND = "memory"
     ADMIN_BASE_URL = "http://localhost:5173"
     MEDIA_ROOT = str(INSTANCE_DIR / "test-media")  # tests override with a temp dir
+    PRODUCT_FILES_ROOT = str(INSTANCE_DIR / "test-product-files")  # overridden in tests
+    PAYSTACK_SECRET_KEY = ""
+    PAYSTACK_PUBLIC_KEY = ""
+    PAYSTACK_API_BASE = "https://api.paystack.co"
+    PAYMENTS_LIVE_ALLOWED = False
+    PAYMENTS_TEST_CHECKOUT_PUBLIC = False
+    PRODUCT_FILES_SCAN_COMMAND = ""
     MEDIA_SERVE_FROM_FLASK = True
     PUBLISH_DEBOUNCE_SECONDS = 0
 
@@ -205,7 +257,9 @@ class TestingConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     DEBUG = False
     JWT_COOKIE_SECURE = True
+    CUSTOMER_COOKIE_SECURE = True
     ALLOW_SAMPLE_SEED = False
+    PAYMENTS_TEST_CHECKOUT_PUBLIC = False
 
     @classmethod
     def validate(cls) -> None:
@@ -222,6 +276,14 @@ class ProductionConfig(BaseConfig):
             "MAIL_SMTP_HOST"
         ):
             missing.append("MAIL_SMTP_HOST")
+        secret = os.environ.get("PAYSTACK_SECRET_KEY", "")
+        if secret and not secret.startswith(("sk_test_", "sk_live_")):
+            missing.append("PAYSTACK_SECRET_KEY (must start with sk_test_ or sk_live_)")
+        api_base = os.environ.get("PAYSTACK_API_BASE", "https://api.paystack.co").rstrip("/")
+        if api_base != "https://api.paystack.co":
+            missing.append("PAYSTACK_API_BASE (must be https://api.paystack.co in production)")
+        if _bool("PAYMENTS_TEST_CHECKOUT_PUBLIC"):
+            missing.append("PAYMENTS_TEST_CHECKOUT_PUBLIC (development only)")
         if missing:
             raise RuntimeError(f"Missing required production settings: {', '.join(missing)}")
 

@@ -1,6 +1,7 @@
 import { Check, Mail } from "lucide-react";
 import { NewsletterPanel } from "@/components/newsletter/NewsletterPanel";
 import { ProductCard } from "@/components/products/ProductCard";
+import { useDisplayCurrency } from "@/hooks/useShop";
 import { LinkedinMark } from "@/components/home/LinkedinMark";
 import { ContentImage } from "@/components/ui/ContentImage";
 import { cn } from "@/utils/format";
@@ -80,10 +81,14 @@ export function NewsletterSection({ section }) {
   );
 }
 
-/** Honest coming-soon previews of planned products (no prices, no purchase buttons). */
+/**
+ * Products from the catalogue. On-sale products show their price in the display
+ * currency (with its code); everything else is an honest coming-soon preview.
+ */
 export function ProductsSection({ section }) {
   const { data, key } = section;
   const { dark } = useSectionContext();
+  const { currency } = useDisplayCurrency();
   const id = `${key}-heading`;
   const products = data.products ?? [];
   return (
@@ -101,7 +106,7 @@ export function ProductsSection({ section }) {
       >
         {products.map((product) => (
           <li key={product.id}>
-            <ProductCard product={product} />
+            <ProductCard product={product} currency={currency} />
           </li>
         ))}
       </ul>

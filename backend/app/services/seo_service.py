@@ -68,7 +68,28 @@ def _known_paths() -> tuple[set[str], set[str], set[str], set[str]]:
             )
         )
     )
-    return {p for p, _, _ in STATIC_PATHS} | pages, articles, topics, redirects
+    from ..models import Product, ProductCollection
+
+    shop = {
+        f"/shop/{slug}"
+        for slug in db.session.scalars(
+            select(Product.published_slug).where(
+                Product.status == "published", Product.published_slug.is_not(None)
+            )
+        )
+    } | {
+        f"/shop/collections/{slug}"
+        for slug in db.session.scalars(
+            select(ProductCollection.slug).where(ProductCollection.is_active.is_(True))
+        )
+    }
+    commerce_pages = {"/cart", "/account", "/account/library", "/account/orders"}
+    return (
+        {p for p, _, _ in STATIC_PATHS} | pages | shop | commerce_pages,
+        articles,
+        topics,
+        redirects,
+    )
 
 
 def broken_links(hrefs: list[str], known=None) -> list[str]:
@@ -654,6 +675,57 @@ def sitemap_entries() -> list[dict[str, Any]]:
                 "changefreq": "monthly",
                 "lastmod": iso(max(article.updated_at, article.published_at)),
                 "images": _image_entries(article),
+            }
+        )
+    entries.extend(_shop_entries(excluded))
+    return entries
+
+
+def _shop_entries(excluded: set[str]) -> list[dict[str, Any]]:
+    """Published, indexable products and active collections that contain them."""
+    from ..models import ProductCollection
+    from .commerce.catalogue import published_products
+
+    entries = []
+    live_ids = set()
+    for product in published_products():
+        doc = product.published_snapshot or {}
+        path = f"/shop/{product.published_slug}"
+        live_ids.add(product.id)
+        if doc.get("noindex") or path in excluded:
+            continue
+        images = []
+        if doc.get("cover_media_id"):
+            asset = db.session.get(MediaAsset, doc["cover_media_id"])
+            if asset is not None and asset.visibility == "public" and asset.status != "archived":
+                image = asset.as_image() or {}
+                entry = {"loc": _absolute(image.get("src") or asset.public_url)}
+                if asset.alt_text or asset.title:
+                    entry["title"] = asset.title or asset.alt_text
+                images.append(entry)
+        entries.append(
+            {
+                "type": "product",
+                "path": path,
+                "priority": 0.7,
+                "changefreq": "weekly",
+                "lastmod": iso(product.published_at),
+                "images": images,
+            }
+        )
+    for collection in db.session.scalars(
+        select(ProductCollection).where(ProductCollection.is_active.is_(True))
+    ):
+        path = f"/shop/collections/{collection.slug}"
+        if path in excluded or not any(i.product_id in live_ids for i in collection.items):
+            continue
+        entries.append(
+            {
+                "type": "collection",
+                "path": path,
+                "priority": 0.6,
+                "changefreq": "weekly",
+                "lastmod": iso(collection.updated_at),
             }
         )
     return entries

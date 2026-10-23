@@ -14,6 +14,8 @@ cta              button: {label, url, style} or {cta_id, style} (a global CTA)
 media            media library asset id (optimised responsive image)
 select, number, boolean
 articles, topics lists of ids (selection order is kept)
+products         product ids (selection order is kept)
+product_collection  one product collection id (as a one-item list)
 author           author id
 items            list of objects with their own sub-fields
 string_list      list of short texts
@@ -326,15 +328,47 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
         "label": "Digital product showcase",
         "category": "Engagement",
         "description": (
-            "Upcoming eBooks and resources as honest “coming soon” previews. Purchasing stays "
-            "disabled until the shop launches."
+            "Products from the shop catalogue: featured, newest, hand-picked, a collection or "
+            "bundles. Prices appear only for products on sale; everything else is shown as an "
+            "honest “coming soon” preview."
         ),
         "variants": {"grid": "Grid"},
         "fields": {
             "eyebrow": EYEBROW,
             "heading": HEADING,
             "description": DESCRIPTION,
+            "mode": _f(
+                "select",
+                "Which products",
+                choices={
+                    "featured": "Featured first, then the catalogue order",
+                    "latest": "Newest products",
+                    "manual": "Choose products",
+                    "collection": "A collection",
+                    "bundles": "Bundles",
+                },
+                default="featured",
+            ),
+            "products": _f(
+                "products",
+                "Products",
+                max_items=6,
+                show_for_mode="manual",
+                help="Only published products are shown, in this order.",
+            ),
+            "collection": _f(
+                "product_collection",
+                "Collection",
+                max_items=1,
+                show_for_mode="collection",
+            ),
             "count": _f("number", "Number of products", min=1, max=6, default=3),
+            "show_prices": _f(
+                "boolean",
+                "Show prices for products on sale",
+                default=True,
+                help="Prices are always shown with their currency (e.g. USD 12.00).",
+            ),
             "footnote": text("Footnote", 200),
             "cta": cta("Link button"),
         },
@@ -792,8 +826,14 @@ def _clean_field(name, spec, value, variant, content, errors, refs, path):
         return _clean_id(value, "media", required, errors, path, refs)
     if kind == "author":
         return _clean_id(value, "author", required, errors, path, refs)
-    if kind in ("articles", "topics", "reusables"):
-        ref_kind = {"articles": "article", "topics": "topic", "reusables": "reusable"}[kind]
+    if kind in ("articles", "topics", "reusables", "products", "product_collection"):
+        ref_kind = {
+            "articles": "article",
+            "topics": "topic",
+            "reusables": "reusable",
+            "products": "product",
+            "product_collection": "product_collection",
+        }[kind]
         return _clean_id_list(value, ref_kind, spec, required, errors, path, refs)
     if kind == "select":
         value = spec.get("default") if value in (None, "") else value

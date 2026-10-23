@@ -43,8 +43,14 @@ def test_templates_are_seeded_with_available_non_sensitive_permissions_only(app)
             assert role.permission_keys <= AVAILABLE_PERMISSIONS
             assert not role.permission_keys & SENSITIVE_PERMISSIONS
         # Future-module templates only reach the dashboard until their modules exist.
-        for key in ("product_manager", "orders_manager", "finance_manager", "affiliate_manager"):
+        for key in ("affiliate_manager", "partnerships_manager", "newsletter_manager"):
             assert roles[key].permission_keys == {"dashboard.view"}
+        # Commerce templates (Batch 05) reach their modules, never payment configuration.
+        assert "products.manage_prices" in roles["product_manager"].permission_keys
+        assert "refunds.issue" in roles["orders_manager"].permission_keys
+        assert "finance.export" in roles["finance_manager"].permission_keys
+        for key in ("product_manager", "orders_manager", "customer_support", "finance_manager"):
+            assert "payments.configure" not in roles[key].permission_keys
         assert sum(r.grants_all for r in roles.values()) == 1
 
 
@@ -82,8 +88,10 @@ def test_permission_catalogue_flags(app, as_role):
     groups = admin.get("/api/v1/admin/permissions").get_json()["data"]
     flat = {p["key"]: p for g in groups for p in g["permissions"]}
     assert flat["articles.edit_own"]["available"] and not flat["articles.edit_own"]["sensitive"]
-    assert flat["payments.configure"]["sensitive"] and not flat["payments.configure"]["available"]
-    assert flat["orders.view"]["available"] is False
+    assert flat["payments.configure"]["sensitive"] and flat["payments.configure"]["available"]
+    assert flat["orders.view"]["available"] is True
+    assert flat["affiliates.view"]["available"] is False  # still a future module
+    assert flat["finance.manage"]["available"] is False
     assert {g["name"] for g in groups} >= {"Articles", "Users, roles & audit"}
 
 
@@ -255,7 +263,7 @@ def test_settings_are_split_by_permission(seeded, as_role):
 
 
 def test_future_module_templates_reach_no_operational_endpoints(seeded, as_role):
-    make_user(seeded, "pm@example.org", ["product_manager"])
+    make_user(seeded, "pm@example.org", ["affiliate_manager"])
     pm = _client(seeded, "pm@example.org")
     assert pm.get("/api/v1/admin/dashboard").status_code == 200
     dashboard = pm.get("/api/v1/admin/dashboard").get_json()["data"]

@@ -114,6 +114,46 @@ No new environment variables are required. The migration keeps the existing home
 
 Rollback: stop the worker, restore the dump with `pg_restore --clean` (preferred), or run `flask --app wsgi db downgrade` (converts sections back and drops page revisions, shared sections, global CTAs and announcements), check out the previous release, and repoint `current` at the previous release directory.
 
+## Upgrading from Batch 04 (digital commerce)
+
+```bash
+cd /var/www/tpa && git fetch && git checkout <release tag or branch>
+pg_dump --format=custom --file=/var/backups/tpa-$(date +%F)-pre-batch05.dump "$DATABASE_URL"
+sudo mkdir -p /var/lib/tpa/product-files
+sudo chown tpa:www-data /var/lib/tpa/product-files && sudo chmod 750 /var/lib/tpa/product-files
+cd backend && .venv/bin/pip install -r requirements.txt
+set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db upgrade                       # 758d4c510551
+.venv/bin/flask --app wsgi rbac sync                        # should report all zeros
+.venv/bin/flask --app wsgi commerce payments-status         # checkout: disabled
+cd ../frontend && npm ci
+sudo systemctl restart tpa-api tpa-publish-worker
+cd ../backend && .venv/bin/flask --app wsgi publish request # rebuild with /shop product pages
+```
+
+New settings in `backend/.env` (all optional until you sell; see `backend/.env.example` and `docs/commerce.md`):
+
+```bash
+PRODUCT_FILES_ROOT=/var/lib/tpa/product-files      # private; never under a web root or MEDIA_ROOT
+PRODUCT_FILES_ACCEL_REDIRECT_PREFIX=/_protected_downloads
+# PRODUCT_FILES_SCAN_COMMAND=["clamdscan", "--no-summary", "--fdpass", "{path}"]
+PAYSTACK_SECRET_KEY=sk_test_...                    # test key first; restrict .env to 600
+PAYMENTS_LIVE_ALLOWED=false                        # true only after the live activation checklist
+MAIL_BACKEND=smtp                                  # receipts and download instructions must arrive
+```
+
+- **Nginx.** Copy the new locations from `deploy/nginx/tpa.conf.example`:
+  - the product file upload location (`client_max_body_size` = `PRODUCT_FILE_MAX_MB` + 1, request buffering off);
+  - the `internal` `/_protected_downloads/` alias to `PRODUCT_FILES_ROOT`;
+  - `no-store`/`noindex` for `/cart`, `/checkout` and `/account`.
+  - Nginx (`www-data`) needs read access to `PRODUCT_FILES_ROOT` only when X-Accel-Redirect is used. Otherwise keep the directory `700` and owned by `tpa`.
+- **Backups.** Back up `PRODUCT_FILES_ROOT` together with the database: entitlements reference file versions by storage key.
+- **Webhook.** Paystack must reach `https://<domain>/api/v1/payments/paystack/webhook` (POST, no authentication other than the signature). Do not put it behind basic auth or a WAF rule that rewrites bodies, because the signature covers the raw body.
+- **Workers.** The publishing worker now also expires unpaid orders and runs the optional malware scanner. Keep it running.
+- **Checkout stays disabled** after the upgrade. Follow `docs/commerce.md` → "Paystack sandbox" for test mode and "Live activation checklist" before taking real payments.
+
+Rollback: restore the dump with `pg_restore --clean` (preferred), or run `flask --app wsgi db downgrade`. The downgrade drops every commerce table (products, customers, orders, payments, entitlements) and removes the Batch 05 permissions. Private files stay on disk. Check out the previous release and repoint `current`.
+
 ## Frontend build (manual)
 
 ```bash
@@ -134,4 +174,4 @@ sudo nginx -t && sudo systemctl reload nginx
 # TLS: sudo certbot --nginx -d example.com -d www.example.com
 ```
 
-Nginx serves the current release (`/var/www/tpa-site/current`), serves `/media/` from `MEDIA_ROOT/public` with immutable caching, sends paths without a static file to Flask `/_redirect/…` for CMS redirects (real 301/302/307/308 responses, otherwise the prerendered 404 page), gzips text, raises the upload body limit for `/api/v1/admin/media`, and serves serves the admin shell for `/admin/*` with `no-store` and `noindex`, returns `404.html` with HTTP 404 for unknown URLs, applies legacy 301 redirects, caches `/assets/` immutably, and proxies `/api/` to Gunicorn.
+Nginx serves the current release (`/var/www/tpa-site/current`), serves `/media/` from `MEDIA_ROOT/public` with immutable caching, sends paths without a static file to Flask `/_redirect/…` for CMS redirects (real 301/302/307/308 responses, otherwise the prerendered 404 page), gzips text, raises the upload body limit for `/api/v1/admin/media` and for product file uploads, serves paid downloads only through the internal `/_protected_downloads/` location, marks `/cart`, `/checkout` and `/account` as `no-store`/`noindex`, serves the admin shell for `/admin/*` with `no-store` and `noindex`, returns `404.html` with HTTP 404 for unknown URLs, applies legacy 301 redirects, caches `/assets/` immutably, and proxies `/api/` to Gunicorn.
