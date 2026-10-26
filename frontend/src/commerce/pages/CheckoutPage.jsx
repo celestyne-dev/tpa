@@ -1,13 +1,15 @@
 import { Lock } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useShopApi } from "@/components/products/shopApiContext";
 import { Seo } from "@/components/seo/Seo";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
+import { InputField } from "@/components/ui/FormField";
 import { Notice } from "@/components/ui/Notice";
 import { routes } from "@/config/navigation";
 import { useCart, useCustomer, useDisplayCurrency } from "@/hooks/useShop";
+import { guestOrders } from "../guestOrders";
 import { newKey, redirectTo } from "../hooks";
 import { OrderSummary } from "../OrderSummary";
 import { RegisterForm, SignInForm } from "./AuthPages";
@@ -24,37 +26,117 @@ const CHANNEL_LABELS = {
   eft: "EFT",
 };
 
-function SignInStep() {
-  const [mode, setMode] = useState("signin");
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function ChoiceCard({ id, checked, onChange, title, description }) {
+  return (
+    <label
+      htmlFor={id}
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${checked ? "border-sage-600 bg-sage-50" : "border-charcoal/15 hover:border-charcoal/30"}`}
+    >
+      <input
+        id={id}
+        type="radio"
+        name="checkout-as"
+        className="mt-1 size-4 accent-sage-700"
+        checked={checked}
+        onChange={onChange}
+      />
+      <span>
+        <span className="block font-medium">{title}</span>
+        <span className="mt-0.5 block text-sm text-muted">{description}</span>
+      </span>
+    </label>
+  );
+}
+
+/** Signed-out shoppers choose: buy as a guest (email only) or use an account. */
+function CheckoutAsStep({ mode, setMode, guest, setGuest }) {
   return (
     <section
       aria-labelledby="account-step"
       className="rounded-2xl border border-charcoal/10 bg-white p-6 sm:p-7"
     >
       <h2 id="account-step" className="text-xl font-medium">
-        1. Your account
+        1. How would you like to check out?
       </h2>
-      <p className="mt-1 text-sm text-muted">
-        Purchases are saved to your library, so you can download them again any time.
-      </p>
-      <div className="mt-5" role="tablist" aria-label="Account">
-        {[
-          ["signin", "Sign in"],
-          ["register", "Create account"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            type="button"
-            aria-selected={mode === key}
-            onClick={() => setMode(key)}
-            className={`mr-2 rounded-full px-4 py-1.5 text-sm font-medium ${mode === key ? "bg-sage-700 text-ivory" : "bg-beige text-charcoal"}`}
-          >
-            {label}
-          </button>
-        ))}
+      <fieldset className="mt-5">
+        <legend className="sr-only">Check out as</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ChoiceCard
+            id="checkout-as-guest"
+            checked={mode === "guest"}
+            onChange={() => setMode("guest")}
+            title="Continue as guest"
+            description="No account needed. We'll email your receipt and a private download link."
+          />
+          <ChoiceCard
+            id="checkout-as-account"
+            checked={mode !== "guest"}
+            onChange={() => setMode("signin")}
+            title="Log in"
+            description="Purchases are saved in your library to download again any time."
+          />
+        </div>
+      </fieldset>
+      <div className="mt-6">
+        {mode === "guest" ? (
+          <div className="space-y-4">
+            <InputField
+              label="Email address"
+              type="email"
+              autoComplete="email"
+              required
+              value={guest.email}
+              onChange={(e) => setGuest({ ...guest, email: e.target.value })}
+              hint="Your receipt and download link go here. Please check it's correct."
+            />
+            <InputField
+              label="Name (optional)"
+              autoComplete="name"
+              value={guest.name}
+              onChange={(e) => setGuest({ ...guest, name: e.target.value })}
+            />
+            <p className="text-sm text-muted">
+              You can create an account later with the same email address; once you confirm it, your
+              purchases appear in your library.
+            </p>
+          </div>
+        ) : mode === "register" ? (
+          <>
+            <RegisterForm />
+            <p className="mt-4 text-sm">
+              Already have an account?{" "}
+              <button
+                type="button"
+                className="font-medium underline underline-offset-4"
+                onClick={() => setMode("signin")}
+              >
+                Log in
+              </button>
+            </p>
+          </>
+        ) : (
+          <>
+            <SignInForm compact />
+            <p className="mt-4 text-sm">
+              New here?{" "}
+              <button
+                type="button"
+                className="font-medium underline underline-offset-4"
+                onClick={() => setMode("register")}
+              >
+                Create an account
+              </button>{" "}
+              or{" "}
+              <Link to={routes.forgotPassword} className="underline underline-offset-4">
+                reset your password
+              </Link>
+              .
+            </p>
+          </>
+        )}
       </div>
-      <div className="mt-5">{mode === "signin" ? <SignInForm compact /> : <RegisterForm />}</div>
     </section>
   );
 }
@@ -65,7 +147,10 @@ export function CheckoutPage() {
   const { customer, isLoading: customerLoading, refresh } = useCustomer();
   const { currency } = useDisplayCurrency();
   const { quote, error: quoteError, reload, empty } = useQuote(items, currency);
+  const navigate = useNavigate();
   const [accepted, setAccepted] = useState(false);
+  const [mode, setMode] = useState("guest");
+  const [guest, setGuest] = useState({ email: "", name: "" });
   const [state, setState] = useState({ busy: false, error: null, notice: "", orderId: null });
   // One checkout key per visit: retries of the same request never create a second order.
   const key = useMemo(() => newKey(), []);
@@ -82,18 +167,24 @@ export function CheckoutPage() {
     );
   }
 
+  const asGuest = !customer;
   const pay = async () => {
     setState({ busy: true, error: null, notice: "", orderId: null });
+    const body = {
+      items: quote.lines.map((l) => l.product_id),
+      currency: quote.currency,
+      expected_total_minor: quote.total.amount_minor,
+      idempotency_key: key,
+      accept_terms: accepted,
+    };
     try {
-      const res = await shopApi.checkout({
-        items: quote.lines.map((l) => l.product_id),
-        currency: quote.currency,
-        expected_total_minor: quote.total.amount_minor,
-        idempotency_key: key,
-        accept_terms: accepted,
-      });
-      const { authorization_url: url } = res.data;
+      const res = asGuest
+        ? await shopApi.guestCheckout({ ...body, email: guest.email.trim(), name: guest.name })
+        : await shopApi.checkout(body);
+      const { authorization_url: url, order } = res.data;
+      if (asGuest) guestOrders.save(order.id, res.data.order_token);
       if (url) redirectTo.go(url);
+      else if (asGuest) navigate(`${routes.checkoutComplete}?order=${order.id}&guest=1`);
       else
         setState({
           busy: false,
@@ -121,8 +212,13 @@ export function CheckoutPage() {
   };
   const status = quote?.checkout;
   const unverified = customer && !customer.email_verified;
+  const guestReady = !customer && mode === "guest" && EMAIL_PATTERN.test(guest.email.trim());
   const canPay =
-    quote?.can_checkout && status?.open && customer && !unverified && accepted && !state.busy;
+    quote?.can_checkout &&
+    status?.open &&
+    (guestReady || (customer && !unverified)) &&
+    accepted &&
+    !state.busy;
 
   return (
     <>
@@ -141,7 +237,7 @@ export function CheckoutPage() {
                 Checking your account…
               </p>
             ) : !customer ? (
-              <SignInStep />
+              <CheckoutAsStep mode={mode} setMode={setMode} guest={guest} setGuest={setGuest} />
             ) : (
               <section
                 aria-labelledby="account-step"
@@ -181,8 +277,10 @@ export function CheckoutPage() {
                 <>
                   <p className="mt-2 text-sm text-muted">
                     You'll pay {quote.total.formatted} on Paystack's secure page. We never see or
-                    store card details. Your library updates as soon as Paystack confirms the
-                    payment to us.
+                    store card details.{" "}
+                    {customer
+                      ? "Your library updates as soon as Paystack confirms the payment to us."
+                      : "Your downloads are ready as soon as Paystack confirms the payment to us."}
                   </p>
                   {status.currencies?.length > 0 && (
                     <p className="mt-2 text-sm text-muted">
@@ -221,7 +319,12 @@ export function CheckoutPage() {
               {state.error && (
                 <div role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-900">
                   <p>{state.error.message}</p>
-                  {state.orderId && (
+                  {state.orderId && asGuest && (
+                    <p className="mt-2">
+                      Your order was saved. You can try the payment again with the button below.
+                    </p>
+                  )}
+                  {state.orderId && !asGuest && (
                     <p className="mt-2">
                       Your order was saved.{" "}
                       <Link

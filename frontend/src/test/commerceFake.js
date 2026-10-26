@@ -319,6 +319,69 @@ export function orderFor(status = "awaiting_payment", overrides = {}) {
   };
 }
 
+/** One purchased workbook with its latest and originally purchased versions. */
+export function libraryItems() {
+  return [
+    {
+      id: 7,
+      product: {
+        id: "a1a1a1a1a1a1a1a1",
+        title: "Calm Mornings Workbook",
+        slug: "calm-mornings-workbook",
+        type: "workbook",
+        cover_theme: "gold",
+        cover: null,
+      },
+      source: "purchase",
+      status: "active",
+      revoked_reason: "",
+      granted_at: "2026-10-23T10:01:00.000Z",
+      order_number: "TPA-261023-ABCDEF",
+      download_count: 0,
+      download_limit: null,
+      includes: [],
+      duplicate: false,
+      files: [
+        {
+          file_id: "f1",
+          title: "Workbook",
+          description: "",
+          versions: [
+            {
+              kind: "latest",
+              version_id: 22,
+              version: 2,
+              format: "PDF",
+              size_bytes: 2_400_000,
+              updated_at: "2026-10-23T09:00:00.000Z",
+            },
+            {
+              kind: "purchased",
+              version_id: 21,
+              version: 1,
+              format: "PDF",
+              size_bytes: 2_300_000,
+              updated_at: "2026-10-20T09:00:00.000Z",
+            },
+          ],
+        },
+      ],
+    },
+  ];
+}
+
+/** A guest order as the guest endpoints return it. */
+export function guestOrderFor(status = "awaiting_payment", overrides = {}) {
+  const paid = status === "paid";
+  return orderFor(status, {
+    guest: true,
+    email_hint: "b•••@example.com",
+    downloads_available: paid,
+    library: paid ? libraryItems() : [],
+    ...overrides,
+  });
+}
+
 /** In-memory customer API (cart quotes, checkout, account, library). */
 export function createFakeShopApi({ customer = null, open = true, owned = [] } = {}) {
   let current = customer;
@@ -410,55 +473,7 @@ export function createFakeShopApi({ customer = null, open = true, owned = [] } =
         },
       }),
     ),
-    library: vi.fn(() =>
-      ok([
-        {
-          id: 7,
-          product: {
-            id: "a1a1a1a1a1a1a1a1",
-            title: "Calm Mornings Workbook",
-            slug: "calm-mornings-workbook",
-            type: "workbook",
-            cover_theme: "gold",
-            cover: null,
-          },
-          source: "purchase",
-          status: "active",
-          revoked_reason: "",
-          granted_at: "2026-10-23T10:01:00.000Z",
-          order_number: "TPA-261023-ABCDEF",
-          download_count: 0,
-          download_limit: null,
-          includes: [],
-          duplicate: false,
-          files: [
-            {
-              file_id: "f1",
-              title: "Workbook",
-              description: "",
-              versions: [
-                {
-                  kind: "latest",
-                  version_id: 22,
-                  version: 2,
-                  format: "PDF",
-                  size_bytes: 2_400_000,
-                  updated_at: "2026-10-23T09:00:00.000Z",
-                },
-                {
-                  kind: "purchased",
-                  version_id: 21,
-                  version: 1,
-                  format: "PDF",
-                  size_bytes: 2_300_000,
-                  updated_at: "2026-10-20T09:00:00.000Z",
-                },
-              ],
-            },
-          ],
-        },
-      ]),
-    ),
+    library: vi.fn(() => ok(libraryItems())),
     authorizeDownload: vi.fn((_ent, versionId) =>
       ok({ url: `/api/v1/downloads/token-${versionId}`, expires_in: 300 }),
     ),
@@ -475,6 +490,51 @@ export function createFakeShopApi({ customer = null, open = true, owned = [] } =
       ok({ order: orderFor(), authorization_url: "https://checkout.paystack.com/retry" }),
     ),
     cancelOrder: vi.fn(() => ok(orderFor("cancelled"))),
+    guestCheckout: vi.fn((body) =>
+      ok({
+        order: guestOrderFor("awaiting_payment"),
+        authorization_url: `https://checkout.paystack.com/guest-${body.currency.toLowerCase()}`,
+        order_token: "guest-order-token-0000000000000000000000000",
+      }),
+    ),
+    guestOrder: vi.fn(() => ok(guestOrderFor())),
+    verifyGuestOrder: vi.fn(() => ok({ outcome: "paid", order: guestOrderFor("paid") })),
+    retryGuestOrder: vi.fn(() =>
+      ok({ order: guestOrderFor(), authorization_url: "https://checkout.paystack.com/retry" }),
+    ),
+    cancelGuestOrder: vi.fn(() => ok(guestOrderFor("cancelled"))),
+    guestOrderDownload: vi.fn((_id, _token, _ent, versionId) =>
+      ok({ url: `/api/v1/downloads/guest-${versionId}`, expires_in: 300 }),
+    ),
+    requestGuestAccess: vi.fn(() => ok({ requested: true })),
+    guestLibrary: vi.fn((token) =>
+      token === "valid-access-token-000000000000000000000000"
+        ? ok({
+            email_hint: "b•••@example.com",
+            orders: [
+              {
+                number: "TPA-261023-ABCDEF",
+                status: "paid",
+                total: money(1500),
+                paid_at: "2026-10-23T10:01:00.000Z",
+                items: ["Calm Mornings Workbook"],
+              },
+            ],
+            library: libraryItems(),
+          })
+        : Promise.reject(
+            Object.assign(
+              new Error("This link is invalid, has already been used, or has expired."),
+              {
+                status: 400,
+                code: "link_invalid",
+              },
+            ),
+          ),
+    ),
+    guestLibraryDownload: vi.fn((_token, _ent, versionId) =>
+      ok({ url: `/api/v1/downloads/guest-${versionId}`, expires_in: 300 }),
+    ),
   };
 }
 

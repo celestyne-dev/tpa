@@ -31,6 +31,8 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
   const post = (url, body = {}) => client.post(url, body).then((r) => r.data);
   const patch = (url, body = {}) => client.patch(url, body).then((r) => r.data);
   const enc = encodeURIComponent;
+  const guestPost = (url, token, body = {}) =>
+    client.post(url, body, { headers: { "X-Guest-Order-Token": token } }).then((r) => r.data);
   return {
     status: () => get("/shop/status"),
     quote: (items, currency) =>
@@ -63,6 +65,29 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
     verifyOrder: (id) => post(`/checkout/orders/${enc(id)}/verify`),
     retryOrder: (id) => post(`/checkout/orders/${enc(id)}/retry`),
     cancelOrder: (id) => post(`/checkout/orders/${enc(id)}/cancel`),
+    // Guest checkout: no session. The order token (kept by this browser) opens one order;
+    // emailed access links carry their token in the body, never in a URL.
+    guestCheckout: (body) => post("/checkout/guest", body),
+    guestOrder: (id, token) =>
+      client
+        .get(`/checkout/guest-orders/${enc(id)}`, { headers: { "X-Guest-Order-Token": token } })
+        .then((r) => r.data),
+    verifyGuestOrder: (id, token) => guestPost(`/checkout/guest-orders/${enc(id)}/verify`, token),
+    retryGuestOrder: (id, token) => guestPost(`/checkout/guest-orders/${enc(id)}/retry`, token),
+    cancelGuestOrder: (id, token) => guestPost(`/checkout/guest-orders/${enc(id)}/cancel`, token),
+    guestOrderDownload: (id, token, entitlementId, versionId) =>
+      guestPost(`/checkout/guest-orders/${enc(id)}/downloads`, token, {
+        entitlement_id: entitlementId,
+        version_id: versionId,
+      }),
+    requestGuestAccess: (email) => post("/guest/access-request", { email }),
+    guestLibrary: (token) => post("/guest/library", { token }),
+    guestLibraryDownload: (token, entitlementId, versionId) =>
+      post("/guest/library/downloads", {
+        token,
+        entitlement_id: entitlementId,
+        version_id: versionId,
+      }),
     // The Positive Reset newsletter and free resources (cookieless; signed links).
     newsletterStatus: () => get("/newsletter/status"),
     subscribe: (body) => post("/newsletter/subscribe", body),

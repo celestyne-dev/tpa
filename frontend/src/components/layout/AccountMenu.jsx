@@ -4,9 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { routes } from "@/config/navigation";
 import { useAccountStatus, useSignOut } from "@/hooks/useAccountStatus";
 import { accountLinks, signInHref } from "./accountLinks";
-
-const iconClass =
-  "relative grid size-10 place-items-center rounded-full text-charcoal transition-colors hover:bg-sage-100";
+import { HeaderIconLabel, headerIconClass as iconClass } from "./HeaderIconLabel";
 const itemClass =
   "block w-full rounded-xl px-3 py-2 text-left text-[0.95rem] text-charcoal hover:bg-sage-50";
 
@@ -45,6 +43,7 @@ export function AccountMenu() {
     return (
       <Link to={routes.account} className={iconClass} aria-label="Your account">
         <UserRound aria-hidden className="size-5" />
+        <HeaderIconLabel>Account</HeaderIconLabel>
       </Link>
     );
   }
@@ -59,13 +58,16 @@ export function AccountMenu() {
         aria-controls={menuId}
         onClick={() => setOpen((v) => !v)}
       >
-        <UserRound aria-hidden className="size-5" />
-        {signedIn && (
-          <span
-            aria-hidden
-            className="absolute right-1.5 bottom-1.5 size-2 rounded-full bg-sage-600"
-          />
-        )}
+        <span className="relative">
+          <UserRound aria-hidden className="size-5" />
+          {signedIn && (
+            <span
+              aria-hidden
+              className="absolute -right-0.5 -bottom-0.5 size-2 rounded-full bg-sage-600 ring-2 ring-ivory"
+            />
+          )}
+        </span>
+        <HeaderIconLabel>{signedIn ? "Account" : "Log in"}</HeaderIconLabel>
       </button>
       {open && (
         <div
@@ -109,6 +111,11 @@ export function AccountMenu() {
               <li>
                 <Link to={routes.register} className={itemClass}>
                   Create account
+                </Link>
+              </li>
+              <li className="mt-1 border-t border-charcoal/10 pt-1">
+                <Link to={routes.purchases} className={itemClass}>
+                  Find a guest purchase
                 </Link>
               </li>
             </ul>

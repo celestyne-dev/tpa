@@ -126,6 +126,8 @@ export function CustomerDetailPage() {
     }
   };
   const active = customer.status === "active";
+  // Guest-checkout buyer records (no password, can't sign in) can be disabled too.
+  const enabled = active || customer.status === "guest";
   return (
     <>
       <AdminPageHeader
@@ -168,12 +170,14 @@ export function CustomerDetailPage() {
                 onClick={() =>
                   run(
                     () =>
-                      api.customers.update(customer.id, { status: active ? "disabled" : "active" }),
-                    active ? "Account disabled and signed out." : "Account reactivated.",
+                      api.customers.update(customer.id, {
+                        status: enabled ? "disabled" : "active",
+                      }),
+                    enabled ? "Account disabled and signed out." : "Account reactivated.",
                   )
                 }
               >
-                {active ? "Disable account" : "Reactivate"}
+                {enabled ? "Disable account" : "Reactivate"}
               </Button>
             )}
           </div>

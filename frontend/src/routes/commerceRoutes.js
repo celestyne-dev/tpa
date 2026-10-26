@@ -3,6 +3,7 @@ import { lazyPage } from "./lazyPage";
 export const CartRoute = lazyPage("CartPage");
 export const CheckoutRoute = lazyPage("CheckoutPage");
 export const CheckoutCompleteRoute = lazyPage("CheckoutCompletePage");
+export const PurchasesRoute = lazyPage("PurchasesPage");
 export const AccountRoute = lazyPage("AccountOverviewPage");
 export const AccountLibraryRoute = lazyPage("AccountLibraryPage");
 export const AccountOrdersRoute = lazyPage("AccountOrdersPage");

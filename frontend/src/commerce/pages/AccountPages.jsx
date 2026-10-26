@@ -1,8 +1,7 @@
-import { BadgeCheck, Download, FileText, Library, Mail, Receipt, UserRound } from "lucide-react";
+import { BadgeCheck, Library, Mail, Receipt, UserRound } from "lucide-react";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { Link, useLocation, useNavigate } from "react-router";
-import { ProductCover } from "@/components/products/ProductCover";
 import { useShopApi } from "@/components/products/shopApiContext";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -11,7 +10,8 @@ import { InputField } from "@/components/ui/FormField";
 import { routes } from "@/config/navigation";
 import { customerSignedIn, customerSignedOut } from "@/store/slices/customerSlice";
 import { AccountShell } from "../AccountShell";
-import { fieldErrors, redirectTo, useLoad } from "../hooks";
+import { LibraryItems } from "../LibraryItems";
+import { fieldErrors, useLoad } from "../hooks";
 import { PasswordField } from "../PasswordField";
 import { RequireCustomer } from "../RequireCustomer";
 import { authErrorMessage } from "../authMessages";
@@ -31,11 +31,6 @@ const formatDate = (iso) =>
   iso
     ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
     : "";
-
-function formatSize(bytes) {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
 
 function Card({ title, icon: Icon, children, action }) {
   return (
@@ -230,8 +225,6 @@ export function AccountOverviewPage() {
 function LibraryList() {
   const shopApi = useShopApi();
   const { data: items, error, loading, reload } = useLoad(() => shopApi.library(), []);
-  const [busy, setBusy] = useState(null);
-  const [message, setMessage] = useState(null);
   if (loading)
     return (
       <p role="status" className="text-muted">
@@ -249,18 +242,6 @@ function LibraryList() {
       />
     );
   }
-  const download = async (item, version) => {
-    setBusy(version.version_id);
-    setMessage(null);
-    try {
-      const res = await shopApi.authorizeDownload(item.id, version.version_id);
-      redirectTo.go(res.data.url);
-    } catch (err) {
-      setMessage({ id: item.id, text: err.message });
-    } finally {
-      setBusy(null);
-    }
-  };
   return (
     <>
       <p className="mb-6 max-w-2xl text-sm text-muted">
@@ -268,101 +249,40 @@ function LibraryList() {
         please download from here rather than sharing links. You always get the latest version of
         each file, plus the edition you originally received.
       </p>
-      <ul className="space-y-5">
-        {items.map((item) => (
-          <li
-            key={item.id}
-            className="flex flex-col gap-5 rounded-2xl border border-charcoal/10 bg-white p-5 sm:flex-row sm:p-6"
-          >
-            <div className="w-24 shrink-0">
-              <ProductCover product={{ ...item.product, format: "" }} className="shadow-none" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-medium">
-                {item.product.slug ? (
-                  <Link to={routes.product(item.product.slug)} className="hover:underline">
-                    {item.product.title}
-                  </Link>
-                ) : (
-                  item.product.title
-                )}
-              </h2>
-              <p className="mt-1 text-sm text-muted">
-                {item.source === "free"
-                  ? "Free resource"
-                  : item.source === "bundle"
-                    ? "Included in a bundle"
-                    : item.source === "manual"
-                      ? "Added by our team"
-                      : `Order ${item.order_number}`}
-                {" · "}added {formatDate(item.granted_at)}
-                {item.download_limit
-                  ? ` · ${item.download_count}/${item.download_limit} downloads used`
-                  : ""}
-              </p>
-              {item.status === "revoked" ? (
-                <p className="mt-3 text-sm text-red-800">
-                  Access ended{item.revoked_reason ? `: ${item.revoked_reason}` : ""}.
-                </p>
-              ) : item.includes.length > 0 ? (
-                <p className="mt-3 text-sm">
-                  Includes: {item.includes.join(", ")} (listed separately).
-                </p>
-              ) : item.files.length === 0 ? (
-                <p className="mt-3 text-sm text-muted">
-                  Files are being prepared. Please check back soon.
-                </p>
-              ) : (
-                <ul className="mt-4 space-y-3">
-                  {item.files.map((file) => (
-                    <li key={file.file_id} className="rounded-xl bg-cream/60 p-4">
-                      <p className="flex items-center gap-2 font-medium">
-                        <FileText aria-hidden className="size-4 text-sage-700" /> {file.title}
-                      </p>
-                      {file.description && (
-                        <p className="mt-1 text-sm text-muted">{file.description}</p>
-                      )}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {file.versions.map((version) => (
-                          <Button
-                            key={version.version_id}
-                            size="sm"
-                            variant={version.kind === "latest" ? "primary" : "outline"}
-                            disabled={busy === version.version_id}
-                            onClick={() => download(item, version)}
-                            aria-label={`Download ${file.title} ${version.kind === "latest" ? "latest version" : "version you received"} (${version.format})`}
-                          >
-                            <Download aria-hidden className="size-4" />
-                            {version.kind === "latest"
-                              ? "Download"
-                              : "Your original edition"} · {version.format} ·{" "}
-                            {formatSize(version.size_bytes)}
-                          </Button>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {message?.id === item.id && (
-                <p role="alert" className="mt-3 text-sm text-red-800">
-                  {message.text}
-                </p>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      <LibraryItems
+        items={items}
+        authorize={(item, version) => shopApi.authorizeDownload(item.id, version.version_id)}
+      />
     </>
+  );
+}
+
+/** Guest-checkout purchases join an account only once its email is confirmed. The note is
+ * the same for every unconfirmed account (it never says whether such purchases exist). */
+function UnconfirmedNote() {
+  return (
+    <div role="note" className="mb-6 rounded-2xl bg-gold-100/60 p-5 text-sm">
+      <p className="font-medium">Bought something without an account?</p>
+      <p className="mt-1">
+        Purchases made with guest checkout using this email address appear here once you confirm
+        your email. Until then, the download link we emailed you keeps working.
+      </p>
+      <div className="mt-3">
+        <ResendVerification signedIn />
+      </div>
+    </div>
   );
 }
 
 export function AccountLibraryPage() {
   return (
     <RequireCustomer>
-      <AccountShell title="Your library" path={routes.accountLibrary}>
-        <LibraryList />
-      </AccountShell>
+      {(customer) => (
+        <AccountShell title="Your library" path={routes.accountLibrary}>
+          {!customer.email_verified && <UnconfirmedNote />}
+          <LibraryList />
+        </AccountShell>
+      )}
     </RequireCustomer>
   );
 }

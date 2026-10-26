@@ -88,9 +88,9 @@ server {
         add_header X-Robots-Tag "noindex" always;
     }
 
-    # Customer area shells (cart, checkout, account): private, never cached or indexed.
-    # Their data comes from /api/v1/account|cart|checkout with the customer session.
-    location ~ ^/(cart|checkout|account)(/|$) {
+    # Customer area shells (cart, checkout, account, guest purchases): private, never cached
+    # or indexed. Their data comes from /api/v1/account|cart|checkout|guest.
+    location ~ ^/(cart|checkout|account|purchases)(/|$) {
         add_header Cache-Control "no-store" always;
         add_header X-Robots-Tag "noindex, nofollow" always;
         try_files $uri $uri/index.html /404.html;

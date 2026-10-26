@@ -206,6 +206,23 @@ sudo systemctl restart tpa-api
 - New verification and reset emails link to `/verify-email#token=…` and `/reset-password#token=…`. Links in emails sent before the upgrade still work: the old `/account/…` addresses are prerendered as shells that redirect in the browser, keeping the token.
 - No Nginx change: the new pages are static files in the release; the API routes are unchanged under `/api/`.
 
+## Upgrading from Batch 07.5 (guest checkout, Batch 07.6)
+
+One migration, `a136d95dd67c`. It is non-destructive: it allows a `guest` customer status and a `guest_access` token purpose, and adds `orders.is_guest`, `orders.guest_token_hash` and `download_grants.guest` with safe defaults. Back up first, as for every migration:
+
+```bash
+cd /var/www/tpa/backend && set -a && . ./.env && set +a
+pg_dump "$DATABASE_URL" > ~/tpa-before-07-6.sql
+.venv/bin/flask --app wsgi db upgrade                   # 4a65b8174c82 -> a136d95dd67c
+sudo systemctl restart tpa-api
+.venv/bin/flask --app wsgi publish request             # rebuild: /purchases shell, new checkout
+```
+
+- Optional settings (defaults shown in `backend/.env.example`): `GUEST_ACCESS_TTL_HOURS` (72), `GUEST_ORDER_ACCESS_HOURS` (168), `GUEST_ORDER_DOWNLOAD_HOURS` (24) and `RATELIMIT_GUEST_ACCESS`.
+- Nginx: add `purchases` to the customer-area location so `/purchases` is `no-store` and `noindex`, as in `deploy/nginx/tpa.conf.example`. The page's prerendered shell is already `noindex`, and robots.txt disallows it.
+- In test mode, guests can pay only where `PAYMENTS_TEST_CHECKOUT_PUBLIC` is set, which is refused in production; otherwise only signed-in test accounts can pay. Live payments stay off until enabled in `/admin/payments`.
+- Downgrading refuses while guest buyer records exist, because orders and receipts depend on them.
+
 ## Frontend build (manual)
 
 ```bash

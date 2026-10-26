@@ -80,6 +80,7 @@ export const routeTable = [
     [routes.cart, commerce.CartRoute],
     [routes.checkout, commerce.CheckoutRoute],
     [routes.checkoutComplete, commerce.CheckoutCompleteRoute],
+    [routes.purchases, commerce.PurchasesRoute],
     [routes.account, commerce.AccountRoute],
     [routes.accountLibrary, commerce.AccountLibraryRoute],
     [routes.accountOrders, commerce.AccountOrdersRoute],

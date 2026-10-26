@@ -134,10 +134,11 @@ describe("cart and checkout", () => {
     expect(cartStore.getSnapshot()).toHaveLength(1);
   });
 
-  it("asks guests to sign in before paying", async () => {
+  it("offers signed-out shoppers guest checkout or logging in", async () => {
     cartStore.add({ id: CALM, slug: "calm-mornings-workbook", title: "Calm" });
     renderApp("/checkout");
-    expect(await screen.findByRole("tab", { name: "Sign in" })).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: /Continue as guest/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Log in/ })).not.toBeChecked();
     expect(screen.getByRole("button", { name: /Pay USD 15.00/ })).toBeDisabled();
   });
 

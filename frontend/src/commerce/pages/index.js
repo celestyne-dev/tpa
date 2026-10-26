@@ -16,6 +16,7 @@ export {
 export { CartPage } from "./CartPage";
 export { CheckoutCompletePage } from "./CheckoutCompletePage";
 export { CheckoutPage } from "./CheckoutPage";
+export { PurchasesPage } from "./PurchasesPage";
 export {
   NewsletterConfirmPage,
   NewsletterPreferencesPage,

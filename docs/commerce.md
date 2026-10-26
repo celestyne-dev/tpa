@@ -149,7 +149,7 @@ Account features (refined in Batch 07.5):
 - **Log in** has show/hide password and an opt-in **Keep me signed in** (persistent cookie for `CUSTOMER_SESSION_DAYS`). Without it the cookie ends with the browser and the session expires after `CUSTOMER_SHORT_SESSION_HOURS`. Failures are generic and rate-limited per IP and per address. An ended session is reported once (`session_expired`); its cookies are cleared and the customer is sent to log in with a notice.
 - **Password recovery** (`/forgot-password` → email → `/reset-password#token=…`) uses single-use, hashed tokens that expire after `CUSTOMER_RESET_TTL_MINUTES`. Requesting a new link invalidates older ones. Completing a reset signs the customer out everywhere.
 - **Redirects** after log in or registration only follow same-site paths: never `//host`, `/\host`, encoded variants, `/admin`, `/api` or another sign-in page.
-- **Header:** the account menu shows Log in / Create account or My account / Log out, matching the confirmed state (prerendered pages show a neutral account link until the browser checks).
+- **Header:** the account menu shows Log in / Create account (plus "Find a guest purchase") or My account / Log out, matching the confirmed state (prerendered pages show a neutral account link until the browser checks). The account and cart icons have accessible names ("Log in or create an account", "Account menu", "Cart, 2 items") and a matching tooltip on hover or keyboard focus. Admin sign-in is not linked from the public header; `/admin/login` sends an administrator who is already signed in to `/admin`, or to a safe `next` path inside `/admin`.
 - Customers can update their name, and change their password (other devices are signed out).
 - **Library:** single products, bundle contents and free items, each listing the versions they may download.
 - **Orders:** history with honest statuses, receipts and refund state.
@@ -159,6 +159,42 @@ Account features (refined in Batch 07.5):
   - Staff with `customers.manage` can anonymise an account on request.
 
 **Free products** are claimed from the product page by signed-in customers. They create an entitlement with source `free`, with **no order**.
+
+### Guest checkout (Batch 07.6)
+
+Customers can buy without an account. At checkout, signed-out shoppers choose **Continue as guest** (email address, optional name) or **Log in** (or create an account). Signed-in customers check out as before.
+
+**Same payment path.** `POST /api/v1/checkout/guest` validates and normalises the email, then reuses the account checkout code. Prices and totals come from the server (`expected_total_minor` must match), the idempotency key resumes rather than duplicates, and orders become paid only through Paystack verification or a signed webhook (`payments.apply_verified`). Nothing is downloadable before that. Card data never reaches the site.
+
+**Buyer records and no enumeration.** A guest order belongs to the customer record for its email:
+
+- a new **guest** record (status `guest`, no password, can't sign in), or
+- the existing account for that address.
+
+The response is identical either way: it carries no profile, library or account state, and only a masked email (`b•••@example.com`). A disabled record gets the generic "contact us" refusal.
+
+**Order token.** `POST /checkout/guest` returns an `order_token` once. Only its SHA-256 is stored (`orders.guest_token_hash`), and it rotates when the same checkout key is resumed.
+
+- The browser keeps it in session storage (never in a URL or cookie) and sends it as `X-Guest-Order-Token`.
+- It opens only that order (`/checkout/guest-orders/<id>` and its `verify`, `retry`, `cancel` and `downloads`) for `GUEST_ORDER_ACCESS_HOURS`.
+- Downloads from the order page are available for `GUEST_ORDER_DOWNLOAD_HOURS` after payment.
+
+**Access links and recovery.** When a guest order is paid, its emails carry a private link, `/purchases#token=…`.
+
+- It is a hashed `guest_access` customer token, valid for `GUEST_ACCESS_TTL_HOURS`. It is reusable until then, and each new link invalidates older ones.
+- It opens only that address's guest-checkout purchases (`POST /guest/library`, `POST /guest/library/downloads`). The token travels in the request body, and the page removes it from the address bar.
+- `/purchases` without a valid link asks for the email address (`POST /guest/access-request`). The answer is always the same `202`. A link is sent only if the address has paid guest purchases. Requests are rate-limited per IP and per address.
+
+**Downloads.** Guest downloads use the normal `DownloadGrant`: short-lived (`DOWNLOAD_LINK_TTL_SECONDS`), a few uses, and re-checked when served, so refunds and revocations block them at once. The grant is marked `guest` and is the only kind that skips the session-cookie match. There are no permanent public file links.
+
+**Claiming with an account.** Guest purchases appear in an account (library, orders, downloads, data export) only when its email address is **confirmed**:
+
+- Registering with an address that only has guest purchases turns the guest record into the account. The response looks exactly like a new sign-up, the account starts unconfirmed, and the confirmation email says confirming adds the purchases.
+- Someone who registers another person's address can't confirm it, so they see nothing. If they delete that unconfirmed account, the record goes back to being a guest record and the purchases are kept.
+- If the real owner resets the password, that proves the inbox: the address becomes confirmed and all other sessions are signed out.
+- Unconfirmed accounts always see the same note in their library, whether or not guest purchases exist.
+
+**Admin.** Orders show `guest_checkout`. Guest records appear in Customers with status `guest`. They can be disabled, and "reactivating" one makes it a guest record again, never an account. Refunds, revocations, restores, receipts and the audit trail work the same as for account orders.
 
 ## 6. Orders and entitlements
 
@@ -256,7 +292,8 @@ Templates (`app/services/commerce/emails.py`), plain text:
 - order confirmation
 - payment received
 - payment failed
-- download instructions
+- download instructions (guest orders: the private access link instead of the library)
+- guest access link (`/purchases`)
 - refund confirmation
 
 Every send is recorded in `email_deliveries` with its **real** outcome:
