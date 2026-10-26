@@ -1,21 +1,23 @@
 import { FileText, Mail, Users } from "lucide-react";
+import { Link } from "react-router";
+import { PartnershipInquiryForm } from "@/components/partnerships/PartnershipInquiryForm";
+import { formatMeasurement } from "@/components/partnerships/partnershipOptions";
 import { Seo } from "@/components/seo/Seo";
-import { buttonStyles } from "@/components/ui/buttonStyles";
 import { Card } from "@/components/ui/Card";
 import { IconFeature } from "@/components/ui/IconFeature";
-import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { routes } from "@/config/navigation";
 import { brandAlignment, partnershipFormats } from "@/data/marketing";
-import { useSite } from "@/hooks/useContent";
+import { useMediaKit, useSite } from "@/hooks/useContent";
 
 export function PartnerPage() {
   const { data: site } = useSite();
   const email = site?.contact?.partnerships_email;
-  const linkedin = site?.social_links?.find((s) => s.platform === "linkedin");
   const mediaKitUrl = site?.media_kit_url;
+  const { data: kit } = useMediaKit();
+  const social = kit?.metrics?.find((m) => m.metric_type === "social_followers");
 
   return (
     <>
@@ -59,15 +61,31 @@ export function PartnerPage() {
             <span className="grid size-12 place-items-center rounded-xl bg-sage-700 text-ivory">
               <Users aria-hidden className="size-5" />
             </span>
-            <p className="mt-6 font-serif text-6xl font-medium text-charcoal">
-              {site?.community?.linkedin_followers_label ?? "280,000+"}
-            </p>
-            <p className="mt-3 text-lg text-muted">
-              followers on LinkedIn, alongside audiences on other social platforms.
-            </p>
+            {social ? (
+              <>
+                <p className="mt-6 font-serif text-6xl font-medium text-charcoal">
+                  {formatMeasurement(social)}
+                </p>
+                <p className="mt-3 text-lg text-muted">
+                  {social.platform} followers (social media, not website visitors).
+                </p>
+                <p className="mt-2 text-sm text-muted">
+                  Measured {social.measured_on}. Source: {social.source}.
+                </p>
+              </>
+            ) : (
+              <p className="mt-6 text-lg text-muted">
+                Audience figures will be published in our media kit as dated measurements with their
+                source.
+              </p>
+            )}
             <p className="mt-6 text-sm text-muted">
-              Detailed, verified audience insights will be shared directly with prospective partners
-              on request.
+              <Link
+                to={routes.advertise}
+                className="font-medium text-sage-700 underline underline-offset-4"
+              >
+                See the media kit
+              </Link>
             </p>
           </Card>
         </div>
@@ -121,7 +139,16 @@ export function PartnerPage() {
             <h2 id="media-kit-heading" className="mt-6 text-3xl font-medium sm:text-4xl">
               Media kit
             </h2>
-            {mediaKitUrl ? (
+            {kit ? (
+              <p className="mt-4 text-lg text-muted">
+                <Link
+                  to={routes.advertise}
+                  className="font-medium text-sage-700 underline underline-offset-4"
+                >
+                  View the Think Positive Always media kit
+                </Link>
+              </p>
+            ) : mediaKitUrl ? (
               <p className="mt-4 text-lg text-muted">
                 <a
                   href={mediaKitUrl}
@@ -146,35 +173,18 @@ export function PartnerPage() {
               <li>Describe the campaign or collaboration you have in mind.</li>
               <li>Share your goals, preferred timeline, and any key requirements.</li>
             </ol>
-            {email ? (
-              <a
-                href={`mailto:${email}?subject=${encodeURIComponent("Partnership inquiry")}`}
-                className={buttonStyles({ className: "mt-8" })}
-              >
-                <Mail aria-hidden />
-                Email {email}
-              </a>
-            ) : linkedin ? (
-              <p className="mt-8 text-muted">
-                Please send your inquiry via{" "}
+            <PartnershipInquiryForm className="mt-8" />
+            {email && (
+              <p className="mt-6 text-sm text-muted">
+                Prefer email?{" "}
                 <a
-                  href={linkedin.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-sage-700 underline underline-offset-4"
+                  href={`mailto:${email}?subject=${encodeURIComponent("Partnership inquiry")}`}
+                  className="inline-flex items-center gap-1 font-medium text-sage-700 underline underline-offset-4"
                 >
-                  Think Positive Always on LinkedIn
-                  <span className="sr-only"> (opens in a new tab)</span>
+                  <Mail aria-hidden className="size-4" />
+                  {email}
                 </a>
-                .
               </p>
-            ) : (
-              <div className="mt-8">
-                <Notice title="Inquiry channel coming soon">
-                  A dedicated partnerships contact will be published here shortly. Thank you for
-                  your interest. Please check back soon.
-                </Notice>
-              </div>
             )}
           </div>
         </div>

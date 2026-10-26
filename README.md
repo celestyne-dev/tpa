@@ -94,6 +94,7 @@ Key backend variables (all documented in `backend/.env.example`):
 | `PAYSTACK_SECRET_KEY`, `PAYSTACK_API_BASE`, `PAYSTACK_*`                     | Paystack (server-side only; `sk_test_` for development). The webhook is verified with the secret key                                                                                                    |
 | `PAYMENTS_LIVE_ALLOWED`                                                      | Deployment switch: live checkout is impossible unless `true` **and** the admin readiness checklist passes. Default `false`                                                                              |
 | `NEWSLETTER_*`, `EMAIL_FEEDBACK_SECRET`, `LEAD_MAGNET_*`                     | Newsletter delivery (SMTP, sender, rate limits, test recipients, live switch), signed bounce/complaint feedback, free-resource links (`docs/newsletter.md`)                                             |
+| `PARTNERSHIP_NOTIFY_EMAIL`, `RATELIMIT_PARTNERSHIP_INQUIRY`                  | Internal address notified of partnership inquiries (when mail really sends); inquiry form rate limit (`docs/partnerships.md`)                                                                           |
 | `PAYMENTS_TEST_CHECKOUT_PUBLIC`                                              | Development only: any verified customer may use test checkout. Refused in production                                                                                                                    |
 
 Frontend variables (`VITE_SITE_URL`, `VITE_ALLOW_INDEXING`, `VITE_API_BASE_URL`, `PRERENDER_API_URL`) are unchanged from Batch 01. No Paystack key belongs in the frontend: checkout uses Paystack's hosted page, started by the server.
@@ -147,6 +148,12 @@ The Vite dev server proxies `/api` to Flask, so the admin's HttpOnly cookies are
     - Grants go to the Administrator, Newsletter Manager and Marketing Manager templates.
     - Downgrade drops the newsletter tables.
     - After upgrading: `flask --app wsgi rbac sync` (should report zeros) and `flask --app wsgi newsletter seed-defaults` (starter templates, plus automations as drafts).
+
+  - `4a65b8174c82` (Batch 07): partnerships, sponsorships, advertising and affiliates.
+    - Adds 17 new tables only (partners, contacts, inquiries, opportunities, history, campaigns, article and newsletter sponsorships, placements, rate cards, bookings, finance entries, affiliate programs/links/daily clicks/commissions, audience measurements), with check constraints, unique keys and indexes. No existing table is altered.
+    - Makes `partnerships.*`, `advertising.view` and `affiliates.view/manage` available, adds `sponsorships.*`, `advertising.manage_inventory/bookings`, `media_kit.manage`, `affiliates.manage_links`, `partnership_finance.view/manage` and `partnership_reports.export`, and grants them to the templates listed in `docs/partnerships.md`.
+    - Downgrade drops those tables and permissions.
+    - After upgrading: `flask --app wsgi rbac sync` (should report zeros).
 
 ### Upgrading to Batch 05
 
@@ -276,7 +283,7 @@ Roles, permissions and their links live in the database. The permission catalogu
 **Role kinds**
 
 - **Built-in (system)**: Super Admin, Editor, Moderator and Analyst. They are protected and cannot be edited, deactivated or deleted. Super Admin (`grants_all`) resolves to every permission, including sensitive ones and those of future modules.
-- **Templates**: Administrator, Editor-in-Chief, Content Editor, Content Writer, Product Manager, Orders Manager, Customer Support, Partnerships Manager, Affiliate Manager, Marketing Manager, Newsletter Manager, SEO Manager, Website Manager and Finance Manager. They are seeded once and editable afterwards. Templates for modules that do not exist yet (partnerships, affiliates, newsletters) grant only `dashboard.view`. Their intended permissions are shown as _Planned_ and stay locked until the module ships.
+- **Templates**: Administrator, Editor-in-Chief, Content Editor, Content Writer, Product Manager, Orders Manager, Customer Support, Partnerships Manager, Affiliate Manager, Marketing Manager, Newsletter Manager, SEO Manager, Website Manager and Finance Manager. They are seeded once and editable afterwards. Partnership and affiliate templates (Batch 07) now reach their modules; see `docs/partnerships.md`.
 - **Custom**: roles a Super Admin creates at `/admin/roles`.
 
 **Permission catalogue** (✓ = built-in role holds it; templates are listed at `/admin/roles`)
@@ -331,7 +338,7 @@ Batch 05 template grants:
 - **Marketing Manager:** products view.
 - **Editorial roles:** nothing. Payment settings (`payments.configure`) remain Super Admin only.
 
-Future-module permissions are also in the catalogue but marked **unavailable** and cannot be granted: partnerships, advertising, affiliates, newsletters, subscribers, courses and memberships.
+Future-module permissions are also in the catalogue but marked **unavailable** and cannot be granted: courses, memberships and the superseded `advertising.manage`. Batch 07 template grants (partnerships, sponsorships, advertising, media kit, affiliates, partnership finance) are listed in `docs/partnerships.md`; content writers get none.
 
 **Rules enforced by the API**
 
@@ -351,11 +358,11 @@ Future-module permissions are also in the catalogue but marked **unavailable** a
 
 ## 9. Admin routes
 
-`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/articles/:id/preview` (private preview), `/admin/workflow` (editorial board), `/admin/media` (media library), `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/homepage` (homepage builder), `/admin/pages` (and `/admin/pages/:id`, `/admin/pages/:id/preview`), `/admin/shared-sections` (shared sections and global CTAs), `/admin/branding`, `/admin/navigation`, `/admin/footer`, `/admin/announcements`, `/admin/seo` (SEO audit), `/admin/redirects`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`), `/admin/publishing` (publishing jobs), `/admin/audit-log`, `/admin/account` (change password). Commerce (Batch 05): `/admin/products` (and `/admin/products/:id`, `/admin/products/:id/preview`), `/admin/product-collections`, `/admin/bundles`, `/admin/orders` (and `/admin/orders/:id`), `/admin/customers` (and `/admin/customers/:id`), `/admin/entitlements`, `/admin/reports/revenue`, `/admin/payments` (Super Admin). Newsletter (Batch 06): `/admin/subscribers` (and `/admin/subscribers/:id`), `/admin/newsletters` (and `/admin/newsletters/:id`), `/admin/email-automations` (and `/:id`), `/admin/lead-magnets`, `/admin/email-settings` (Super Admin).
+`/admin/login`, `/admin/activate` and `/admin/reset-password` (token links, public), `/admin` (dashboard), `/admin/articles`, `/admin/articles/new`, `/admin/articles/:id/edit`, `/admin/articles/:id/preview` (private preview), `/admin/workflow` (editorial board), `/admin/media` (media library), `/admin/topics`, `/admin/tags`, `/admin/authors`, `/admin/homepage` (homepage builder), `/admin/pages` (and `/admin/pages/:id`, `/admin/pages/:id/preview`), `/admin/shared-sections` (shared sections and global CTAs), `/admin/branding`, `/admin/navigation`, `/admin/footer`, `/admin/announcements`, `/admin/seo` (SEO audit), `/admin/redirects`, `/admin/settings`, `/admin/users`, `/admin/roles` (and `/admin/roles/new`, `/admin/roles/:id`), `/admin/publishing` (publishing jobs), `/admin/audit-log`, `/admin/account` (change password). Commerce (Batch 05): `/admin/products` (and `/admin/products/:id`, `/admin/products/:id/preview`), `/admin/product-collections`, `/admin/bundles`, `/admin/orders` (and `/admin/orders/:id`), `/admin/customers` (and `/admin/customers/:id`), `/admin/entitlements`, `/admin/reports/revenue`, `/admin/payments` (Super Admin). Newsletter (Batch 06): `/admin/subscribers` (and `/admin/subscribers/:id`), `/admin/newsletters` (and `/admin/newsletters/:id`), `/admin/email-automations` (and `/:id`), `/admin/lead-magnets`, `/admin/email-settings` (Super Admin). Partnerships (Batch 07): `/admin/partners`, `/admin/partnership-inquiries`, `/admin/sponsorships` (opportunities, campaigns, bookings, inventory, invoices & payments), `/admin/media-kit`, `/admin/affiliates`, `/admin/affiliate-links`, `/admin/partnership-reports`; public `/partner-with-us` (inquiry form), `/advertise` (media kit) and `/api/v1/go/<slug>` (affiliate redirect).
 
 Public customer routes: `/shop`, `/shop/collections/:slug`, `/shop/:productSlug`, `/cart`, `/checkout`, `/checkout/complete`, `/account` (overview, `orders`, `library`, `settings`), `/account/login`, `/account/register`, `/account/verify-email`, `/account/reset-password`.
 
-The sidebar shows only what the signed-in user may use. The **Commerce** section holds Products, Categories & Collections, Bundles, Orders, Customers, Download Entitlements and Revenue Reports; **Administration** adds Payment Settings. The **Newsletter** section holds Subscribers, Newsletters, Automations and Lead magnets; **Administration** adds Email Settings. Modules that do not exist yet (partnerships, advertising, affiliates, courses, memberships, analytics) are listed as **Planned**, without links.
+The sidebar shows only what the signed-in user may use. The **Commerce** section holds Products, Categories & Collections, Bundles, Orders, Customers, Download Entitlements and Revenue Reports; **Administration** adds Payment Settings. The **Newsletter** section holds Subscribers, Newsletters, Automations and Lead magnets; **Administration** adds Email Settings. The **Partnerships** section holds Partners, Partnership inquiries, Sponsorships, Media kit, Affiliates, Affiliate links and Partnership reports. Modules that do not exist yet (courses, memberships, analytics) are listed as **Planned**, without links.
 
 ## 10. Media library and image optimisation
 
@@ -489,4 +496,5 @@ Payments in tests never touch the network. The pytest fixture replaces only the 
     - Emails are plain text and need SMTP for real delivery.
     - Courses and memberships remain planned product types.
     - The shop pages add about 9 KB (gzip) to the main public bundle, because they are prerendered.
-- **Deferred:** self-service "forgot password" for administrators, branded HTML email templates, newsletter provider integration, memberships, courses, affiliates, advertising, analytics, two-factor authentication, and migration of the previous website's articles (redirect import is ready for it).
+- **Partnerships (Batch 07):** CRM, inquiries, pipeline, campaigns, inventory, bookings, sponsored articles and newsletters, affiliates, media kit and reports work now. Revenue, commissions and audience figures are never automatic (manual or imported records only). There is no impression measurement (so no CPM delivery), no media kit PDF, no invoicing or payments, no partner portal and no affiliate network API integration. See `docs/partnerships.md`.
+- **Deferred:** self-service "forgot password" for administrators, branded HTML email templates, newsletter provider integration, memberships, courses, analytics, two-factor authentication, and migration of the previous website's articles (redirect import is ready for it).

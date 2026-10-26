@@ -19,6 +19,7 @@ export function createContentApi(client = createApiClient()) {
     getPage: (path) => get("/pages/resolve", { path }),
     getPages: () => get("/pages"),
     getSitemap: () => get("/sitemap"),
+    getMediaKit: () => get("/media-kit"),
     getRedirects: () => get("/redirects"),
     resolveRedirect: (path) => get("/redirects/resolve", { path }),
   };

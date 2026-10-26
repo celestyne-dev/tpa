@@ -73,5 +73,8 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
     leadMagnetAccess: (token) => post("/lead-magnets/access", { token }),
     leadMagnetDownload: (token, fileId) =>
       post("/lead-magnets/access/download", { token, file_id: fileId }),
+    // Partnerships (cookieless): the inquiry form and the published media kit.
+    submitPartnershipInquiry: (body) => post("/partnership-inquiries", body),
+    mediaKit: () => get("/media-kit"),
   };
 }

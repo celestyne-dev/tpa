@@ -614,6 +614,138 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "content": {"heading": "Partner with us"},
         },
     },
+    "sponsor_logos": {
+        "label": "Sponsor logo strip",
+        "category": "Partnerships",
+        "description": (
+            "Logos from approved, currently running bookings on an advertising placement. "
+            "Nothing is shown outside a booking's dates, and the strip is always labelled."
+        ),
+        "variants": {"strip": "Strip"},
+        "fields": {
+            "heading": text("Heading", 80, default="Our sponsors"),
+            "placement": _f("placement", "Advertising placement", required=True),
+            "label": text("Disclosure label", 40, default="Sponsored", required=True),
+        },
+        "design": ["background", "spacing"],
+        "defaults": {
+            "variant": "strip",
+            "design": {"background": "ivory", "spacing": "sm"},
+            "content": {"heading": "Our sponsors", "label": "Sponsored"},
+        },
+    },
+    "sponsored_banner": {
+        "label": "Sponsored banner",
+        "category": "Partnerships",
+        "description": (
+            "A paid banner from an approved booking on a placement, shown only while the "
+            'booking is live. Links are marked rel="sponsored" and labelled for readers.'
+        ),
+        "variants": {"banner": "Full width", "card": "Card"},
+        "fields": {
+            "placement": _f("placement", "Advertising placement", required=True),
+            "label": text("Disclosure label", 40, default="Sponsored", required=True),
+        },
+        "design": ["background", "spacing"],
+        "defaults": {
+            "variant": "card",
+            "design": {"background": "cream", "spacing": "sm"},
+            "content": {"label": "Sponsored"},
+        },
+    },
+    "brand_spotlight": {
+        "label": "Brand spotlight",
+        "category": "Partnerships",
+        "description": (
+            "Features the brand from the approved, live booking on a placement, with its "
+            "sponsor disclosure. Hidden whenever no booking is live."
+        ),
+        "variants": {"split": "Image and text"},
+        "fields": {
+            "eyebrow": text("Small label", 80, default="Brand spotlight"),
+            "placement": _f("placement", "Advertising placement", required=True),
+            "label": text("Disclosure label", 40, default="Sponsored", required=True),
+        },
+        "design": ["background", "spacing"],
+        "defaults": {
+            "variant": "split",
+            "design": {"background": "ivory", "spacing": "md"},
+            "content": {"eyebrow": "Brand spotlight", "label": "Sponsored"},
+        },
+    },
+    "affiliate_recommendations": {
+        "label": "Affiliate recommendations",
+        "category": "Partnerships",
+        "description": (
+            "Recommended products through affiliate links. The affiliate disclosure is always "
+            'shown beside the recommendations and links are marked rel="sponsored".'
+        ),
+        "variants": {"list": "List", "cards": "Cards"},
+        "fields": {
+            "heading": text("Heading", 120, default="Recommended resources"),
+            "description": textarea("Description", 400),
+            "links": _f(
+                "affiliate_links",
+                "Affiliate links",
+                required=True,
+                max_items=8,
+                help="Only active, unexpired links are shown, in this order.",
+            ),
+            "items": _f(
+                "items",
+                "Notes per recommendation (optional, same order)",
+                max_items=8,
+                fields={"note": textarea("Why we recommend it", 300)},
+            ),
+        },
+        "design": ["background", "spacing"],
+        "defaults": {
+            "variant": "cards",
+            "design": {"background": "ivory", "spacing": "md"},
+            "content": {"heading": "Recommended resources"},
+        },
+    },
+    "media_kit_summary": {
+        "label": "Media kit block",
+        "category": "Partnerships",
+        "description": (
+            "A summary of the published media kit. Audience figures appear only as verified, "
+            "dated measurements with their source."
+        ),
+        "variants": {"panel": "Panel"},
+        "fields": {
+            "heading": text("Heading", 120, default="Advertise with us"),
+            "description": textarea("Description", 600),
+            "show_metrics": _f("boolean", "Show published audience measurements", default=True),
+            "cta": cta("Button"),
+        },
+        "design": ["background", "spacing"],
+        "defaults": {
+            "variant": "panel",
+            "design": {"background": "cream", "spacing": "md"},
+            "content": {"heading": "Advertise with us"},
+        },
+    },
+    "partnership_inquiry": {
+        "label": "Partnership inquiry form",
+        "category": "Partnerships",
+        "description": (
+            "The partnership inquiry form with privacy notice, spam protection and rate "
+            "limits. Inquiries are stored for the partnerships team; nothing is sent to "
+            "the organisation automatically."
+        ),
+        "variants": {"panel": "Panel"},
+        "fields": {
+            "heading": text("Heading", 120, default="Tell us about your organisation"),
+            "description": textarea("Description", 600),
+        },
+        "design": ["background", "spacing", "width"],
+        "defaults": {
+            "variant": "panel",
+            "design": {"background": "ivory", "spacing": "md", "width": "narrow"},
+            "content": {"heading": "Tell us about your organisation"},
+        },
+    },
     "author_intro": {
         "label": "Author introduction",
         "category": "Content",
@@ -718,7 +850,15 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
 
 # Section types that only make sense once per page.
 SINGLE_USE = {"hero", "page_header"}
-CATEGORIES = ["Introductions", "Articles", "Inspiration", "Content", "Engagement", "Shared"]
+CATEGORIES = [
+    "Introductions",
+    "Articles",
+    "Inspiration",
+    "Content",
+    "Engagement",
+    "Partnerships",
+    "Shared",
+]
 
 
 # ---- validation -----------------------------------------------------------------------------
@@ -867,6 +1007,24 @@ def _clean_field(name, spec, value, variant, content, errors, refs, path):
             "product_collection": "product_collection",
         }[kind]
         return _clean_id_list(value, ref_kind, spec, required, errors, path, refs)
+    if kind == "affiliate_links":
+        return _clean_id_list(value, "affiliate_link", spec, required, errors, path, refs)
+    if kind == "placement":
+        if value in (None, ""):
+            if required:
+                errors[path] = ["Choose an advertising placement."]
+            return None
+        from sqlalchemy import select
+
+        from ..extensions import db
+        from ..models import AdPlacement
+
+        if not isinstance(value, str) or not db.session.scalar(
+            select(AdPlacement.id).where(AdPlacement.key == value)
+        ):
+            errors[path] = ["Choose a placement from the list."]
+            return None
+        return value
     if kind == "lead_magnet":
         if value in (None, ""):
             if required:

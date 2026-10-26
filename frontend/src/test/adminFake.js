@@ -3,6 +3,11 @@ import { ApiError } from "@/services/apiClient";
 import { createBuilderFake } from "./builderFake";
 import { COMMERCE_PERMS, createCommerceAdminFake } from "./commerceFake";
 import { NEWSLETTER_EDITING, NEWSLETTER_PERMS, createNewsletterAdminFake } from "./newsletterFake";
+import {
+  PARTNERSHIP_PERMS,
+  PARTNERSHIP_ROLES,
+  createPartnershipAdminFake,
+} from "./partnershipFake";
 
 // Mirrors backend/app/auth/permissions.py (available permissions only, plus sensitive ones).
 const ARTICLES = ["articles.view", "articles.create", "articles.edit_own", "articles.edit_any"];
@@ -52,10 +57,12 @@ const ALL = [
   "audit.view",
   ...COMMERCE_PERMS,
   ...NEWSLETTER_PERMS,
+  ...PARTNERSHIP_PERMS,
 ];
 
 export const ROLE_PERMS = {
   super_admin: ALL,
+  partnerships_manager: PARTNERSHIP_ROLES.partnerships_manager,
   editor: [
     "dashboard.view",
     ...ARTICLES,
@@ -174,6 +181,7 @@ export const ROLE_PERMS = {
     "payments.view_events",
     "finance.view",
     "finance.export",
+    ...PARTNERSHIP_ROLES.finance_manager.filter((p) => p !== "dashboard.view"),
   ],
   website_manager: [
     "dashboard.view",
@@ -1350,6 +1358,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     ...createBuilderFake(() => user),
     ...createCommerceAdminFake(() => user),
     ...createNewsletterAdminFake(() => user),
+    ...createPartnershipAdminFake(),
   };
 }
 

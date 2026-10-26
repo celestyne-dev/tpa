@@ -70,6 +70,7 @@ OVERRIDABLE_PATHS = frozenset(
         "/contact",
         "/newsletter",
         "/partner-with-us",
+        "/advertise",
         "/free-resources",
         "/privacy-policy",
         "/terms",

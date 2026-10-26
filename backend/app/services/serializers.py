@@ -138,6 +138,8 @@ def public_article(article: Article, *, include_body: bool = True) -> dict[str, 
         "reading_time_minutes": reading_time(article.body or []),
         "image": image,
         "source": article.source,
+        # Paid content is always labelled, in lists and on the article page.
+        "sponsorship": _sponsorship(article),
     }
     if include_body:
         social_source = article.social_image or article.featured_image
@@ -165,6 +167,19 @@ def public_article(article: Article, *, include_body: bool = True) -> dict[str, 
             author_profile=_author_profile(article.author),
         )
     return data
+
+
+def _sponsorship(article: Article) -> dict[str, Any] | None:
+    record = getattr(article, "sponsorship", None)
+    if record is None:
+        return None
+    return {
+        "label": record.label or "Sponsored Content",
+        "sponsor": record.sponsor_name,
+        "disclosure": record.disclosure_text,
+        # Paid outbound links: rendered with rel="sponsored"; other links stay organic.
+        "links": list(record.sponsored_links or []),
+    }
 
 
 def _author_profile(author: Author | None) -> dict[str, Any] | None:

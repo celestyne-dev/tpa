@@ -30,6 +30,7 @@ from ...cms.sections import SECTION_TYPES, SINGLE_USE, check_section, section_ty
 from ...cms.templates import PAGE_TEMPLATES
 from ...extensions import db
 from ...models import (
+    AffiliateLink,
     Article,
     Author,
     GlobalCta,
@@ -355,6 +356,7 @@ def _ref_errors(refs, prefix: str) -> dict[str, list[str]]:
         "reusable": (ReusableSection, "This shared section no longer exists."),
         "product": (Product, "This product no longer exists."),
         "product_collection": (ProductCollection, "This collection no longer exists."),
+        "affiliate_link": (AffiliateLink, "This affiliate link no longer exists."),
     }
     for kind, (model, message) in checks.items():
         wanted = refs.ids(kind)

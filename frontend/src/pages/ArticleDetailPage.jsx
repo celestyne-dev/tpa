@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { ArticleBody } from "@/components/articles/ArticleBody";
+import { SponsoredLabel } from "@/components/articles/SponsoredLabel";
 import { ArticleGrid } from "@/components/articles/ArticleGrid";
 import { ArticleMeta } from "@/components/articles/ArticleMeta";
 import { NewsletterPanel } from "@/components/newsletter/NewsletterPanel";
@@ -81,6 +82,7 @@ export function ArticleDetailPage() {
             <h1 className="mt-4 text-4xl leading-[1.1] font-medium sm:text-5xl lg:text-[3.4rem]">
               {article.title}
             </h1>
+            <SponsoredLabel sponsorship={article.sponsorship} className="mt-4" />
             {article.subtitle && (
               <p className="mt-5 font-serif text-xl text-muted italic sm:text-2xl">
                 {article.subtitle}
@@ -120,7 +122,7 @@ export function ArticleDetailPage() {
               </Notice>
             </div>
           )}
-          <ArticleBody blocks={article.body} />
+          <ArticleBody blocks={article.body} sponsoredLinks={article.sponsorship?.links} />
 
           <footer className="mt-14 flex flex-col gap-6 border-t border-charcoal/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
             {article.tags?.length > 0 && (

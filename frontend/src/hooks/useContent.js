@@ -15,6 +15,7 @@ import {
   selectProduct,
   selectProducts,
 } from "@/store/slices/productsSlice";
+import { fetchMediaKit, selectMediaKit } from "@/store/slices/mediaKitSlice";
 import { fetchSite, selectSite } from "@/store/slices/siteSlice";
 import { fetchTopic, fetchTopics, selectTopic, selectTopicList } from "@/store/slices/topicsSlice";
 import { Status } from "@/store/status";
@@ -44,6 +45,12 @@ function useResource(entry, load, deps, pickData) {
 export function useSite() {
   const entry = useSelector(selectSite);
   const load = useCallback((force) => fetchSite({ force }), []);
+  return useResource(entry, load, [load], (s) => s.data);
+}
+
+export function useMediaKit() {
+  const entry = useSelector(selectMediaKit);
+  const load = useCallback((force) => fetchMediaKit({ force }), []);
   return useResource(entry, load, [load], (s) => s.data);
 }
 

@@ -291,7 +291,7 @@ def _resolve_field(loader: _Loader, spec: dict[str, Any], value: Any, now: datet
             for i in value or []
             if i in loader.topics and loader.topics[i].status == "active"
         ]
-    if kind in ("products", "product_collection"):
+    if kind in ("products", "product_collection", "affiliate_links"):
         return value or []  # resolved by the section's computed data
     if kind == "author":
         author = loader.authors.get(value) if value else None
@@ -372,6 +372,37 @@ def _computed(
         )
     elif section_type == "page_header":
         data["heading"] = data.get("heading") or page.get("title")
+    elif section_type in ("sponsor_logos", "sponsored_banner", "brand_spotlight"):
+        from .partnerships.advertising import live_creatives
+
+        # Only approved bookings inside their dates; the scheduler rebuilds the static
+        # site at each booking boundary so prerendered pages follow the same rule.
+        limit = 12 if section_type == "sponsor_logos" else 1
+        data["creatives"] = live_creatives(content.get("placement") or "", limit=limit)
+    elif section_type == "affiliate_recommendations":
+        from .partnerships.affiliates import disclosure_text, public_links
+
+        links = public_links(content.get("links") or [])
+        notes = {
+            link_id: (item or {}).get("note") or ""
+            for link_id, item in zip(
+                content.get("links") or [], content.get("items") or [], strict=False
+            )
+        }
+        data["links"] = [{**link, "note": notes.get(link["id"], "")} for link in links]
+        data["disclosure"] = disclosure_text()
+        data.pop("items", None)
+    elif section_type == "media_kit_summary":
+        from .partnerships.media_kit import public_metrics
+
+        data["metrics"] = public_metrics()[:4] if content.get("show_metrics", True) else []
+    elif section_type == "partnership_inquiry":
+        from ..models.partnerships import PARTNERSHIP_TYPES
+        from .partnerships.crm import BUDGET_RANGES, PRIVACY_NOTICE_VERSION
+
+        data["collaboration_types"] = list(PARTNERSHIP_TYPES)
+        data["budget_ranges"] = list(BUDGET_RANGES)
+        data["privacy_notice_version"] = PRIVACY_NOTICE_VERSION
 
 
 def _resolve_section(

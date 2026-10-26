@@ -105,6 +105,19 @@ def publish_due_scheduled(now: datetime | None = None) -> dict[str, Any]:
     ).all()
     published, failed = [], []
     for article_id in due:
+        sponsorship = db.session.get(Article, article_id).sponsorship
+        if sponsorship is not None and (
+            sponsorship.review_status != "approved" or len(sponsorship.disclosure_text) < 10
+        ):
+            # Paid content never goes live without an approved, disclosed sponsorship.
+            audit_service.record(
+                "article.publish_blocked",
+                "article",
+                article_id,
+                details={"reason": "sponsorship not approved or disclosure missing"},
+            )
+            failed.append(article_id)
+            continue
         try:
             with db.session.begin_nested():
                 result = db.session.execute(
@@ -190,6 +203,12 @@ def _visibility_boundaries_passed(now: datetime) -> bool:
     crossed = any(
         last < t <= now for t in visibility_boundaries() + announcement_boundaries()
     ) or any(t <= now for t in price_boundaries(last))
+    if not crossed:
+        from .partnerships.advertising import next_boundary
+
+        # Paid placements appear and disappear exactly with their booking windows.
+        boundary = next_boundary(last)
+        crossed = boundary is not None and boundary <= now
     if crossed:
         request_build("scheduled_visibility", None)
     return crossed

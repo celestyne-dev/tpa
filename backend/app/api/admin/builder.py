@@ -319,7 +319,7 @@ class BuilderOptionsResource(Resource):
         authors = db.session.scalars(
             select(Author).where(Author.status == "active").order_by(Author.display_name)
         )
-        from ...models import Product, ProductCollection
+        from ...models import AdPlacement, AffiliateLink, Product, ProductCollection
         from ...services.newsletter.lead_magnets import options as lead_magnet_options
 
         products = db.session.scalars(
@@ -349,6 +349,21 @@ class BuilderOptionsResource(Resource):
                 ],
                 "authors": [{"id": a.id, "name": a.display_name} for a in authors],
                 "lead_magnets": lead_magnet_options(),
+                "ad_placements": [
+                    {"key": p.key, "name": p.name, "active": p.is_active}
+                    for p in db.session.scalars(select(AdPlacement).order_by(AdPlacement.name))
+                ],
+                "affiliate_links": [
+                    {
+                        "id": link.id,
+                        "name": link.name,
+                        "merchant": link.merchant,
+                        "active": link.is_active,
+                    }
+                    for link in db.session.scalars(
+                        select(AffiliateLink).order_by(AffiliateLink.name)
+                    )
+                ],
             }
         )
 
@@ -437,6 +452,7 @@ def seo_service_static_labels() -> dict[str, str]:
         "/free-resources": "Free Resources",
         "/newsletter": "Newsletter",
         "/partner-with-us": "Partner With Us",
+        "/advertise": "Advertise (media kit)",
         "/about": "About",
         "/contact": "Contact",
         "/privacy-policy": "Privacy Policy",

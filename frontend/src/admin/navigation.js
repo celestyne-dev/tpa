@@ -38,6 +38,7 @@ import {
   Workflow,
   Gift,
   AtSign,
+  FileText,
 } from "lucide-react";
 import {
   ARTICLE_ACCESS,
@@ -139,6 +140,53 @@ export const adminSections = [
     ],
   },
   {
+    title: "Partnerships",
+    items: [
+      {
+        label: "Partners",
+        to: "/admin/partners",
+        icon: Handshake,
+        permission: "partnerships.view",
+      },
+      {
+        label: "Partnership inquiries",
+        to: "/admin/partnership-inquiries",
+        icon: Inbox,
+        permission: "partnerships.view",
+      },
+      {
+        label: "Sponsorships",
+        to: "/admin/sponsorships",
+        icon: Megaphone,
+        anyOf: ["partnerships.view", "sponsorships.view", "advertising.view"],
+      },
+      {
+        label: "Media kit",
+        to: "/admin/media-kit",
+        icon: FileText,
+        permission: "media_kit.manage",
+      },
+      {
+        label: "Affiliates",
+        to: "/admin/affiliates",
+        icon: Link2,
+        permission: "affiliates.view",
+      },
+      {
+        label: "Affiliate links",
+        to: "/admin/affiliate-links",
+        icon: Link2,
+        permission: "affiliates.view",
+      },
+      {
+        label: "Partnership reports",
+        to: "/admin/partnership-reports",
+        icon: Receipt,
+        anyOf: ["partnership_finance.view", "partnership_reports.export"],
+      },
+    ],
+  },
+  {
     title: "Website",
     items: [
       { label: "Homepage", to: "/admin/homepage", icon: Home, permission: "homepage.view" },
@@ -198,9 +246,6 @@ export const adminSections = [
 
 /** Business modules scheduled for later batches. Displayed as "Planned", never as links. */
 export const plannedModules = [
-  { label: "Partnerships", icon: Handshake },
-  { label: "Advertising", icon: Megaphone },
-  { label: "Affiliates", icon: Link2 },
   { label: "Courses", icon: GraduationCap },
   { label: "Memberships", icon: Crown },
   { label: "Analytics", icon: BarChart3 },

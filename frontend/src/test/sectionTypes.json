@@ -26,7 +26,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -209,7 +209,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -236,7 +236,7 @@
         "label": "Community figure caption",
         "max": 300,
         "show_for": ["with_stat"],
-        "help": "The figure itself comes from Settings \u203a LinkedIn follower count (verified)."
+        "help": "The figure itself comes from Settings › LinkedIn follower count (verified)."
       },
       {
         "name": "media",
@@ -371,7 +371,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -560,7 +560,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -731,7 +731,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -889,7 +889,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -1176,7 +1176,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "message",
@@ -1312,7 +1312,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -1461,7 +1461,7 @@
     "type": "newsletter_cta",
     "label": "Newsletter signup",
     "category": "Engagement",
-    "description": "The Positive Reset signup form (double opt-in). It collects addresses only when email sending and consent wording are configured; until then it shows an honest \u201copening soon\u201d notice.",
+    "description": "The Positive Reset signup form (double opt-in). It collects addresses only when email sending and consent wording are configured; until then it shows an honest “opening soon” notice.",
     "reusable_only": false,
     "single_use": false,
     "variants": [
@@ -1510,7 +1510,7 @@
       {
         "name": "show_learn_more",
         "type": "boolean",
-        "label": "Show \u201cWhat to expect\u201d link",
+        "label": "Show “What to expect” link",
         "default": true
       }
     ],
@@ -1748,7 +1748,7 @@
     "type": "product_previews",
     "label": "Digital product showcase",
     "category": "Engagement",
-    "description": "Products from the shop catalogue: featured, newest, hand-picked, a collection or bundles. Prices appear only for products on sale; everything else is shown as an honest \u201ccoming soon\u201d preview.",
+    "description": "Products from the shop catalogue: featured, newest, hand-picked, a collection or bundles. Prices appear only for products on sale; everything else is shown as an honest “coming soon” preview.",
     "reusable_only": false,
     "single_use": false,
     "variants": [
@@ -1763,7 +1763,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -1965,7 +1965,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -2274,7 +2274,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -2441,7 +2441,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -2588,7 +2588,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -2845,7 +2845,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -3072,7 +3072,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -3143,6 +3143,664 @@
       },
       "design": {
         "spacing": "lg"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "sponsor_logos",
+    "label": "Sponsor logo strip",
+    "category": "Partnerships",
+    "description": "Logos from approved, currently running bookings on an advertising placement. Nothing is shown outside a booking's dates, and the strip is always labelled.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "strip",
+        "label": "Strip"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 80,
+        "default": "Our sponsors"
+      },
+      {
+        "name": "placement",
+        "type": "placement",
+        "label": "Advertising placement",
+        "required": true
+      },
+      {
+        "name": "label",
+        "type": "text",
+        "label": "Disclosure label",
+        "max": 40,
+        "default": "Sponsored",
+        "required": true
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "strip",
+      "content": {
+        "heading": "Our sponsors",
+        "placement": null,
+        "label": "Sponsored"
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "sm"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "sponsored_banner",
+    "label": "Sponsored banner",
+    "category": "Partnerships",
+    "description": "A paid banner from an approved booking on a placement, shown only while the booking is live. Links are marked rel=\"sponsored\" and labelled for readers.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "banner",
+        "label": "Full width"
+      },
+      {
+        "value": "card",
+        "label": "Card"
+      }
+    ],
+    "fields": [
+      {
+        "name": "placement",
+        "type": "placement",
+        "label": "Advertising placement",
+        "required": true
+      },
+      {
+        "name": "label",
+        "type": "text",
+        "label": "Disclosure label",
+        "max": 40,
+        "default": "Sponsored",
+        "required": true
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "card",
+      "content": {
+        "placement": null,
+        "label": "Sponsored"
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "sm"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "brand_spotlight",
+    "label": "Brand spotlight",
+    "category": "Partnerships",
+    "description": "Features the brand from the approved, live booking on a placement, with its sponsor disclosure. Hidden whenever no booking is live.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "split",
+        "label": "Image and text"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label",
+        "max": 80,
+        "default": "Brand spotlight"
+      },
+      {
+        "name": "placement",
+        "type": "placement",
+        "label": "Advertising placement",
+        "required": true
+      },
+      {
+        "name": "label",
+        "type": "text",
+        "label": "Disclosure label",
+        "max": 40,
+        "default": "Sponsored",
+        "required": true
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "split",
+      "content": {
+        "eyebrow": "Brand spotlight",
+        "placement": null,
+        "label": "Sponsored"
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "affiliate_recommendations",
+    "label": "Affiliate recommendations",
+    "category": "Partnerships",
+    "description": "Recommended products through affiliate links. The affiliate disclosure is always shown beside the recommendations and links are marked rel=\"sponsored\".",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "list",
+        "label": "List"
+      },
+      {
+        "value": "cards",
+        "label": "Cards"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "default": "Recommended resources"
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "links",
+        "type": "affiliate_links",
+        "label": "Affiliate links",
+        "required": true,
+        "max_items": 8,
+        "help": "Only active, unexpired links are shown, in this order."
+      },
+      {
+        "name": "items",
+        "type": "items",
+        "label": "Notes per recommendation (optional, same order)",
+        "max_items": 8,
+        "fields": [
+          {
+            "name": "note",
+            "type": "textarea",
+            "label": "Why we recommend it",
+            "max": 300
+          }
+        ]
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "cards",
+      "content": {
+        "heading": "Recommended resources",
+        "description": "",
+        "links": [],
+        "items": []
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "media_kit_summary",
+    "label": "Media kit block",
+    "category": "Partnerships",
+    "description": "A summary of the published media kit. Audience figures appear only as verified, dated measurements with their source.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "panel",
+        "label": "Panel"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "default": "Advertise with us"
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 600
+      },
+      {
+        "name": "show_metrics",
+        "type": "boolean",
+        "label": "Show published audience measurements",
+        "default": true
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "panel",
+      "content": {
+        "heading": "Advertise with us",
+        "description": "",
+        "show_metrics": true,
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "partnership_inquiry",
+    "label": "Partnership inquiry form",
+    "category": "Partnerships",
+    "description": "The partnership inquiry form with privacy notice, spam protection and rate limits. Inquiries are stored for the partnerships team; nothing is sent to the organisation automatically.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "panel",
+        "label": "Panel"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "default": "Tell us about your organisation"
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 600
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "width",
+        "label": "Content width",
+        "choices": [
+          {
+            "value": "narrow",
+            "label": "Narrow"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "wide",
+            "label": "Wide"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "panel",
+      "content": {
+        "heading": "Tell us about your organisation",
+        "description": ""
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md",
+        "width": "narrow"
       },
       "visibility": {
         "devices": "all",
@@ -3292,7 +3950,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",
@@ -3620,7 +4278,7 @@
         "type": "text",
         "label": "Small label above the heading",
         "max": 80,
-        "help": "Optional, e.g. \u201cFrom the journal\u201d."
+        "help": "Optional, e.g. “From the journal”."
       },
       {
         "name": "heading",

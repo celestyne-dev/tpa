@@ -13,6 +13,7 @@ import { fieldError } from "../../components/fieldError";
 import { SelectField, TextField } from "../../components/Fields";
 import { CAMPAIGN_STATUS, EMAIL_BLOCKS, MESSAGE_STATUS } from "../../components/newsletterLabels";
 import { useNotify } from "../../components/notifyContext";
+import { NewsletterSponsorship } from "../../components/partnerships/NewsletterSponsorship";
 import { SendingModeNotice } from "../../components/SendingModeNotice";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAdminQuery } from "../../hooks/useAdminQuery";
@@ -379,6 +380,21 @@ function CampaignEditor({ data, setData }) {
           </fieldset>
         </div>
         <aside className="space-y-5">
+          {(data.sponsorship || can("sponsorships.manage")) && (
+            <NewsletterSponsorship
+              key={JSON.stringify(data.sponsorship)}
+              value={data.sponsorship}
+              editable={editable && can("sponsorships.manage")}
+              onSave={async (sponsorship) => {
+                const res = await api.newsletters.update(id, {
+                  sponsorship,
+                  lock_version: data.lock_version,
+                });
+                setData(res.data);
+                notify(sponsorship ? "Sponsorship saved." : "Sponsorship removed.");
+              }}
+            />
+          )}
           <section className="space-y-3 rounded-2xl bg-white p-5 shadow-sm">
             <h2 className="font-medium">Audience</h2>
             <SelectField

@@ -60,6 +60,12 @@ If you try to leave with unsaved changes, the editor warns you. If somebody else
 | Resource recommendations    | Recommended resources, guides or pages, each with a link                                        |
 | Contact details             | Contact email addresses from Settings; there is deliberately no form                            |
 | Shared section group        | Several shared sections shown together (shared sections only)                                   |
+| Sponsor logo strip          | Logos from approved bookings currently running on a placement, labelled “Sponsored”             |
+| Sponsored banner            | The live approved booking on a placement; hidden when none is live; links are `rel="sponsored"` |
+| Brand spotlight             | Features the brand from the live booking on a placement, with its sponsor disclosure            |
+| Affiliate recommendations   | Chosen affiliate links with the affiliate disclosure always shown beside them                   |
+| Media kit block             | A summary with verified, dated audience measurements and a link to `/advertise`                 |
+| Partnership inquiry form    | The partnership inquiry form (privacy notice, spam protection, rate limits)                     |
 
 ## 3. Pages (`/admin/pages`)
 
@@ -159,6 +165,8 @@ Write only what is true: no invented page counts, testimonials, reviews or resul
 - **Test mode** uses Paystack test keys, no real money moves, and only customers you mark as test accounts can pay.
 - **Live mode** stays locked until every readiness check passes, including the deployment switch and your confirmations.
 - Secret keys are never shown or entered here; they live in the server configuration.
+
+Paid sections never show anything that isn't approved and inside its booking dates, in drafts, previews and published pages alike. They follow the usual draft → preview → publish flow and page revisions. See `docs/partnerships.md` for sponsorship, affiliate and media kit workflows.
 
 ## 10. Who can do what
 

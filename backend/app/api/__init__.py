@@ -46,6 +46,12 @@ from .newsletter import NEWSLETTER_PRIVATE_PREFIXES, PUBLIC_NEWSLETTER_ROUTES  #
 for resource, path in PUBLIC_NEWSLETTER_ROUTES:
     api.add_resource(resource, path, endpoint=f"newsletter_{resource.__name__.lower()}")
 
+# ---- Partnership inquiries, media kit, affiliate redirects ------------------------
+from .partnerships import PARTNERSHIP_PRIVATE_PREFIXES, PUBLIC_PARTNERSHIP_ROUTES  # noqa: E402
+
+for resource, path in PUBLIC_PARTNERSHIP_ROUTES:
+    api.add_resource(resource, path, endpoint=f"partnership_{resource.__name__.lower()}")
+
 # ---- Admin API ------------------------------------------------------------------
 from flask import request  # noqa: E402
 
@@ -75,7 +81,9 @@ def _admin_no_store(response):
         # Admin data (including draft previews) is never cached or indexed.
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
-    elif request.path.startswith(PRIVATE_PREFIXES + NEWSLETTER_PRIVATE_PREFIXES):
+    elif request.path.startswith(
+        PRIVATE_PREFIXES + NEWSLETTER_PRIVATE_PREFIXES + PARTNERSHIP_PRIVATE_PREFIXES
+    ):
         response.headers.setdefault("Cache-Control", "no-store")
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
         response.headers["Vary"] = "Cookie"

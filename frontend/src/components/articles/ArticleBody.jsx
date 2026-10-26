@@ -1,5 +1,5 @@
 import { ArrowRight, CircleCheck, Info, Lightbulb, Play, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { routes } from "@/config/navigation";
@@ -15,15 +15,23 @@ const calloutStyles = {
 const isInternal = (href) => href?.startsWith("/");
 
 /** Internal links use the router; external ones open normally with safe rel. */
+// Paid links listed on a sponsored article's sponsorship (rel="sponsored"); others are organic.
+const SponsoredLinksContext = createContext(null);
+
 function SmartLink({ href, className, children }) {
-  if (isInternal(href))
+  const sponsored = useContext(SponsoredLinksContext)?.has(href);
+  if (isInternal(href) && !sponsored)
     return (
       <Link to={href} className={className}>
         {children}
       </Link>
     );
   return (
-    <a href={href} className={className} rel="noopener noreferrer">
+    <a
+      href={href}
+      className={className}
+      rel={sponsored ? "sponsored noopener noreferrer" : "noopener noreferrer"}
+    >
       {children}
     </a>
   );
@@ -102,7 +110,16 @@ function VideoEmbed({ provider, videoId, title, caption }) {
 }
 
 /** Renders structured article blocks as semantic HTML (text only, no raw HTML injection). */
-export function ArticleBody({ blocks }) {
+export function ArticleBody({ blocks, sponsoredLinks }) {
+  const paid = useMemo(() => new Set(sponsoredLinks ?? []), [sponsoredLinks]);
+  return (
+    <SponsoredLinksContext.Provider value={paid}>
+      <ArticleBlocks blocks={blocks} />
+    </SponsoredLinksContext.Provider>
+  );
+}
+
+function ArticleBlocks({ blocks }) {
   return (
     <div className="prose-tpa flow-root">
       {blocks.map((block, index) => {

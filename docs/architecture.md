@@ -106,3 +106,27 @@ Paystack ──► POST /payments/paystack/webhook (HMAC) ──► payment_even
 - **Payment truth.** Only provider-verified transactions change an order to paid. Webhooks and return pages share one code path (`services/commerce/payments.apply_verified`). Uniqueness constraints make replays, races and repeated clicks harmless.
 - **Settings vs secrets.** Non-secret payment settings are stored as site settings. The Paystack secret lives only in the environment. `payments/config.py` computes the effective mode and the readiness checks, and live mode is impossible without `PAYMENTS_LIVE_ALLOWED` plus the checklist.
 - **Frontend.** The public shop pages are part of the main SSR bundle so they can be prerendered. The private customer area (cart, checkout, account) is a lazily loaded chunk that is never prerendered with data. `ShopApiContext` supplies the customer API client, which sends the customer CSRF header.
+
+## Partnerships, sponsorships and affiliates (Batch 07)
+
+- **Data.** New tables only (`models/partnerships.py`). Article and newsletter sponsorships are
+  side tables (`article_sponsorships`, `newsletter_sponsorships`) loaded with the article or
+  campaign, so the existing editor, revisions, SEO and publish queue are reused unchanged.
+  `commercial_events` holds the stage/status history of opportunities, campaigns, bookings and
+  sponsorships, and the audit log records every sensitive change.
+- **Services** (`services/partnerships/`): `crm` (partners, inquiries, opportunities, campaigns),
+  `advertising` (placements, rates, bookings, conflict checks, live creatives, boundaries),
+  `sponsored` (disclosure and approval gate), `affiliates` (links, redirect, daily click
+  aggregates, commission import), `media_kit`, `reports`, `common` (validation, safe URLs, money).
+- **Publication gates.** `publish_readiness` and the scheduled publish loop refuse sponsored
+  articles without an approved sponsorship and disclosure. Campaign and newsletter approval need
+  `sponsorships.approve`.
+- **Static site.** Paid sections are resolved at render time from approved bookings live "now".
+  `publication_service` queues a rebuild at the next booking start or end, and the browser hides
+  expired creatives after hydration (`useNow`). Disclosures and `rel` attributes come from the
+  same React components on the server (prerender) and in the browser.
+- **Redirect safety.** `/api/v1/go/<slug>` looks up a stored link, re-validates its https
+  destination and redirects with `no-store`; request parameters never influence the target.
+- **Money.** Integer minor units plus a currency everywhere. Reports group by currency and
+  never convert. Pipeline, contracted, invoiced, verified receipts and affiliate commissions
+  stay separate.

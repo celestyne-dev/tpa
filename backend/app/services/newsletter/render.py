@@ -330,12 +330,21 @@ def build_email(
     ctas: list[dict[str, str]] | None = None,
     reason: str = "You are receiving this because you subscribed to The Positive Reset.",
     manage_links: bool = True,
+    sponsor: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Render a complete email (with placeholders) from validated blocks."""
     media = _media({b["media_id"] for b in blocks if b["type"] == "image" and b.get("media_id")})
     articles = featured_articles(article_ids or [])
     products = featured_products(product_ids or [])
-    body_html = "".join(_block_html(b, media) for b in blocks)
+    body_html = ""
+    if sponsor:
+        # Sponsored issues open with a clear disclosure, before any promotional content.
+        body_html += (
+            f'<p style="margin:0 0 20px;padding:10px 14px;border-radius:10px;background:{CREAM};'
+            f'font-family:{SANS};font-size:13px;color:{CHARCOAL}"><strong>Sponsored by '
+            f"{escape(sponsor['name'])}.</strong> {escape(sponsor['disclosure'])}</p>"
+        )
+    body_html += "".join(_block_html(b, media) for b in blocks)
     body_html += _cards_html("Featured reading", articles, "Read the article")
     body_html += _cards_html("From the shop", products, "Take a look")
     body_html += "".join(_button(c["label"], c["href"]) for c in ctas or [])
@@ -367,6 +376,8 @@ def build_email(
     text_parts = [NEWSLETTER_NAME + " — " + NEWSLETTER_TAGLINE, ""]
     if preheader:
         text_parts += [preheader, ""]
+    if sponsor:
+        text_parts += [f"SPONSORED BY {sponsor['name'].upper()}. {sponsor['disclosure']}", ""]
     text_parts += [t for t in (_block_text(b) for b in blocks) if t]
     for part in (_cards_text("Featured reading", articles), _cards_text("From the shop", products)):
         if part:

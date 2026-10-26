@@ -5,6 +5,7 @@ import { createShopApi } from "@/services/shopApi";
 import articles from "./slices/articlesSlice";
 import auth, { sessionExpired } from "./slices/authSlice";
 import customer from "./slices/customerSlice";
+import mediaKit from "./slices/mediaKitSlice";
 import pages from "./slices/pagesSlice";
 import products from "./slices/productsSlice";
 import site from "./slices/siteSlice";
@@ -21,6 +22,7 @@ export const rootReducer = combineReducers({
   articles,
   products,
   pages,
+  mediaKit,
   auth,
   customer,
 });

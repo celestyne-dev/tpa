@@ -42,9 +42,29 @@ def test_templates_are_seeded_with_available_non_sensitive_permissions_only(app)
             assert role.kind == "template" and role.is_active and not role.grants_all
             assert role.permission_keys <= AVAILABLE_PERMISSIONS
             assert not role.permission_keys & SENSITIVE_PERMISSIONS
-        # Future-module templates only reach the dashboard until their modules exist.
-        for key in ("affiliate_manager", "partnerships_manager"):
-            assert roles[key].permission_keys == {"dashboard.view"}
+        # Partnership templates (Batch 07): finance stays with the Finance Manager,
+        # sponsored editorial approval with the Editor-in-Chief.
+        assert "affiliates.manage_links" in roles["affiliate_manager"].permission_keys
+        assert "partnerships.manage" in roles["partnerships_manager"].permission_keys
+        assert "sponsorships.approve" in roles["editor_in_chief"].permission_keys
+        assert "partnership_finance.manage" in roles["finance_manager"].permission_keys
+        for key in ("partnerships_manager", "affiliate_manager", "marketing_manager"):
+            assert "partnership_finance.manage" not in roles[key].permission_keys
+            assert "sponsorships.approve" not in roles[key].permission_keys
+        assert not {
+            k
+            for k in roles["content_writer"].permission_keys
+            if k.split(".")[0]
+            in (
+                "partnerships",
+                "sponsorships",
+                "advertising",
+                "media_kit",
+                "affiliates",
+                "partnership_finance",
+                "partnership_reports",
+            )
+        }
         # Newsletter templates (Batch 06): exports stay with the Newsletter Manager and
         # sending settings with the Super Admin.
         assert "subscribers.export" in roles["newsletter_manager"].permission_keys
@@ -97,7 +117,8 @@ def test_permission_catalogue_flags(app, as_role):
     assert flat["articles.edit_own"]["available"] and not flat["articles.edit_own"]["sensitive"]
     assert flat["payments.configure"]["sensitive"] and flat["payments.configure"]["available"]
     assert flat["orders.view"]["available"] is True
-    assert flat["affiliates.view"]["available"] is False  # still a future module
+    assert flat["affiliates.view"]["available"] is True
+    assert flat["advertising.manage"]["available"] is False  # superseded by finer keys
     assert flat["finance.manage"]["available"] is False
     assert {g["name"] for g in groups} >= {"Articles", "Users, roles & audit"}
 
@@ -269,14 +290,14 @@ def test_settings_are_split_by_permission(seeded, as_role):
     assert res.status_code == 403
 
 
-def test_future_module_templates_reach_no_operational_endpoints(seeded, as_role):
+def test_affiliate_template_reaches_only_its_own_module(seeded, as_role):
     make_user(seeded, "pm@example.org", ["affiliate_manager"])
     pm = _client(seeded, "pm@example.org")
     assert pm.get("/api/v1/admin/dashboard").status_code == 200
-    dashboard = pm.get("/api/v1/admin/dashboard").get_json()["data"]
-    assert dashboard["articles"] is None and dashboard["recent_articles"] is None
+    assert pm.get("/api/v1/admin/affiliate-links").status_code == 200
     for url in (
-        "/api/v1/admin/articles",
+        "/api/v1/admin/partners",
+        "/api/v1/admin/partnership-finance",
         "/api/v1/admin/users",
         "/api/v1/admin/settings",
         "/api/v1/admin/pages",

@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 
 from ..cms.blocks import blocks_word_count, heading_outline, internal_links, media_ids
 from ..extensions import db
-from ..models import Article, MediaAsset, Page, Redirect, Topic
+from ..models import Article, MediaAsset, Page, Redirect, SiteSetting, Topic
 from . import publication_service
 from .serializers import iso
 
@@ -28,6 +28,7 @@ STATIC_PATHS: list[tuple[str, float, str]] = [
     ("/free-resources", 0.8, "monthly"),
     ("/newsletter", 0.7, "monthly"),
     ("/partner-with-us", 0.6, "monthly"),
+    ("/advertise", 0.5, "monthly"),
     ("/about", 0.6, "monthly"),
     ("/contact", 0.5, "yearly"),
     ("/privacy-policy", 0.2, "yearly"),
@@ -620,9 +621,14 @@ def sitemap_entries() -> list[dict[str, Any]]:
             "images": _page_images(page.published_snapshot or {}),
         }
 
+    from .partnerships.media_kit import PUBLISHED_KEY
+
+    media_kit_live = db.session.get(SiteSetting, PUBLISHED_KEY) is not None
     for path, priority, changefreq in STATIC_PATHS:
         if path in excluded:
             continue
+        if path == "/advertise" and not media_kit_live and path not in live:
+            continue  # nothing to index until the media kit is published
         page = live.pop(path, None)
         if page is not None:
             entry = page_entry(page, path, priority, changefreq)

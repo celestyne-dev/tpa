@@ -384,6 +384,102 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       update: (id, body) => patch(`/lead-magnets/${id}`, body),
       remove: (id) => del(`/lead-magnets/${id}`),
     },
+    partners: {
+      list: (params) => get("/partners", params),
+      get: (id) => get(`/partners/${id}`),
+      create: (body) => post("/partners", body),
+      update: (id, body) => put(`/partners/${id}`, body),
+    },
+    partnershipInquiries: {
+      list: (params) => get("/partnership-inquiries", params),
+      update: (id, body) => put(`/partnership-inquiries/${id}`, body),
+    },
+    opportunities: {
+      list: (params) => get("/opportunities", params),
+      get: (id) => get(`/opportunities/${id}`),
+      create: (body) => post("/opportunities", body),
+      update: (id, body) => put(`/opportunities/${id}`, body),
+      move: (id, body) => post(`/opportunities/${id}/stage`, body),
+      interact: (id, body) => post(`/opportunities/${id}/interactions`, body),
+    },
+    sponsorshipCampaigns: {
+      list: (params) => get("/sponsorship-campaigns", params),
+      get: (id) => get(`/sponsorship-campaigns/${id}`),
+      create: (body) => post("/sponsorship-campaigns", body),
+      update: (id, body) => put(`/sponsorship-campaigns/${id}`, body),
+      move: (id, status) => post(`/sponsorship-campaigns/${id}/status`, { status }),
+    },
+    partnershipOptions: () => get("/partnership-options"),
+    adPlacements: {
+      list: () => get("/ad-placements"),
+      create: (body) => post("/ad-placements", body),
+      update: (id, body) => put(`/ad-placements/${id}`, body),
+    },
+    rateCards: {
+      list: () => get("/rate-cards"),
+      create: (body) => post("/rate-cards", body),
+      update: (id, body) => put(`/rate-cards/${id}`, body),
+    },
+    adBookings: {
+      list: (params) => get("/ad-bookings", params),
+      get: (id) => get(`/ad-bookings/${id}`),
+      create: (body) => post("/ad-bookings", body),
+      update: (id, body) => put(`/ad-bookings/${id}`, body),
+      move: (id, status) => post(`/ad-bookings/${id}/status`, { status }),
+      conflicts: (body) => post("/ad-bookings/conflicts", body),
+    },
+    partnershipFinance: {
+      list: (params) => get("/partnership-finance", params),
+      create: (body) => post("/partnership-finance", body),
+    },
+    partnershipReports: {
+      get: (params) => get("/partnership-reports", params),
+      exportUrl: (params = {}) => {
+        const query = new URLSearchParams(
+          Object.entries(params).filter(([, v]) => v != null && v !== ""),
+        ).toString();
+        return `${baseURL}/partnership-reports/export${query ? `?${query}` : ""}`;
+      },
+    },
+    articleSponsorship: {
+      get: (articleId) => get(`/articles/${articleId}/sponsorship`),
+      save: (articleId, body) => put(`/articles/${articleId}/sponsorship`, body),
+      remove: (articleId) => del(`/articles/${articleId}/sponsorship`),
+      approve: (articleId) => post(`/articles/${articleId}/sponsorship/approve`),
+    },
+    affiliatePrograms: {
+      list: () => get("/affiliate-programs"),
+      create: (body) => post("/affiliate-programs", body),
+      update: (id, body) => put(`/affiliate-programs/${id}`, body),
+    },
+    affiliateLinks: {
+      list: (params) => get("/affiliate-links", params),
+      create: (body) => post("/affiliate-links", body),
+      update: (id, body) => put(`/affiliate-links/${id}`, body),
+    },
+    affiliateClicks: (params) => get("/affiliate-clicks", params),
+    affiliateCommissions: {
+      list: (params) => get("/affiliate-commissions", params),
+      create: (body) => post("/affiliate-commissions", body),
+      setStatus: (id, status) => post(`/affiliate-commissions/${id}/status`, { status }),
+      importCsv: (file, programId) =>
+        upload("/affiliate-commissions/import", file, { program_id: programId }),
+    },
+    affiliateDisclosure: {
+      get: () => get("/affiliate-disclosure"),
+      update: (text) => put("/affiliate-disclosure", { text }),
+    },
+    mediaKit: {
+      get: () => get("/media-kit"),
+      save: (body) => put("/media-kit", body),
+      publish: () => post("/media-kit/publish"),
+    },
+    audienceMetrics: {
+      list: () => get("/audience-metrics"),
+      create: (body) => post("/audience-metrics", body),
+      update: (id, body) => put(`/audience-metrics/${id}`, body),
+      remove: (id) => del(`/audience-metrics/${id}`),
+    },
     emailSettings: {
       get: () => get("/email-settings"),
       update: (body) => patch("/email-settings", body),

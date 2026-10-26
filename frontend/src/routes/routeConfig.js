@@ -7,6 +7,7 @@ import {
   topicArticlesQuery,
 } from "@/data/queries";
 import { AboutPage } from "@/pages/AboutPage";
+import { AdvertisePage } from "@/pages/AdvertisePage";
 import { AffiliateDisclosurePage } from "@/pages/AffiliateDisclosurePage";
 import { ArticleDetailPage } from "@/pages/ArticleDetailPage";
 import { ArticlesPage } from "@/pages/ArticlesPage";
@@ -25,6 +26,7 @@ import { TopicPage } from "@/pages/TopicPage";
 import { withCmsOverride } from "@/routes/cmsOverride";
 import * as commerce from "@/routes/commerceRoutes";
 import { fetchArticle, fetchArticles } from "@/store/slices/articlesSlice";
+import { fetchMediaKit } from "@/store/slices/mediaKitSlice";
 import { fetchPage } from "@/store/slices/pagesSlice";
 import { fetchCollection, fetchProduct, fetchProducts } from "@/store/slices/productsSlice";
 import { fetchSite } from "@/store/slices/siteSlice";
@@ -105,8 +107,14 @@ export const routeTable = [
   ].map(([path, Page]) => ({
     path,
     Component: withCmsOverride(Page, path),
-    load: () => [fetchPage({ path })],
+    load: () =>
+      path === routes.partner ? [fetchPage({ path }), fetchMediaKit()] : [fetchPage({ path })],
   })),
+  {
+    path: routes.advertise,
+    Component: withCmsOverride(AdvertisePage, routes.advertise),
+    load: () => [fetchMediaKit(), fetchPage({ path: routes.advertise })],
+  },
   {
     path: routes.about,
     Component: withCmsOverride(AboutPage, routes.about),

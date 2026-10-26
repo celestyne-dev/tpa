@@ -72,6 +72,7 @@ export function createFakeApi(overrides = {}) {
       if (path === "/") return { data: fx.homePage };
       return fx.cmsPages[path] ? { data: fx.cmsPages[path] } : notFound("Page not found.");
     }),
+    getMediaKit: vi.fn(async () => notFound("The media kit has not been published yet.")),
     getPages: vi.fn(async () => ({
       data: Object.values(fx.cmsPages).map((p) => ({ path: p.path, title: p.title })),
     })),

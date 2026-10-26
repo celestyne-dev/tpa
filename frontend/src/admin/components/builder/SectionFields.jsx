@@ -521,6 +521,44 @@ function Field({ spec, value, onChange, errors, path, variant, disabled }) {
           onChange={(e) => onChange(e.target.value || null)}
         />
       );
+    case "placement":
+      return (
+        <SelectField
+          className={className}
+          label={spec.label}
+          value={value ?? ""}
+          disabled={disabled}
+          error={error}
+          hint="Only approved bookings running on this placement are shown, within their dates."
+          options={[
+            { value: "", label: "Choose a placement…" },
+            ...(options.ad_placements ?? []).map((p) => ({
+              value: p.key,
+              label: p.active ? p.name : `${p.name} (inactive)`,
+            })),
+          ]}
+          onChange={(e) => onChange(e.target.value || null)}
+        />
+      );
+    case "affiliate_links":
+      return (
+        <div className={className}>
+          <OrderedPicker
+            label={spec.label}
+            items={(options.affiliate_links ?? []).map((l) => ({
+              ...l,
+              title: `${l.name}${l.merchant ? ` — ${l.merchant}` : ""}${l.active ? "" : " (inactive)"}`,
+            }))}
+            value={value}
+            max={spec.max_items ?? 8}
+            hint={spec.help}
+            error={error}
+            disabled={disabled}
+            itemLabel={(l) => l.title}
+            onChange={onChange}
+          />
+        </div>
+      );
     case "string_list":
       return (
         <TextAreaField

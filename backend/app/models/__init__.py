@@ -74,6 +74,25 @@ from .orders import (
     Receipt,
     Refund,
 )
+from .partnerships import (
+    AdPlacement,
+    AffiliateClickDaily,
+    AffiliateCommission,
+    AffiliateLink,
+    AffiliateProgram,
+    ArticleSponsorship,
+    AudienceMetric,
+    Booking,
+    CommercialEvent,
+    NewsletterSponsorship,
+    Opportunity,
+    Partner,
+    PartnerContact,
+    PartnershipFinanceEntry,
+    PartnershipInquiry,
+    RateCard,
+    SponsorshipCampaign,
+)
 from .publishing import PublishJob, Redirect
 from .user import (
     AccountToken,
@@ -86,6 +105,23 @@ from .user import (
 )
 
 __all__ = [
+    "AdPlacement",
+    "AffiliateClickDaily",
+    "AffiliateCommission",
+    "AffiliateLink",
+    "AffiliateProgram",
+    "ArticleSponsorship",
+    "AudienceMetric",
+    "Booking",
+    "CommercialEvent",
+    "NewsletterSponsorship",
+    "Opportunity",
+    "Partner",
+    "PartnerContact",
+    "PartnershipFinanceEntry",
+    "PartnershipInquiry",
+    "RateCard",
+    "SponsorshipCampaign",
     "Campaign",
     "EmailAutomation",
     "EmailAutomationEnrollment",

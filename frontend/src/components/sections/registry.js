@@ -27,6 +27,14 @@ import {
   PromoBannerSection,
 } from "./EngagementSections";
 import { HeroSection, PageHeaderSection } from "./IntroSections";
+import {
+  AffiliateRecommendationsSection,
+  BrandSpotlightSection,
+  MediaKitSummarySection,
+  PartnershipInquirySection,
+  SponsorLogosSection,
+  SponsoredBannerSection,
+} from "./PartnershipSections";
 
 /**
  * Approved section components, keyed by section type (mirrors SECTION_TYPES in
@@ -59,6 +67,12 @@ export const SECTION_COMPONENTS = {
   author_intro: AuthorIntroSection,
   resource_list: ResourceListSection,
   contact_details: ContactDetailsSection,
+  sponsor_logos: SponsorLogosSection,
+  sponsored_banner: SponsoredBannerSection,
+  brand_spotlight: BrandSpotlightSection,
+  affiliate_recommendations: AffiliateRecommendationsSection,
+  media_kit_summary: MediaKitSummarySection,
+  partnership_inquiry: PartnershipInquirySection,
 };
 
 /** Section types that provide the page's main heading (h1). */

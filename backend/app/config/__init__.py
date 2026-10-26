@@ -208,6 +208,13 @@ class BaseConfig:
         "RATELIMIT_NEWSLETTER_SIGNUP", "5 per minute;30 per hour"
     )
 
+    # ---- Partnerships ----
+    # Internal address notified of new partnership inquiries (only when MAIL_BACKEND sends).
+    PARTNERSHIP_NOTIFY_EMAIL = os.environ.get("PARTNERSHIP_NOTIFY_EMAIL", "").strip()
+    RATELIMIT_PARTNERSHIP_INQUIRY = os.environ.get(
+        "RATELIMIT_PARTNERSHIP_INQUIRY", "5 per minute;20 per hour"
+    )
+
     # ---- SEO / redirects ----
     # Public website origin (matches VITE_SITE_URL); used for canonical checks and sitemaps.
     SITE_URL = os.environ.get("SITE_URL", "http://localhost:5173").rstrip("/")

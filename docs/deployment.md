@@ -176,6 +176,21 @@ Before bulk sending:
 - Only then set `NEWSLETTER_LIVE_ALLOWED=true` and complete the checklist in `/admin/email-settings`.
 - No Nginx change is needed: `/api/v1/newsletter/`, `/api/v1/lead-magnets/` and `/api/v1/email/` are served by the existing `/api/` location.
 
+## Upgrading from Batch 06 (partnerships)
+
+```bash
+pg_dump --format=custom --file=/var/backups/tpa-$(date +%F)-pre-batch07.dump "$DATABASE_URL"
+cd /var/www/tpa/backend && set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db upgrade                  # 4a65b8174c82 (new tables only)
+.venv/bin/flask --app wsgi rbac sync                   # should report all zeros
+sudo systemctl restart tpa-api tpa-publish-worker
+.venv/bin/flask --app wsgi publish request             # rebuild: /advertise, partner form, labels
+```
+
+- Optional: set `PARTNERSHIP_NOTIFY_EMAIL` (with a sending `MAIL_BACKEND`) and `RATELIMIT_PARTNERSHIP_INQUIRY`.
+- No Nginx change is needed: `/api/v1/partnership-inquiries`, `/api/v1/media-kit` and `/api/v1/go/` are served by the existing `/api/` location. With several Gunicorn workers, use Redis for `RATELIMIT_STORAGE_URI` so the inquiry limits are shared.
+- The publishing worker already handles rebuilds at booking start and end times.
+
 ## Frontend build (manual)
 
 ```bash

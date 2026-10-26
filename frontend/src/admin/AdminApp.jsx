@@ -44,6 +44,11 @@ import { EmailSettingsPage } from "./pages/newsletter/EmailSettingsPage";
 import { LeadMagnetsPage } from "./pages/newsletter/LeadMagnetsPage";
 import { NewsletterEditorPage } from "./pages/newsletter/NewsletterEditorPage";
 import { NewslettersPage } from "./pages/newsletter/NewslettersPage";
+import { AffiliateLinksPage, AffiliatesPage } from "./pages/partnerships/AffiliatesPage";
+import { MediaKitPage } from "./pages/partnerships/MediaKitPage";
+import { PartnersPage, PartnershipInquiriesPage } from "./pages/partnerships/PartnersPage";
+import { PartnershipReportsPage } from "./pages/partnerships/PartnershipReportsPage";
+import { SponsorshipsPage } from "./pages/partnerships/SponsorshipsPage";
 import { SubscriberDetailPage, SubscribersPage } from "./pages/newsletter/SubscribersPage";
 import { ProductCollectionsPage } from "./pages/ProductCollectionsPage";
 import { ProductEditorPage } from "./pages/ProductEditorPage";
@@ -152,6 +157,31 @@ export default function AdminApp() {
           <Route
             path="lead-magnets"
             element={guarded("lead_magnets.manage", <LeadMagnetsPage />)}
+          />
+          <Route path="partners" element={guarded("partnerships.view", <PartnersPage />)} />
+          <Route
+            path="partnership-inquiries"
+            element={guarded("partnerships.view", <PartnershipInquiriesPage />)}
+          />
+          <Route
+            path="sponsorships"
+            element={guarded(
+              ["partnerships.view", "sponsorships.view", "advertising.view"],
+              <SponsorshipsPage />,
+            )}
+          />
+          <Route path="media-kit" element={guarded("media_kit.manage", <MediaKitPage />)} />
+          <Route path="affiliates" element={guarded("affiliates.view", <AffiliatesPage />)} />
+          <Route
+            path="affiliate-links"
+            element={guarded("affiliates.view", <AffiliateLinksPage />)}
+          />
+          <Route
+            path="partnership-reports"
+            element={guarded(
+              ["partnership_finance.view", "partnership_reports.export"],
+              <PartnershipReportsPage />,
+            )}
           />
           <Route
             path="email-settings"

@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/Badge";
+import { SponsoredLabel } from "./SponsoredLabel";
 import { Card } from "@/components/ui/Card";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { routes } from "@/config/navigation";
@@ -48,6 +49,7 @@ export function ArticleCard({
         <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
           {article.topic?.name ?? "Articles"}
         </p>
+        <SponsoredLabel sponsorship={article.sponsorship} compact className="mt-2" />
         <Heading
           className={cn(
             "mt-3 font-medium",

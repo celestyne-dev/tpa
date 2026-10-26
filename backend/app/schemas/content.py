@@ -69,6 +69,8 @@ class ArticleSummarySchema(Schema):
     reading_time_minutes = fields.Integer()
     image = fields.Nested(ImageSchema)
     source = fields.String()
+    # {label, sponsor, disclosure} for paid content; null for organic articles.
+    sponsorship = fields.Dict(allow_none=True)
 
 
 class ArticleDetailSchema(ArticleSummarySchema):

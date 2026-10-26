@@ -633,6 +633,11 @@ def publish_readiness(article: Article) -> dict[str, list[str]]:
         problems["author_id"] = ["The author is archived."]
     if article.primary_topic and article.primary_topic.status == "archived":
         problems["primary_topic_id"] = ["The topic is archived."]
+    from ..partnerships.sponsored import publish_problems
+
+    sponsorship_problems = publish_problems(article)
+    if sponsorship_problems:
+        problems["sponsorship"] = sponsorship_problems
     return problems
 
 

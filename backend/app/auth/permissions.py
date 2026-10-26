@@ -88,6 +88,16 @@ class Permission(StrEnum):
     ADVERTISING_MANAGE = "advertising.manage"
     AFFILIATES_VIEW = "affiliates.view"
     AFFILIATES_MANAGE = "affiliates.manage"
+    AFFILIATES_MANAGE_LINKS = "affiliates.manage_links"
+    SPONSORSHIPS_VIEW = "sponsorships.view"
+    SPONSORSHIPS_MANAGE = "sponsorships.manage"
+    SPONSORSHIPS_APPROVE = "sponsorships.approve"
+    ADVERTISING_MANAGE_INVENTORY = "advertising.manage_inventory"
+    ADVERTISING_MANAGE_BOOKINGS = "advertising.manage_bookings"
+    MEDIA_KIT_MANAGE = "media_kit.manage"
+    PARTNERSHIP_FINANCE_VIEW = "partnership_finance.view"
+    PARTNERSHIP_FINANCE_MANAGE = "partnership_finance.manage"
+    PARTNERSHIP_REPORTS_EXPORT = "partnership_reports.export"
     NEWSLETTERS_MANAGE = "newsletters.manage"
     SUBSCRIBERS_VIEW = "subscribers.view"
     SUBSCRIBERS_EXPORT = "subscribers.export"
@@ -427,29 +437,91 @@ CATALOGUE: list[PermissionDef] = [
         "entitlements",
     ),
     _d(P.DOWNLOADS_AUDIT, "View download activity", "Customers", "entitlements"),
-    _d(P.PARTNERSHIPS_VIEW, "View partnerships", "Partnerships", "partnerships", available=False),
+    _d(
+        P.PARTNERSHIPS_VIEW,
+        "View partners and pipeline",
+        "Partnerships & sponsorships",
+        "partnerships",
+        description="Partner profiles, contacts, inquiries and opportunities.",
+    ),
     _d(
         P.PARTNERSHIPS_MANAGE,
-        "Manage partnerships",
-        "Partnerships",
+        "Manage partners and pipeline",
+        "Partnerships & sponsorships",
         "partnerships",
-        available=False,
+        description="Create and edit partners, inquiries, opportunities and interactions.",
     ),
-    _d(P.ADVERTISING_VIEW, "View advertising", "Advertising", "advertising", available=False),
-    _d(P.ADVERTISING_MANAGE, "Manage advertising", "Advertising", "advertising", available=False),
     _d(
-        P.AFFILIATES_VIEW,
-        "View affiliate campaigns",
-        "Affiliate campaigns",
-        "affiliates",
-        available=False,
+        P.SPONSORSHIPS_VIEW,
+        "View sponsorship campaigns",
+        "Partnerships & sponsorships",
+        "partnerships",
     ),
+    _d(
+        P.SPONSORSHIPS_MANAGE,
+        "Manage sponsorship campaigns",
+        "Partnerships & sponsorships",
+        "partnerships",
+        description="Campaigns, sponsored article and newsletter details, review states.",
+    ),
+    _d(
+        P.SPONSORSHIPS_APPROVE,
+        "Approve sponsored content",
+        "Partnerships & sponsorships",
+        "partnerships",
+        description="Approve sponsored articles, newsletters and campaigns for publication.",
+    ),
+    _d(P.ADVERTISING_VIEW, "View advertising inventory and bookings", "Advertising", "advertising"),
+    _d(
+        P.ADVERTISING_MANAGE,
+        "Manage advertising (superseded)",
+        "Advertising",
+        "advertising",
+        available=False,
+        description="Replaced in Batch 07 by manage_inventory and manage_bookings.",
+    ),
+    _d(
+        P.ADVERTISING_MANAGE_INVENTORY,
+        "Manage placements and rate cards",
+        "Advertising",
+        "advertising",
+    ),
+    _d(
+        P.ADVERTISING_MANAGE_BOOKINGS,
+        "Manage and approve bookings",
+        "Advertising",
+        "advertising",
+    ),
+    _d(P.MEDIA_KIT_MANAGE, "Manage the media kit and audience data", "Advertising", "advertising"),
+    _d(P.AFFILIATES_VIEW, "View affiliate programs and links", "Affiliates", "affiliates"),
     _d(
         P.AFFILIATES_MANAGE,
-        "Manage affiliate campaigns",
-        "Affiliate campaigns",
+        "Manage affiliate programs",
+        "Affiliates",
         "affiliates",
-        available=False,
+        description="Programs, private account identifiers, commission imports and disclosure "
+        "wording.",
+    ),
+    _d(P.AFFILIATES_MANAGE_LINKS, "Manage affiliate links", "Affiliates", "affiliates"),
+    _d(
+        P.PARTNERSHIP_FINANCE_VIEW,
+        "View partnership finances",
+        "Partnerships & sponsorships",
+        "partnerships",
+        description="Fees, invoiced and received amounts, outstanding balances.",
+    ),
+    _d(
+        P.PARTNERSHIP_FINANCE_MANAGE,
+        "Record partnership invoices and payments",
+        "Partnerships & sponsorships",
+        "partnerships",
+        description="Manual records only: no invoices are issued and no payments initiated.",
+    ),
+    _d(
+        P.PARTNERSHIP_REPORTS_EXPORT,
+        "Export partnership reports",
+        "Partnerships & sponsorships",
+        "partnerships",
     ),
     _d(
         P.NEWSLETTERS_MANAGE,
@@ -757,27 +829,27 @@ TEMPLATE_ROLES: list[RoleSpec] = [
     RoleSpec(
         "partnerships_manager",
         "Partnerships Manager",
-        "Will manage brand partnerships and sponsored campaigns.",
+        "Manages partners, inquiries, opportunities, campaigns and bookings.",
         "template",
         _set(P.DASHBOARD_VIEW),
-        planned=_set(P.PARTNERSHIPS_VIEW, P.PARTNERSHIPS_MANAGE),
+        planned=frozenset(),
     ),
     RoleSpec(
         "affiliate_manager",
         "Affiliate Manager",
-        "Will manage affiliate campaigns.",
+        "Manages affiliate programs, links, disclosures and commission records.",
         "template",
         _set(P.DASHBOARD_VIEW),
-        planned=_set(P.AFFILIATES_VIEW, P.AFFILIATES_MANAGE),
+        planned=frozenset(),
     ),
     RoleSpec(
         "marketing_manager",
         "Marketing Manager",
-        "Reviews content performance, drafts newsletters and lead magnets; will manage "
-        "advertising.",
+        "Reviews content performance, drafts newsletters and lead magnets, runs campaigns "
+        "and marketing placements.",
         "template",
         _set(P.DASHBOARD_VIEW, P.ANALYTICS_VIEW, P.ARTICLES_VIEW),
-        planned=_set(P.ADVERTISING_VIEW, P.ADVERTISING_MANAGE),
+        planned=frozenset(),
     ),
     RoleSpec(
         "newsletter_manager",
@@ -971,6 +1043,48 @@ BATCH_06_GRANTS: dict[str, frozenset[str]] = {
     | _set(P.SUBSCRIBERS_VIEW, P.LEAD_MAGNETS_MANAGE, P.MEDIA_VIEW),
 }
 
+PARTNERSHIP_CORE = _set(
+    P.PARTNERSHIPS_VIEW,
+    P.PARTNERSHIPS_MANAGE,
+    P.SPONSORSHIPS_VIEW,
+    P.SPONSORSHIPS_MANAGE,
+    P.ADVERTISING_VIEW,
+    P.ADVERTISING_MANAGE_BOOKINGS,
+    P.MEDIA_KIT_MANAGE,
+)
+AFFILIATE_ALL = _set(P.AFFILIATES_VIEW, P.AFFILIATES_MANAGE, P.AFFILIATES_MANAGE_LINKS)
+BATCH_07_GRANTS: dict[str, frozenset[str]] = {
+    "administrator": PARTNERSHIP_CORE
+    | AFFILIATE_ALL
+    | _set(
+        P.SPONSORSHIPS_APPROVE,
+        P.ADVERTISING_MANAGE_INVENTORY,
+        P.PARTNERSHIP_FINANCE_VIEW,
+        P.PARTNERSHIP_REPORTS_EXPORT,
+    ),
+    "partnerships_manager": PARTNERSHIP_CORE
+    | _set(P.ADVERTISING_MANAGE_INVENTORY, P.MEDIA_VIEW, P.ARTICLES_VIEW),
+    "marketing_manager": _set(
+        P.SPONSORSHIPS_VIEW,
+        P.SPONSORSHIPS_MANAGE,
+        P.ADVERTISING_VIEW,
+        P.ADVERTISING_MANAGE_BOOKINGS,
+        P.AFFILIATES_VIEW,
+        P.AFFILIATES_MANAGE_LINKS,
+    ),
+    "affiliate_manager": AFFILIATE_ALL | _set(P.ARTICLES_VIEW, P.PRODUCTS_VIEW),
+    "editor_in_chief": _set(P.SPONSORSHIPS_VIEW, P.SPONSORSHIPS_APPROVE),
+    "finance_manager": _set(
+        P.PARTNERSHIPS_VIEW,
+        P.SPONSORSHIPS_VIEW,
+        P.ADVERTISING_VIEW,
+        P.AFFILIATES_VIEW,
+        P.PARTNERSHIP_FINANCE_VIEW,
+        P.PARTNERSHIP_FINANCE_MANAGE,
+        P.PARTNERSHIP_REPORTS_EXPORT,
+    ),
+}
+
 
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
@@ -978,6 +1092,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_04_GRANTS.get(spec.key, frozenset())
         | BATCH_05_GRANTS.get(spec.key, frozenset())
         | BATCH_06_GRANTS.get(spec.key, frozenset())
+        | BATCH_07_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

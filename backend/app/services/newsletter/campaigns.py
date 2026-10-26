@@ -119,6 +119,13 @@ def campaign_dict(c: Campaign, *, detail: bool = False) -> dict[str, Any]:
                 "ctas": c.ctas,
                 "segment_id": c.segment_id,
                 "approved_by_id": c.approved_by_id,
+                "sponsorship": {
+                    "sponsor_name": c.sponsorship.sponsor_name,
+                    "disclosure_text": c.sponsorship.disclosure_text,
+                    "sponsorship_campaign_id": c.sponsorship.sponsorship_campaign_id,
+                }
+                if getattr(c, "sponsorship", None) is not None
+                else None,
             }
         )
     return data
@@ -160,6 +167,7 @@ def _apply(campaign: Campaign, data: dict[str, Any]) -> None:
         "ctas",
         "segment_id",
         "lock_version",
+        "sponsorship",
     }
     unknown = set(data) - allowed
     if unknown:
@@ -210,11 +218,15 @@ def create_campaign(data: dict[str, Any], actor) -> Campaign:
         created_by_id=actor.id,
         updated_by_id=actor.id,
     )
-    _apply(campaign, {k: v for k, v in data.items() if k != "template_key"})
+    _apply(campaign, {k: v for k, v in data.items() if k not in ("template_key", "sponsorship")})
     if not data.get("name") and template:
         campaign.name = template.name
     db.session.add(campaign)
     db.session.flush()
+    if "sponsorship" in data:
+        from ..partnerships.sponsored import set_newsletter_sponsorship
+
+        set_newsletter_sponsorship(campaign, data["sponsorship"], actor)
     audit_service.record("newsletter.created", "campaign", campaign.id, actor=actor)
     return campaign
 
@@ -228,7 +240,11 @@ def update_campaign(campaign: Campaign, data: dict[str, Any], actor) -> Campaign
             "Someone else saved this campaign. Reload to see their changes.",
             details={"code": "edit_conflict", "lock_version": campaign.lock_version},
         )
-    _apply(campaign, data)
+    _apply(campaign, {k: v for k, v in data.items() if k != "sponsorship"})
+    if "sponsorship" in data:
+        from ..partnerships.sponsored import set_newsletter_sponsorship
+
+        set_newsletter_sponsorship(campaign, data["sponsorship"], actor)
     if campaign.status == "approved":
         campaign.status = "draft"
         campaign.approved_at = None
@@ -258,6 +274,17 @@ def duplicate_campaign(campaign: Campaign, actor) -> Campaign:
     )
     db.session.add(copy)
     db.session.flush()
+    if getattr(campaign, "sponsorship", None) is not None:
+        from ..models import NewsletterSponsorship
+
+        db.session.add(
+            NewsletterSponsorship(
+                campaign_id=copy.id,
+                sponsorship_campaign_id=campaign.sponsorship.sponsorship_campaign_id,
+                sponsor_name=campaign.sponsorship.sponsor_name,
+                disclosure_text=campaign.sponsorship.disclosure_text,
+            )
+        )
     audit_service.record(
         "newsletter.duplicated", "campaign", copy.id, actor=actor, details={"from": campaign.id}
     )
@@ -280,6 +307,9 @@ def _problems(campaign: Campaign) -> list[str]:
     text = " ".join(str(v) for b in campaign.blocks for v in b.values() if isinstance(v, str))
     if GUIDANCE.search(f"{campaign.subject} {campaign.preheader} {text}"):
         problems.append("Replace the [bracketed guidance] from the template.")
+    sponsorship = getattr(campaign, "sponsorship", None)
+    if sponsorship is not None and len(sponsorship.disclosure_text.strip()) < 10:
+        problems.append("Add the sponsorship disclosure text.")
     return problems
 
 
@@ -291,6 +321,13 @@ def approve(campaign: Campaign, actor) -> Campaign:
         raise ValidationError(
             "This campaign isn't ready to approve.", details={"campaign": problems}
         )
+    if getattr(campaign, "sponsorship", None) is not None:
+        from ...auth.permissions import Permission as P
+        from ...auth.rbac import has_permissions
+        from ...utils.errors import ForbiddenError
+
+        if not has_permissions(actor, P.SPONSORSHIPS_APPROVE):
+            raise ForbiddenError("Sponsored newsletters also need sponsorship approval rights.")
     campaign.status = "approved"
     campaign.approved_at = _now()
     campaign.approved_by_id = actor.id
@@ -398,6 +435,12 @@ def render_campaign(campaign: Campaign, overrides: dict[str, Any] | None = None)
             data["product_ids"] = _ids(overrides["product_ids"], "product_ids", Product, 4)
         if "ctas" in overrides:
             data["ctas"] = _ctas(overrides["ctas"])
+    sponsorship = getattr(campaign, "sponsorship", None)
+    if sponsorship is not None:
+        data["sponsor"] = {
+            "name": sponsorship.sponsor_name,
+            "disclosure": sponsorship.disclosure_text,
+        }
     return build_email(**data)
 
 

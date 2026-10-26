@@ -30,6 +30,7 @@ import { ImageChooser, MediaThumb } from "../components/media/ImageChooser";
 import { Modal } from "../components/Modal";
 import { useNotify } from "../components/notifyContext";
 import { RevisionsPanel } from "../components/RevisionsPanel";
+import { SponsorshipPanel } from "../components/partnerships/SponsorshipPanel";
 import { SeoPanel } from "../components/SeoPanel";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAdminQuery } from "../hooks/useAdminQuery";
@@ -64,6 +65,7 @@ const TABS = [
   ["content", "Content"],
   ["details", "Details"],
   ["seo", "SEO"],
+  ["sponsorship", "Sponsorship"],
   ["history", "History"],
 ];
 
@@ -476,33 +478,35 @@ export function ArticleEditorPage() {
         aria-label="Editor sections"
         className="mb-4 flex gap-1 overflow-x-auto border-b border-charcoal/10"
       >
-        {TABS.filter(([key]) => key !== "history" || (!isNew && allowed.view_revisions)).map(
-          ([key, label]) => (
-            <button
-              key={key}
-              role="tab"
-              type="button"
-              id={`tab-${key}`}
-              aria-selected={tab === key}
-              aria-controls={`panel-${key}`}
-              onClick={() => setTab(key)}
-              className={cn(
-                "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium",
-                tab === key
-                  ? "border-sage-700 text-sage-800"
-                  : "border-transparent text-muted hover:text-charcoal",
+        {TABS.filter(
+          ([key]) =>
+            (key !== "history" || (!isNew && allowed.view_revisions)) &&
+            (key !== "sponsorship" || (!isNew && can("sponsorships.view"))),
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            type="button"
+            id={`tab-${key}`}
+            aria-selected={tab === key}
+            aria-controls={`panel-${key}`}
+            onClick={() => setTab(key)}
+            className={cn(
+              "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium",
+              tab === key
+                ? "border-sage-700 text-sage-800"
+                : "border-transparent text-muted hover:text-charcoal",
+            )}
+          >
+            {label}
+            {key === "seo" &&
+              seoChecks.data?.counts?.warning + seoChecks.data?.counts?.error > 0 && (
+                <span className="ml-1 rounded-full bg-gold-100 px-1.5 text-xs text-gold-700">
+                  {seoChecks.data.counts.warning + seoChecks.data.counts.error}
+                </span>
               )}
-            >
-              {label}
-              {key === "seo" &&
-                seoChecks.data?.counts?.warning + seoChecks.data?.counts?.error > 0 && (
-                  <span className="ml-1 rounded-full bg-gold-100 px-1.5 text-xs text-gold-700">
-                    {seoChecks.data.counts.warning + seoChecks.data.counts.error}
-                  </span>
-                )}
-            </button>
-          ),
-        )}
+          </button>
+        ))}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
@@ -638,6 +642,12 @@ export function ArticleEditorPage() {
                 onRefreshChecks={isNew ? undefined : seoChecks.reload}
               />
             </fieldset>
+          )}
+
+          {tab === "sponsorship" && !isNew && (
+            <div id="panel-sponsorship" role="tabpanel" aria-labelledby="tab-sponsorship">
+              <SponsorshipPanel articleId={Number(id)} />
+            </div>
           )}
 
           {tab === "history" && !isNew && (

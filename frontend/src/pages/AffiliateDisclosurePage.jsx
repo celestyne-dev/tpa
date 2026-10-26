@@ -8,7 +8,7 @@ export function AffiliateDisclosurePage() {
       path={routes.affiliate}
       description="Our commitment to transparency about affiliate links and sponsored content."
       metaDescription="How Think Positive Always discloses affiliate links, sponsored content, and brand partnerships."
-      lastUpdated="2026-10-20"
+      lastUpdated="2026-10-26"
     >
       <h2>Our approach</h2>
       <p>
@@ -31,10 +31,11 @@ export function AffiliateDisclosurePage() {
         remain our own.
       </p>
 
-      <h2>Current status</h2>
+      <h2>Where you will see disclosures</h2>
       <p>
-        At the time of this draft, the website does not contain affiliate links or sponsored
-        content. This disclosure will be kept up to date as these programmes begin.
+        Pages with affiliate recommendations show a disclosure next to those recommendations, and
+        sponsored articles, banners and newsletter editions are labelled “Sponsored” with the
+        sponsor’s name. Paid and affiliate links are marked as sponsored links for search engines.
       </p>
 
       <h2>Regulatory guidance</h2>

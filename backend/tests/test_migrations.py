@@ -6,6 +6,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from flask_migrate import downgrade, upgrade
 from sqlalchemy import event, inspect, text
+from sqlalchemy.orm import noload
 
 from app import create_app
 from app.auth.permissions import TEMPLATE_ROLES
@@ -247,7 +248,10 @@ def test_batch03_upgrade_preserves_content_and_adds_permissions(tmp_path):
 
         from app.models import Article, MediaAsset, User
 
-        article = db.session.scalar(db.select(Article).where(Article.slug == "kept"))
+        # The sponsorship side table (Batch 07) doesn't exist at this revision yet.
+        article = db.session.scalar(
+            db.select(Article).where(Article.slug == "kept").options(noload(Article.sponsorship))
+        )
         assert article.lock_version == 1 and article.pending_changes is None
         assert article.featured_image_id == media_id
         asset = db.session.get(MediaAsset, media_id)
@@ -710,7 +714,6 @@ def test_batch06_upgrade_adds_newsletter_tables_only_and_preserves_data(tmp_path
         assert "email_settings.manage" not in news
         mkt = effective_permissions(db.session.get(User, ids["marketing_manager"]))
         assert "newsletters.edit" in mkt and "newsletters.send" not in mkt
-        assert set(sync_rbac().values()) == {0}
         db.session.rollback()
         db.session.remove()
 
@@ -721,5 +724,103 @@ def test_batch06_upgrade_adds_newsletter_tables_only_and_preserves_data(tmp_path
             text("SELECT is_available FROM permissions WHERE key = 'subscribers.view'")
         ).scalar_one()
         assert not available
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)  # the code catalogue is ahead of this revision
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+
+
+PARTNERSHIP_TABLES = {
+    "AD_PLACEMENTS",
+    "AFFILIATE_PROGRAMS",
+    "AUDIENCE_METRICS",
+    "COMMERCIAL_EVENTS",
+    "RATE_CARDS",
+    "PARTNERS",
+    "PARTNER_CONTACTS",
+    "PARTNERSHIP_OPPORTUNITIES",
+    "AFFILIATE_LINKS",
+    "PARTNERSHIP_INQUIRIES",
+    "SPONSORSHIP_CAMPAIGNS",
+    "AD_BOOKINGS",
+    "AFFILIATE_CLICK_DAILY",
+    "AFFILIATE_COMMISSIONS",
+    "ARTICLE_SPONSORSHIPS",
+    "NEWSLETTER_SPONSORSHIPS",
+    "PARTNERSHIP_FINANCE_ENTRIES",
+}
+
+
+def test_batch07_upgrade_adds_partnership_tables_only_and_preserves_data(tmp_path):
+    app = _app(tmp_path, "batch07.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="0ded798b0061")
+        conn = db.session
+        now = "2026-10-26 09:00:00"
+        ids = {}
+        for email, role in (
+            ("writer@example.org", "content_writer"),
+            ("pm@example.org", "partnerships_manager"),
+            ("fin@example.org", "finance_manager"),
+        ):
+            uid = conn.execute(
+                text(
+                    "INSERT INTO users (email, display_name, password_hash, status, "
+                    "session_version, created_at, updated_at) VALUES (:e, 'U', 'x', 'active', 1, "
+                    ":n, :n) RETURNING id"
+                ),
+                {"e": email, "n": now},
+            ).scalar_one()
+            conn.execute(
+                text(
+                    "INSERT INTO user_roles (user_id, role_id, assigned_at) "
+                    "SELECT :u, id, :n FROM roles WHERE name = :r"
+                ),
+                {"u": uid, "r": role, "n": now},
+            )
+            ids[role] = uid
+        conn.commit()
+        tables = ("users", "roles", "user_roles", "site_settings", "pages", "email_campaigns")
+        before = {t: conn.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in tables}
+        conn.remove()
+
+        statements = []
+
+        def capture(_conn, _cursor, statement, *_args):
+            statements.append(statement.upper())
+
+        event.listen(db.engine, "before_cursor_execute", capture)
+        upgrade(directory=MIGRATIONS, revision="4a65b8174c82")
+        event.remove(db.engine, "before_cursor_execute", capture)
+        assert not [s for s in statements if "DROP TABLE" in s or "_ALEMBIC_TMP" in s]
+        assert not [s for s in statements if s.lstrip().startswith("ALTER TABLE")]
+        created = {
+            s.split("CREATE TABLE ")[1].split(" ")[0].strip()
+            for s in statements
+            if "CREATE TABLE" in s
+        }
+        assert created == PARTNERSHIP_TABLES
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in before
+        }
+        assert after == before
+
+        from app.models import User
+
+        writer = effective_permissions(db.session.get(User, ids["content_writer"]))
+        commercial = ("partnerships", "sponsorships", "advertising", "affiliates", "media_kit")
+        assert not {p for p in writer if p.split(".")[0] in commercial or "partnership" in p}
+        pm = effective_permissions(db.session.get(User, ids["partnerships_manager"]))
+        assert {"partnerships.manage", "advertising.manage_bookings"} <= pm
+        assert "partnership_finance.manage" not in pm
+        fin = effective_permissions(db.session.get(User, ids["finance_manager"]))
+        assert {"partnership_finance.manage", "partnership_reports.export"} <= fin
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+
+        downgrade(directory=MIGRATIONS, revision="0ded798b0061")
+        names = {t.upper() for t in inspect(db.engine).get_table_names()}
+        assert not names & PARTNERSHIP_TABLES
         db.session.remove()
         upgrade(directory=MIGRATIONS)
