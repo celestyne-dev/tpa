@@ -6,7 +6,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from flask_migrate import downgrade, upgrade
 from sqlalchemy import event, inspect, text
-from sqlalchemy.orm import noload
+from sqlalchemy.orm import configure_mappers, raiseload
 
 from app import create_app
 from app.auth.permissions import TEMPLATE_ROLES
@@ -248,9 +248,12 @@ def test_batch03_upgrade_preserves_content_and_adds_permissions(tmp_path):
 
         from app.models import Article, MediaAsset, User
 
-        # The sponsorship side table (Batch 07) doesn't exist at this revision yet.
+        # The sponsorship side table (Batch 07) doesn't exist at this revision yet: never load
+        # it (raiseload fails loudly instead of querying). The backref exists once mappers
+        # are configured.
+        configure_mappers()
         article = db.session.scalar(
-            db.select(Article).where(Article.slug == "kept").options(noload(Article.sponsorship))
+            db.select(Article).where(Article.slug == "kept").options(raiseload(Article.sponsorship))
         )
         assert article.lock_version == 1 and article.pending_changes is None
         assert article.featured_image_id == media_id
