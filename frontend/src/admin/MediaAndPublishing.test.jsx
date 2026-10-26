@@ -131,14 +131,17 @@ describe("redirect manager", () => {
 
     await user.click(screen.getByRole("button", { name: "Add redirect" }));
     let dialog = await screen.findByRole("dialog", { name: "Add redirect" });
-    await user.type(within(dialog).getByLabelText(/Old path/), "/same");
-    await user.type(within(dialog).getByLabelText(/Destination/), "/same");
+    // Paths are pasted (one input event each) to keep this long flow fast under CPU load.
+    await user.click(within(dialog).getByLabelText(/Old path/));
+    await user.paste("/same");
+    await user.click(within(dialog).getByLabelText(/Destination/));
+    await user.paste("/same");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(
       await within(dialog).findByText("A path cannot redirect to itself."),
     ).toBeInTheDocument();
     await user.clear(within(dialog).getByLabelText(/Destination/));
-    await user.type(within(dialog).getByLabelText(/Destination/), "/articles/finding-calm");
+    await user.paste("/articles/finding-calm");
     await user.selectOptions(within(dialog).getByLabelText("Redirect type"), "308");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
@@ -153,7 +156,8 @@ describe("redirect manager", () => {
 
     await user.click(screen.getByRole("button", { name: "Import" }));
     dialog = await screen.findByRole("dialog", { name: "Import redirects" });
-    await user.type(within(dialog).getByLabelText("CSV"), "source_path,destination");
+    await user.click(within(dialog).getByLabelText("CSV"));
+    await user.paste("source_path,destination");
     await user.click(within(dialog).getByRole("button", { name: "Dry run" }));
     expect(
       await within(dialog).findByText(/1 valid row\(s\) would be imported/),

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 import { createFakeAdminApi, makeArticle, manualSave } from "@/test/adminFake";
-import { preloadAdminApp, renderApp } from "@/test/utils";
+import { SLOW_EDITOR_TEST_MS, preloadAdminApp, renderApp } from "@/test/utils";
 import { safeNextPath } from "./components/safeNextPath";
 
 beforeAll(preloadAdminApp);
@@ -142,26 +142,33 @@ describe("articles", () => {
     expect(screen.queryByRole("link", { name: "Finding Calm" })).not.toBeInTheDocument();
   });
 
-  it("edits a draft with the block editor and saves structured content", async () => {
-    const user = userEvent.setup();
-    const { adminApi } = renderApp("/admin/articles/7/edit");
-    const title = await screen.findByLabelText(/^Title/);
-    await user.clear(title);
-    await user.type(title, "Finding Calm Today");
-    await user.click(screen.getByRole("button", { name: "Callout" }));
-    await user.type(screen.getByLabelText("Callout text"), "Breathe slowly.");
-    await user.click(screen.getByRole("button", { name: "Divider" }));
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(manualSave(adminApi.articles.update)).toBeDefined());
-    const [, payload] = manualSave(adminApi.articles.update);
-    expect(payload.title).toBe("Finding Calm Today");
-    expect(payload.body).toEqual([
-      { type: "paragraph", text: "Hello world." },
-      { type: "callout", tone: "info", text: "Breathe slowly." },
-      { type: "divider" },
-    ]);
-    expect(await screen.findByText("Changes saved.")).toBeInTheDocument();
-  });
+  it(
+    "edits a draft with the block editor and saves structured content",
+    async () => {
+      const user = userEvent.setup();
+      const { adminApi } = renderApp("/admin/articles/7/edit");
+      const title = await screen.findByLabelText(/^Title/);
+      // Pasted, not typed key by key: the test checks the saved structure, and per-key
+      // re-renders of the full editor made it CPU-bound on slower machines.
+      await user.clear(title);
+      await user.paste("Finding Calm Today");
+      await user.click(screen.getByRole("button", { name: "Callout" }));
+      await user.click(screen.getByLabelText("Callout text"));
+      await user.paste("Breathe slowly.");
+      await user.click(screen.getByRole("button", { name: "Divider" }));
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
+      await waitFor(() => expect(manualSave(adminApi.articles.update)).toBeDefined());
+      const [, payload] = manualSave(adminApi.articles.update);
+      expect(payload.title).toBe("Finding Calm Today");
+      expect(payload.body).toEqual([
+        { type: "paragraph", text: "Hello world." },
+        { type: "callout", tone: "info", text: "Breathe slowly." },
+        { type: "divider" },
+      ]);
+      expect(await screen.findByText("Changes saved.")).toBeInTheDocument();
+    },
+    SLOW_EDITOR_TEST_MS,
+  );
 
   it("offers publishing controls to editors and publishes the article", async () => {
     const user = userEvent.setup();

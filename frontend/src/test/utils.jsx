@@ -28,6 +28,15 @@ export async function preloadCommerce() {
   await loadCommerce();
 }
 
+/**
+ * Per-test limit for the few tests that drive the full article editor or the homepage
+ * builder's live preview through many interactions. Unloaded they take about 0.8–1.5 s
+ * (first render of the editor ~0.7 s, then ~0.1 s per interaction re-rendering the whole
+ * editor in jsdom); under CPU contention (parallel workers on a slower VM/WSL) that grew
+ * past Vitest's 5 s default. Only those tests use it; the global default is unchanged.
+ */
+export const SLOW_EDITOR_TEST_MS = 15_000;
+
 /** In-memory implementation of the content API used by the store's thunks. */
 export function createFakeApi(overrides = {}) {
   const paginate = (items, params = {}) => {

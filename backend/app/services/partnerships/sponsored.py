@@ -79,7 +79,8 @@ def get_article(article_id: int) -> Article:
 def save(article: Article, data: dict[str, Any], actor) -> ArticleSponsorship:
     record = article.sponsorship
     creating = record is None
-    record = record or ArticleSponsorship(article_id=article.id, review_status="draft")
+    # Attach through the relationship so article.sponsorship is current in this session.
+    record = record or ArticleSponsorship(article=article, review_status="draft")
     if "sponsor_name" in data or creating:
         record.sponsor_name = common.text(data, "sponsor_name", 160, required=True)
     if "label" in data:

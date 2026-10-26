@@ -803,3 +803,23 @@ def test_partnership_sections_validate(seeded):
         assert not errors
         _, errors, _ = check_section("media_kit_summary", "panel", {"heading": "Advertise"})
         assert not errors
+
+
+def test_sponsorship_is_visible_on_the_article_within_the_same_session(seeded, as_role):
+    """save() then approve()/save() in one unit of work must reuse the same record."""
+    from app.models import Article, ArticleSponsorship, User
+    from app.services.partnerships import sponsored
+
+    as_role("super_admin", email="owner@example.org")
+    with seeded.app_context():
+        actor = db.session.scalar(db.select(User).where(User.email == "owner@example.org"))
+        article = db.session.scalars(db.select(Article)).first()
+        assert article.sponsorship is None
+        sponsored.save(article, {"sponsor_name": "Calm Co", "disclosure_text": "Sponsored."}, actor)
+        assert article.sponsorship is not None
+        sponsored.save(article, {"disclosure_text": "Sponsored by Calm Co."}, actor)
+        sponsored.approve(article, actor)
+        db.session.commit()
+        count = db.select(db.func.count(ArticleSponsorship.id))
+        assert db.session.scalar(count) == 1
+        assert article.sponsorship.review_status == "approved"

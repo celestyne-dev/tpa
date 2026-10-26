@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createFakeAdminApi } from "@/test/adminFake";
-import { preloadAdminApp, renderApp } from "@/test/utils";
+import { SLOW_EDITOR_TEST_MS, preloadAdminApp, renderApp } from "@/test/utils";
 
 beforeAll(preloadAdminApp);
 afterEach(() => vi.restoreAllMocks());
@@ -48,30 +48,36 @@ describe("website navigation and access", () => {
 });
 
 describe("homepage builder", () => {
-  it("edits a section, warns about unsaved work and saves a draft", async () => {
-    const user = userEvent.setup();
-    const { adminApi } = await openHomepage();
-    expect(screen.getByRole("status")).toHaveTextContent(/Live: the website shows this version/);
-    const heading = screen.getByLabelText(/^Headline/);
-    await user.clear(heading);
-    await user.type(heading, "Grow Through Every Season.");
-    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/unsaved changes/i);
-    await user.click(screen.getByRole("button", { name: "Save draft" }));
-    await waitFor(() => expect(adminApi.pages.saveDraft).toHaveBeenCalled());
-    const [id, body] = adminApi.pages.saveDraft.mock.calls[0];
-    expect(id).toBe(1);
-    expect(body.lock_version).toBe(3);
-    expect(body.sections[0]).toMatchObject({
-      id: 1,
-      section_type: "hero",
-      content: expect.objectContaining({ heading: "Grow Through Every Season." }),
-    });
-    expect(
-      await screen.findByText("Draft saved. The website has not changed."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Unsaved changes")).toBeNull();
-  });
+  it(
+    "edits a section, warns about unsaved work and saves a draft",
+    async () => {
+      const user = userEvent.setup();
+      const { adminApi } = await openHomepage();
+      expect(screen.getByRole("status")).toHaveTextContent(/Live: the website shows this version/);
+      const heading = screen.getByLabelText(/^Headline/);
+      // Pasted, not typed: every keystroke re-renders the live page preview, which made this
+      // test CPU-bound on slower machines. It checks the saved draft, not key handling.
+      await user.clear(heading);
+      await user.paste("Grow Through Every Season.");
+      expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(/unsaved changes/i);
+      await user.click(screen.getByRole("button", { name: "Save draft" }));
+      await waitFor(() => expect(adminApi.pages.saveDraft).toHaveBeenCalled());
+      const [id, body] = adminApi.pages.saveDraft.mock.calls[0];
+      expect(id).toBe(1);
+      expect(body.lock_version).toBe(3);
+      expect(body.sections[0]).toMatchObject({
+        id: 1,
+        section_type: "hero",
+        content: expect.objectContaining({ heading: "Grow Through Every Season." }),
+      });
+      expect(
+        await screen.findByText("Draft saved. The website has not changed."),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Unsaved changes")).toBeNull();
+    },
+    SLOW_EDITOR_TEST_MS,
+  );
 
   it("reorders sections with buttons and the keyboard", async () => {
     const user = userEvent.setup();

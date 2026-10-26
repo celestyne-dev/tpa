@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 import { createFakeAdminApi, makeArticle, manualSave } from "@/test/adminFake";
-import { preloadAdminApp, renderApp } from "@/test/utils";
+import { SLOW_EDITOR_TEST_MS, preloadAdminApp, renderApp } from "@/test/utils";
 import { useAutosave } from "./hooks/useAutosave";
 
 beforeAll(preloadAdminApp);
@@ -47,36 +47,45 @@ describe("article editor sections", () => {
     );
   });
 
-  it("adds, duplicates and saves new block types", async () => {
-    const user = userEvent.setup();
-    const { adminApi } = renderApp(EDIT);
-    const add = await screen.findByRole("group", { name: "Add a block" });
-    await user.click(within(add).getByRole("button", { name: "Pull quote" }));
-    await user.type(screen.getByLabelText("Pull quote 2 text"), "Small steps count.");
-    await user.click(screen.getByRole("button", { name: "Duplicate block 2" }));
-    await user.click(within(add).getByRole("button", { name: "Video" }));
-    await user.click(screen.getByLabelText("Video 4 link"));
-    await user.paste("https://youtu.be/dQw4w9WgXcQ"); // links are pasted, not typed
-    await user.type(screen.getByLabelText("Video title"), "A short talk");
-    await user.click(within(add).getByRole("button", { name: "Table" }));
-    await user.type(screen.getByLabelText("Table 5 row 1 column 1"), "Habit");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(manualSave(adminApi.articles.update)).toBeDefined());
-    const { body } = manualSave(adminApi.articles.update)[1];
-    expect(body.map((b) => b.type)).toEqual([
-      "paragraph",
-      "pullquote",
-      "pullquote",
-      "video",
-      "table",
-    ]);
-    expect(body[3]).toEqual({
-      type: "video",
-      url: "https://youtu.be/dQw4w9WgXcQ",
-      title: "A short talk",
-    });
-    expect(body[4].rows[0][0]).toBe("Habit");
-  });
+  it(
+    "adds, duplicates and saves new block types",
+    async () => {
+      const user = userEvent.setup();
+      const { adminApi } = renderApp(EDIT);
+      const add = await screen.findByRole("group", { name: "Add a block" });
+      await user.click(within(add).getByRole("button", { name: "Pull quote" }));
+      // Text is pasted (one input event) rather than typed key by key: this test checks the
+      // block structure, and per-key re-renders of the whole editor made it CPU-bound.
+      await user.click(screen.getByLabelText("Pull quote 2 text"));
+      await user.paste("Small steps count.");
+      await user.click(screen.getByRole("button", { name: "Duplicate block 2" }));
+      await user.click(within(add).getByRole("button", { name: "Video" }));
+      await user.click(screen.getByLabelText("Video 4 link"));
+      await user.paste("https://youtu.be/dQw4w9WgXcQ"); // links are pasted, not typed
+      await user.click(screen.getByLabelText("Video title"));
+      await user.paste("A short talk");
+      await user.click(within(add).getByRole("button", { name: "Table" }));
+      await user.click(screen.getByLabelText("Table 5 row 1 column 1"));
+      await user.paste("Habit");
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
+      await waitFor(() => expect(manualSave(adminApi.articles.update)).toBeDefined());
+      const { body } = manualSave(adminApi.articles.update)[1];
+      expect(body.map((b) => b.type)).toEqual([
+        "paragraph",
+        "pullquote",
+        "pullquote",
+        "video",
+        "table",
+      ]);
+      expect(body[3]).toEqual({
+        type: "video",
+        url: "https://youtu.be/dQw4w9WgXcQ",
+        title: "A short talk",
+      });
+      expect(body[4].rows[0][0]).toBe("Habit");
+    },
+    SLOW_EDITOR_TEST_MS,
+  );
 
   it("autosaves after a pause and reports the status", async () => {
     const { adminApi } = renderApp(EDIT);

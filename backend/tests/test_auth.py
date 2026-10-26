@@ -293,3 +293,44 @@ def test_admin_api_has_no_cors_and_no_cache(app, client):
     res = client.get(ME, headers={"Origin": "http://localhost:5173"})
     assert "Access-Control-Allow-Origin" not in res.headers
     assert res.headers["Cache-Control"] == "no-store"
+
+
+def _shift_jwt_clock(step):
+    """Shift the "now" PyJWT uses for its iat/nbf/exp checks (simulates a wall-clock step)."""
+    from contextlib import ExitStack
+    from unittest import mock
+
+    import jwt.api_jwt as api_jwt
+
+    seconds = step.total_seconds()
+    stack = ExitStack()
+    for name in ("_validate_iat", "_validate_nbf", "_validate_exp"):
+        original = getattr(api_jwt.PyJWT, name)
+
+        def shifted(self, payload, now, leeway, *a, _orig=original, **k):
+            return _orig(self, payload, now + seconds, leeway, *a, **k)
+
+        stack.enter_context(mock.patch.object(api_jwt.PyJWT, name, shifted))
+    return stack
+
+
+def test_token_time_claims_are_still_enforced(app, client):
+    """Production decodes with zero leeway; tests tolerate only small clock steps."""
+    from datetime import timedelta
+
+    from app.config import BaseConfig, ProductionConfig
+
+    assert getattr(BaseConfig, "JWT_DECODE_LEEWAY", 0) == 0
+    assert getattr(ProductionConfig, "JWT_DECODE_LEEWAY", 0) == 0
+    assert app.config["JWT_DECODE_LEEWAY"] <= 5
+    make_user(app, "clock@example.org", ["editor"])
+    assert login(client, "clock@example.org").status_code == 200
+    me = "/api/v1/admin/auth/me"
+    with _shift_jwt_clock(timedelta(seconds=-2)):  # a small backwards step (VM time sync)
+        assert client.get(me).status_code == 200
+    with _shift_jwt_clock(timedelta(seconds=-60)):  # iat clearly in the future
+        res = client.get(me)
+        assert res.status_code == 401 and res.get_json()["error"]["code"] == "invalid_token"
+    with _shift_jwt_clock(timedelta(minutes=16)):  # past the 15-minute access lifetime
+        res = client.get(me)
+        assert res.status_code == 401 and res.get_json()["error"]["code"] == "token_expired"

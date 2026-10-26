@@ -258,6 +258,10 @@ class TestingConfig(BaseConfig):
     TESTING = True
     SECRET_KEY = "testing-secret"
     JWT_SECRET_KEY = "testing-jwt-secret-with-enough-length-0123456789"
+    # Tolerate small wall-clock steps (WSL/VM time sync can move the clock backwards by a
+    # second or two, making a fresh token's iat look "in the future"). Testing only:
+    # production keeps the default of zero leeway.
+    JWT_DECODE_LEEWAY = 5
     # Private in-memory database per app instance (one shared connection).
     # Set TEST_DATABASE_URL to run the suite against a disposable PostgreSQL database.
     SQLALCHEMY_DATABASE_URI = (

@@ -228,6 +228,10 @@ describe("article ownership and review", () => {
     const dialog = await screen.findByRole("dialog", { name: "Delete this article permanently?" });
     await user.click(within(dialog).getByRole("button", { name: "Delete article" }));
     await waitFor(() => expect(adminApi.articles.remove).toHaveBeenCalledWith("7"));
-    expect(await screen.findByRole("heading", { level: 1, name: "Articles" })).toBeInTheDocument();
+    // Deleting navigates to the articles list, which renders and then loads its data;
+    // allow longer than findBy's 1 s default for that route change under CPU load.
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Articles" }, { timeout: 4000 }),
+    ).toBeInTheDocument();
   });
 });
