@@ -19,7 +19,8 @@ describe("article editor sections", () => {
       within(tabs)
         .getAllByRole("tab")
         .map((t) => t.textContent),
-    ).toEqual(["Content", "Details", "SEO1", "History"]);
+      // The default Super Admin holds sponsorships.view, so the Sponsorship tab is shown.
+    ).toEqual(["Content", "Details", "SEO1", "Sponsorship", "History"]);
     expect(screen.getByText(/2 words · 1 min read/)).toBeInTheDocument();
     expect(screen.getByText("Draft — not visible on the website")).toBeInTheDocument();
     await user.click(within(tabs).getByRole("tab", { name: "Details" }));
