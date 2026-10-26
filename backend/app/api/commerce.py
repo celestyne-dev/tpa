@@ -12,6 +12,8 @@ from flask import current_app, jsonify, request
 from flask_restful import Resource
 
 from ..auth.customer_session import (
+    CSRF_COOKIE,
+    SESSION_COOKIE,
     CustomerAuthRequired,
     clear_cookies,
     current_customer,
@@ -25,8 +27,8 @@ from ..payments.config import checkout_available_for, public_status
 from ..services import audit_service
 from ..services.commerce import catalogue, checkout, customers, downloads, payments
 from ..services.commerce import entitlements as ent_service
-from ..utils.errors import AuthenticationError, NotFoundError, ValidationError
-from ..utils.responses import success
+from ..utils.errors import APIError, AuthenticationError, NotFoundError, ValidationError
+from ..utils.responses import error_body, success
 from ._validation import require_slug
 
 
@@ -134,15 +136,40 @@ class AccountRegisterResource(Resource):
     }
 
     def post(self):
-        customer, created = customers.register(_body())
+        data = _body()
+        customer, created = customers.register(data)
         db.session.commit()
+        newsletter = "not_requested"
+        if data.get("newsletter_opt_in") is True:
+            # Explicit, optional and double opt-in; the result is the same for new and
+            # existing accounts, so it reveals nothing about who is registered.
+            try:
+                newsletter = customers.subscribe_to_newsletter(
+                    customers.normalise_email(data.get("email") or ""),
+                    str(data.get("display_name") or ""),
+                    data,
+                    request.remote_addr,
+                )
+                db.session.commit()
+            except APIError:
+                db.session.rollback()
+                newsletter = "not_subscribed"
         if not created:
             # Same response as a new registration: no account enumeration.
-            return success({"registered": True, "signed_in": False}, status=201)
+            return success(
+                {"registered": True, "signed_in": False, "newsletter": newsletter}, status=201
+            )
         response = jsonify(
-            {"data": {"registered": True, "signed_in": True, **_session_payload(customer)}}
+            {
+                "data": {
+                    "registered": True,
+                    "signed_in": True,
+                    "newsletter": newsletter,
+                    **_session_payload(customer),
+                }
+            }
         )
-        start_session(customer, response)
+        start_session(customer, response, remember=data.get("remember") is True)
         db.session.commit()
         response.status_code = 201
         return response
@@ -166,7 +193,8 @@ class AccountLoginResource(Resource):
             db.session.commit()
             raise AuthenticationError(customers.GENERIC_LOGIN_ERROR)
         response = jsonify({"data": _session_payload(customer)})
-        start_session(customer, response)
+        # "Keep me signed in" is opt-in; without it the cookie ends with the browser.
+        start_session(customer, response, remember=data.get("remember") is True)
         audit_service.record("customer.login", "customer", customer.id)
         db.session.commit()
         return response
@@ -179,6 +207,7 @@ class AccountLogoutResource(Resource):
             from datetime import UTC, datetime
 
             session.revoked_at = datetime.now(UTC)
+            audit_service.record("customer.logout", "customer", session.customer_id)
             db.session.commit()
         response = jsonify({"data": {"signed_out": True}})
         clear_cookies(response)
@@ -189,6 +218,15 @@ class AccountMeResource(Resource):
     def get(self):
         customer = current_customer()
         if customer is None:
+            if request.cookies.get(SESSION_COOKIE) or request.cookies.get(CSRF_COOKIE):
+                # The session ended (expired, revoked or signed out elsewhere): say so once
+                # and clear the stale cookies so the browser stops presenting them.
+                response = jsonify(
+                    error_body("session_expired", "Your session has ended. Please sign in again.")
+                )
+                response.status_code = 401
+                clear_cookies(response)
+                return response
             raise CustomerAuthRequired()
         db.session.commit()  # persists last_seen updates
         return success(_session_payload(customer))
@@ -241,6 +279,76 @@ class AccountResendVerificationResource(Resource):
         )
 
 
+class AccountVerificationRequestResource(Resource):
+    """Resend a confirmation link without being signed in (generic answer, rate limited)."""
+
+    method_decorators = {
+        "post": [
+            limiter.limit("3 per minute;10 per hour"),
+            limiter.limit("3 per hour", key_func=_email_key),
+        ]
+    }
+
+    def post(self):
+        customers.request_verification(str(_body().get("email") or ""))
+        db.session.commit()
+        return success(
+            {
+                "message": "If that address has an account that still needs confirming, "
+                "we've sent a new link."
+            }
+        )
+
+
+class AccountNewsletterResource(Resource):
+    """The signed-in customer's newsletter status, and an explicit opt-in (double opt-in)."""
+
+    method_decorators = {"post": [limiter.limit("5 per hour")]}
+
+    @require_customer
+    def get(self):
+        from sqlalchemy import select
+
+        from ..models import Subscriber
+        from ..services.newsletter import tokens
+        from ..services.newsletter.config import public_status
+
+        customer = current_customer()
+        subscriber = db.session.scalar(
+            select(Subscriber).where(Subscriber.email == tokens.normalise_email(customer.email))
+        )
+        status = public_status()
+        data = {
+            "available": status["signup_open"],
+            "name": status["name"],
+            "consent_text": status.get("consent_text"),
+            "consent_version": status.get("consent_version"),
+            "status": subscriber.status if subscriber else "none",
+            "preferences_token": None,
+        }
+        # Managing the subscription needs proof of the inbox: a confirmed account email.
+        if subscriber is not None and customer.email_verified_at is not None:
+            data["preferences_token"] = tokens.manage_token(subscriber)
+        return success(data)
+
+    @require_customer
+    def post(self):
+        data = _body()
+        if data.get("consent") is not True:
+            raise ValidationError(
+                details={"consent": ["Please tick the box to agree to receive emails."]}
+            )
+        customer = current_customer()
+        result = customers.subscribe_to_newsletter(
+            customer.email,
+            customer.display_name,
+            {"newsletter_consent_version": data.get("consent_version")},
+            request.remote_addr,
+        )
+        db.session.commit()
+        return success({"status": result})
+
+
 class AccountPasswordResetRequestResource(Resource):
     method_decorators = {
         "post": [
@@ -268,11 +376,15 @@ class AccountPasswordResetCompleteResource(Resource):
 
 
 class AccountExportResource(Resource):
-    method_decorators = {"get": [limiter.limit("5 per hour")]}
+    """Personal-data export. POST with the current password (re-authentication)."""
+
+    method_decorators = {"post": [limiter.limit("5 per hour")]}
 
     @require_customer
-    def get(self):
-        return success(customers.export_data(current_customer()))
+    def post(self):
+        data = customers.export_data(current_customer(), str(_body().get("password") or ""))
+        db.session.commit()  # audit record
+        return success(data)
 
 
 class AccountDeleteResource(Resource):
@@ -459,6 +571,8 @@ PUBLIC_COMMERCE_ROUTES = [
     (AccountPasswordResource, "/account/password"),
     (AccountVerifyEmailResource, "/account/verify-email"),
     (AccountResendVerificationResource, "/account/verify-email/resend"),
+    (AccountVerificationRequestResource, "/account/verify-email/request"),
+    (AccountNewsletterResource, "/account/newsletter"),
     (AccountPasswordResetRequestResource, "/account/password-reset"),
     (AccountPasswordResetCompleteResource, "/account/password-reset/complete"),
     (AccountExportResource, "/account/export"),

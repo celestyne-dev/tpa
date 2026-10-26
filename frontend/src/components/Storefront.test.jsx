@@ -111,7 +111,7 @@ describe("product page", () => {
     );
     renderApp("/shop/gratitude-worksheet", { shopApi });
     await user.click(await screen.findByRole("button", { name: /Get it free/ }));
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Log in" })).toBeInTheDocument();
   });
 });
 
@@ -234,17 +234,18 @@ describe("payment result", () => {
 });
 
 describe("customer account", () => {
-  it("registers and signs in, returning to the requested page", async () => {
+  it("signs in from the old address, returning to the requested page", async () => {
     const user = userEvent.setup();
     const shopApi = createFakeShopApi();
+    // The Batch 05 address still works: it redirects to /login and keeps ?next=.
     renderApp("/account/login?next=/account/orders", { shopApi });
     await user.type(await screen.findByLabelText(/Email/), "reader@example.com");
     await user.type(screen.getByLabelText(/^Password/), "wrong-password-123");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.click(screen.getByRole("button", { name: "Log in" }));
     expect(await screen.findByText("The email or password is incorrect.")).toBeInTheDocument();
     await user.clear(screen.getByLabelText(/^Password/));
     await user.type(screen.getByLabelText(/^Password/), "Correct-Horse-Battery-9");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.click(screen.getByRole("button", { name: "Log in" }));
     expect(
       await screen.findByRole("heading", { level: 1, name: "Orders & receipts" }),
     ).toBeInTheDocument();
@@ -255,10 +256,10 @@ describe("customer account", () => {
 
   it("does not follow external or admin 'next' links after sign-in", async () => {
     const user = userEvent.setup();
-    renderApp("/account/login?next=//evil.example", { shopApi: createFakeShopApi() });
+    renderApp("/login?next=//evil.example", { shopApi: createFakeShopApi() });
     await user.type(await screen.findByLabelText(/Email/), "reader@example.com");
     await user.type(screen.getByLabelText(/^Password/), "Correct-Horse-Battery-9");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.click(screen.getByRole("button", { name: "Log in" }));
     expect(
       await screen.findByRole("heading", { level: 1, name: /Hello|Your account/ }),
     ).toBeInTheDocument();
@@ -266,7 +267,7 @@ describe("customer account", () => {
 
   it("redirects guests from the library to sign in", async () => {
     renderApp("/account/library", { shopApi: createFakeShopApi() });
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Log in" })).toBeInTheDocument();
   });
 
   it("downloads through a short-lived authorisation (latest and originally purchased versions)", async () => {

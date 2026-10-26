@@ -1,7 +1,8 @@
-import { ShoppingBag, UserRound } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { Link } from "react-router";
 import { routes } from "@/config/navigation";
 import { useCart } from "@/hooks/useShop";
+import { AccountMenu } from "./AccountMenu";
 
 /** Account and cart shortcuts. The count appears after hydration (the cart lives in the browser). */
 export function HeaderShopLinks() {
@@ -10,9 +11,7 @@ export function HeaderShopLinks() {
     "relative grid size-10 place-items-center rounded-full text-charcoal transition-colors hover:bg-sage-100";
   return (
     <>
-      <Link to={routes.account} className={link} aria-label="Your account">
-        <UserRound aria-hidden className="size-5" />
-      </Link>
+      <AccountMenu />
       <Link
         to={routes.cart}
         className={link}

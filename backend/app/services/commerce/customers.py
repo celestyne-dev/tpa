@@ -65,14 +65,16 @@ def profile(customer: Customer) -> dict[str, Any]:
     }
 
 
-def _clean_name(value: Any, errors: dict) -> str:
+def _clean_name(value: Any, errors: dict, *, required: bool = False) -> str:
     if value is None:
-        return ""
+        value = ""
     if not isinstance(value, str):
         errors["display_name"] = ["Must be text."]
         return ""
     value = " ".join(value.split())
-    if len(value) > 120:
+    if required and not value:
+        errors["display_name"] = ["Enter your name."]
+    elif len(value) > 120:
         errors["display_name"] = ["Use at most 120 characters."]
     elif value and (problem := plain_text_problem(value)):
         errors["display_name"] = [problem]
@@ -97,7 +99,13 @@ def register(data: dict[str, Any]) -> tuple[Customer | None, bool]:
         problems = password_problems(password, email=email)
         if problems:
             errors["password"] = problems
-    name = _clean_name(data.get("display_name"), errors)
+    confirm = data.get("password_confirm")
+    if confirm is not None and confirm != password:
+        errors["password_confirm"] = ["The passwords don't match."]
+    name = _clean_name(data.get("display_name"), errors, required=True)
+    opt_in = data.get("newsletter_opt_in", False)
+    if not isinstance(opt_in, bool):
+        errors["newsletter_opt_in"] = ["Must be true or false."]
     if data.get("accept_terms") is not True:
         errors["accept_terms"] = ["Please accept the terms and privacy policy."]
     if errors:
@@ -184,7 +192,7 @@ def _redeem(token: str, purpose: str) -> Customer:
 def send_verification(customer: Customer) -> str:
     hours = current_app.config["CUSTOMER_VERIFY_TTL_HOURS"]
     token = _issue_token(customer, "verify_email", timedelta(hours=hours))
-    link = f"{current_app.config['SITE_URL']}/account/verify-email#token={token}"
+    link = f"{current_app.config['SITE_URL']}/verify-email#token={token}"
     return emails.send(
         "verify_email",
         customer.email,
@@ -204,7 +212,7 @@ def verify_email(token: str) -> Customer:
 def send_password_reset(customer: Customer, reason: str = "requested") -> str:
     minutes = current_app.config["CUSTOMER_RESET_TTL_MINUTES"]
     token = _issue_token(customer, "password_reset", timedelta(minutes=minutes))
-    link = f"{current_app.config['SITE_URL']}/account/reset-password#token={token}"
+    link = f"{current_app.config['SITE_URL']}/reset-password#token={token}"
     audit_service.record(
         "customer.password_reset_sent", "customer", customer.id, details={"reason": reason}
     )
@@ -214,6 +222,36 @@ def send_password_reset(customer: Customer, reason: str = "requested") -> str:
         {"name": customer.display_name, "link": link, "minutes": minutes},
         customer=customer,
     )
+
+
+def request_verification(email: str) -> None:
+    """Resend a confirmation link to an unverified account. Silent for unknown, verified or
+    inactive addresses, so the public response never reveals who has an account."""
+    customer = db.session.scalar(select(Customer).where(Customer.email == normalise_email(email)))
+    if customer is not None and customer.is_active and customer.email_verified_at is None:
+        send_verification(customer)
+
+
+def subscribe_to_newsletter(email: str, name: str, data: dict[str, Any], ip: str | None) -> str:
+    """Explicit, optional newsletter opt-in from the account forms. Uses the same double
+    opt-in signup as every other form (a confirmation email decides). Returns a public
+    status that is identical whether or not the address already has an account."""
+    from ..newsletter import subscribers
+    from ..newsletter.config import signup_open
+
+    if not signup_open():
+        return "unavailable"
+    subscribers.subscribe(
+        {
+            "email": email,
+            "first_name": name.split(" ")[0] if name else "",
+            "consent": True,
+            "consent_version": data.get("newsletter_consent_version"),
+            "source": "account",
+        },
+        ip=ip,
+    )
+    return "check_email"
 
 
 def request_password_reset(email: str) -> None:
@@ -253,7 +291,7 @@ def update_profile(customer: Customer, data: dict[str, Any]) -> Customer:
     errors: dict[str, Any] = {}
     if set(data) - {"display_name"}:
         errors["_unknown"] = ["Only your name can be changed here."]
-    name = _clean_name(data.get("display_name"), errors)
+    name = _clean_name(data.get("display_name"), errors, required=True)
     if errors:
         raise ValidationError(details=errors)
     customer.display_name = name
@@ -263,8 +301,12 @@ def update_profile(customer: Customer, data: dict[str, Any]) -> Customer:
 # ---- privacy ----------------------------------------------------------------------------
 
 
-def export_data(customer: Customer) -> dict[str, Any]:
-    """Everything stored about the customer, for data-portability requests."""
+def export_data(customer: Customer, password: str) -> dict[str, Any]:
+    """Everything stored about the customer, for data-portability requests. Requires the
+    current password (re-authentication) because the export contains personal data."""
+    if not verify_password(customer.password_hash, password or ""):
+        raise AuthenticationError("Your password is incorrect.")
+    audit_service.record("customer.data_exported", "customer", customer.id)
     orders = db.session.scalars(
         select(Order).where(Order.customer_id == customer.id).order_by(Order.created_at)
     ).all()

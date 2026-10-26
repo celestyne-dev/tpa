@@ -5,6 +5,7 @@ import { useLocation } from "react-router";
 import { ButtonLink } from "@/components/ui/Button";
 import { useHeaderCta } from "@/hooks/useHeaderCta";
 import { useNavigation } from "@/hooks/useNavigation";
+import { MobileAccountLinks } from "./MobileAccountLinks";
 import { NavItem } from "./NavItem";
 
 /** Accessible mobile navigation dialog: focus trap, Escape to close, focus restore, scroll lock. */
@@ -146,6 +147,7 @@ export function MobileNav() {
                 )}
               </ul>
             </nav>
+            <MobileAccountLinks onNavigate={() => setOpen(false)} />
             {cta && (
               <div className="border-t border-charcoal/[0.08] p-5 sm:px-8">
                 <ButtonLink to={cta.href} className="w-full" onClick={() => setOpen(false)}>

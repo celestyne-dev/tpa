@@ -4,14 +4,14 @@ This guide covers the product catalogue, private product files, the storefront, 
 
 ## 1. Overview
 
-| Area                           | Where                                                                                                                                                             |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product CMS                    | `/admin/products`, `/admin/products/:id`, `/admin/product-collections`, `/admin/bundles`                                                                          |
-| Orders, customers, access      | `/admin/orders`, `/admin/customers`, `/admin/entitlements`                                                                                                        |
-| Reports                        | `/admin/reports/revenue`                                                                                                                                          |
-| Payment settings (Super Admin) | `/admin/payments`                                                                                                                                                 |
-| Storefront                     | `/shop`, `/shop/collections/:slug`, `/shop/:productSlug`, `/cart`, `/checkout`, `/checkout/complete`                                                              |
-| Customer account               | `/account`, `/account/orders`, `/account/library`, `/account/settings`, `/account/login`, `/account/register`, `/account/verify-email`, `/account/reset-password` |
+| Area                           | Where                                                                                                                                                                                                                                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product CMS                    | `/admin/products`, `/admin/products/:id`, `/admin/product-collections`, `/admin/bundles`                                                                                                                                                                                                                             |
+| Orders, customers, access      | `/admin/orders`, `/admin/customers`, `/admin/entitlements`                                                                                                                                                                                                                                                           |
+| Reports                        | `/admin/reports/revenue`                                                                                                                                                                                                                                                                                             |
+| Payment settings (Super Admin) | `/admin/payments`                                                                                                                                                                                                                                                                                                    |
+| Storefront                     | `/shop`, `/shop/collections/:slug`, `/shop/:productSlug`, `/cart`, `/checkout`, `/checkout/complete`                                                                                                                                                                                                                 |
+| Customer account               | `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`, `/account`, `/account/library`, `/account/orders`, `/account/settings` (the Batch 05 `/account/login`, `/account/register`, `/account/verify-email` and `/account/reset-password` addresses redirect, keeping `?next=` and `#token=`) |
 
 Backend code:
 
@@ -141,16 +141,20 @@ Customers are completely separate from administrators.
 - Customer state-changing endpoints also check the `Origin` header.
 - An admin session is never a customer session, and a customer session never grants admin access.
 
-Account features:
+Account features (refined in Batch 07.5):
 
-- Registration requires accepting the terms.
-- Email verification and password reset use single-use, hashed, expiring tokens.
-- Login and registration are rate-limited, and responses never reveal whether an email is registered.
-- Customers can update their profile and change their password.
+- **Registration** asks for a name, email, password and confirmation, plus acceptance of the terms. Password rules are shown up front and checked again on the server. Registering an existing address answers exactly like a new registration; the owner is emailed a reset link instead.
+- **Newsletter opt-in** at registration and in Settings is optional and never pre-ticked. It uses the normal double opt-in signup (source `account`) and only appears while newsletter sign-ups are open.
+- **Email verification** links (`/verify-email#token=…`) need a click to confirm. A new link can be requested while signed in, or from `/verify-email` by email with a generic answer. Unverified customers can sign in and see a reminder; they need a confirmed address to buy.
+- **Log in** has show/hide password and an opt-in **Keep me signed in** (persistent cookie for `CUSTOMER_SESSION_DAYS`). Without it the cookie ends with the browser and the session expires after `CUSTOMER_SHORT_SESSION_HOURS`. Failures are generic and rate-limited per IP and per address. An ended session is reported once (`session_expired`); its cookies are cleared and the customer is sent to log in with a notice.
+- **Password recovery** (`/forgot-password` → email → `/reset-password#token=…`) uses single-use, hashed tokens that expire after `CUSTOMER_RESET_TTL_MINUTES`. Requesting a new link invalidates older ones. Completing a reset signs the customer out everywhere.
+- **Redirects** after log in or registration only follow same-site paths: never `//host`, `/\host`, encoded variants, `/admin`, `/api` or another sign-in page.
+- **Header:** the account menu shows Log in / Create account or My account / Log out, matching the confirmed state (prerendered pages show a neutral account link until the browser checks).
+- Customers can update their name, and change their password (other devices are signed out).
 - **Library:** single products, bundle contents and free items, each listing the versions they may download.
 - **Orders:** history with honest statuses, receipts and refund state.
 - **Privacy:**
-  - `GET /api/v1/account/export` returns the customer's data.
+  - `POST /api/v1/account/export` with the current password returns the customer's data (re-authentication; audited).
   - **Delete account** anonymises the profile and ends sessions, but keeps orders, payments, receipts and refunds, which must be retained for financial records.
   - Staff with `customers.manage` can anonymise an account on request.
 

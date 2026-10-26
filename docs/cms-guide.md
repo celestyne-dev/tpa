@@ -96,6 +96,7 @@ Site name, tagline, wordmark subline, logo (and a light version for dark backgro
 
 - **Navigation** (`/admin/navigation`): header menu (with one level of dropdown groups), mobile menu, footer columns and legal links. Header items can be shown on all devices, the desktop header only or the mobile menu only, and any item can be hidden without being deleted. Internal links must point to real site paths and external links must use https. Links to missing pages are flagged.
 - **Header button** (on the Navigation screen): show or hide it, and set its label and link. A menu link to the same address is hidden on desktop to avoid repetition.
+- **Account menu** (built in, not editable): the person icon in the header and an "Account" group in the mobile menu offer **Log in** and **Create account**, or **My account**, **My library**, **Orders**, **Settings** and **Log out** once someone is signed in. You don't need to add account links to the menus.
 - **Footer** (`/admin/footer`): footer text, the newsletter link, whether to show the contact email and social links, the copyright line and an optional promotion (text and link).
 
 ## 7. Announcements (`/admin/announcements`)

@@ -41,6 +41,7 @@ export function useCustomer({ load = true } = {}) {
     customer: state.profile,
     isLoading: state.status === Status.idle || state.status === Status.loading,
     isSignedIn: Boolean(state.profile),
+    sessionExpired: state.sessionExpired,
     error: state.error,
     refresh,
   };

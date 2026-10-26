@@ -43,10 +43,14 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
     changePassword: (body) => post("/account/password", body),
     verifyEmail: (token) => post("/account/verify-email", { token }),
     resendVerification: () => post("/account/verify-email/resend"),
+    requestVerification: (email) => post("/account/verify-email/request", { email }),
+    accountNewsletter: () => get("/account/newsletter"),
+    subscribeFromAccount: (consentVersion) =>
+      post("/account/newsletter", { consent: true, consent_version: consentVersion }),
     requestPasswordReset: (email) => post("/account/password-reset", { email }),
     completePasswordReset: (token, password) =>
       post("/account/password-reset/complete", { token, password }),
-    exportData: () => get("/account/export"),
+    exportData: (password) => post("/account/export", { password }),
     deleteAccount: (password) => post("/account/delete", { password }),
     orders: () => get("/account/orders"),
     order: (id) => get(`/account/orders/${enc(id)}`),

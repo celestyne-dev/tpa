@@ -191,6 +191,21 @@ sudo systemctl restart tpa-api tpa-publish-worker
 - No Nginx change is needed: `/api/v1/partnership-inquiries`, `/api/v1/media-kit` and `/api/v1/go/` are served by the existing `/api/` location. With several Gunicorn workers, use Redis for `RATELIMIT_STORAGE_URI` so the inquiry limits are shared.
 - The publishing worker already handles rebuilds at booking start and end times.
 
+## Upgrading from Batch 07 (customer accounts, Batch 07.5)
+
+No migration. Rebuild and restart:
+
+```bash
+cd /var/www/tpa/backend && set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db current                  # still 4a65b8174c82
+sudo systemctl restart tpa-api
+.venv/bin/flask --app wsgi publish request             # rebuild: /login, /register, … shells
+```
+
+- Optional: `CUSTOMER_SHORT_SESSION_HOURS` (default 12) for sessions without "Keep me signed in".
+- New verification and reset emails link to `/verify-email#token=…` and `/reset-password#token=…`. Links in emails sent before the upgrade still work: the old `/account/…` addresses are prerendered as shells that redirect in the browser, keeping the token.
+- No Nginx change: the new pages are static files in the release; the API routes are unchanged under `/api/`.
+
 ## Frontend build (manual)
 
 ```bash

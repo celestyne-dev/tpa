@@ -15,6 +15,7 @@ export const SIGNUP_SOURCES = {
   page_section: "Page section",
   lead_magnet: "Free resource",
   resource_page: "Resource page",
+  account: "Account registration or settings",
   import: "Import",
   admin: "Admin",
   other: "Other",

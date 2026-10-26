@@ -146,14 +146,24 @@ def test_registration_does_not_reveal_existing_accounts(seeded):
     other = seeded.test_client()
     res = other.post(
         "/api/v1/account/register",
-        json={"email": "reader@example.com", "password": PASSWORD, "accept_terms": True},
+        json={
+            "email": "reader@example.com",
+            "password": PASSWORD,
+            "display_name": "Someone",
+            "accept_terms": True,
+        },
     )
     assert res.status_code == 201 and res.get_json()["data"]["signed_in"] is False
     assert other.get_cookie("tpa_customer") is None
     assert "reset" in MemoryBackend.outbox[-1].subject.lower()  # the owner is told instead
     weak = other.post(
         "/api/v1/account/register",
-        json={"email": "new@example.com", "password": "short", "accept_terms": True},
+        json={
+            "email": "new@example.com",
+            "password": "short",
+            "display_name": "New",
+            "accept_terms": True,
+        },
     )
     assert weak.status_code == 400
 
@@ -952,7 +962,8 @@ def test_order_expiry_and_late_payment(shop, client):
 def test_customer_export_and_deletion_keep_financial_records(shop, client, as_role):
     _paid_order(shop, client)
     shopper = shop["shopper"]
-    export = shopper.get("/api/v1/account/export").get_json()["data"]
+    assert shopper.post("/api/v1/account/export", {"password": "wrong"}).status_code == 401
+    export = shopper.post("/api/v1/account/export", {"password": PASSWORD}).get_json()["data"]
     assert export["profile"]["email"] == "reader@example.com" and len(export["orders"]) == 1
     assert shopper.post("/api/v1/account/delete", {"password": "wrong"}).status_code == 401
     assert shopper.post("/api/v1/account/delete", {"password": PASSWORD}).status_code == 200

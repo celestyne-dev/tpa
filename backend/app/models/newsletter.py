@@ -46,6 +46,7 @@ SIGNUP_SOURCES = (
     "page_section",
     "lead_magnet",
     "resource_page",
+    "account",
     "import",
     "admin",
     "other",

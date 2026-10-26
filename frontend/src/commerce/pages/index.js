@@ -6,7 +6,13 @@ export {
   AccountOverviewPage,
   AccountSettingsPage,
 } from "./AccountPages";
-export { RegisterPage, ResetPasswordPage, SignInPage, VerifyEmailPage } from "./AuthPages";
+export {
+  ForgotPasswordPage,
+  RegisterPage,
+  ResetPasswordPage,
+  SignInPage,
+  VerifyEmailPage,
+} from "./AuthPages";
 export { CartPage } from "./CartPage";
 export { CheckoutCompletePage } from "./CheckoutCompletePage";
 export { CheckoutPage } from "./CheckoutPage";

@@ -9,9 +9,11 @@ export const fetchCustomer = createAsyncThunk(
   "customer/fetch",
   async (_arg, { extra, rejectWithValue }) => {
     try {
-      return (await extra.shopApi.me()).data.customer;
+      return { profile: (await extra.shopApi.me()).data.customer, expired: false };
     } catch (error) {
-      if (error?.status === 401) return null;
+      // "session_expired": the browser presented a session that has ended (reported once).
+      if (error?.status === 401)
+        return { profile: null, expired: error.code === "session_expired" };
       return rejectWithValue(serializeError(error));
     }
   },
@@ -25,16 +27,18 @@ export const fetchCustomer = createAsyncThunk(
 
 const customerSlice = createSlice({
   name: "customer",
-  initialState: { status: Status.idle, profile: null, error: null },
+  initialState: { status: Status.idle, profile: null, error: null, sessionExpired: false },
   reducers: {
     customerSignedIn(state, action) {
       state.status = Status.succeeded;
       state.profile = action.payload;
       state.error = null;
+      state.sessionExpired = false;
     },
     customerSignedOut(state) {
       state.status = Status.succeeded;
       state.profile = null;
+      state.sessionExpired = false;
     },
   },
   extraReducers: (builder) => {
@@ -44,7 +48,9 @@ const customerSlice = createSlice({
       })
       .addCase(fetchCustomer.fulfilled, (state, action) => {
         state.status = Status.succeeded;
-        state.profile = action.payload;
+        state.profile = action.payload.profile;
+        state.sessionExpired =
+          action.payload.expired || (state.sessionExpired && !action.payload.profile);
       })
       .addCase(fetchCustomer.rejected, (state, action) => {
         state.status = Status.failed;

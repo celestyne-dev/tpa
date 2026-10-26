@@ -37,11 +37,26 @@ export function fieldErrors(error) {
   );
 }
 
-/** Only same-site paths are accepted as "next" destinations (no open redirects). */
+/**
+ * Only same-site paths are accepted as "next" destinations (no open redirects): a single
+ * leading slash, no backslashes or control characters (browsers treat "/\\host" like
+ * "//host"), and never the admin area, the API or another sign-in page.
+ */
 export function safeNext(value, fallback = routes.account) {
-  return value && value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/admin")
-    ? value
-    : fallback;
+  if (typeof value !== "string" || value.length > 500) return fallback;
+  const unsafeChar = [...value].some((c) => c === "\\" || c.charCodeAt(0) < 33);
+  if (!value.startsWith("/") || value.startsWith("//") || unsafeChar) return fallback;
+  let decoded;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    return fallback;
+  }
+  if (decoded.startsWith("//") || decoded.includes("\\")) return fallback;
+  const path = value.split(/[?#]/)[0];
+  const blocked = ["/admin", "/api", routes.signIn, routes.register, routes.forgotPassword];
+  if (blocked.some((b) => path === b || path.startsWith(`${b}/`))) return fallback;
+  return value;
 }
 
 /** Sends the shopper to Paystack's hosted page or a download link (overridable in tests). */

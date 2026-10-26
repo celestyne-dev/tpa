@@ -37,9 +37,13 @@ export function SiteHeader() {
         <div className="flex items-center gap-1 sm:gap-2">
           <HeaderShopLinks />
           {cta && (
-            <ButtonLink to={cta.href} size="sm" className="hidden lg:inline-flex">
-              {cta.label}
-            </ButtonLink>
+            // Visibility lives on a wrapper: on the button itself "hidden" lost to the
+            // button's own "inline-flex", so it showed on phones and pushed the menu off-screen.
+            <span className="hidden lg:inline-flex">
+              <ButtonLink to={cta.href} size="sm">
+                {cta.label}
+              </ButtonLink>
+            </span>
           )}
           <MobileNav />
         </div>

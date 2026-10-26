@@ -1,5 +1,5 @@
 import { matchRoutes } from "react-router";
-import { routes } from "@/config/navigation";
+import { legacyAuthRoutes, routes } from "@/config/navigation";
 import {
   ARTICLE_LIST_QUERY,
   FEATURED_QUERY,
@@ -24,6 +24,7 @@ import { ShopPage } from "@/pages/ShopPage";
 import { TermsPage } from "@/pages/TermsPage";
 import { TopicPage } from "@/pages/TopicPage";
 import { withCmsOverride } from "@/routes/cmsOverride";
+import { LegacyAuthRedirect } from "@/routes/LegacyAuthRedirect";
 import * as commerce from "@/routes/commerceRoutes";
 import { fetchArticle, fetchArticles } from "@/store/slices/articlesSlice";
 import { fetchMediaKit } from "@/store/slices/mediaKitSlice";
@@ -86,7 +87,9 @@ export const routeTable = [
     [routes.signIn, commerce.SignInRoute],
     [routes.register, commerce.RegisterRoute],
     [routes.verifyEmail, commerce.VerifyEmailRoute],
+    [routes.forgotPassword, commerce.ForgotPasswordRoute],
     [routes.resetPassword, commerce.ResetPasswordRoute],
+    ...Object.keys(legacyAuthRoutes).map((path) => [path, LegacyAuthRedirect]),
     [routes.newsletterConfirm, commerce.NewsletterConfirmRoute],
     [routes.newsletterPreferences, commerce.NewsletterPreferencesRoute],
     [routes.newsletterUnsubscribe, commerce.NewsletterUnsubscribeRoute],

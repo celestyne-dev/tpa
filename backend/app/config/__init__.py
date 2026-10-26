@@ -155,7 +155,9 @@ class BaseConfig:
     )
 
     # ---- Customer accounts (separate from administrators) ----
-    CUSTOMER_SESSION_DAYS = _int("CUSTOMER_SESSION_DAYS", 30)
+    CUSTOMER_SESSION_DAYS = _int("CUSTOMER_SESSION_DAYS", 30)  # "keep me signed in"
+    # Sessions without "keep me signed in": browser-session cookie, server expiry in hours.
+    CUSTOMER_SHORT_SESSION_HOURS = _int("CUSTOMER_SHORT_SESSION_HOURS", 12)
     CUSTOMER_COOKIE_SECURE = _bool("CUSTOMER_COOKIE_SECURE", False)
     CUSTOMER_VERIFY_TTL_HOURS = _int("CUSTOMER_VERIFY_TTL_HOURS", 48)
     CUSTOMER_RESET_TTL_MINUTES = _int("CUSTOMER_RESET_TTL_MINUTES", 60)

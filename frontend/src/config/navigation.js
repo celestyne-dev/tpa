@@ -13,10 +13,11 @@ export const routes = {
   accountOrders: "/account/orders",
   accountLibrary: "/account/library",
   accountSettings: "/account/settings",
-  signIn: "/account/login",
-  register: "/account/register",
-  verifyEmail: "/account/verify-email",
-  resetPassword: "/account/reset-password",
+  signIn: "/login",
+  register: "/register",
+  verifyEmail: "/verify-email",
+  forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
   freeResources: "/free-resources",
   newsletter: "/newsletter",
   newsletterConfirm: "/newsletter/confirm",
@@ -79,6 +80,18 @@ export const footerNav = [
   },
 ];
 
+/**
+ * Batch 05 account addresses, kept so bookmarks and links in emails already sent keep
+ * working. Each redirects (in the browser, keeping ?next= and the #token fragment) to the
+ * current address; "/account/reset-password" without a token meant "forgot password".
+ */
+export const legacyAuthRoutes = {
+  "/account/login": routes.signIn,
+  "/account/register": routes.register,
+  "/account/verify-email": routes.verifyEmail,
+  "/account/reset-password": routes.resetPassword,
+};
+
 /** Private customer pages, prerendered as noindex shells (data loads in the browser). */
 export const privateRoutes = [
   routes.cart,
@@ -91,7 +104,9 @@ export const privateRoutes = [
   routes.signIn,
   routes.register,
   routes.verifyEmail,
+  routes.forgotPassword,
   routes.resetPassword,
+  ...Object.keys(legacyAuthRoutes),
   routes.newsletterConfirm,
   routes.newsletterPreferences,
   routes.newsletterUnsubscribe,

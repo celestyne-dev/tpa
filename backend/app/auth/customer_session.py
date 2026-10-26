@@ -55,20 +55,28 @@ def _cookie_args(max_age: int | None) -> dict:
     }
 
 
-def start_session(customer: Customer, response) -> CustomerSession:
+def start_session(customer: Customer, response, *, remember: bool = True) -> CustomerSession:
+    """Start a session. ``remember`` keeps a persistent cookie for CUSTOMER_SESSION_DAYS;
+    otherwise the cookie ends with the browser session and the server-side session expires
+    after CUSTOMER_SHORT_SESSION_HOURS, whichever comes first."""
     token = secrets.token_urlsafe(32)
     csrf = secrets.token_urlsafe(32)
-    days = current_app.config["CUSTOMER_SESSION_DAYS"]
+    cfg = current_app.config
+    lifetime = (
+        timedelta(days=cfg["CUSTOMER_SESSION_DAYS"])
+        if remember
+        else timedelta(hours=cfg["CUSTOMER_SHORT_SESSION_HOURS"])
+    )
     session = CustomerSession(
         customer_id=customer.id,
         token_hash=_hash(token),
         csrf_hash=_hash(csrf),
-        expires_at=_now() + timedelta(days=days),
+        expires_at=_now() + lifetime,
         ip_address=request.remote_addr,
         user_agent=(request.user_agent.string or "")[:200],
     )
     db.session.add(session)
-    max_age = days * 86400
+    max_age = int(lifetime.total_seconds()) if remember else None
     response.set_cookie(
         SESSION_COOKIE, token, httponly=True, path="/api/v1/", **_cookie_args(max_age)
     )

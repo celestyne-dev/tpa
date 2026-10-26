@@ -3,9 +3,9 @@ import { Container } from "@/components/ui/Container";
 import { routes } from "@/config/navigation";
 import { useCustomer } from "@/hooks/useShop";
 
-/** Signed-in customers only; others are sent to sign in and brought back afterwards. */
+/** Signed-in customers only; others are sent to log in and brought back afterwards. */
 export function RequireCustomer({ children }) {
-  const { customer, isLoading } = useCustomer();
+  const { customer, isLoading, sessionExpired } = useCustomer();
   const location = useLocation();
   if (isLoading) {
     return (
@@ -16,7 +16,9 @@ export function RequireCustomer({ children }) {
   }
   if (!customer) {
     const next = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`${routes.signIn}?next=${next}`} replace />;
+    // The API reports an ended session once; say so on the log-in page.
+    const reason = sessionExpired ? "&reason=expired" : "";
+    return <Navigate to={`${routes.signIn}?next=${next}${reason}`} replace />;
   }
   return typeof children === "function" ? children(customer) : children;
 }

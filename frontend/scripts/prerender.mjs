@@ -188,7 +188,7 @@ const pages = [
   ...productsRes.data.map((p) => ({ path: routes.product(p.slug) })),
   ...collectionsRes.data.map((c) => ({ path: routes.collection(c.slug) })),
   // Private customer pages: noindex shells; customer data only ever loads in the browser.
-  ...privateRoutes.map((path) => ({ path })),
+  ...privateRoutes.map((path) => ({ path, private: true })),
   ...articles.map((a) => ({
     path: routes.article(a.slug),
     priority: 0.8,
@@ -201,6 +201,11 @@ const manifest = [];
 for (const page of pages) {
   const result = await render(page.path, api);
   if (result.status !== 200) fail(`${page.path} rendered with status ${result.status}.`);
+  // Private pages load in the browser (lazy chunk), so their own <Seo noIndex> isn't in the
+  // static HTML: mark the shell itself as never indexable.
+  if (page.private && !/name="robots"[^>]*noindex/.test(result.head)) {
+    result.head += '\n    <meta name="robots" content="noindex, nofollow" />';
+  }
   const file = outputPath(page.path);
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, injectTemplate(template, result));

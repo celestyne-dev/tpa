@@ -1,32 +1,22 @@
 import { NavLink, useNavigate } from "react-router";
-import { useDispatch } from "react-redux";
-import { useShopApi } from "@/components/products/shopApiContext";
 import { Seo } from "@/components/seo/Seo";
 import { Container } from "@/components/ui/Container";
 import { routes } from "@/config/navigation";
-import { customerSignedOut } from "@/store/slices/customerSlice";
+import { useSignOut } from "@/hooks/useAccountStatus";
 import { cn } from "@/utils/format";
 
 const tabs = [
   { to: routes.account, label: "Overview", end: true },
-  { to: routes.accountLibrary, label: "Library" },
+  { to: routes.accountLibrary, label: "My library" },
   { to: routes.accountOrders, label: "Orders" },
   { to: routes.accountSettings, label: "Settings" },
 ];
 
 /** Shared layout for the signed-in customer area (never indexed). */
 export function AccountShell({ title, path, children }) {
-  const shopApi = useShopApi();
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const signOut = async () => {
-    try {
-      await shopApi.logout();
-    } finally {
-      dispatch(customerSignedOut());
-      navigate(routes.home);
-    }
-  };
+  const logOut = useSignOut();
+  const signOut = () => logOut(() => navigate(routes.home));
   return (
     <>
       <Seo title={title} path={path} noIndex />
@@ -57,7 +47,7 @@ export function AccountShell({ title, path, children }) {
               onClick={signOut}
               className="ml-auto rounded-t-xl px-4 py-2.5 text-sm font-medium text-muted hover:text-charcoal"
             >
-              Sign out
+              Log out
             </button>
           </nav>
         </Container>

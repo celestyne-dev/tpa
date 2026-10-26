@@ -326,7 +326,21 @@ export function createFakeShopApi({ customer = null, open = true, owned = [] } =
   return {
     status: vi.fn(() => ok(quoteFor([], "USD", { open }).checkout)),
     quote: vi.fn((ids, currency) => ok(quoteFor(ids, currency, { open, owned }))),
-    me: vi.fn(() => (current ? ok({ customer: current }) : unauthenticated())),
+    me: vi.fn(() => {
+      if (current) return ok({ customer: current });
+      // Like the API: a stale session cookie is reported once as ended, then cleared.
+      if (typeof document !== "undefined" && document.cookie.includes("tpa_customer_csrf=")) {
+        document.cookie = "tpa_customer_csrf=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        return Promise.reject(
+          new ApiError({
+            status: 401,
+            code: "session_expired",
+            message: "Your session has ended. Please sign in again.",
+          }),
+        );
+      }
+      return unauthenticated();
+    }),
     login: vi.fn((body) => {
       if (body.password !== "Correct-Horse-Battery-9") {
         return Promise.reject(
@@ -359,6 +373,23 @@ export function createFakeShopApi({ customer = null, open = true, owned = [] } =
     changePassword: vi.fn(() => ok({ changed: true })),
     verifyEmail: vi.fn(() => ok({ verified: true })),
     resendVerification: vi.fn(() => ok({ sent: true, delivery: "memory" })),
+    requestVerification: vi.fn(() =>
+      ok({
+        message:
+          "If that address has an account that still needs confirming, we've sent a new link.",
+      }),
+    ),
+    accountNewsletter: vi.fn(() =>
+      ok({
+        available: true,
+        name: "The Positive Reset",
+        consent_text: "Yes, send me The Positive Reset newsletter.",
+        consent_version: "v1",
+        status: "none",
+        preferences_token: null,
+      }),
+    ),
+    subscribeFromAccount: vi.fn(() => ok({ status: "check_email" })),
     requestPasswordReset: vi.fn(() =>
       ok({ message: "If an account exists for that email, we've sent a reset link." }),
     ),
