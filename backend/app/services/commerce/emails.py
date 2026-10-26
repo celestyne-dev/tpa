@@ -56,7 +56,14 @@ def render(template: str, context: dict[str, Any]) -> tuple[str, str]:
             f"Confirm your email for {brand}",
             f"Hello {name},\n\nPlease confirm your email address to finish setting up your "
             f"account:\n\n{context['link']}\n\nThis link expires in {context['hours']} hours. "
-            "If you did not create an account, you can ignore this email." + _signature(),
+            + (
+                "Confirming adds the purchases made with this email address to the account, "
+                "so only confirm if you created it. "
+                if context.get("claims_purchases")
+                else ""
+            )
+            + "If you did not create an account, you can ignore this email."
+            + _signature(),
         )
     if template == "password_reset":
         return (
@@ -74,7 +81,12 @@ def render(template: str, context: dict[str, Any]) -> tuple[str, str]:
             f"{format_money(order.total_minor, order.currency)}"
             + (" (test mode — no real money was charged)" if order.mode == "test" else "")
             + f"\nReceipt: {context.get('receipt_number', '')}\n\n"
-            f"View your order: {_site()}/account/orders" + _signature(),
+            + (
+                f"Your downloads: {context['access_link']}"
+                if context.get("access_link")
+                else f"View your order: {_site()}/account/orders"
+            )
+            + _signature(),
         )
     if template == "payment_received":
         return (
@@ -91,9 +103,34 @@ def render(template: str, context: dict[str, Any]) -> tuple[str, str]:
         return (
             f"Payment not completed for order {order.number}",
             f"Hello {name},\n\nYour payment for order {order.number} was not completed, so you "
-            "have not been charged by us for this attempt. You can try again from your "
-            f"account:\n\n{_site()}/account/orders\n\nIf money left your account, contact us "
-            "with the order number and we'll investigate." + _signature(),
+            "have not been charged by us for this attempt. "
+            + (
+                "You can try again from the checkout page in the browser you used, or start a "
+                f"new checkout from the shop:\n\n{_site()}/shop"
+                if order.is_guest
+                else f"You can try again from your account:\n\n{_site()}/account/orders"
+            )
+            + "\n\nIf money left your account, contact us with the order number and we'll "
+            "investigate." + _signature(),
+        )
+    if template == "download_instructions" and context.get("access_link"):
+        products = "\n".join(f"- {t}" for t in context.get("products", []))
+        return (
+            "Your downloads are ready",
+            f"Hello {name},\n\nThank you for your purchase. Download your resources here:\n"
+            f"{products}\n\n{context['access_link']}\n\nThis private link works for "
+            f"{context['hours']} hours; don't share it. You can ask for a new link at any time "
+            f"from {_site()}/purchases using this email address.\n\nWant a permanent library? "
+            f"Create an account with this email address at {_site()}/register and confirm it: "
+            "your purchases will appear there." + _signature(),
+        )
+    if template == "guest_access":
+        return (
+            f"Your {brand} purchases",
+            f"Hello {name},\n\nHere is a private link to the purchases made with this email "
+            f"address:\n\n{context['access_link']}\n\nIt works for {context['hours']} hours and "
+            "replaces any earlier link. If you didn't ask for this, you can ignore this email."
+            + _signature(),
         )
     if template == "download_instructions":
         products = "\n".join(f"- {t}" for t in context.get("products", []))
@@ -125,6 +162,7 @@ TEMPLATES = (
     "payment_received",
     "payment_failed",
     "download_instructions",
+    "guest_access",
     "refund_confirmation",
 )
 

@@ -25,7 +25,7 @@ from ..extensions import db, limiter
 from ..models import Customer, Product
 from ..payments.config import checkout_available_for, public_status
 from ..services import audit_service
-from ..services.commerce import catalogue, checkout, customers, downloads, payments
+from ..services.commerce import catalogue, checkout, customers, downloads, guest, payments
 from ..services.commerce import entitlements as ent_service
 from ..utils.errors import APIError, AuthenticationError, NotFoundError, ValidationError
 from ..utils.responses import error_body, success
@@ -402,14 +402,7 @@ class AccountDeleteResource(Resource):
 class AccountOrderListResource(Resource):
     @require_customer
     def get(self):
-        from sqlalchemy import select
-
-        from ..models import Order
-
-        customer = current_customer()
-        orders = db.session.scalars(
-            select(Order).where(Order.customer_id == customer.id).order_by(Order.created_at.desc())
-        ).all()
+        orders = checkout.customer_orders(current_customer())
         return success([checkout.order_public_dict(o) for o in orders])
 
 
@@ -549,6 +542,136 @@ class CheckoutCancelResource(Resource):
         return success(checkout.order_public_dict(order))
 
 
+# ---- guest checkout ---------------------------------------------------------------------
+# No session: the buyer's browser holds an order token (header ``X-Guest-Order-Token``),
+# and emailed access links carry their token in the request body, never in a URL. These
+# routes sit under PRIVATE_PREFIXES (trusted Origin for mutations, never cached).
+
+GUEST_ORDER_HEADER = "X-Guest-Order-Token"
+
+
+def _guest_order(public_id: str):
+    return guest.guest_order(public_id, request.headers.get(GUEST_ORDER_HEADER))
+
+
+def _version_id(data: dict) -> int:
+    value = data.get("version_id")
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValidationError(details={"version_id": ["Choose a file to download."]})
+    return value
+
+
+def _entitlement_id(data: dict) -> int:
+    value = data.get("entitlement_id")
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValidationError(details={"entitlement_id": ["Choose an item."]})
+    return value
+
+
+class GuestCheckoutResource(Resource):
+    method_decorators = {
+        "post": [
+            limiter.limit(lambda: current_app.config["RATELIMIT_CHECKOUT"]),
+            limiter.limit("20 per hour", key_func=_email_key),
+        ]
+    }
+
+    def post(self):
+        order, url, token = guest.create_order(_body())
+        db.session.refresh(order)
+        return success(
+            {"order": guest.order_dict(order), "authorization_url": url, "order_token": token},
+            status=201,
+        )
+
+
+class GuestOrderResource(Resource):
+    method_decorators = {"get": [limiter.limit("60 per minute")]}
+
+    def get(self, public_id: str):
+        return success(guest.order_dict(_guest_order(public_id)))
+
+
+class GuestOrderVerifyResource(Resource):
+    method_decorators = {"post": [limiter.limit("20 per minute")]}
+
+    def post(self, public_id: str):
+        order = _guest_order(public_id)
+        outcome = payments.verify_order(order, "customer_return")
+        db.session.refresh(order)
+        return success({"outcome": outcome, "order": guest.order_dict(order)})
+
+
+class GuestOrderRetryResource(Resource):
+    method_decorators = {"post": [limiter.limit(lambda: current_app.config["RATELIMIT_CHECKOUT"])]}
+
+    def post(self, public_id: str):
+        order = _guest_order(public_id)
+        outcome = payments.verify_order(order, "customer_retry")
+        if outcome in ("paid", "already_paid"):
+            db.session.refresh(order)
+            return success({"order": guest.order_dict(order), "authorization_url": None})
+        allowed, reason = checkout_available_for(None)
+        if not allowed:
+            raise checkout.CheckoutClosedError(reason)
+        url = checkout.start_payment(order)
+        db.session.refresh(order)
+        return success({"order": guest.order_dict(order), "authorization_url": url})
+
+
+class GuestOrderCancelResource(Resource):
+    def post(self, public_id: str):
+        order = _guest_order(public_id)
+        checkout.cancel_unpaid(order, "guest")
+        db.session.commit()
+        return success(guest.order_dict(order))
+
+
+class GuestOrderDownloadResource(Resource):
+    method_decorators = {"post": [limiter.limit(lambda: current_app.config["RATELIMIT_DOWNLOADS"])]}
+
+    def post(self, public_id: str):
+        order = _guest_order(public_id)
+        data = _body()
+        result = guest.authorize_order_download(order, _entitlement_id(data), _version_id(data))
+        db.session.commit()
+        return success(result)
+
+
+class GuestAccessRequestResource(Resource):
+    method_decorators = {
+        "post": [
+            limiter.limit(lambda: current_app.config["RATELIMIT_GUEST_ACCESS"]),
+            limiter.limit("3 per hour", key_func=_email_key),
+        ]
+    }
+
+    def post(self):
+        guest.request_access(_body().get("email"))
+        db.session.commit()
+        # Same answer whether or not the address has purchases (or an account).
+        return success({"requested": True}, status=202)
+
+
+class GuestLibraryResource(Resource):
+    method_decorators = {"post": [limiter.limit("30 per minute")]}
+
+    def post(self):
+        customer = guest.access_customer(_body().get("token"))
+        return success(guest.purchases(customer))
+
+
+class GuestLibraryDownloadResource(Resource):
+    method_decorators = {"post": [limiter.limit(lambda: current_app.config["RATELIMIT_DOWNLOADS"])]}
+
+    def post(self):
+        data = _body()
+        customer = guest.access_customer(data.get("token"))
+        result = downloads.authorize_guest(customer, _entitlement_id(data), _version_id(data))
+        db.session.commit()
+        return success(result)
+
+
 class PaystackWebhookResource(Resource):
     def post(self):
         raw = request.get_data(cache=True)
@@ -588,6 +711,15 @@ PUBLIC_COMMERCE_ROUTES = [
     (CheckoutVerifyResource, "/checkout/orders/<string:public_id>/verify"),
     (CheckoutRetryResource, "/checkout/orders/<string:public_id>/retry"),
     (CheckoutCancelResource, "/checkout/orders/<string:public_id>/cancel"),
+    (GuestCheckoutResource, "/checkout/guest"),
+    (GuestOrderResource, "/checkout/guest-orders/<string:public_id>"),
+    (GuestOrderVerifyResource, "/checkout/guest-orders/<string:public_id>/verify"),
+    (GuestOrderRetryResource, "/checkout/guest-orders/<string:public_id>/retry"),
+    (GuestOrderCancelResource, "/checkout/guest-orders/<string:public_id>/cancel"),
+    (GuestOrderDownloadResource, "/checkout/guest-orders/<string:public_id>/downloads"),
+    (GuestAccessRequestResource, "/guest/access-request"),
+    (GuestLibraryResource, "/guest/library"),
+    (GuestLibraryDownloadResource, "/guest/library/downloads"),
     (PaystackWebhookResource, "/payments/paystack/webhook"),
 ]
 
@@ -598,4 +730,5 @@ PRIVATE_PREFIXES = (
     "/api/v1/downloads",
     "/api/v1/payments",
     "/api/v1/cart",
+    "/api/v1/guest",
 )

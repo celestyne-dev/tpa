@@ -238,7 +238,7 @@ def revoke(
 def restore(entitlement: Entitlement, reason: str, actor: User) -> Entitlement:
     if entitlement.status != "revoked":
         raise ConflictError("This access is not revoked.")
-    if entitlement.customer.status != "active":
+    if entitlement.customer.status not in ("active", "guest"):
         raise ConflictError("The customer account is not active.")
     entitlement.status = "active"
     entitlement.revoked_at = None
@@ -288,10 +288,33 @@ def accessible_files(entitlement: Entitlement) -> list[dict[str, Any]]:
     return out
 
 
-def library(customer: Customer) -> list[dict[str, Any]]:
+def account_scope(customer: Customer):
+    """Entitlements a signed-in customer sees in their account.
+
+    Purchases made with guest checkout only count once the account's email address is
+    confirmed: whoever registered with an address doesn't get what its owner bought
+    until they prove they own the mailbox.
+    """
+    condition = Entitlement.customer_id == customer.id
+    if customer.email_verified_at is None:
+        condition = condition & (
+            Entitlement.order_id.is_(None)
+            | Entitlement.order_id.in_(select(Order.id).where(Order.is_guest.is_(False)))
+        )
+    return condition
+
+
+def guest_scope(customer: Customer):
+    """Entitlements reachable through a guest access link: guest-checkout purchases only."""
+    return (Entitlement.customer_id == customer.id) & Entitlement.order_id.in_(
+        select(Order.id).where(Order.is_guest.is_(True))
+    )
+
+
+def library(customer: Customer, *, scope=None) -> list[dict[str, Any]]:
     entitlements = db.session.scalars(
         select(Entitlement)
-        .where(Entitlement.customer_id == customer.id)
+        .where(account_scope(customer) if scope is None else scope)
         .order_by(Entitlement.granted_at.desc())
     ).all()
     seen: set[int] = set()

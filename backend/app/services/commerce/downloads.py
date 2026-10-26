@@ -9,6 +9,8 @@
 2. The browser follows ``/api/v1/downloads/<token>``. The token is checked again,
    *and* the request must carry the same customer's session cookie, and the
    entitlement is re-checked (a revocation blocks downloads immediately).
+   Grants made for guest checkout (through a guest access link or the buyer's order
+   token) are marked ``guest`` and skip the session check, nothing else.
 3. The file is streamed by Flask, or handed to Nginx through an ``internal``
    location via X-Accel-Redirect, with ``Content-Disposition: attachment``, a
    sanitised file name, ``Cache-Control: private, no-store`` and ``noindex``.
@@ -70,8 +72,27 @@ def _event(status: str, reason: str = "", **ids) -> None:
 
 
 def authorize(customer: Customer, entitlement_id: int, version_id: int) -> dict:
-    entitlement = db.session.get(Entitlement, entitlement_id)
-    if entitlement is None or entitlement.customer_id != customer.id:
+    return _authorize(customer, entitlement_id, version_id, ent_service.account_scope(customer))
+
+
+def authorize_guest(customer: Customer, entitlement_id: int, version_id: int) -> dict:
+    """A download for a guest-checkout purchase, through a guest access link or order token.
+
+    There is no session to match when the file is served, so the grant is marked
+    ``guest``; it is still short-lived, limited to a few uses and re-checked on use.
+    """
+    return _authorize(
+        customer, entitlement_id, version_id, ent_service.guest_scope(customer), guest=True
+    )
+
+
+def _authorize(
+    customer: Customer, entitlement_id: int, version_id: int, scope, *, guest: bool = False
+) -> dict:
+    entitlement = db.session.scalar(
+        select(Entitlement).where(Entitlement.id == entitlement_id, scope)
+    )
+    if entitlement is None:
         # Same answer whether it doesn't exist or belongs to someone else.
         raise NotFoundError("This item is not in your library.")
     ids = {
@@ -104,6 +125,7 @@ def authorize(customer: Customer, entitlement_id: int, version_id: int) -> dict:
         customer_id=customer.id,
         file_version_id=version.id,
         expires_at=_now() + timedelta(seconds=ttl),
+        guest=guest,
     )
     db.session.add(grant)
     # Each authorised download counts once against an optional limit.
@@ -171,7 +193,7 @@ def serve(token: str, customer: Customer | None) -> Response:
     }
     entitlement = db.session.get(Entitlement, grant.entitlement_id)
     ids["product_id"] = entitlement.product_id if entitlement else None
-    if customer is None or customer.id != grant.customer_id:
+    if not grant.guest and (customer is None or customer.id != grant.customer_id):
         _event("denied", "session_mismatch", **ids)
         db.session.commit()
         raise NotEntitledError("Sign in to the account that owns this download.")

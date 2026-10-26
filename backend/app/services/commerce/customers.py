@@ -86,6 +86,11 @@ def register(data: dict[str, Any]) -> tuple[Customer | None, bool]:
 
     If the email is already registered nothing is changed and the existing owner
     is told by email (no account enumeration through this endpoint).
+
+    If the email only has guest-checkout purchases, that buyer record becomes the
+    account, exactly as a new sign-up would look (signed in, unverified). Its guest
+    purchases appear in the account only after the address is confirmed, so registering
+    someone else's email never reveals or hands over what they bought.
     """
     errors: dict[str, Any] = {}
     email = normalise_email(data.get("email") if isinstance(data.get("email"), str) else "")
@@ -111,6 +116,14 @@ def register(data: dict[str, Any]) -> tuple[Customer | None, bool]:
     if errors:
         raise ValidationError("Please check the highlighted fields.", details=errors)
     existing = db.session.scalar(select(Customer).where(Customer.email == email))
+    if existing is not None and existing.status == "guest":
+        existing.status = "active"
+        existing.display_name = name
+        existing.password_hash = hash_password(password)
+        existing.email_verified_at = None
+        audit_service.record("customer.guest_converted", "customer", existing.id)
+        send_verification(existing, claims_purchases=True)
+        return existing, True
     if existing is not None:
         if existing.status == "active":
             send_password_reset(existing, reason="already_registered")
@@ -189,14 +202,19 @@ def _redeem(token: str, purpose: str) -> Customer:
     return customer
 
 
-def send_verification(customer: Customer) -> str:
+def send_verification(customer: Customer, *, claims_purchases: bool = False) -> str:
     hours = current_app.config["CUSTOMER_VERIFY_TTL_HOURS"]
     token = _issue_token(customer, "verify_email", timedelta(hours=hours))
     link = f"{current_app.config['SITE_URL']}/verify-email#token={token}"
     return emails.send(
         "verify_email",
         customer.email,
-        {"name": customer.display_name, "link": link, "hours": hours},
+        {
+            "name": customer.display_name,
+            "link": link,
+            "hours": hours,
+            "claims_purchases": claims_purchases,
+        },
         customer=customer,
     )
 
@@ -306,16 +324,20 @@ def export_data(customer: Customer, password: str) -> dict[str, Any]:
     current password (re-authentication) because the export contains personal data."""
     if not verify_password(customer.password_hash, password or ""):
         raise AuthenticationError("Your password is incorrect.")
+    from .checkout import customer_orders
+    from .entitlements import account_scope
+
     audit_service.record("customer.data_exported", "customer", customer.id)
-    orders = db.session.scalars(
-        select(Order).where(Order.customer_id == customer.id).order_by(Order.created_at)
-    ).all()
-    entitlements = db.session.scalars(
-        select(Entitlement).where(Entitlement.customer_id == customer.id)
-    ).all()
+    # Guest-checkout records are included only once the address is confirmed.
+    orders = sorted(customer_orders(customer), key=lambda o: o.created_at)
+    visible = select(Entitlement.id).where(account_scope(customer))
+    entitlements = db.session.scalars(select(Entitlement).where(account_scope(customer))).all()
     downloads = db.session.scalars(
         select(DownloadEvent)
-        .where(DownloadEvent.customer_id == customer.id)
+        .where(
+            DownloadEvent.customer_id == customer.id,
+            DownloadEvent.entitlement_id.is_(None) | DownloadEvent.entitlement_id.in_(visible),
+        )
         .order_by(DownloadEvent.created_at)
     ).all()
     return {
@@ -359,15 +381,46 @@ def request_deletion(customer: Customer, password: str) -> dict[str, Any]:
     """Anonymise the account. Financial records are retained (accounting/legal duty)."""
     if not verify_password(customer.password_hash, password or ""):
         raise AuthenticationError("Your password is incorrect.")
-    open_orders = db.session.scalar(
-        select(Order.id).where(
-            Order.customer_id == customer.id, Order.status.in_(("pending", "awaiting_payment"))
-        )
+    from .checkout import guest_visible
+
+    open_orders = select(Order.id).where(
+        Order.customer_id == customer.id, Order.status.in_(("pending", "awaiting_payment"))
     )
-    if open_orders:
+    if not guest_visible(customer):
+        open_orders = open_orders.where(Order.is_guest.is_(False))
+    if db.session.scalar(open_orders.limit(1)):
         raise ConflictError("Cancel or complete your unpaid orders before deleting your account.")
-    anonymise(customer, actor=None)
+    has_guest_orders = db.session.scalar(
+        select(Order.id).where(Order.customer_id == customer.id, Order.is_guest.is_(True)).limit(1)
+    )
+    if has_guest_orders and not guest_visible(customer):
+        # The address was never confirmed, so whoever registered it may not be the buyer:
+        # give the record back to guest checkout instead of deleting purchases they
+        # can't see. The response is the same either way.
+        _restore_guest(customer)
+    else:
+        anonymise(customer, actor=None)
     return {"deleted": True}
+
+
+def _restore_guest(customer: Customer) -> None:
+    from .entitlements import guest_scope
+
+    customer.status = "guest"
+    customer.password_hash = None
+    customer.deletion_requested_at = None
+    revoke_all(customer)
+    db.session.execute(
+        update(Entitlement)
+        .where(
+            Entitlement.customer_id == customer.id,
+            Entitlement.status == "active",
+            ~Entitlement.id.in_(select(Entitlement.id).where(guest_scope(customer))),
+        )
+        .values(status="revoked", revoked_at=_now(), revoked_reason="Account deleted")
+        .execution_options(synchronize_session=False)
+    )
+    audit_service.record("customer.guest_restored", "customer", customer.id)
 
 
 def anonymise(customer: Customer, actor) -> None:

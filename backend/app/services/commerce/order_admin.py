@@ -121,6 +121,7 @@ def order_detail(order: Order, actor: User) -> dict[str, Any]:
         "cancelled_at": iso(order.cancelled_at),
         "failed_at": iso(order.failed_at),
         "notes": order.notes,
+        "guest_checkout": order.is_guest,
         "items": [
             {
                 "id": i.id,
@@ -425,6 +426,9 @@ def update_customer(c: Customer, data: dict[str, Any], actor: User) -> Customer:
     if "status" in data:
         if data["status"] not in ("active", "disabled"):
             raise ValidationError(details={"status": ["Use active or disabled."]})
+        if data["status"] == "active" and c.password_hash is None:
+            # A guest-checkout buyer record (never registered) goes back to being one.
+            data = {**data, "status": "guest"}
         if data["status"] != c.status:
             changes["status"] = data["status"]
             c.status = data["status"]

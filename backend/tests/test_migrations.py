@@ -827,3 +827,89 @@ def test_batch07_upgrade_adds_partnership_tables_only_and_preserves_data(tmp_pat
         assert not names & PARTNERSHIP_TABLES
         db.session.remove()
         upgrade(directory=MIGRATIONS)
+
+
+def test_batch076_guest_checkout_upgrade_preserves_orders_and_downgrades_safely(tmp_path):
+    import pytest
+
+    app = _app(tmp_path, "batch076.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="4a65b8174c82")
+        conn = db.session
+        now = "2026-10-26 09:00:00"
+        cid = conn.execute(
+            text(
+                "INSERT INTO customers (public_id, email, display_name, password_hash, status, "
+                "is_test_account, support_notes, created_at, updated_at) VALUES "
+                "('c1', 'reader@example.com', 'Reader', 'x', 'active', 0, '', :n, :n) "
+                "RETURNING id"
+            ),
+            {"n": now},
+        ).scalar_one()
+        conn.execute(
+            text(
+                "INSERT INTO orders (number, public_id, customer_id, email, status, currency, "
+                "subtotal_minor, discount_minor, tax_minor, total_minor, refunded_minor, provider, "
+                "mode, idempotency_key, cart_hash, terms_version, needs_review, review_reason, "
+                "notes, created_at, updated_at) VALUES ('TPA-1', 'o1', :c, 'reader@example.com', "
+                "'paid', 'USD', 1500, 0, 0, 1500, 0, 'paystack', 'test', 'k1', 'h1', 'v1', 0, '', "
+                "'', :n, :n)"
+            ),
+            {"c": cid, "n": now},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO customer_tokens (customer_id, purpose, token_hash, expires_at, "
+                "created_at) VALUES (:c, 'verify_email', 'h', :n, :n)"
+            ),
+            {"c": cid, "n": now},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO customer_sessions (customer_id, token_hash, csrf_hash, created_at, "
+                "last_seen_at, expires_at, user_agent) VALUES (:c, 's', 'c', :n, :n, :n, '')"
+            ),
+            {"c": cid, "n": now},
+        )
+        conn.commit()
+        # customer_sessions/customer_tokens cascade on delete: a careless rebuild of
+        # "customers" would silently empty them.
+        counts = ("customers", "orders", "customer_tokens", "customer_sessions")
+        before = {t: conn.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts}
+        conn.remove()
+
+        upgrade(directory=MIGRATIONS, revision="a136d95dd67c")
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert after == before
+        assert db.session.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
+        assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        row = db.session.execute(
+            text("SELECT number, status, is_guest, guest_token_hash FROM orders")
+        ).one()
+        assert tuple(row) == ("TPA-1", "paid", 0, None)  # existing orders are account orders
+        db.session.execute(
+            text(
+                "INSERT INTO customers (public_id, email, display_name, status, is_test_account, "
+                "support_notes, created_at, updated_at) VALUES ('g1', 'guest@example.com', '', "
+                "'guest', 0, '', :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.commit()
+        db.session.remove()
+        # Guest buyer records would violate the old constraint: the downgrade refuses.
+        with pytest.raises(SystemExit):  # Flask-Migrate reports the RuntimeError and exits
+            downgrade(directory=MIGRATIONS, revision="4a65b8174c82")
+        db.session.remove()
+        assert db.session.execute(text("SELECT COUNT(*) FROM customers")).scalar_one() == 2
+        db.session.execute(text("DELETE FROM customers WHERE status = 'guest'"))
+        db.session.commit()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="4a65b8174c82")
+        columns = {c["name"] for c in inspect(db.engine).get_columns("orders")}
+        assert "is_guest" not in columns and "guest_token_hash" not in columns
+        assert db.session.execute(text("SELECT number FROM orders")).scalar_one() == "TPA-1"
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)

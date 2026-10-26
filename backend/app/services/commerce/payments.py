@@ -289,12 +289,20 @@ def receipt_dict(receipt: Receipt | None) -> dict[str, Any] | None:
 
 def _send_paid_emails(order: Order, receipt: Receipt, tx: VerifiedTransaction) -> None:
     customer = order.customer
+    access: dict[str, Any] = {}
+    if order.is_guest:
+        # Guests have no library to sign in to: the emails carry an expiring access link.
+        from .guest import issue_access_link
+
+        link, hours = issue_access_link(customer, reason="order_paid")
+        access = {"access_link": link, "hours": hours}
     ctx = {
         "name": customer.display_name,
         "order": order,
         "receipt_number": receipt.number,
         "reference": tx.reference,
         "paid_at": iso(order.paid_at),
+        **access,
     }
     emails.send("order_confirmation", order.email, ctx, customer=customer, order=order)
     emails.send("payment_received", order.email, ctx, customer=customer, order=order)
@@ -302,7 +310,7 @@ def _send_paid_emails(order: Order, receipt: Receipt, tx: VerifiedTransaction) -
     emails.send(
         "download_instructions",
         order.email,
-        {"name": customer.display_name, "products": products},
+        {"name": customer.display_name, "products": products, **access},
         customer=customer,
         order=order,
     )

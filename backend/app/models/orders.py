@@ -89,6 +89,10 @@ class Order(TimestampMixin, db.Model):
     review_reason: Mapped[str] = mapped_column(String(300), default="", nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
     notes: Mapped[str] = mapped_column(String(2000), default="", nullable=False)
+    # Guest checkout: placed without signing in. Its purchases show in an account only once
+    # that account's email is confirmed; the browser that placed it holds an order token.
+    is_guest: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    guest_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
 
     customer = relationship("Customer", lazy="joined")
     items: Mapped[list[OrderItem]] = relationship(

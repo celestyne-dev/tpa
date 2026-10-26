@@ -36,6 +36,7 @@ from ...utils.errors import APIError, ConflictError, NotFoundError, ValidationEr
 from .. import audit_service
 from ..serializers import iso
 from . import catalogue
+from . import entitlements as ent_service
 
 MAX_CART_ITEMS = 20
 _KEY = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
@@ -63,7 +64,7 @@ def owned_product_ids(customer: Customer | None) -> set[int]:
     return set(
         db.session.scalars(
             select(Entitlement.product_id).where(
-                Entitlement.customer_id == customer.id, Entitlement.status == "active"
+                ent_service.account_scope(customer), Entitlement.status == "active"
             )
         )
     )
@@ -220,12 +221,22 @@ def order_public_dict(order: Order) -> dict[str, Any]:
     }
 
 
-def create_order(customer: Customer, data: dict[str, Any]) -> tuple[Order, str | None]:
-    """Validate the cart on the server, create the order, then start the hosted payment."""
-    allowed, reason = checkout_available_for(customer)
+def create_order(
+    customer: Customer,
+    data: dict[str, Any],
+    *,
+    guest: bool = False,
+    guest_token_hash: str | None = None,
+) -> tuple[Order, str | None]:
+    """Validate the cart on the server, create the order, then start the hosted payment.
+
+    Guest checkout (``guest=True``) uses the buyer record for the typed email. It never looks
+    at that record's library or status, so it can't reveal anything about an existing account.
+    """
+    allowed, reason = checkout_available_for(None if guest else customer)
     if not allowed:
         raise CheckoutClosedError(reason)
-    if customer.email_verified_at is None:
+    if not guest and customer.email_verified_at is None:
         raise ConflictError(
             "Please confirm your email address before paying, so your receipt and downloads "
             "reach you.",
@@ -250,9 +261,14 @@ def create_order(customer: Customer, data: dict[str, Any]) -> tuple[Order, str |
         select(Order).where(Order.customer_id == customer.id, Order.idempotency_key == key)
     )
     if existing is not None:
+        if existing.is_guest != guest:
+            raise ConflictError(
+                "This checkout was already used. Refresh the page.",
+                details={"code": "idempotency_conflict"},
+            )
         return _resume(existing, cart_hash)
 
-    q = quote(product_ids, currency, customer)
+    q = quote(product_ids, currency, None if guest else customer)
     if not q["can_checkout"]:
         raise ConflictError(
             "Your cart has changed. Please review it before paying.",
@@ -293,6 +309,8 @@ def create_order(customer: Customer, data: dict[str, Any]) -> tuple[Order, str |
         terms_accepted_at=_now(),
         expires_at=_now() + timedelta(minutes=settings["payments.order_expiry_minutes"]),
         ip_address=request.remote_addr,
+        is_guest=guest,
+        guest_token_hash=guest_token_hash,
     )
     for line in q["lines"]:
         product = products[line["product_id"]]
@@ -345,6 +363,7 @@ def create_order(customer: Customer, data: dict[str, Any]) -> tuple[Order, str |
             "currency": currency,
             "mode": mode,
             "customer_id": customer.id,
+            "guest": guest,
         },
     )
     db.session.commit()
@@ -388,17 +407,21 @@ def start_payment(order: Order) -> str:
     order.status = "awaiting_payment"
     db.session.commit()
     site = current_app.config["SITE_URL"]
+    # Guest orders come back to the same page, which then uses the browser's order token.
+    back = f"{site}/checkout/complete?order={order.public_id}"
+    if order.is_guest:
+        back += "&guest=1"
     try:
         session = get_provider(order.provider).initialize(
             email=order.email,
             amount_minor=order.total_minor,
             currency=order.currency,
             reference=attempt.reference,
-            callback_url=f"{site}/checkout/complete?order={order.public_id}",
+            callback_url=back,
             channels=list(settings["payments.channels"] or []),
             metadata={
                 "order_number": order.number,
-                "cancel_action": f"{site}/checkout/complete?order={order.public_id}&cancelled=1",
+                "cancel_action": f"{back}&cancelled=1",
             },
         )
     except ProviderError as exc:
@@ -419,11 +442,26 @@ def start_payment(order: Order) -> str:
     return session.authorization_url
 
 
+def guest_visible(customer: Customer) -> bool:
+    """Guest-checkout purchases show in an account only once its email is confirmed (so
+    nobody can register someone else's address and see what they bought)."""
+    return customer.email_verified_at is not None
+
+
 def customer_order(customer: Customer, public_id: str) -> Order:
     order = db.session.scalar(select(Order).where(Order.public_id == public_id))
     if order is None or order.customer_id != customer.id:
         raise NotFoundError("Order not found.")
+    if order.is_guest and not guest_visible(customer):
+        raise NotFoundError("Order not found.")
     return order
+
+
+def customer_orders(customer: Customer) -> list[Order]:
+    query = select(Order).where(Order.customer_id == customer.id)
+    if not guest_visible(customer):
+        query = query.where(Order.is_guest.is_(False))
+    return list(db.session.scalars(query.order_by(Order.created_at.desc())))
 
 
 def cancel_unpaid(order: Order, actor_label: str, actor=None) -> Order:

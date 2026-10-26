@@ -23,8 +23,11 @@ from ..extensions import db
 from .base import TimestampMixin
 from .types import JSONType, UTCDateTime, utcnow
 
-CUSTOMER_STATUSES = ("active", "disabled", "deleted")
-CUSTOMER_TOKEN_PURPOSES = ("verify_email", "password_reset")
+# "guest": a buyer record created by guest checkout (no password, can't sign in). It becomes
+# an account when someone registers with that email and confirms it.
+CUSTOMER_STATUSES = ("active", "disabled", "deleted", "guest")
+# "guest_access": emailed link to purchases made with guest checkout (reusable until expiry).
+CUSTOMER_TOKEN_PURPOSES = ("verify_email", "password_reset", "guest_access")
 ENTITLEMENT_SOURCES = ("purchase", "bundle", "free", "manual")
 ENTITLEMENT_STATUSES = ("active", "revoked")
 DOWNLOAD_STATUSES = ("authorized", "served", "denied")
@@ -188,6 +191,8 @@ class DownloadGrant(db.Model):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     use_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    # Issued through a guest access token (no customer session to match when serving).
+    guest: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
 class DownloadEvent(db.Model):

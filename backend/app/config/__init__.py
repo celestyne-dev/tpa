@@ -165,6 +165,14 @@ class BaseConfig:
         "RATELIMIT_CUSTOMER_REGISTER", "5 per minute;30 per hour"
     )
     RATELIMIT_CHECKOUT = os.environ.get("RATELIMIT_CHECKOUT", "10 per minute;60 per hour")
+    # ---- Guest checkout (buying without an account) ----
+    # Emailed link to a buyer's guest-checkout purchases; each new link replaces the last.
+    GUEST_ACCESS_TTL_HOURS = _int("GUEST_ACCESS_TTL_HOURS", 72)
+    # How long the buyer's browser can open a guest order with its order token, and how long
+    # after payment it can download from the order page (after that: the emailed link).
+    GUEST_ORDER_ACCESS_HOURS = _int("GUEST_ORDER_ACCESS_HOURS", 168)
+    GUEST_ORDER_DOWNLOAD_HOURS = _int("GUEST_ORDER_DOWNLOAD_HOURS", 24)
+    RATELIMIT_GUEST_ACCESS = os.environ.get("RATELIMIT_GUEST_ACCESS", "3 per minute;10 per hour")
 
     # ---- Payments (Paystack). Secrets stay in the environment, never in the database ----
     PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY", "")
