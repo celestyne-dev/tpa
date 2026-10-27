@@ -312,7 +312,21 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       list: (params) => get("/entitlements", params),
       action: (id, action, reason) => post(`/entitlements/${id}/${action}`, { reason }),
     },
-    downloads: { list: (params) => get("/downloads", params) },
+    downloads: {
+      list: (params) => get("/downloads", params),
+      summary: (params) => get("/downloads/summary", params),
+    },
+    // Protected resource files across all resources (Media library > Premium files).
+    premiumFiles: {
+      list: (params) => get("/premium-files", params),
+      get: (id) => get(`/premium-files/${id}`),
+      remove: (id) => del(`/premium-files/${id}`),
+      removeVersion: (id, versionId) => del(`/premium-files/${id}/versions/${versionId}`),
+    },
+    storage: {
+      health: (params) => get("/storage", params),
+      uploadErrors: () => get("/storage/upload-errors"),
+    },
     reports: {
       revenue: (params) => get("/reports/revenue", params),
       revenueExportUrl: (params = {}) =>

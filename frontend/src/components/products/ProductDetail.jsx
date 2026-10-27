@@ -1,3 +1,4 @@
+import { accessText } from "@/commerce/accessText";
 import { Check, FileText } from "lucide-react";
 import { Link } from "react-router";
 import { availabilityLabel } from "@/commerce/currency";
@@ -47,6 +48,7 @@ export function ProductDetail({ product, currency, currencies, onCurrency, previ
     product.edition && ["Edition", product.edition],
     product.page_count && ["Pages", String(product.page_count)],
     product.categories.length && ["Category", product.categories.map((c) => c.name).join(", ")],
+    product.access && ["Access", accessText(product.access)],
   ].filter(Boolean);
   const priceCurrencies = product.prices.map((p) => p.currency);
   const switchable = currencies.filter((c) => priceCurrencies.includes(c));

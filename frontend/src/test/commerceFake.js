@@ -174,6 +174,7 @@ export function productDetail(slug) {
     seo: null,
     updated_at: base.published_at,
     related: catalogue.filter((p) => p.slug !== slug).slice(0, 2),
+    access: { lifetime: false, days: 365, download_limit: 5 },
   };
 }
 
@@ -594,6 +595,14 @@ const adminProduct = (overrides = {}) => ({
   bundle_items: [],
   public_path: null,
   sales: { orders: [], active_entitlements: 0 },
+  version_count: 0,
+  formats: [],
+  access_days: null,
+  download_limit: null,
+  membership_eligible: false,
+  effective_download_limit: null,
+  related_ids: [],
+  related: [],
   can: {
     create: true,
     edit: true,
@@ -686,6 +695,185 @@ const adminOrder = (overrides = {}) => ({
   ...overrides,
 });
 
+const premiumFiles = [
+  {
+    id: 11,
+    public_id: "f11",
+    title: "Workbook (PDF)",
+    description: "",
+    status: "active",
+    category: "workbooks",
+    product: {
+      id: 1,
+      title: "Calm Mornings Workbook",
+      type: "workbook",
+      status: "published",
+      pricing_model: "paid",
+    },
+    current_version: {
+      version: 2,
+      format: "pdf",
+      mime_type: "application/pdf",
+      size_bytes: 2_400_000,
+      original_filename: "workbook-v2.pdf",
+      scan_status: "not_configured",
+      uploaded_at: "2026-10-25T10:00:00.000Z",
+    },
+    versions: 2,
+    total_bytes: 4_700_000,
+    downloads: 12,
+    last_download_at: "2026-10-26T10:00:00.000Z",
+    updated_at: "2026-10-25T10:00:00.000Z",
+  },
+  {
+    id: 12,
+    public_id: "f12",
+    title: "Budget template",
+    description: "",
+    status: "active",
+    category: "templates",
+    product: {
+      id: 2,
+      title: "Budget planner",
+      type: "template",
+      status: "draft",
+      pricing_model: "paid",
+    },
+    current_version: {
+      version: 1,
+      format: "xlsx",
+      mime_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      size_bytes: 40_000,
+      original_filename: "budget.xlsx",
+      scan_status: "not_configured",
+      uploaded_at: "2026-10-26T08:00:00.000Z",
+    },
+    versions: 1,
+    total_bytes: 40_000,
+    downloads: 0,
+    last_download_at: null,
+    updated_at: "2026-10-26T08:00:00.000Z",
+  },
+];
+
+function premiumFileDetail(id, { withoutOld = false } = {}) {
+  const file = premiumFiles.find((f) => f.id === id) ?? premiumFiles[0];
+  const version = (n, extra) => ({
+    id: id * 10 + n,
+    version: n,
+    original_filename: `file-v${n}.pdf`,
+    format: "pdf",
+    mime_type: "application/pdf",
+    size_bytes: 2_300_000,
+    sha256: "0".repeat(64),
+    scan_status: "not_configured",
+    scanned_at: null,
+    deliverable: true,
+    details: {},
+    created_at: "2026-10-25T10:00:00.000Z",
+    purchases: 0,
+    ...extra,
+  });
+  const versions = [
+    version(3, {
+      delete_blocked_reason: "This is the current version buyers receive.",
+      deletable: false,
+    }),
+    version(2, {
+      purchases: 4,
+      delete_blocked_reason: "Buyers received this version; it is kept for them.",
+      deletable: false,
+    }),
+    ...(withoutOld ? [] : [version(1, { delete_blocked_reason: null, deletable: true })]),
+  ];
+  return {
+    id: file.id,
+    public_id: file.public_id,
+    title: file.title,
+    description: "",
+    position: 0,
+    status: file.status,
+    deactivated_at: null,
+    current_version: versions[0],
+    versions,
+    downloads: file.downloads,
+    product: { id: file.product.id, title: file.product.title },
+    deletable: file.downloads === 0,
+    delete_blocked_reason:
+      file.downloads === 0
+        ? null
+        : "Buyers received this file. Archive it instead: they keep access.",
+  };
+}
+
+function storageReport() {
+  const disk = { total_bytes: 100e9, used_bytes: 88e9, free_bytes: 12e9, free_percent: 12 };
+  const area = (key, label, path, priv) => ({
+    key,
+    label,
+    path,
+    purpose: `${label} purpose`,
+    private: priv,
+    exists: true,
+    writable: true,
+    mode: priv ? "0700" : "0755",
+    disk,
+  });
+  return {
+    generated_at: "2026-10-27T09:00:00.000Z",
+    status: "warning",
+    areas: [
+      area("media_public", "Public images (optimised)", "/var/lib/tpa/media/public", false),
+      area("media_originals", "Image originals", "/var/lib/tpa/media/private", true),
+      area("resources_private", "Premium resource files", "/var/lib/tpa/resources/private", true),
+      area("upload_temp", "Temporary uploads", "/var/lib/tpa/temporary/uploads", true),
+    ],
+    warnings: [
+      {
+        level: "warning",
+        code: "disk_low",
+        message: "Disk space is getting low (12% free) where Public images are stored.",
+      },
+      { level: "info", code: "temp_stale", message: "2 abandoned temporary upload(s)." },
+    ],
+    tracked: {
+      media_variants_bytes: 50e6,
+      media_superseded_bytes: 0,
+      media_originals_bytes: 80e6,
+      premium_bytes: 4.7e6,
+      premium_files: 2,
+      premium_versions: 3,
+    },
+    temp: { stale_files: 2, max_age_hours: 6 },
+    integrity: {
+      premium_versions: 3,
+      missing_premium_versions: [],
+      missing_premium_count: 0,
+      orphan_premium_files: 0,
+      missing_media_variants: 0,
+    },
+    backup: {
+      configured: true,
+      found: true,
+      readable: true,
+      ok: true,
+      finished_at: "2026-10-27T03:10:00.000Z",
+      age_hours: 6,
+      size_bytes: 2e9,
+      offsite: true,
+      verified: true,
+      message: "",
+    },
+    rate_limit_storage: "redis",
+    limits: {
+      media_max_mb: 20,
+      premium_max_mb: 300,
+      premium_formats: ["pdf", "epub", "docx", "xlsx", "zip"],
+      x_accel_redirect: true,
+    },
+  };
+}
+
 export function createCommerceAdminFake(getUser) {
   const ok = (data, meta) => Promise.resolve({ data, meta });
   const perms = () => getUser()?.permissions ?? [];
@@ -706,10 +894,16 @@ export function createCommerceAdminFake(getUser) {
       options: vi.fn(() =>
         ok({
           types: [
-            { value: "ebook", label: "eBook", available: true },
-            { value: "workbook", label: "Workbook", available: true },
-            { value: "bundle", label: "Bundle", available: true },
-            { value: "course", label: "Online course", available: false },
+            { value: "ebook", label: "eBook", available: true, delivery: "files" },
+            { value: "workbook", label: "Workbook", available: true, delivery: "files" },
+            { value: "template", label: "Template", available: true, delivery: "files" },
+            { value: "bundle", label: "Bundle", available: true, delivery: "bundle" },
+            {
+              value: "course",
+              label: "Online course",
+              available: false,
+              delivery: "planned",
+            },
           ],
           currencies: [
             { code: "USD", name: "US dollar", exponent: 2 },
@@ -925,7 +1119,60 @@ export function createCommerceAdminFake(getUser) {
       grant: vi.fn(() => ok({})),
     },
     entitlements: { list: vi.fn(() => ok([], { total: 0 })), action: vi.fn(() => ok({})) },
-    downloads: { list: vi.fn(() => ok([], { total: 0 })) },
+    downloads: {
+      list: vi.fn(() => ok([], { total: 0 })),
+      summary: vi.fn(() =>
+        ok({
+          days: 30,
+          served: 12,
+          authorized: 14,
+          denied: 3,
+          daily: [{ date: "2026-10-26", served: 12, denied: 3, authorized: 14 }],
+          top_resources: [{ product_id: 1, title: "Calm Mornings Workbook", downloads: 12 }],
+          denial_reasons: [
+            { reason: "entitlement_expired", count: 2 },
+            { reason: "limit_reached", count: 1 },
+          ],
+        }),
+      ),
+    },
+    premiumFiles: {
+      list: vi.fn((params = {}) => {
+        const rows = premiumFiles.filter(
+          (f) => !params.format || f.current_version.format === params.format,
+        );
+        return ok(rows, {
+          total: rows.length,
+          summary: {
+            files: rows.length,
+            total_bytes: rows.reduce((n, f) => n + f.total_bytes, 0),
+            formats: [],
+            by_category: {},
+          },
+        });
+      }),
+      get: vi.fn((id) => ok(premiumFileDetail(Number(id)))),
+      remove: vi.fn(() => ok({ deleted: true })),
+      removeVersion: vi.fn((id) => ok(premiumFileDetail(Number(id), { withoutOld: true }))),
+    },
+    storage: {
+      health: vi.fn(() => ok(storageReport())),
+      uploadErrors: vi.fn(() =>
+        ok([
+          {
+            id: 1,
+            at: "2026-10-26T09:00:00.000Z",
+            area: "premium files",
+            kind: "rejected",
+            filename: "planner.docm.docx",
+            reason: "Documents with macros are not accepted.",
+            resource_type: "product",
+            resource_id: "1",
+            actor: "Owner",
+          },
+        ]),
+      ),
+    },
     reports: {
       revenue: vi.fn((params = {}) =>
         ok({

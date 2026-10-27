@@ -143,27 +143,113 @@ function Entitlements() {
   );
 }
 
+const DENIAL_LABELS = {
+  entitlement_revoked: "Access revoked or refunded",
+  entitlement_expired: "Access period ended",
+  limit_reached: "Download limit reached",
+  link_expired: "Link expired",
+  link_used_up: "Link used up",
+  session_mismatch: "Not signed in to the owning account",
+  version_not_allowed: "Version not available to this buyer",
+};
+
+function DownloadSummary({ productId, onProduct }) {
+  const api = useAdminApi();
+  const { data } = useAdminQuery(() => api.downloads.summary({ days: 30 }), []);
+  if (!data) return null;
+  return (
+    <section aria-labelledby="download-summary" className="mb-6 space-y-4">
+      <h2 id="download-summary" className="text-lg font-medium">
+        Last {data.days} days
+      </h2>
+      <dl className="grid gap-3 sm:grid-cols-3">
+        {[
+          ["Downloads served", data.served],
+          ["Links issued", data.authorized],
+          ["Requests refused", data.denied],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-charcoal/10 bg-white p-4">
+            <dt className="text-sm text-muted">{label}</dt>
+            <dd className="mt-1 text-2xl font-medium">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-charcoal/10 bg-white p-4">
+          <h3 className="text-sm font-medium">Most downloaded</h3>
+          {data.top_resources.length ? (
+            <ol className="mt-2 space-y-1 text-sm">
+              {data.top_resources.map((r) => (
+                <li key={r.product_id} className="flex justify-between gap-2">
+                  <button
+                    type="button"
+                    className={`text-left hover:underline ${productId === String(r.product_id) ? "font-medium" : ""}`}
+                    onClick={() => onProduct(String(r.product_id))}
+                  >
+                    {r.title}
+                  </button>
+                  <span className="text-muted">{r.downloads}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-2 text-sm text-muted">No downloads in this period.</p>
+          )}
+        </div>
+        <div className="rounded-xl border border-charcoal/10 bg-white p-4">
+          <h3 className="text-sm font-medium">Why requests were refused</h3>
+          {data.denial_reasons.length ? (
+            <ul className="mt-2 space-y-1 text-sm">
+              {data.denial_reasons.map((r) => (
+                <li key={r.reason} className="flex justify-between gap-2">
+                  <span>{DENIAL_LABELS[r.reason] ?? r.reason}</span>
+                  <span className="text-muted">{r.count}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-muted">Nothing was refused in this period.</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Downloads() {
   const api = useAdminApi();
   const [status, setStatus] = useState("");
+  const [productId, setProductId] = useState("");
   const { data, error, loading, reload } = useAdminQuery(
-    () => api.downloads.list(status ? { status } : {}),
-    [status],
+    () =>
+      api.downloads.list({
+        ...(status && { status }),
+        ...(productId && { product_id: productId }),
+      }),
+    [status, productId],
   );
   return (
     <>
-      <SelectField
-        className="mb-4 max-w-xs"
-        label="Result"
-        value={status}
-        onChange={(e) => setStatus(e.target.value)}
-        options={[
-          { value: "", label: "Any" },
-          { value: "served", label: "Served" },
-          { value: "authorized", label: "Authorised" },
-          { value: "denied", label: "Denied" },
-        ]}
-      />
+      <DownloadSummary productId={productId} onProduct={setProductId} />
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <SelectField
+          className="max-w-xs"
+          label="Result"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          options={[
+            { value: "", label: "Any" },
+            { value: "served", label: "Served" },
+            { value: "authorized", label: "Authorised" },
+            { value: "denied", label: "Denied" },
+          ]}
+        />
+        {productId && (
+          <button type="button" className="mb-2 text-sm underline" onClick={() => setProductId("")}>
+            Show all resources
+          </button>
+        )}
+      </div>
       {error ? (
         <ErrorState title="We couldn't load download activity" onRetry={reload} />
       ) : (
@@ -177,7 +263,11 @@ function Downloads() {
             { key: "product", header: "Product", render: (d) => d.product ?? "—" },
             { key: "file", header: "File", render: (d) => d.file ?? "—" },
             { key: "status", header: "Result", render: (d) => <StatusBadge status={d.status} /> },
-            { key: "reason", header: "Reason", render: (d) => d.reason || "—" },
+            {
+              key: "reason",
+              header: "Reason",
+              render: (d) => (d.reason ? (DENIAL_LABELS[d.reason] ?? d.reason) : "—"),
+            },
             { key: "ip", header: "IP", render: (d) => d.ip_address ?? "—" },
           ]}
         />

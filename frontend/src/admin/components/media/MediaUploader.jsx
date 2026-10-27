@@ -11,7 +11,12 @@ const CONCURRENCY = 2;
  * Drag-and-drop / multi-file uploader with per-file progress. Files are checked
  * locally for type and size first (the server re-validates the real content).
  */
-export function MediaUploader({ onUploaded, maxMb = DEFAULT_MAX_MB, compact = false }) {
+export function MediaUploader({
+  onUploaded,
+  maxMb = DEFAULT_MAX_MB,
+  compact = false,
+  fields = {},
+}) {
   const api = useAdminApi();
   const inputId = useId();
   const inputRef = useRef(null);
@@ -47,7 +52,7 @@ export function MediaUploader({ onUploaded, maxMb = DEFAULT_MAX_MB, compact = fa
         const item = pending.shift();
         patch(item.key, { status: "uploading" });
         try {
-          const res = await api.media.upload(item.file, {}, (progress) =>
+          const res = await api.media.upload(item.file, fields, (progress) =>
             patch(item.key, { progress: progress ?? 50 }),
           );
           patch(item.key, {

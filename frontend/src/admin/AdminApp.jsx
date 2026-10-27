@@ -54,7 +54,9 @@ import { ProductCollectionsPage } from "./pages/ProductCollectionsPage";
 import { ProductEditorPage } from "./pages/ProductEditorPage";
 import { ProductPreviewPage } from "./pages/ProductPreviewPage";
 import { BundlesPage, ProductsPage } from "./pages/ProductsPage";
+import { ResourcesPage } from "./pages/ResourcesPage";
 import { RevenueReportPage } from "./pages/RevenueReportPage";
+import { StoragePage } from "./pages/StoragePage";
 import {
   ARTICLE_ACCESS,
   PAGE_READ,
@@ -113,6 +115,8 @@ export default function AdminApp() {
           <Route path="products" element={guarded("products.view", <ProductsPage />)} />
           <Route path="products/:id" element={guarded("products.view", <ProductEditorPage />)} />
           <Route path="bundles" element={guarded("products.view", <BundlesPage />)} />
+          <Route path="resources" element={guarded("products.view", <ResourcesPage />)} />
+          <Route path="storage" element={guarded("storage.view", <StoragePage />)} />
           <Route
             path="product-collections"
             element={guarded("products.view", <ProductCollectionsPage />)}

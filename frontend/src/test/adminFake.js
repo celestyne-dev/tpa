@@ -55,6 +55,7 @@ const ALL = [
   "roles.manage",
   "roles.assign",
   "audit.view",
+  "storage.view",
   ...COMMERCE_PERMS,
   ...NEWSLETTER_PERMS,
   ...PARTNERSHIP_PERMS,

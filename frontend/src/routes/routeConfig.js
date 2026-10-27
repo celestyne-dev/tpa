@@ -20,6 +20,7 @@ import { PartnerPage } from "@/pages/PartnerPage";
 import { PrivacyPolicyPage } from "@/pages/PrivacyPolicyPage";
 import { CollectionPage } from "@/pages/CollectionPage";
 import { ProductPage } from "@/pages/ProductPage";
+import { ResourceLibraryPage } from "@/pages/ResourceLibraryPage";
 import { ShopPage } from "@/pages/ShopPage";
 import { TermsPage } from "@/pages/TermsPage";
 import { TopicPage } from "@/pages/TopicPage";
@@ -65,6 +66,7 @@ export const routeTable = [
     ],
   },
   { path: routes.shop, Component: ShopPage, load: () => [fetchProducts()] },
+  { path: routes.resources, Component: ResourceLibraryPage, load: () => [fetchProducts()] },
   {
     path: "/shop/collections/:slug",
     Component: CollectionPage,

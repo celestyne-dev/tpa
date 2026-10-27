@@ -20,6 +20,7 @@ export const routes = {
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   freeResources: "/free-resources",
+  resources: "/resources",
   newsletter: "/newsletter",
   newsletterConfirm: "/newsletter/confirm",
   newsletterPreferences: "/newsletter/preferences",
@@ -59,6 +60,7 @@ export const footerNav = [
     title: "Shop & Resources",
     items: [
       { label: "Shop", href: routes.shop },
+      { label: "Resource Library", href: routes.resources },
       { label: "Free Resources", href: routes.freeResources },
       { label: "The Positive Reset Newsletter", href: routes.newsletter },
     ],
@@ -121,6 +123,7 @@ export const staticRoutes = [
   { path: routes.articles, priority: 0.9, changefreq: "daily" },
   { path: routes.shop, priority: 0.8, changefreq: "weekly" },
   { path: routes.freeResources, priority: 0.8, changefreq: "monthly" },
+  { path: routes.resources, priority: 0.8, changefreq: "weekly" },
   { path: routes.newsletter, priority: 0.7, changefreq: "monthly" },
   { path: routes.partner, priority: 0.6, changefreq: "monthly" },
   { path: routes.advertise, priority: 0.5, changefreq: "monthly" },

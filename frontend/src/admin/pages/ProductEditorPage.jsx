@@ -14,6 +14,10 @@ import { ImageChooser } from "../components/media/ImageChooser";
 import { useNotify } from "../components/notifyContext";
 import { ProductFilesPanel } from "../components/products/ProductFilesPanel";
 import { ProductPricingPanel } from "../components/products/ProductPricingPanel";
+import {
+  RelatedResourcesEditor,
+  ResourceAccessPanel,
+} from "../components/products/ResourceAccessPanel";
 import { fromLocalInput, toLocalInput } from "../components/products/money";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAdminQuery } from "../hooks/useAdminQuery";
@@ -48,6 +52,7 @@ const CONTENT_KEYS = [
   "collection_ids",
   "is_featured",
   "featured_order",
+  "related_ids",
 ];
 
 const TABS = [
@@ -56,6 +61,7 @@ const TABS = [
   ["images", "Images"],
   ["files", "Files"],
   ["pricing", "Pricing"],
+  ["access", "Access & related"],
   ["bundle", "Bundle"],
   ["seo", "SEO"],
   ["sales", "Sales & publishing"],
@@ -756,6 +762,23 @@ export function ProductEditorPage() {
             canPrice={can.prices}
             onChanged={refresh}
           />
+        )}
+        {tab === "access" && (
+          <div className="space-y-6">
+            <ResourceAccessPanel
+              key={`${product.id}-${product.lock_version}`}
+              product={product}
+              canEdit={can.prices && product.status !== "archived"}
+              onChanged={refresh}
+            />
+            <RelatedResourcesEditor
+              product={product}
+              options={options}
+              value={form.related_ids ?? []}
+              disabled={!editable}
+              onChange={(related_ids) => set({ related_ids })}
+            />
+          </div>
         )}
         {tab === "bundle" && (
           <BundlePanel

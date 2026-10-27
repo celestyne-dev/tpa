@@ -11,6 +11,7 @@ import { SelectField, TextField } from "../components/Fields";
 import { MediaDetail } from "../components/media/MediaDetail";
 import { MediaGrid } from "../components/media/MediaGrid";
 import { MediaUploader } from "../components/media/MediaUploader";
+import { PremiumFilesPanel } from "../components/media/PremiumFilesPanel";
 import { Pagination } from "../components/Pagination";
 import { useAdminQuery } from "../hooks/useAdminQuery";
 import { usePermissions } from "../hooks/usePermissions";
@@ -40,15 +41,74 @@ const SORT_OPTIONS = [
   { value: "filename", label: "File name" },
   { value: "size", label: "Largest first" },
 ];
-const KEYS = ["q", "type", "usage", "status", "sort", "uploaded_from", "uploaded_to", "page"];
+const KEYS = [
+  "q",
+  "type",
+  "usage",
+  "status",
+  "sort",
+  "category",
+  "uploaded_from",
+  "uploaded_to",
+  "page",
+];
 
+/**
+ * Central library for public images and (tab "Premium files") protected resource files.
+ * Images get public, cached URLs; premium files never do.
+ */
 export function MediaLibraryPage() {
+  const { can } = usePermissions();
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") === "premium" && can("products.view") ? "premium" : "images";
+  const tabs = [
+    ["images", "Images"],
+    ...(can("products.view") ? [["premium", "Premium files"]] : []),
+  ];
+  return (
+    <>
+      <AdminPageHeader
+        title="Media library"
+        description="Public images are validated, stripped of private metadata and optimised into responsive WebP/AVIF versions automatically. Premium files stay in private storage."
+        breadcrumbs={[{ label: "Media library" }]}
+      />
+      {tabs.length > 1 && (
+        <div
+          role="tablist"
+          aria-label="Library sections"
+          className="mb-5 flex gap-1 border-b border-charcoal/10"
+        >
+          {tabs.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setParams(key === "premium" ? { tab: "premium" } : {})}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
+                tab === key
+                  ? "border-sage-700 text-charcoal"
+                  : "border-transparent text-muted hover:text-charcoal"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div role="tabpanel">{tab === "premium" ? <PremiumFilesPanel /> : <ImagesPanel />}</div>
+    </>
+  );
+}
+
+function ImagesPanel() {
   const api = useAdminApi();
   const { can } = usePermissions();
   const [params, setParams] = useSearchParams();
   const filters = Object.fromEntries(KEYS.map((k) => [k, params.get(k) ?? ""]));
   const [search, setSearch] = useState(filters.q);
   const [openId, setOpenId] = useState(null);
+  const [uploadCategory, setUploadCategory] = useState("general");
 
   const query = useAdminQuery(
     () =>
@@ -56,6 +116,7 @@ export function MediaLibraryPage() {
         q: filters.q || undefined,
         type: filters.type || undefined,
         usage: filters.usage || undefined,
+        category: filters.category || undefined,
         status: filters.status || "active",
         sort: filters.sort || "newest",
         uploaded_from: filters.uploaded_from ? `${filters.uploaded_from}T00:00:00Z` : undefined,
@@ -74,16 +135,23 @@ export function MediaLibraryPage() {
     setParams(out);
   };
 
+  const categories = stats.data?.categories ?? [];
   return (
     <>
-      <AdminPageHeader
-        title="Media library"
-        description="Uploaded images are validated, stripped of private metadata and optimised into responsive WebP/AVIF versions automatically."
-        breadcrumbs={[{ label: "Media library" }]}
-      />
       {can("media.upload") && (
-        <section aria-label="Upload images" className="mb-6">
+        <section aria-label="Upload images" className="mb-6 space-y-3">
+          {categories.length > 0 && (
+            <div className="max-w-xs">
+              <SelectField
+                label="Category for new uploads"
+                value={uploadCategory}
+                options={categories.map((c) => ({ value: c.key, label: c.label }))}
+                onChange={(e) => setUploadCategory(e.target.value)}
+              />
+            </div>
+          )}
           <MediaUploader
+            fields={{ category: uploadCategory }}
             maxMb={stats.data?.max_upload_mb}
             onUploaded={() => {
               query.reload();
@@ -112,6 +180,18 @@ export function MediaLibraryPage() {
           options={TYPE_OPTIONS}
           value={filters.type}
           onChange={(e) => update({ type: e.target.value })}
+        />
+        <SelectField
+          label="Category"
+          options={[
+            { value: "", label: "All categories" },
+            ...categories.map((c) => ({
+              value: c.key,
+              label: `${c.label} (${stats.data?.category_counts?.[c.key] ?? 0})`,
+            })),
+          ]}
+          value={filters.category}
+          onChange={(e) => update({ category: e.target.value })}
         />
         <SelectField
           label="Usage"
@@ -187,6 +267,7 @@ export function MediaLibraryPage() {
       {openId && (
         <MediaDetail
           mediaId={openId}
+          categories={categories.length ? categories : undefined}
           onClose={() => setOpenId(null)}
           onChanged={() => {
             query.reload();

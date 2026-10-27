@@ -8,18 +8,28 @@ import { useAdminQuery } from "../../hooks/useAdminQuery";
 import { usePermissions } from "../../hooks/usePermissions";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { fieldError } from "../fieldError";
-import { TextAreaField, TextField } from "../Fields";
+import { SelectField, TextAreaField, TextField } from "../Fields";
 import { Modal } from "../Modal";
 import { useNotify } from "../notifyContext";
 
-const FIELDS = ["alt_text", "title", "caption", "credit", "source_url"];
+const FIELDS = ["alt_text", "title", "caption", "credit", "source_url", "category"];
+// Fallback when the library's category list hasn't been loaded (e.g. in the picker).
+const DEFAULT_CATEGORIES = [
+  { key: "general", label: "General" },
+  { key: "articles", label: "Articles" },
+  { key: "resources", label: "Resource covers & previews" },
+  { key: "pages", label: "Pages & homepage" },
+  { key: "branding", label: "Branding" },
+  { key: "people", label: "Authors & people" },
+  { key: "marketing", label: "Marketing & social" },
+];
 
 function toForm(asset) {
   return Object.fromEntries(FIELDS.map((f) => [f, asset?.[f] ?? ""]));
 }
 
 /** Image details: preview + focal point, metadata, variants, replace/archive/delete. */
-export function MediaDetail({ mediaId, onClose, onChanged }) {
+export function MediaDetail({ mediaId, onClose, onChanged, categories = DEFAULT_CATEGORIES }) {
   const api = useAdminApi();
   const notify = useNotify();
   const { can } = usePermissions();
@@ -181,6 +191,13 @@ export function MediaDetail({ mediaId, onClose, onChanged }) {
                   value={form.caption}
                   onChange={(e) => setForm({ ...form, caption: e.target.value })}
                   error={fieldError(error, "caption")}
+                />
+                <SelectField
+                  label="Category"
+                  value={form.category || "general"}
+                  options={categories.map((c) => ({ value: c.key, label: c.label }))}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  error={fieldError(error, "category")}
                 />
                 <TextField
                   label="Source URL (optional)"

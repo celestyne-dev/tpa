@@ -39,6 +39,8 @@ import {
   Gift,
   AtSign,
   FileText,
+  BookOpenText,
+  HardDrive,
 } from "lucide-react";
 import {
   ARTICLE_ACCESS,
@@ -87,6 +89,12 @@ export const adminSections = [
     title: "Commerce",
     items: [
       { label: "Products", to: "/admin/products", icon: Package, permission: "products.view" },
+      {
+        label: "Premium Resources",
+        to: "/admin/resources",
+        icon: BookOpenText,
+        permission: "products.view",
+      },
       {
         label: "Categories & Collections",
         to: "/admin/product-collections",
@@ -240,6 +248,12 @@ export const adminSections = [
         permission: "email_settings.manage",
       },
       { label: "Audit log", to: "/admin/audit-log", icon: ScrollText, permission: "audit.view" },
+      {
+        label: "Storage Health",
+        to: "/admin/storage",
+        icon: HardDrive,
+        permission: "storage.view",
+      },
     ],
   },
 ];
