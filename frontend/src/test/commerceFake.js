@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
+import { createCourseShopApi } from "./courseFake";
 
 // Mirrors the Batch 05 permission catalogue (backend/app/auth/permissions.py).
 export const COMMERCE_PERMS = [
@@ -388,6 +389,7 @@ export function createFakeShopApi({ customer = null, open = true, owned = [] } =
   let current = customer;
   const ok = (data) => Promise.resolve({ data });
   return {
+    ...createCourseShopApi(),
     status: vi.fn(() => ok(quoteFor([], "USD", { open }).checkout)),
     quote: vi.fn((ids, currency) => ok(quoteFor(ids, currency, { open, owned }))),
     me: vi.fn(() => {

@@ -250,6 +250,7 @@ function LibraryList() {
         each file, plus the edition you originally received.
       </p>
       <LibraryItems
+        learner
         items={items}
         authorize={(item, version) => shopApi.authorizeDownload(item.id, version.version_id)}
       />

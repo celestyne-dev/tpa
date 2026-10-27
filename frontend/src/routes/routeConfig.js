@@ -12,6 +12,8 @@ import { AffiliateDisclosurePage } from "@/pages/AffiliateDisclosurePage";
 import { ArticleDetailPage } from "@/pages/ArticleDetailPage";
 import { ArticlesPage } from "@/pages/ArticlesPage";
 import { ContactPage } from "@/pages/ContactPage";
+import { CourseDetailPage } from "@/pages/CourseDetailPage";
+import { CoursesPage } from "@/pages/CoursesPage";
 import { FreeResourcesPage } from "@/pages/FreeResourcesPage";
 import { HomePage } from "@/pages/HomePage";
 import { NewsletterPage } from "@/pages/NewsletterPage";
@@ -28,6 +30,7 @@ import { withCmsOverride } from "@/routes/cmsOverride";
 import { LegacyAuthRedirect } from "@/routes/LegacyAuthRedirect";
 import * as commerce from "@/routes/commerceRoutes";
 import { fetchArticle, fetchArticles } from "@/store/slices/articlesSlice";
+import { fetchCourse, fetchCourses } from "@/store/slices/coursesSlice";
 import { fetchMediaKit } from "@/store/slices/mediaKitSlice";
 import { fetchPage } from "@/store/slices/pagesSlice";
 import { fetchCollection, fetchProduct, fetchProducts } from "@/store/slices/productsSlice";
@@ -67,6 +70,12 @@ export const routeTable = [
   },
   { path: routes.shop, Component: ShopPage, load: () => [fetchProducts()] },
   { path: routes.resources, Component: ResourceLibraryPage, load: () => [fetchProducts()] },
+  { path: routes.courses, Component: CoursesPage, load: () => [fetchCourses()] },
+  {
+    path: "/courses/:slug",
+    Component: CourseDetailPage,
+    load: ({ slug }) => [fetchCourse({ slug })],
+  },
   {
     path: "/shop/collections/:slug",
     Component: CollectionPage,
@@ -97,6 +106,12 @@ export const routeTable = [
     [routes.newsletterPreferences, commerce.NewsletterPreferencesRoute],
     [routes.newsletterUnsubscribe, commerce.NewsletterUnsubscribeRoute],
     [routes.resourceAccess, commerce.ResourceAccessRoute],
+    // Learners: client-only shells (/learn/*, /certificates/*); never prerendered with data.
+    [routes.accountLearning, commerce.AccountLearningRoute],
+    ["/learn/:courseSlug", commerce.LearnCourseRoute],
+    ["/learn/:courseSlug/assessments/:assessmentId", commerce.LearnAssessmentRoute],
+    ["/learn/:courseSlug/:lessonSlug", commerce.LearnLessonRoute],
+    ["/certificates/:code", commerce.CertificateRoute],
   ].map(([path, Component]) => ({ path, Component, private: true })),
   {
     path: routes.freeResources,

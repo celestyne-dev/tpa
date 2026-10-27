@@ -135,6 +135,19 @@ server {
         try_files $uri $uri/index.html /404.html;
     }
 
+    # Learners' lessons and certificate checks: client-only shells (lesson content, progress
+    # and names load from /api/v1 after the server checks access). Never cached or indexed.
+    location ~ ^/learn(/|$) {
+        add_header Cache-Control "no-store" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        try_files /learn/index.html =404;
+    }
+    location ~ ^/certificates(/|$) {
+        add_header Cache-Control "no-store" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        try_files /certificates/index.html =404;
+    }
+
     # Optimised media. Paths contain a version (v1, v2 ...) and never change once
     # written, so they can be cached for a year. Private originals live outside this
     # directory (MEDIA_ROOT/private) and are never served.

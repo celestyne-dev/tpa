@@ -54,6 +54,9 @@ import { ProductCollectionsPage } from "./pages/ProductCollectionsPage";
 import { ProductEditorPage } from "./pages/ProductEditorPage";
 import { ProductPreviewPage } from "./pages/ProductPreviewPage";
 import { BundlesPage, ProductsPage } from "./pages/ProductsPage";
+import { CourseEditorPage } from "./pages/courses/CourseEditorPage";
+import { CoursePreviewPage } from "./pages/courses/CoursePreviewPage";
+import { CoursesPage } from "./pages/courses/CoursesPage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { RevenueReportPage } from "./pages/RevenueReportPage";
 import { StoragePage } from "./pages/StoragePage";
@@ -117,6 +120,28 @@ export default function AdminApp() {
           <Route path="bundles" element={guarded("products.view", <BundlesPage />)} />
           <Route path="resources" element={guarded("products.view", <ResourcesPage />)} />
           <Route path="storage" element={guarded("storage.view", <StoragePage />)} />
+          <Route path="courses" element={guarded("courses.view", <CoursesPage />)} />
+          <Route path="courses/new" element={guarded("courses.create", <CoursesPage />)} />
+          <Route path="courses/:id" element={guarded("courses.view", <CourseEditorPage />)} />
+          <Route
+            path="courses/:id/content"
+            element={guarded("courses.view", <CourseEditorPage section="content" />)}
+          />
+          <Route
+            path="courses/:id/assessments"
+            element={guarded("courses.view", <CourseEditorPage section="assessments" />)}
+          />
+          <Route
+            path="courses/:id/enrollments"
+            element={guarded(
+              "courses.view_enrollments",
+              <CourseEditorPage section="enrollments" />,
+            )}
+          />
+          <Route
+            path="courses/:id/preview"
+            element={guarded("courses.view", <CoursePreviewPage />)}
+          />
           <Route
             path="product-collections"
             element={guarded("products.view", <ProductCollectionsPage />)}

@@ -150,7 +150,7 @@ function buildRobots() {
     // Previews, staging and local builds must never be indexed.
     return "User-agent: *\nDisallow: /\n";
   }
-  return `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /account\nDisallow: /cart\nDisallow: /checkout\nDisallow: /purchases\nDisallow: /newsletter/\nDisallow: /resources/access\n\nSitemap: ${siteConfig.url}/sitemap.xml\n`;
+  return `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /account\nDisallow: /cart\nDisallow: /checkout\nDisallow: /purchases\nDisallow: /newsletter/\nDisallow: /resources/access\nDisallow: /learn/\nDisallow: /certificates/\n\nSitemap: ${siteConfig.url}/sitemap.xml\n`;
 }
 
 await checkApi();
@@ -164,16 +164,25 @@ for (const marker of ["<!--app-head-->", "<!--app-html-->", "<!--app-state-->"])
   if (!template.includes(marker)) fail(`dist/index.html is missing the ${marker} marker.`);
 }
 
-const [topicsRes, articles, sitemapRes, redirectsRes, cmsPagesRes, productsRes, collectionsRes] =
-  await Promise.all([
-    api.getTopics(),
-    fetchAllArticles(),
-    api.getSitemap(),
-    api.getRedirects(),
-    api.getPages(),
-    api.getProducts(),
-    api.getCollections(),
-  ]);
+const [
+  topicsRes,
+  articles,
+  sitemapRes,
+  redirectsRes,
+  cmsPagesRes,
+  productsRes,
+  collectionsRes,
+  coursesRes,
+] = await Promise.all([
+  api.getTopics(),
+  fetchAllArticles(),
+  api.getSitemap(),
+  api.getRedirects(),
+  api.getPages(),
+  api.getProducts(),
+  api.getCollections(),
+  api.getCourses(),
+]);
 const topics = topicsRes.data;
 const staticPaths = new Set(staticRoutes.map((r) => r.path));
 
@@ -187,6 +196,8 @@ const pages = [
   // Published products and collections (drafts and archived products are never listed).
   ...productsRes.data.map((p) => ({ path: routes.product(p.slug) })),
   ...collectionsRes.data.map((c) => ({ path: routes.collection(c.slug) })),
+  // Published course pages (marketing content and syllabus titles; never lesson content).
+  ...coursesRes.data.map((c) => ({ path: routes.course(c.slug) })),
   // Private customer pages: noindex shells; customer data only ever loads in the browser.
   ...privateRoutes.map((path) => ({ path, private: true })),
   ...articles.map((a) => ({
@@ -230,6 +241,23 @@ await writeFile(
   }),
 );
 
+// Learner and certificate shells: client-only (no lesson, progress or name is ever in the
+// HTML). Nginx serves them for /learn/* and /certificates/*; the data loads in the browser.
+for (const [dir, title] of [
+  ["learn", "Learning"],
+  ["certificates", "Certificate verification"],
+]) {
+  await mkdir(path.join(distDir, dir), { recursive: true });
+  await writeFile(
+    path.join(distDir, dir, "index.html"),
+    injectTemplate(template, {
+      head: `<title>${title} | Think Positive Always</title>\n    <meta name="robots" content="noindex, nofollow" />`,
+      html: "",
+      state: null,
+    }),
+  );
+}
+
 // The API decides what is indexable (noindex, external canonicals, drafts excluded).
 await writeFile(path.join(distDir, "sitemap.xml"), buildSitemap(sitemapRes.data));
 await writeFile(
@@ -252,6 +280,7 @@ await writeFile(
       apiUrl,
       cmsPages: cmsPagesRes.data.map((p) => p.path),
       products: productsRes.data.map((p) => routes.product(p.slug)),
+      courses: coursesRes.data.map((c) => routes.course(c.slug)),
       pages: manifest,
     },
     null,

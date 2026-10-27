@@ -48,6 +48,7 @@ DEFAULT_MENUS = {
                 "link_type": "heading",
                 "children": [
                     {"label": "Shop", "url": "/shop"},
+                    {"label": "Courses", "url": "/courses"},
                     {"label": "Free Resources", "url": "/free-resources"},
                     {"label": "The Positive Reset Newsletter", "url": "/newsletter"},
                 ],

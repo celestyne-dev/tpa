@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 import { createBuilderFake } from "./builderFake";
 import { COMMERCE_PERMS, createCommerceAdminFake } from "./commerceFake";
+import { COURSE_PERMS, createCourseAdminFake } from "./courseFake";
 import { NEWSLETTER_EDITING, NEWSLETTER_PERMS, createNewsletterAdminFake } from "./newsletterFake";
 import {
   PARTNERSHIP_PERMS,
@@ -56,6 +57,7 @@ const ALL = [
   "roles.assign",
   "audit.view",
   "storage.view",
+  ...COURSE_PERMS,
   ...COMMERCE_PERMS,
   ...NEWSLETTER_PERMS,
   ...PARTNERSHIP_PERMS,
@@ -88,6 +90,14 @@ export const ROLE_PERMS = {
     "pages.edit",
     "homepage.view",
     "homepage.edit",
+    // Batch 09: editors author and publish courses (like the backend's Editor role).
+    "courses.view",
+    "courses.create",
+    "courses.edit",
+    "courses.publish",
+    "courses.archive",
+    "courses.manage_curriculum",
+    "courses.manage_assessments",
   ],
   moderator: [
     "dashboard.view",
@@ -109,6 +119,8 @@ export const ROLE_PERMS = {
     "articles.preview",
     "seo.view",
     "publishing.view",
+    "courses.view",
+    "courses.view_reports",
   ],
   content_writer: [
     "dashboard.view",
@@ -1358,6 +1370,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     audit: { list: vi.fn(() => ok([], { pagination: null })) },
     ...createBuilderFake(() => user),
     ...createCommerceAdminFake(() => user),
+    ...createCourseAdminFake(() => user),
     ...createNewsletterAdminFake(() => user),
     ...createPartnershipAdminFake(),
   };

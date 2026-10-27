@@ -6,6 +6,12 @@ import {
   selectArticle,
   selectArticleList,
 } from "@/store/slices/articlesSlice";
+import {
+  fetchCourse,
+  fetchCourses,
+  selectCourse,
+  selectCourses,
+} from "@/store/slices/coursesSlice";
 import { fetchPage, selectPage } from "@/store/slices/pagesSlice";
 import {
   fetchCollection,
@@ -100,6 +106,21 @@ export function useProduct(slug) {
 export function useCollection(slug) {
   const entry = useSelector(selectCollection(slug));
   const load = useCallback((force) => fetchCollection({ slug, force }), [slug]);
+  return useResource(entry, load, [load], (s) => s.data);
+}
+
+/** The published course catalogue (prerendered). */
+export function useCourses() {
+  const entry = useSelector(selectCourses);
+  const load = useCallback((force) => fetchCourses({ force }), []);
+  const result = useResource(entry, load, [load], (s) => s.items);
+  return { ...result, meta: entry?.meta ?? {} };
+}
+
+/** One published course page. */
+export function useCourse(slug) {
+  const entry = useSelector(selectCourse(slug));
+  const load = useCallback((force) => fetchCourse({ slug, force }), [slug]);
   return useResource(entry, load, [load], (s) => s.data);
 }
 

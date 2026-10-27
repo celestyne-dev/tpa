@@ -88,6 +88,29 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
         entitlement_id: entitlementId,
         version_id: versionId,
       }),
+    // Text-based courses: learner area (signed-in customers with a confirmed email).
+    learning: () => get("/account/learning"),
+    learningStatus: (slug) => get(`/account/learning/${enc(slug)}/status`),
+    enroll: (slug) => post(`/account/learning/${enc(slug)}/enroll`),
+    learningCourse: (slug) => get(`/account/learning/${enc(slug)}`),
+    learningLesson: (slug, lesson) => get(`/account/learning/${enc(slug)}/lessons/${enc(lesson)}`),
+    completeLesson: (slug, lesson) =>
+      post(`/account/learning/${enc(slug)}/lessons/${enc(lesson)}/complete`),
+    saveExercise: (slug, lesson, exercise, body) =>
+      client
+        .put(
+          `/account/learning/${enc(slug)}/lessons/${enc(lesson)}/exercises/${enc(exercise)}`,
+          body,
+        )
+        .then((r) => r.data),
+    learningAssessment: (slug, id) => get(`/account/learning/${enc(slug)}/assessments/${id}`),
+    submitAttempt: (slug, id, answers) =>
+      post(`/account/learning/${enc(slug)}/assessments/${id}/attempts`, { answers }),
+    requestCertificate: (slug, name) =>
+      post(`/account/learning/${enc(slug)}/certificate`, { name }),
+    certificatePdfUrl: (code) => `${baseURL}/account/certificates/${enc(code)}/pdf`,
+    verifyCertificate: (code) => get(`/certificates/${enc(code)}`),
+    previewLesson: (slug, lesson) => get(`/courses/${enc(slug)}/preview/${enc(lesson)}`),
     // The Positive Reset newsletter and free resources (cookieless; signed links).
     newsletterStatus: () => get("/newsletter/status"),
     subscribe: (body) => post("/newsletter/subscribe", body),

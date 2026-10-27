@@ -1,4 +1,4 @@
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, GraduationCap } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { ProductCover } from "@/components/products/ProductCover";
@@ -20,8 +20,10 @@ function formatSize(bytes) {
  * Library items with their download buttons. ``authorize(item, version)`` asks the
  * server for a short-lived download link (account session, guest order token or guest
  * access link) and resolves to the API response; the browser then follows the link.
+ * Course purchases link to the course; ``learner`` is true in the signed-in account (guests
+ * are told how to start learning with the purchase email).
  */
-export function LibraryItems({ items, authorize, headingLevel = 2 }) {
+export function LibraryItems({ items, authorize, headingLevel = 2, learner = false }) {
   const [busy, setBusy] = useState(null);
   const [message, setMessage] = useState(null);
   const Heading = `h${headingLevel}`;
@@ -70,6 +72,28 @@ export function LibraryItems({ items, authorize, headingLevel = 2 }) {
                 ? ` · ${item.download_count}/${item.download_limit} downloads used`
                 : ""}
             </p>
+            {item.product.course && item.status === "active" && (
+              <div className="mt-3 rounded-xl bg-sage-50 p-4 text-sm">
+                {learner ? (
+                  <Link
+                    to={routes.learn(item.product.course.slug)}
+                    className="inline-flex items-center gap-1.5 font-medium text-sage-800 underline underline-offset-4"
+                  >
+                    <GraduationCap aria-hidden className="size-4" /> Open the course
+                  </Link>
+                ) : (
+                  <p>
+                    <span className="font-medium">To start “{item.product.course.title}”:</span>{" "}
+                    sign in or create an account with the email address you used for this purchase
+                    and confirm it. The course then appears in{" "}
+                    <Link to={routes.accountLearning} className="underline underline-offset-4">
+                      My learning
+                    </Link>
+                    .
+                  </p>
+                )}
+              </div>
+            )}
             {item.status === "revoked" ? (
               <p className="mt-3 text-sm text-red-800">
                 Access ended{item.revoked_reason ? `: ${item.revoked_reason}` : ""}.
@@ -79,9 +103,11 @@ export function LibraryItems({ items, authorize, headingLevel = 2 }) {
                 Includes: {item.includes.join(", ")} (listed separately).
               </p>
             ) : item.files.length === 0 ? (
-              <p className="mt-3 text-sm text-muted">
-                Files are being prepared. Please check back soon.
-              </p>
+              item.product.course ? null : (
+                <p className="mt-3 text-sm text-muted">
+                  Files are being prepared. Please check back soon.
+                </p>
+              )
             ) : (
               <ul className="mt-4 space-y-3">
                 {item.files.map((file) => (

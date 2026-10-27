@@ -54,7 +54,76 @@ export const BLOCK_TEMPLATES = {
     }),
   },
   divider: { label: "Divider", make: () => ({ type: "divider" }) },
+  // Lesson-only blocks (text-based courses). Hidden from editors that don't allow them.
+  key_points: {
+    label: "Key points",
+    lessonOnly: true,
+    make: () => ({ type: "key_points", title: "", items: [""] }),
+  },
+  example: {
+    label: "Example / case study",
+    lessonOnly: true,
+    make: () => ({ type: "example", variant: "example", title: "", text: "" }),
+  },
+  exercise: {
+    label: "Exercise / reflection",
+    lessonOnly: true,
+    make: () => ({
+      type: "exercise",
+      id: `exercise-${Math.random().toString(36).slice(2, 8)}`,
+      title: "",
+      prompt: "",
+      required: false,
+      allow_response: true,
+    }),
+  },
+  checklist: {
+    label: "Checklist",
+    lessonOnly: true,
+    make: () => ({ type: "checklist", title: "", items: [""] }),
+  },
+  download: {
+    label: "Worksheet download",
+    lessonOnly: true,
+    make: () => ({ type: "download", file_id: "", title: "", description: "" }),
+  },
+  further_reading: {
+    label: "Further reading",
+    lessonOnly: true,
+    make: () => ({
+      type: "further_reading",
+      title: "",
+      items: [{ label: "", href: "", note: "" }],
+    }),
+  },
 };
+
+export const LESSON_BLOCK_TYPES = new Set(
+  Object.entries(BLOCK_TEMPLATES)
+    .filter(([, t]) => t.lessonOnly)
+    .map(([key]) => key),
+);
+
+/** Blocks a course lesson can use: text, images and tables plus the lesson-only blocks. */
+export const LESSON_BLOCKS = [
+  "paragraph",
+  "heading",
+  "bulleted",
+  "numbered",
+  "quote",
+  "pullquote",
+  "callout",
+  "image",
+  "gallery",
+  "table",
+  "divider",
+  "key_points",
+  "example",
+  "exercise",
+  "checklist",
+  "download",
+  "further_reading",
+];
 
 export function blockLabel(block) {
   if (block.type === "list") return block.ordered ? "Numbered list" : "Bulleted list";
@@ -76,6 +145,7 @@ const REQUIRED_TEXT = {
   quote: ["text"],
   pullquote: ["text"],
   callout: ["text"],
+  example: ["title", "text"],
 };
 
 /** Removes empty optional fields so the payload matches the API's block rules. */
@@ -94,6 +164,12 @@ export function cleanBlocks(blocks) {
       } else delete out.url;
     }
     if (out.type === "resource" && !out.media_id) delete out.media_id;
+    if (out.type === "key_points" || out.type === "checklist")
+      out.items = out.items.map((i) => i.trim()).filter(Boolean);
+    if (out.type === "further_reading")
+      out.items = out.items
+        .filter((i) => i.label?.trim() || i.href?.trim())
+        .map(({ label, href, note }) => ({ label, href, ...(note?.trim() && { note }) }));
     if (out.type === "gallery")
       out.items = out.items.map(({ media_id, caption, alt }) => ({
         media_id,

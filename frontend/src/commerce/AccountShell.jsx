@@ -7,6 +7,7 @@ import { cn } from "@/utils/format";
 
 const tabs = [
   { to: routes.account, label: "Overview", end: true },
+  { to: routes.accountLearning, label: "My learning" },
   { to: routes.accountLibrary, label: "My library" },
   { to: routes.accountOrders, label: "Orders" },
   { to: routes.accountSettings, label: "Settings" },

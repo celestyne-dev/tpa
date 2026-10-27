@@ -18,6 +18,7 @@ from ...models import Course, CourseLesson, CourseModule, LessonProgress, User
 from ...utils.errors import ConflictError, NotFoundError, ValidationError
 from ...utils.validation import SLUG_RE, plain_text_problem, slugify
 from .. import audit_service
+from ..serializers import expand_body
 from . import content
 from .admin import lesson_admin_summary, module_dict, require, touch_public
 
@@ -375,6 +376,8 @@ def lesson_detail(course: Course, lesson: CourseLesson) -> dict[str, Any]:
         "assessments": [
             assessment_summary(a) for a in course.assessments if a.lesson_id == lesson.id
         ],
+        # Images resolved for the staff preview (the editor keeps working with media ids).
+        "preview_body": expand_body(lesson.body or []),
         "word_count": content.lesson_word_count(lesson.body),
         "reading_minutes": content.reading_minutes(lesson.body),
     }

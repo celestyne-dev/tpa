@@ -2,8 +2,9 @@ import { ArrowDown, ArrowUp, Copy, ImagePlus, Plus, Trash2, X } from "lucide-rea
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAdminApi } from "../adminApiContext";
-import { BLOCK_TEMPLATES, blockLabel, videoUrl } from "./blocks";
+import { BLOCK_TEMPLATES, LESSON_BLOCK_TYPES, blockLabel, videoUrl } from "./blocks";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "./Fields";
+import { LessonBlockFields } from "./LessonBlockFields";
 import { ImageChooser, MediaThumb } from "./media/ImageChooser";
 import { rememberMedia } from "./media/mediaCache";
 import { MediaPicker } from "./media/MediaPicker";
@@ -199,10 +200,12 @@ function TableEditor({ block, set, n }) {
 
 const LINK_HINT = "A site path such as /topics/confidence, or a full https:// address.";
 
-function BlockFields({ block, index, onChange, errors }) {
+function BlockFields({ block, index, onChange, errors, files }) {
   const n = index + 1;
   const set = (patch) => onChange({ ...block, ...patch });
   const error = errors?.join(" ");
+  if (LESSON_BLOCK_TYPES.has(block.type))
+    return <LessonBlockFields block={block} n={n} set={set} error={error} files={files} />;
   switch (block.type) {
     case "paragraph":
       return (
@@ -511,6 +514,7 @@ export function BlockEditor({
   disabled = false,
   allowed,
   legend = "Content",
+  files,
 }) {
   const update = (index, block) => onChange(blocks.map((b, i) => (i === index ? block : b)));
   const move = (index, delta) => {
@@ -527,8 +531,8 @@ export function BlockEditor({
   const remove = (index) => onChange(blocks.filter((_, i) => i !== index));
   const add = (key) => onChange([...blocks, BLOCK_TEMPLATES[key].make()]);
   // ``allowed`` limits the "Add" choices (e.g. email-safe blocks for newsletters).
-  const templates = Object.entries(BLOCK_TEMPLATES).filter(
-    ([key]) => !allowed || allowed.includes(key),
+  const templates = Object.entries(BLOCK_TEMPLATES).filter(([key, t]) =>
+    allowed ? allowed.includes(key) : !t.lessonOnly,
   );
 
   return (
@@ -577,6 +581,7 @@ export function BlockEditor({
               index={index}
               onChange={(b) => update(index, b)}
               errors={errors?.[String(index)]}
+              files={files}
             />
           </li>
         ))}

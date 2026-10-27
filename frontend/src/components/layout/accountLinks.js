@@ -2,6 +2,7 @@ import { routes } from "@/config/navigation";
 
 export const accountLinks = [
   { to: routes.account, label: "My account" },
+  { to: routes.accountLearning, label: "My learning" },
   { to: routes.accountLibrary, label: "My library" },
   { to: routes.accountOrders, label: "Orders" },
   { to: routes.accountSettings, label: "Settings" },

@@ -135,8 +135,8 @@ describe("assigning multiple roles", () => {
     const editorCount = ROLE_PERMS.editor.length;
     expect(preview).toHaveTextContent(`Effective permissions: ${editorCount}`);
     await user.click(within(dialog).getByRole("checkbox", { name: /Analyst/ }));
-    // Analyst adds analytics.view (its other permissions overlap with Editor's).
-    expect(preview).toHaveTextContent(`Effective permissions: ${editorCount + 1}`);
+    // Analyst adds analytics.view and courses.view_reports (the rest overlap with Editor's).
+    expect(preview).toHaveTextContent(`Effective permissions: ${editorCount + 2}`);
     await user.click(within(dialog).getByRole("checkbox", { name: /Super Admin/ }));
     expect(preview).toHaveTextContent("all permissions (Super Admin)");
     // Inactive roles cannot be newly assigned, so they are not offered.

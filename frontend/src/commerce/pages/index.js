@@ -23,3 +23,10 @@ export {
   NewsletterUnsubscribePage,
   ResourceAccessPage,
 } from "./NewsletterPages";
+export {
+  AccountLearningPage,
+  CertificatePage,
+  LearnAssessmentPage,
+  LearnCoursePage,
+  LearnLessonPage,
+} from "./LearningPages";

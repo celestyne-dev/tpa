@@ -66,6 +66,7 @@ export const footerNav = [
     title: "Shop & Resources",
     items: [
       { label: "Shop", href: routes.shop },
+      { label: "Courses", href: routes.courses },
       { label: "Resource Library", href: routes.resources },
       { label: "Free Resources", href: routes.freeResources },
       { label: "The Positive Reset Newsletter", href: routes.newsletter },
@@ -121,6 +122,7 @@ export const privateRoutes = [
   routes.newsletterPreferences,
   routes.newsletterUnsubscribe,
   routes.resourceAccess,
+  routes.accountLearning,
 ];
 
 /** Static, indexable routes (dynamic article/topic routes come from the API). */

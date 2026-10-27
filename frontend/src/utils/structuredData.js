@@ -145,3 +145,51 @@ export function productJsonLd(product) {
     ...(offers.length && { offers: offers.length === 1 ? offers[0] : offers }),
   };
 }
+
+/**
+ * Course structured data (schema.org/Course) for published courses only. Offers are real
+ * prices from the course product; free courses are marked isAccessibleForFree. No ratings
+ * or enrolment counts are emitted.
+ */
+export function courseJsonLd(course, { isoDuration } = {}) {
+  const image = course.seo?.image ?? course.cover;
+  const offers = course.is_free
+    ? [{ "@type": "Offer", price: "0", priceCurrency: "USD", category: "Free" }]
+    : course.availability === "available"
+      ? (course.prices ?? []).map((price) => ({
+          "@type": "Offer",
+          price: price.amount,
+          priceCurrency: price.currency,
+          category: "Paid",
+          availability: "https://schema.org/InStock",
+          url: url(routes.course(course.slug)),
+        }))
+      : [];
+  return {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    name: course.title,
+    description: course.seo?.description || course.summary,
+    url: url(routes.course(course.slug)),
+    inLanguage: "en",
+    isAccessibleForFree: Boolean(course.is_free),
+    provider: { "@type": "Organization", name: siteConfig.name, sameAs: siteConfig.url },
+    ...(image?.src && { image: [url(image.src)] }),
+    ...(course.outcomes?.length && { teaches: course.outcomes }),
+    ...(course.level && course.level !== "all_levels" && { educationalLevel: course.level }),
+    ...(course.author?.is_person && {
+      instructor: [{ "@type": "Person", name: course.author.name }],
+    }),
+    hasCourseInstance: [
+      {
+        "@type": "CourseInstance",
+        courseMode: "online",
+        ...(isoDuration &&
+          course.total_minutes && {
+            courseWorkload: isoDuration(course.total_minutes),
+          }),
+      },
+    ],
+    ...(offers.length && { offers }),
+  };
+}
