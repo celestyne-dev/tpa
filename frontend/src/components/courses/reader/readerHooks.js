@@ -60,7 +60,10 @@ const SETTLE = 2_500; // wait until the reader stops scrolling for a moment
 const MIN_CHANGE = 5; // percent
 
 function measure(article) {
+  // During navigation the article may already be detached: nothing meaningful to measure.
+  if (!article.isConnected) return null;
   const rect = article.getBoundingClientRect();
+  if (!rect.height) return null;
   const viewport = window.innerHeight || 800;
   const read = viewport * 0.3 - rect.top;
   const percent = Math.max(0, Math.min(100, (read / Math.max(rect.height, 1)) * 100));
@@ -71,14 +74,14 @@ function measure(article) {
       break;
     }
   }
-  return { block, percent: Math.round(percent * 10) / 10 };
+  return block ? { block, percent: Math.round(percent * 10) / 10 } : null;
 }
 
 /**
  * Remembers where a learner is in a lesson without writing on every scroll event: a
  * position is saved after scrolling settles, only when it moved meaningfully, at most
  * every 10 seconds, plus once when the page is hidden or left. It never completes a lesson.
- * On load the reader is returned near the saved block (unless it was the very top/end).
+ * On load the reader is returned to the saved block (unless it was the very top).
  */
 export function useReadingPosition({ articleRef, enabled, initial, save, saveOnExit }) {
   const [restored, setRestored] = useState(false);
@@ -95,7 +98,7 @@ export function useReadingPosition({ articleRef, enabled, initial, save, saveOnE
   useEffect(() => {
     const article = articleRef.current;
     if (!enabled || !article || !initial?.block) return;
-    if (initial.percent < 3 || initial.percent > 97) return;
+    if (initial.percent < 3) return; // at the very top already
     const target = blockElement(article, initial.block);
     if (!target) return;
     target.scrollIntoView?.({ block: "start", behavior: "auto" });
@@ -129,7 +132,9 @@ export function useReadingPosition({ articleRef, enabled, initial, save, saveOnE
       if (frame) return;
       frame = requestAnimationFrame(() => {
         frame = null;
-        current.current = measure(article);
+        const pos = measure(article);
+        if (!pos) return;
+        current.current = pos;
         clearTimeout(timer.current);
         timer.current = setTimeout(commit, SETTLE);
       });

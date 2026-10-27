@@ -291,6 +291,32 @@ sudo systemctl restart tpa-api tpa-publish-worker
   disabled until explicitly approved.
 - Downgrading refuses while any course exists. See `docs/courses.md`.
 
+## Upgrading from Batch 09 (premium reading and study tools, Batch 09.1)
+
+One migration, `e5a7c3b91d20`: new tables for lesson revisions, learner notes,
+highlights, bookmarks, reading preferences and the lesson search index; new columns on
+`course_lessons` (draft, lock version, live revision) and `lesson_progress` (checklist
+ticks, reading position). Lesson text is preserved; blocks gain stable ids, published
+lessons get revision 1 and the search index is filled. Five lesson permissions are added
+with their default grants. On PostgreSQL a GIN full-text index is created.
+
+```bash
+sudo systemctl start tpa-backup.service || pg_dump --format=custom --file=/var/backups/tpa-before-091.dump "$DATABASE_URL"
+cd /var/www/tpa/backend && set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db upgrade        # d4f9a2c61e58 -> e5a7c3b91d20
+.venv/bin/flask --app wsgi rbac sync         # should report zeros
+sudo systemctl restart tpa-api tpa-publish-worker
+.venv/bin/flask --app wsgi publish request   # rebuild (new /learn/search shell, notebook)
+```
+
+- **Nginx:** nothing new — `/learn/search` is served by the existing `/learn` shell
+  location and `/account/learning/notebook` by the account shells.
+- **No new services or storage:** search uses PostgreSQL; notes and highlights are rows in
+  the database and included in the existing backups.
+- **Rollback:** `db downgrade d4f9a2c61e58` refuses while learners have notes, highlights or
+  bookmarks, or lessons have unpublished drafts (see `docs/courses.md` §19). Restore from the
+  backup taken above if you must roll back with learner data present.
+
 ## Frontend build (manual)
 
 ```bash

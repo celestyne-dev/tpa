@@ -139,6 +139,29 @@ download: entitlement (active, not expired) ─► short-lived grant ─► Flas
   `/certificates/*` are client-only shells, so lesson content and learner data never reach
   static HTML or caches.
 
+## Premium reading and study tools (Batch 09.1)
+
+- **Draft and live lesson content.** `course_lessons` columns stay the live content that
+  every learner query already reads; editors write a full working copy to `draft`
+  (`services/courses/revisions.py`). Publishing copies it to the live columns, appends an
+  immutable `course_lesson_revisions` row, re-indexes search and re-anchors learners'
+  highlights. Saves carry `lock_version` and are refused with `edit_conflict` when stale.
+- **Stable ids.** Every lesson block has a `uid` and checklist items an `id`
+  (`services/courses/content.py`), kept across edits and matched by content when an editor
+  omits them, so anchors, ticks and reading positions survive revisions.
+- **Anchors** (`anchors.py`, mirrored in `reader/textAnchors.js`): block uid + quote +
+  context on whitespace-normalised text; re-matched conservatively, otherwise orphaned.
+  The browser paints them with the CSS Custom Highlight API, so React's DOM and the lesson
+  content are never modified.
+- **Private study records** (`study.py`): owned by one customer, looked up by owner + random
+  public id, only exposed under `/api/v1/account/…`. Access checks reuse
+  `learning.require_access`; excerpts are hidden when access ends.
+- **Search** (`search.py`): `course_lesson_search` holds live lesson text; PostgreSQL uses
+  `to_tsvector('english', …)` with a GIN index and `websearch_to_tsquery`; SQLite falls back
+  to word matching. Visibility (catalogue, previews, entitled courses) is decided in SQL.
+- **Reading position** is saved by the reader after scrolling settles (≥5% or a new block,
+  at most every 10 s, plus a keepalive request when the page is hidden).
+
 ## Partnerships, sponsorships and affiliates (Batch 07)
 
 - **Data.** New tables only (`models/partnerships.py`). Article and newsletter sponsorships are

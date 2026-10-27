@@ -1,4 +1,4 @@
-# Text-based courses and learning (Batch 09)
+# Text-based courses and learning (Batch 09, 09.1)
 
 Think Positive Always courses are **self-paced written learning**: modules of lessons made
 of text, images, examples, exercises, checklists, quizzes, reflections and downloadable
@@ -44,18 +44,23 @@ There is no second pricing system: prices are always read from the product, on t
   safely (unique positions per module/course), so the order can never become inconsistent.
 - **Lesson editor:** title, address, summary, estimated time (or estimated from the text at
   225 words per minute), _Required for course completion_, _Free preview_ and the content.
+  Edits are saved to the lesson's **draft**; learners keep reading the live version until
+  someone publishes (see §14).
 - **Lesson content blocks:** paragraphs, headings, lists, quotes, callouts, images and
   galleries from the Media Library, tables, dividers, plus lesson blocks:
   - **Key points** (highlighted takeaways), **Example / case study**;
   - **Exercise / reflection**: a prompt; learners can write private notes and mark it done.
     A _required_ exercise must be marked done before the lesson can be completed. Notes are
     private to the learner and never graded;
-  - **Checklist**: items learners can tick while reading (not stored);
+  - **Checklist**: items learners tick while reading; ticks are saved to their account. Mark
+    a checklist _Required_ to make every item a condition for completing the lesson
+    (otherwise it never affects completion);
   - **Worksheet download**: one of the course product's files (see §5);
   - **Further reading**: links to articles, resources or https pages.
     Video and embed blocks are not accepted in lessons.
 - **Publishing lessons:** only published lessons are visible to learners (and in the public
   outline as titles). Lessons with learner progress can't be deleted — unpublish them.
+  A lesson's address is fixed once it has been published (links and bookmarks use it).
 
 ## 4. Publishing, scheduling and previews
 
@@ -177,6 +182,16 @@ course needs an account so progress belongs to someone:
 | `courses.view_enrollments`   | learners, progress, results, certificates                     |
 | `courses.manage_enrollments` | enrol/remove learners, correct/revoke certificates            |
 | `courses.view_reports`       | course dashboards and pass rates                              |
+| `courses.view_drafts`        | open lesson drafts and the private draft preview              |
+| `courses.edit_drafts`        | change lesson text and settings in the draft                  |
+| `courses.publish_lessons`    | publish lesson changes, unpublish lessons                     |
+| `courses.view_revisions`     | revision history and comparisons                              |
+| `courses.restore_revisions`  | copy an earlier revision back into the draft                  |
+
+Batch 09.1 grants: Editor, Editor-in-Chief and Administrator get all five lesson
+permissions; Content Editor can read and edit drafts and view revisions but not publish or
+restore. Lesson structure (adding, ordering, deleting lessons) still needs _Manage
+curriculum_.
 
 Default grants: Super Admin (all), Administrator (all), Editor and Editor-in-Chief
 (authoring and publishing; Editor-in-Chief also reports), Content Editor (authoring, no
@@ -208,15 +223,109 @@ permission on the server.
   include everything; restore as described in `docs/backups.md`.
 - Deployment steps are in `docs/deployment.md` (Upgrading from Batch 08.1).
 
-## 13. Limitations
+## 13. Limitations (see also §19)
 
 - Exercise notes and written reflections are for the learner; there is no staff marking or
   feedback workflow for subjective answers.
-- Checklist ticks in lessons are not stored.
 - Certificates use a fixed design and US Letter size; non-Latin names are transliterated in
   the PDF.
 - Course prices follow the product's currencies; there is no currency conversion.
-- Lesson content edits on a published course go live when saved (there is no separate
-  draft copy of a published lesson; unpublish a lesson to rework it privately).
 - Memberships are still planned; `access.grant(source="membership")` already works for
   membership-eligible course products.
+
+## 14. Lesson drafts, publishing and revisions (Batch 09.1)
+
+- Each lesson has **live content** (what learners read) and a **draft** (what editors are
+  working on). _Save draft_ never changes the live lesson; the editor shows _Live ·
+  revision N_, _Draft has unpublished changes_ and when and by whom it was last saved.
+- **Preview draft** renders the draft privately (staff with _Read lesson drafts_ only).
+- **Publish changes** (or _Publish lesson_ the first time) copies the draft to the live
+  lesson and records an immutable numbered **revision** with an optional note. Publishing
+  without changes does nothing. **Unpublish** hides the lesson; its live revision is kept.
+- **Discard draft** throws away unpublished changes.
+- **Revisions & compare** lists every published version (who, when, note) and compares any
+  two versions — or the draft — setting by setting and block by block.
+- **Restore** copies an earlier revision into the draft (review, then publish), or
+  _Restore and publish_ in one step. Learners' progress, notes, highlights and checklist
+  ticks are kept: blocks and checklist items have stable ids (§16).
+- **Edit conflicts:** every save carries the version the editor opened. If someone else
+  saved in between, the save is refused (_Someone else saved this lesson…_) and nothing is
+  overwritten; load the latest version and reapply your change. Leaving the editor with
+  unsaved changes asks for confirmation.
+- Every publish, unpublish, restore, draft save and discard is written to the audit log.
+
+## 15. The lesson reader
+
+- Distraction-free column with the course outline in a sidebar (desktop) or a collapsible
+  _Course outline_ (phones and tablets), module and course progress, reading time, an _In
+  this lesson_ table of contents for lessons with two or more headings, previous/next.
+- **Display** settings: text size (small, medium, large), line spacing (standard,
+  comfortable), reading width (standard, wide) and theme (light, warm paper, dark).
+  They are saved to the learner's account (and on the device) and use relative sizes, so
+  browser zoom and font settings keep working. Every theme meets WCAG AA (tested).
+  Smooth scrolling is turned off for people who prefer reduced motion.
+- **Continue reading:** the reader remembers the block a learner was reading. It saves
+  after scrolling settles, only when the position moved meaningfully, at most every 10
+  seconds, and once when the page is hidden — never on every scroll event. Reopening the
+  lesson returns there (with _Start from the top_). Scrolling never completes a lesson:
+  completion still needs _Mark as complete_ and the server's rules.
+
+## 16. Notes, highlights, bookmarks and checklists
+
+- **Highlights:** select text inside one block and pick one of four colours (yellow,
+  green, blue, pink), or _Add note_ to attach a note to the passage. Highlights are drawn
+  with the browser's highlight feature, so the lesson itself is never modified. Browsers
+  without it still list highlights in the panel and notebook.
+- **Stable anchors:** a highlight stores the block id, the exact quote and a little text
+  before/after it. When a lesson is republished each anchor is matched again (same
+  place, same block, or — for longer quotes — a single clear match elsewhere). If it can't
+  be matched safely it becomes an **orphaned saved excerpt**: the learner keeps the quote,
+  labelled as changed, and it is never attached to a different passage.
+- **Notes** (_Notes_ button): private notes on the lesson or on a passage, saved
+  automatically with _Saving… / Saved_ status; edit and delete them in place.
+- **Bookmarks:** _Save lesson_ in the reader. Bookmarks are links only — opening one goes
+  through the normal access check, so refunded, revoked or expired access stays closed.
+- **Checklists** save ticks per learner and keep them when the lesson is edited (items keep
+  their ids; items edited without ids are matched by text).
+
+## 17. Study notebook and search
+
+- **Notebook** (`/account/learning/notebook`): tabs for notes, highlights, bookmarks and
+  checklist activity; filter by course, search by keyword; links back to the lesson (a
+  highlight opens the lesson at that passage). **Export** as a text file or PDF: the
+  learner's notes, their own highlighted excerpts and bookmarked lesson titles — never
+  other lesson content.
+- **Search** (`/learn/search`, also from _My learning_): course titles and summaries for
+  everyone, free preview lessons for everyone, and the live text of lessons in courses the
+  learner can currently open. Results are filtered on the server; drafts, unpublished
+  lessons, assessments, answer keys and notes are never searched. PostgreSQL uses its
+  built-in English full-text search with a GIN index (no external service); development
+  SQLite databases fall back to word matching. The course address `search` is reserved.
+
+## 18. Privacy and retention of study data
+
+- Notes, highlights, bookmarks, checklist ticks, reading positions and preferences are
+  private to the learner and served only by learner endpoints (CSRF and trusted-origin
+  checks on every change, rate limits on all of them). No admin screen or course
+  management endpoint shows them.
+- After access ends (refund, revocation, expiry) learners can still read, edit and delete
+  their own notes, but saved excerpts are hidden until access returns, and nothing new can
+  be added to that course.
+- The account data export includes all study records (with excerpts). Deleting an account
+  deletes notes, highlights, bookmarks and preferences and clears checklist ticks and
+  reading positions.
+
+## 19. Batch 09.1 migration and rollback
+
+- Migration **`e5a7c3b91d20`** (after `d4f9a2c61e58`) adds the revision, notes, highlights,
+  bookmarks, preferences and search tables and new columns on lessons and lesson progress.
+  Existing lesson text is preserved word for word; blocks gain ids, checklist items become
+  `{id, text}`, each published lesson gets revision 1 (_Original_) and the search index is
+  filled. The five permissions are added with their grants; `rbac sync` reports zeros.
+- **Rollback:** `flask --app wsgi db downgrade d4f9a2c61e58` refuses while learners have
+  notes, highlights or bookmarks, or while any lesson has unpublished draft changes
+  (publish or discard them first). Otherwise it removes the new tables and permissions and
+  converts lesson content back to the Batch 09 format. Take a backup first.
+- Limitations: highlights cover text within one block; the search fallback on SQLite is
+  simple word matching; reading positions are per lesson (block level, not character
+  level); comparing versions shows block text, not word-by-word changes.
