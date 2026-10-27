@@ -234,6 +234,7 @@ def serve(token: str, customer: Customer | None) -> Response:
     product = entitlement.product
     stem = f"{product.slug}-{version.file.title}"[:120]
     stem = "".join(c if c.isalnum() or c in "-_ " else "-" for c in stem).strip().replace(" ", "-")
+    stem = re.sub(r"-{2,}", "-", stem).strip("-") or "download"
     _event("served", **ids)
     db.session.commit()
     return file_response(version, f"{stem}-v{version.version}")
