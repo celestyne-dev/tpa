@@ -318,9 +318,9 @@ def test_reserved_routes_and_slug_collisions(seeded, as_role):
 
 def test_child_pages_paths_and_cycles(seeded, as_role):
     api = as_role("website_manager")
-    parent = _create(api, title="Resources", slug="resources", template="standard")
+    parent = _create(api, title="Guides", slug="guides", template="standard")
     child = _create(api, title="Journal prompts", slug="journal-prompts", parent_id=parent["id"])
-    assert child["path"] == "/resources/journal-prompts"
+    assert child["path"] == "/guides/journal-prompts"
     res = _save(api, parent, parent_id=child["id"])
     assert res.status_code == 400 and "page.parent_id" in res.get_json()["error"]["details"]
     home_id = api.get(HOMEPAGE).get_json()["data"]["id"]

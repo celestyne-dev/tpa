@@ -26,6 +26,7 @@ STATIC_PATHS: list[tuple[str, float, str]] = [
     ("/articles", 0.9, "daily"),
     ("/shop", 0.8, "weekly"),
     ("/free-resources", 0.8, "monthly"),
+    ("/resources", 0.8, "weekly"),
     ("/newsletter", 0.7, "monthly"),
     ("/partner-with-us", 0.6, "monthly"),
     ("/advertise", 0.5, "monthly"),

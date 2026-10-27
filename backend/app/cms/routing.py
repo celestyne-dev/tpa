@@ -23,6 +23,7 @@ RESERVED_SEGMENTS = frozenset(
         "articles",
         "topics",
         "shop",
+        "resources",
         "media",
         "assets",
         "images",
