@@ -697,3 +697,49 @@ def test_reports_count_statuses_and_pass_rate(seeded, as_role):
     data = editor.get(f"{_base(course, assignment)}/report").get_json()["data"]
     assert data["submissions"] == 1 and data["by_status"] == {"completed": 1}
     assert data["pass_rate"] == 100 and data["average_percent"] == 80
+
+
+# ---- instructor review queue (phase 3 dashboard) -----------------------------------------------
+
+
+def test_review_queue_lists_in_scope_submissions_with_learner_names(seeded, as_role, app):
+    editor = as_role("editor")
+    course, _, assignment = _ready(editor)
+    other, _, other_assignment = _ready(editor, title="Second Course")
+    learner = _learner(seeded)
+    _submit(learner, assignment)
+    second = _learner(seeded, "second-course", "second@example.com")
+    _submit(second, other_assignment, slug="second-course")
+
+    data = editor.get(f"{ADMIN}/assignment-submissions").get_json()["data"]
+    assert {i["course"]["title"] for i in data["items"]} == {"Writing Course", "Second Course"}
+    assert {c["title"] for c in data["courses"]} == {"Writing Course", "Second Course"}
+    row = next(i for i in data["items"] if i["course"]["id"] == course["id"])
+    assert row["status"] == "pending_review" and row["learner"]["email"] == "writer@example.com"
+    assert row["assignment"]["id"] == assignment["id"] and row["grade_status"] is None
+    filtered = editor.get(
+        f"{ADMIN}/assignment-submissions?status=awaiting&course_id={other['id']}"
+    ).get_json()["data"]["items"]
+    assert [i["course"]["id"] for i in filtered] == [other["id"]]
+    assert editor.get(f"{ADMIN}/assignment-submissions?course_id=x").status_code == 400
+
+    # Assessors only see the courses they are assigned to; others are refused.
+    with app.app_context():
+        keys = ["assignments.view", "assignments.view_submissions", "assignments.grade"]
+        perms = db.session.scalars(
+            select(PermissionDefinition).where(PermissionDefinition.key.in_(keys))
+        ).all()
+        db.session.add(Role(name="queue_assessor", label="Queue", kind="custom", permissions=perms))
+        db.session.commit()
+    uid = make_user(app, "queue@example.org", ["queue_assessor"])
+    from .conftest import Api, login
+
+    client = app.test_client()
+    assert login(client, "queue@example.org", PASSWORD).status_code == 200
+    assessor = Api(client)
+    assert assessor.get(f"{ADMIN}/assignment-submissions").get_json()["data"]["items"] == []
+    editor.put(f"{COURSES}/{course['id']}/assessors", {"user_ids": [uid]})
+    scoped = assessor.get(f"{ADMIN}/assignment-submissions").get_json()["data"]
+    assert [i["course"]["id"] for i in scoped["items"]] == [course["id"]]
+    assert [c["id"] for c in scoped["courses"]] == [course["id"]]
+    assert as_role("analyst").get(f"{ADMIN}/assignment-submissions").status_code == 403

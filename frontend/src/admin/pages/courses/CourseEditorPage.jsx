@@ -16,7 +16,9 @@ import { Modal } from "../../components/Modal";
 import { useNotify } from "../../components/notifyContext";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAdminQuery } from "../../hooks/useAdminQuery";
+import { usePermissions } from "../../hooks/usePermissions";
 import { CourseAssessmentsPanel } from "./CourseAssessmentsPanel";
+import { CourseAssignmentsPanel } from "./CourseAssignmentsPanel";
 import { CourseContentPanel } from "./CourseContentPanel";
 import { CourseEnrollmentsPanel } from "./CourseEnrollmentsPanel";
 
@@ -458,6 +460,7 @@ const SECTIONS = [
   ["", "Details"],
   ["content", "Curriculum"],
   ["assessments", "Assessments"],
+  ["assignments", "Assignments"],
   ["enrollments", "Learners"],
 ];
 
@@ -477,6 +480,7 @@ export function CourseEditorPage({ section = "" }) {
   const options = useAdminQuery(() => api.courses.options(), []);
   const [dialog, setDialog] = useState(null);
   const [busy, setBusy] = useState(false);
+  const { can: hasPermission } = usePermissions();
 
   if (error) return <ErrorState title="We couldn't load this course" onRetry={reload} />;
   if (loading && !course) return <p role="status">Loading course…</p>;
@@ -506,7 +510,11 @@ export function CourseEditorPage({ section = "" }) {
     }
   };
   const can = course.can;
-  const visible = SECTIONS.filter(([key]) => key !== "enrollments" || can.view_enrollments);
+  const visible = SECTIONS.filter(
+    ([key]) =>
+      (key !== "enrollments" || can.view_enrollments) &&
+      (key !== "assignments" || hasPermission("assignments.view")),
+  );
 
   return (
     <>
@@ -642,6 +650,7 @@ export function CourseEditorPage({ section = "" }) {
       )}
       {section === "content" && <CourseContentPanel course={course} onChanged={reload} />}
       {section === "assessments" && <CourseAssessmentsPanel course={course} onChanged={reload} />}
+      {section === "assignments" && <CourseAssignmentsPanel course={course} />}
       {section === "enrollments" && <CourseEnrollmentsPanel course={course} />}
       {dialog === "publish" && (
         <PublishDialog

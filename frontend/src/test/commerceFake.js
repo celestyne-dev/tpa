@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
+import { createAssessmentShopApi } from "./assessmentFake";
 import { createCourseShopApi } from "./courseFake";
 
 // Mirrors the Batch 05 permission catalogue (backend/app/auth/permissions.py).
@@ -389,6 +390,7 @@ export function createFakeShopApi({ customer = null, open = true, owned = [] } =
   let current = customer;
   const ok = (data) => Promise.resolve({ data });
   return {
+    ...createAssessmentShopApi(),
     ...createCourseShopApi(),
     status: vi.fn(() => ok(quoteFor([], "USD", { open }).checkout)),
     quote: vi.fn((ids, currency) => ok(quoteFor(ids, currency, { open, owned }))),

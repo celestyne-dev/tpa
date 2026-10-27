@@ -842,7 +842,7 @@ export function createCourseAdminFake(getUser) {
   };
   const forbidden = () =>
     fail(403, "forbidden", "You do not have permission to perform this action.");
-  return {
+  const api = {
     courses: {
       list: vi.fn(() =>
         perms().has("courses.view")
@@ -1008,7 +1008,6 @@ export function createCourseAdminFake(getUser) {
         }),
       ),
       createAssessment: vi.fn(() => ok({ id: 8 })),
-      updateAssessment: vi.fn(() => ok({})),
       removeAssessment: vi.fn(() => ok({})),
       assessmentStatus: vi.fn(() => ok({})),
       reorderAssessments: vi.fn(() => ok([])),
@@ -1023,4 +1022,9 @@ export function createCourseAdminFake(getUser) {
       certificateAction: vi.fn(() => ok({})),
     },
   };
+  // Like the API: saving settings returns the updated assessment detail.
+  api.courses.updateAssessment = vi.fn(async (_id, _aid, body) => ({
+    data: { ...(await api.courses.assessment()).data, ...body },
+  }));
+  return api;
 }

@@ -106,6 +106,41 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
     learningAssessment: (slug, id) => get(`/account/learning/${enc(slug)}/assessments/${id}`),
     submitAttempt: (slug, id, answers) =>
       post(`/account/learning/${enc(slug)}/assessments/${id}/attempts`, { answers }),
+    // Batch 09.2: started (drawn, shuffled or timed) attempts and attempt history.
+    startAttempt: (slug, id) =>
+      post(`/account/learning/${enc(slug)}/assessments/${id}/attempts/start`),
+    attempt: (slug, id, attemptId) =>
+      get(`/account/learning/${enc(slug)}/assessments/${id}/attempts/${attemptId}`),
+    saveAttemptAnswers: (slug, id, attemptId, answers) =>
+      client
+        .put(`/account/learning/${enc(slug)}/assessments/${id}/attempts/${attemptId}`, { answers })
+        .then((r) => r.data),
+    submitStartedAttempt: (slug, id, attemptId, answers) =>
+      post(`/account/learning/${enc(slug)}/assessments/${id}/attempts/${attemptId}/submit`, {
+        answers,
+      }),
+    assessmentHistory: (slug) => get(`/account/learning/${enc(slug)}/assessment-history`),
+    // Batch 09.2: written assignments (drafts, supporting documents, submissions, feedback).
+    assignments: (slug) => get(`/account/learning/${enc(slug)}/assignments`),
+    assignment: (slug, id) => get(`/account/learning/${enc(slug)}/assignments/${enc(id)}`),
+    saveAssignmentDraft: (slug, id, body) =>
+      client
+        .put(`/account/learning/${enc(slug)}/assignments/${enc(id)}/draft`, body)
+        .then((r) => r.data),
+    submitAssignment: (slug, id, body) =>
+      post(`/account/learning/${enc(slug)}/assignments/${enc(id)}/submit`, body),
+    uploadAssignmentFile: (slug, id, file) => {
+      const form = new FormData();
+      form.append("file", file);
+      return client
+        .post(`/account/learning/${enc(slug)}/assignments/${enc(id)}/files`, form, {
+          timeout: 120000,
+        })
+        .then((r) => r.data);
+    },
+    removeAssignmentFile: (fileId) =>
+      client.delete(`/account/assignment-files/${enc(fileId)}`).then((r) => r.data),
+    assignmentFileUrl: (fileId) => `${baseURL}/account/assignment-files/${enc(fileId)}/download`,
     requestCertificate: (slug, name) =>
       post(`/account/learning/${enc(slug)}/certificate`, { name }),
     certificatePdfUrl: (code) => `${baseURL}/account/certificates/${enc(code)}/pdf`,

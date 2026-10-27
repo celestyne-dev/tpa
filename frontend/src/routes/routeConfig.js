@@ -109,9 +109,11 @@ export const routeTable = [
     // Learners: client-only shells (/learn/*, /certificates/*); never prerendered with data.
     [routes.accountLearning, commerce.AccountLearningRoute],
     [routes.notebook, commerce.NotebookRoute],
+    [routes.assessmentHistory, commerce.AssessmentHistoryRoute],
     [routes.learnSearch, commerce.LearningSearchRoute],
     ["/learn/:courseSlug", commerce.LearnCourseRoute],
     ["/learn/:courseSlug/assessments/:assessmentId", commerce.LearnAssessmentRoute],
+    ["/learn/:courseSlug/assignments/:assignmentId", commerce.LearnAssignmentRoute],
     ["/learn/:courseSlug/:lessonSlug", commerce.LearnLessonRoute],
     ["/certificates/:code", commerce.CertificateRoute],
   ].map(([path, Component]) => ({ path, Component, private: true })),

@@ -27,6 +27,8 @@ export const routes = {
     lessonSlug ? `/learn/${courseSlug}/${lessonSlug}` : `/learn/${courseSlug}`,
   accountLearning: "/account/learning",
   notebook: "/account/learning/notebook",
+  assessmentHistory: "/account/learning/history",
+  learnAssignment: (courseSlug, id) => `/learn/${courseSlug}/assignments/${id}`,
   learnSearch: "/learn/search",
   certificate: (code) => `/certificates/${code}`,
   newsletter: "/newsletter",
@@ -126,6 +128,7 @@ export const privateRoutes = [
   routes.resourceAccess,
   routes.accountLearning,
   routes.notebook,
+  routes.assessmentHistory,
 ];
 
 /** Static, indexable routes (dynamic article/topic routes come from the API). */

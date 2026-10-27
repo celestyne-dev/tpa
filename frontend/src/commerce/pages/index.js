@@ -31,3 +31,5 @@ export {
   LearnLessonPage,
 } from "./LearningPages";
 export { LearningSearchPage, NotebookPage } from "./StudyPages";
+export { LearnAssignmentPage } from "./AssignmentPages";
+export { AssessmentHistoryPage } from "./AssessmentHistoryPage";

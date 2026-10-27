@@ -409,3 +409,41 @@ permission on the server.
   (existing attempts become `submitted` with scores and times unchanged; existing assessments
   get the old behaviour), and two `question_banks.*` permissions. Its downgrade refuses while
   banks, started or expired attempts, or practice, timed, drawn or shuffled assessments exist.
+
+## 22. Assignment, grading and practice-exam interfaces (Batch 09.2, phase 3 — frontend)
+
+- **Admin → Courses → (course) → Assignments**: create and edit written assignments, essays,
+  structured reflections, case studies and practical projects. Settings: lesson,
+  instructions, prompts (with minimum words), word and document requirements (PDF/Word),
+  opening date, deadline (sent as UTC), late policy, attempts, resubmission policy, required
+  or optional, and pass/fail percentage. Actions: publish, unpublish, archive and delete
+  (never-published drafts only). **Preview as learner** shows the learner's brief. The
+  **course assessors** list is managed on the same tab.
+- **Rubric builder** (same tab): criteria with descriptions, maximum points, performance
+  descriptors and ordering, an overall passing percentage and "feedback required". Saving
+  always creates a new version. The version history is listed, and a warning appears when
+  submissions have already been reviewed or graded. Existing grades keep their version.
+- **Admin → Assignment reviews** (`assignments.view_submissions`): the review queue across
+  the courses the user manages or assesses, filtered by status and course. The submission
+  page shows the learner's work and documents, and offers rubric scoring (descriptor
+  shortcuts), feedback, private notes, draft grades, release, request changes and retract
+  (each control shown only with its permission), plus the submission and grading history.
+- **Admin → Question banks** (`question_banks.view`): banks with search and status, plus
+  questions with type, tag, status and text filters. Answer keys and explanations are only
+  shown to `question_banks.manage`. Edits send `lock_version`; questions can be retired,
+  restored or deleted.
+- **Assessment editor (quizzes)**: mode (graded or practice), time limit, question and option
+  shuffling, and draws from question banks (bank, count, tags).
+- **Learners**:
+  - `/learn/<course>/assignments/<id>`: brief, autosaved drafts (also backed up locally if
+    saving fails, with an unsaved-changes warning), document upload and removal, submission
+    with an idempotency key, status, attempt history and released feedback only.
+  - `/learn/<course>/assessments/<id>`: for drawn, shuffled or timed assessments, start or
+    resume, question navigation, autosave, a server-based countdown with spoken reminders,
+    submission confirmation, automatic submission when time runs out, results and retry.
+  - `/account/learning/history` ("Results"): every course's assessment attempts and
+    assignment statuses. Practice exams are labelled as not counting towards completion.
+- **Backend addition**: `GET /api/v1/admin/assignment-submissions` (review queue). It is
+  read-only, with the same permission and assessor scope as the per-assignment submission
+  list, and adds learner name, course and grade status. It is the only backend change in
+  phase 3.

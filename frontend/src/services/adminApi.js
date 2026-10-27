@@ -380,6 +380,56 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
         post(`/courses/${id}/enrollments/${eid}/${action}`, body),
       certificateAction: (code, action, body) =>
         post(`/certificates/${encodeURIComponent(code)}/${action}`, body),
+      assessmentAttempts: (id, aid) => get(`/courses/${id}/assessments/${aid}/attempts`),
+    },
+    // Batch 09.2: written assignments, rubrics, assessors, exceptions, review and grading.
+    assignments: {
+      list: (courseId) => get(`/courses/${courseId}/assignments`),
+      get: (courseId, id) => get(`/courses/${courseId}/assignments/${id}`),
+      create: (courseId, body) => post(`/courses/${courseId}/assignments`, body),
+      update: (courseId, id, body) => patch(`/courses/${courseId}/assignments/${id}`, body),
+      remove: (courseId, id) => del(`/courses/${courseId}/assignments/${id}`),
+      setStatus: (courseId, id, status) =>
+        post(`/courses/${courseId}/assignments/${id}/status`, { status }),
+      rubrics: (courseId, id) => get(`/courses/${courseId}/assignments/${id}/rubric`),
+      saveRubric: (courseId, id, body) =>
+        put(`/courses/${courseId}/assignments/${id}/rubric`, body),
+      report: (courseId, id) => get(`/courses/${courseId}/assignments/${id}/report`),
+      submissions: (courseId, id, status) =>
+        get(`/courses/${courseId}/assignments/${id}/submissions`, status ? { status } : undefined),
+      assessors: (courseId) => get(`/courses/${courseId}/assessors`),
+      setAssessors: (courseId, userIds) =>
+        put(`/courses/${courseId}/assessors`, { user_ids: userIds }),
+      queue: (params) => get("/assignment-submissions", params),
+      submission: (id) => get(`/assignment-submissions/${encodeURIComponent(id)}`),
+      startReview: (id, lockVersion) =>
+        post(`/assignment-submissions/${encodeURIComponent(id)}/review`, {
+          lock_version: lockVersion,
+        }),
+      saveGrade: (attemptId, body) =>
+        put(`/assignment-attempts/${encodeURIComponent(attemptId)}/grade`, body),
+      publishGrade: (attemptId, body) =>
+        post(`/assignment-attempts/${encodeURIComponent(attemptId)}/grade/publish`, body),
+      retractGrade: (attemptId, body) =>
+        post(`/assignment-attempts/${encodeURIComponent(attemptId)}/grade/retract`, body),
+      fileUrl: (fileId) => `${baseURL}/assignment-files/${encodeURIComponent(fileId)}/download`,
+    },
+    // Batch 09.2: reusable question banks (answer keys only for question_banks.manage).
+    questionBanks: {
+      list: (params) => get("/question-banks", params),
+      get: (id) => get(`/question-banks/${encodeURIComponent(id)}`),
+      create: (body) => post("/question-banks", body),
+      update: (id, body) => patch(`/question-banks/${encodeURIComponent(id)}`, body),
+      remove: (id) => del(`/question-banks/${encodeURIComponent(id)}`),
+      questions: (id, params) => get(`/question-banks/${encodeURIComponent(id)}/questions`, params),
+      addQuestion: (id, body) => post(`/question-banks/${encodeURIComponent(id)}/questions`, body),
+      updateQuestion: (id, qid, body) =>
+        patch(
+          `/question-banks/${encodeURIComponent(id)}/questions/${encodeURIComponent(qid)}`,
+          body,
+        ),
+      removeQuestion: (id, qid) =>
+        del(`/question-banks/${encodeURIComponent(id)}/questions/${encodeURIComponent(qid)}`),
     },
     storage: {
       health: (params) => get("/storage", params),

@@ -1,4 +1,5 @@
-import { CheckCircle2, CircleX } from "lucide-react";
+import { ArrowRight, CheckCircle2, CircleX, Timer } from "lucide-react";
+import { Link } from "react-router";
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
@@ -8,7 +9,7 @@ const KIND_LABEL = {
   self_assessment: "Self-assessment",
 };
 
-function Question({ question, value, onChange, error, index }) {
+export function Question({ question, value, onChange, error, index }) {
   const id = useId();
   const describedBy = [question.help_text && `${id}-help`, error && `${id}-error`]
     .filter(Boolean)
@@ -130,7 +131,7 @@ function optionText(options, ids) {
   return (ids ?? []).map((v) => map[v] ?? v).join(", ");
 }
 
-function Result({ assessment, attempt }) {
+export function Result({ assessment, attempt }) {
   return (
     <div className="space-y-4">
       <div
@@ -150,6 +151,16 @@ function Result({ assessment, attempt }) {
           </p>
         ) : (
           <p className="text-lg font-medium">Thank you — your answers are saved.</p>
+        )}
+        {attempt.status === "expired" && (
+          <p className="mt-1 text-sm">
+            Time ran out on this attempt, so only the answers saved before the deadline were scored.
+          </p>
+        )}
+        {attempt.practice && (
+          <p className="mt-1 text-sm text-muted">
+            Practice exam — this score doesn&apos;t count towards course completion.
+          </p>
         )}
         {attempt.graded && !attempt.passed && assessment.passing_score != null && (
           <p className="mt-1 text-sm">
@@ -186,8 +197,44 @@ function Result({ assessment, attempt }) {
   );
 }
 
+/** Drawn, shuffled or timed assessments open on their own page (an attempt must start). */
+function StartCard({ assessment, examHref }) {
+  return (
+    <section className="rounded-3xl bg-cream p-5 sm:p-7">
+      <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
+        {assessment.practice ? "Practice exam" : KIND_LABEL[assessment.kind]}
+        {assessment.required_for_completion && " · Required"}
+      </p>
+      <h2 className="mt-1 text-2xl font-medium">{assessment.title}</h2>
+      <p className="mt-2 flex items-center gap-2 text-sm text-muted">
+        {assessment.time_limit_minutes ? (
+          <>
+            <Timer aria-hidden className="size-4" /> {assessment.time_limit_minutes} minutes ·{" "}
+          </>
+        ) : null}
+        {assessment.question_count} questions
+        {assessment.best_percent != null && ` · best score ${assessment.best_percent}%`}
+      </p>
+      {examHref && (
+        <Link
+          to={examHref}
+          className="mt-4 inline-flex items-center gap-1.5 font-medium text-sage-800 underline underline-offset-4"
+        >
+          {assessment.in_progress ? "Resume your attempt" : "Open the exam"}
+          <ArrowRight aria-hidden className="size-4" />
+        </Link>
+      )}
+    </section>
+  );
+}
+
 /** A quiz, reflection or self-assessment. Scoring always happens on the server. */
-export function AssessmentForm({ assessment, onSubmit }) {
+export function AssessmentForm({ assessment, onSubmit, examHref }) {
+  if (assessment.requires_start) return <StartCard assessment={assessment} examHref={examHref} />;
+  return <OneStepAssessment assessment={assessment} onSubmit={onSubmit} />;
+}
+
+function OneStepAssessment({ assessment, onSubmit }) {
   const [answers, setAnswers] = useState({});
   const [state, setState] = useState({ busy: false, error: "", fieldErrors: {}, attempt: null });
   const resultRef = useRef(null);

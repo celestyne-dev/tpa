@@ -57,6 +57,10 @@ import { BundlesPage, ProductsPage } from "./pages/ProductsPage";
 import { CourseEditorPage } from "./pages/courses/CourseEditorPage";
 import { CoursePreviewPage } from "./pages/courses/CoursePreviewPage";
 import { CoursesPage } from "./pages/courses/CoursesPage";
+import { GradingDashboardPage } from "./pages/grading/GradingDashboardPage";
+import { SubmissionReviewPage } from "./pages/grading/SubmissionReviewPage";
+import { QuestionBankPage } from "./pages/questionBanks/QuestionBankPage";
+import { QuestionBanksPage } from "./pages/questionBanks/QuestionBanksPage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { RevenueReportPage } from "./pages/RevenueReportPage";
 import { StoragePage } from "./pages/StoragePage";
@@ -130,6 +134,26 @@ export default function AdminApp() {
           <Route
             path="courses/:id/assessments"
             element={guarded("courses.view", <CourseEditorPage section="assessments" />)}
+          />
+          <Route
+            path="courses/:id/assignments"
+            element={guarded("assignments.view", <CourseEditorPage section="assignments" />)}
+          />
+          <Route
+            path="assignment-reviews"
+            element={guarded("assignments.view_submissions", <GradingDashboardPage />)}
+          />
+          <Route
+            path="assignment-reviews/:submissionId"
+            element={guarded("assignments.view_submissions", <SubmissionReviewPage />)}
+          />
+          <Route
+            path="question-banks"
+            element={guarded("question_banks.view", <QuestionBanksPage />)}
+          />
+          <Route
+            path="question-banks/:bankId"
+            element={guarded("question_banks.view", <QuestionBankPage />)}
           />
           <Route
             path="courses/:id/enrollments"

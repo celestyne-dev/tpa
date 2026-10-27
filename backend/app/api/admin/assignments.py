@@ -147,6 +147,13 @@ class SubmissionListResource(Resource):
         return success(grading.list_submissions(assignment, current_user, status))
 
 
+class ReviewQueueResource(Resource):
+    @VIEW
+    def get(self):
+        args = {k: v for k, v in request.args.items() if len(v) <= 40}
+        return success(grading.review_queue(current_user, args))
+
+
 class SubmissionResource(Resource):
     @VIEW
     def get(self, submission_id: str):
@@ -223,6 +230,7 @@ ASSIGNMENT_ADMIN_ROUTES = [
         SubmissionListResource,
         "/admin/courses/<int:course_id>/assignments/<string:assignment_id>/submissions",
     ),
+    (ReviewQueueResource, "/admin/assignment-submissions"),
     (SubmissionResource, "/admin/assignment-submissions/<string:submission_id>"),
     (SubmissionReviewResource, "/admin/assignment-submissions/<string:submission_id>/review"),
     (AttemptGradeResource, "/admin/assignment-attempts/<string:attempt_id>/grade"),

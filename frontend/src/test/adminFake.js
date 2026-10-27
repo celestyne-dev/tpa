@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 import { createBuilderFake } from "./builderFake";
 import { COMMERCE_PERMS, createCommerceAdminFake } from "./commerceFake";
+import { ASSIGNMENT_PERMS, BANK_PERMS, createAssessmentAdminFake } from "./assessmentFake";
 import { COURSE_PERMS, createCourseAdminFake } from "./courseFake";
 import { NEWSLETTER_EDITING, NEWSLETTER_PERMS, createNewsletterAdminFake } from "./newsletterFake";
 import {
@@ -58,6 +59,8 @@ const ALL = [
   "audit.view",
   "storage.view",
   ...COURSE_PERMS,
+  ...ASSIGNMENT_PERMS,
+  ...BANK_PERMS,
   ...COMMERCE_PERMS,
   ...NEWSLETTER_PERMS,
   ...PARTNERSHIP_PERMS,
@@ -104,6 +107,9 @@ export const ROLE_PERMS = {
     "courses.publish_lessons",
     "courses.view_revisions",
     "courses.restore_revisions",
+    // Batch 09.2: assignments (no grading exceptions) and question banks.
+    ...ASSIGNMENT_PERMS.filter((p) => p !== "assignments.manage_exceptions"),
+    ...BANK_PERMS,
   ],
   moderator: [
     "dashboard.view",
@@ -127,6 +133,8 @@ export const ROLE_PERMS = {
     "publishing.view",
     "courses.view",
     "courses.view_reports",
+    "assignments.view",
+    "assignments.view_reports",
   ],
   content_writer: [
     "dashboard.view",
@@ -244,6 +252,15 @@ export const ROLE_PERMS = {
   ],
   // A specialised role without dashboard access, used to test landing routes.
   pages_only: ["pages.view"],
+  // Batch 09.2 test roles: an assessor who grades but can't release grades, and a
+  // question-bank reader who must never receive answer keys.
+  course_assessor: [
+    "dashboard.view",
+    "assignments.view",
+    "assignments.view_submissions",
+    "assignments.grade",
+  ],
+  bank_viewer: ["dashboard.view", "question_banks.view"],
 };
 
 /** Simplified mirror of article_admin.capabilities() for the fake API. */
@@ -1386,6 +1403,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     ...createBuilderFake(() => user),
     ...createCommerceAdminFake(() => user),
     ...createCourseAdminFake(() => user),
+    ...createAssessmentAdminFake(() => user),
     ...createNewsletterAdminFake(() => user),
     ...createPartnershipAdminFake(),
   };

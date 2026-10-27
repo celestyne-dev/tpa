@@ -41,6 +41,8 @@ import {
   FileText,
   BookOpenText,
   HardDrive,
+  ClipboardCheck,
+  Library,
 } from "lucide-react";
 import {
   ARTICLE_ACCESS,
@@ -89,6 +91,18 @@ export const adminSections = [
     title: "Learning",
     items: [
       { label: "Courses", to: "/admin/courses", icon: GraduationCap, permission: "courses.view" },
+      {
+        label: "Assignment reviews",
+        to: "/admin/assignment-reviews",
+        icon: ClipboardCheck,
+        permission: "assignments.view_submissions",
+      },
+      {
+        label: "Question banks",
+        to: "/admin/question-banks",
+        icon: Library,
+        permission: "question_banks.view",
+      },
     ],
   },
   {

@@ -32,6 +32,14 @@ export const QUESTION_KINDS = {
     { value: "rating", label: "Rating scale" },
     { value: "short_text", label: "Written answer" },
   ],
+  // Question banks feed quizzes and practice exams.
+  bank: [
+    { value: "single_choice", label: "Single choice" },
+    { value: "multiple_select", label: "Multiple select" },
+    { value: "true_false", label: "True / false" },
+    { value: "short_text", label: "Written answer (not scored)" },
+    { value: "rating", label: "Rating scale (not scored)" },
+  ],
 };
 
 export function newQuestion(kind) {

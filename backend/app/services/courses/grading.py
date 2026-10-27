@@ -199,6 +199,74 @@ def list_submissions(
     return out
 
 
+QUEUE_LIMIT = 200
+
+
+def review_queue(actor: User, args: dict[str, str]) -> dict[str, Any]:
+    """Submissions across every course the actor may review (Batch 09.2 phase 3: the
+    instructor dashboard). Same scope as ``list_submissions``: staff who manage assignments
+    see every course, assessors only their assigned courses. Drafts are never listed."""
+    from ...models import Course, CourseAssessor
+
+    require(actor, P.ASSIGNMENTS_VIEW_SUBMISSIONS)
+    query = (
+        select(AssignmentSubmission, CourseAssignment, Course)
+        .join(CourseAssignment, CourseAssignment.id == AssignmentSubmission.assignment_id)
+        .join(Course, Course.id == CourseAssignment.course_id)
+        .where(AssignmentSubmission.status != "draft")
+    )
+    if not defs.granted(actor, P.ASSIGNMENTS_MANAGE):
+        assigned = select(CourseAssessor.course_id).where(CourseAssessor.user_id == actor.id)
+        query = query.where(CourseAssignment.course_id.in_(assigned))
+    courses = {
+        course.id: course.title
+        for _, _, course in db.session.execute(query.order_by(Course.title)).all()
+    }
+    status = (args.get("status") or "").strip()
+    if status == "awaiting":
+        query = query.where(
+            AssignmentSubmission.status.in_(("pending_review", "resubmitted", "under_review"))
+        )
+    elif status:
+        query = query.where(AssignmentSubmission.status == status)
+    course_id = args.get("course_id")
+    if course_id:
+        if not course_id.isdigit():
+            raise ValidationError(details={"course_id": ["Use a course id."]})
+        query = query.where(CourseAssignment.course_id == int(course_id))
+    rows = db.session.execute(
+        query.order_by(AssignmentSubmission.updated_at).limit(QUEUE_LIMIT)
+    ).all()
+    items = []
+    for submission, assignment, course in rows:
+        submitted = [a for a in submission.attempts if a.status == "submitted"]
+        last = submitted[-1] if submitted else None
+        learner = db.session.get(Customer, submission.customer_id)
+        grade = grade_for(last) if last else None
+        items.append(
+            {
+                "id": submission.public_id,
+                "status": submission.status,
+                "course": {"id": course.id, "title": course.title},
+                "assignment": {"id": assignment.public_id, "title": assignment.title},
+                "learner": {
+                    "name": learner.display_name if learner else None,
+                    "email": learner.email if learner else None,
+                },
+                "attempts": len(submitted),
+                "latest_attempt": last.public_id if last else None,
+                "submitted_at": iso(last.submitted_at) if last else None,
+                "late": bool(last and last.is_late),
+                "grade_status": grade.status if grade else None,
+            }
+        )
+    return {
+        "items": items,
+        "courses": [{"id": cid, "title": title} for cid, title in courses.items()],
+        "truncated": len(items) == QUEUE_LIMIT,
+    }
+
+
 # ---- review and grading ---------------------------------------------------------------------
 
 

@@ -8,7 +8,9 @@ import { CheckboxField, SelectField, TextAreaField, TextField } from "../../comp
 import { useNotify } from "../../components/notifyContext";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAdminQuery } from "../../hooks/useAdminQuery";
+import { usePermissions } from "../../hooks/usePermissions";
 import { ASSESSMENT_KINDS, QUESTION_KINDS, newQuestion } from "./courseAdmin";
+import { practicePayload } from "./assignmentForm";
 
 const KIND_LABEL = { quiz: "Quiz", reflection: "Reflection", self_assessment: "Self-assessment" };
 
@@ -21,9 +23,14 @@ function lessonOptions(course) {
   ];
 }
 
-function QuestionEditor({ assessment, question, onSave, onCancel, keyVisible }) {
-  const [form, setForm] = useState(() =>
-    question
+/**
+ * Edits one question (assessment or question-bank question). `kinds` lists the allowed
+ * question types; `withTags` adds the bank's tag field. Answer keys are only shown and sent
+ * when `keyVisible` (the API hides them from roles that can't manage them).
+ */
+export function QuestionEditor({ kinds, question, onSave, onCancel, keyVisible, withTags }) {
+  const [form, setForm] = useState(() => ({
+    ...(question
       ? {
           kind: question.kind,
           prompt: question.prompt,
@@ -35,8 +42,9 @@ function QuestionEditor({ assessment, question, onSave, onCancel, keyVisible }) 
           points: question.points,
           required: question.required,
         }
-      : newQuestion(QUESTION_KINDS[assessment.kind][0].value),
-  );
+      : newQuestion(kinds[0].value)),
+    ...(withTags && { tags: (question?.tags ?? []).join(", ") }),
+  }));
   const [error, setError] = useState(null);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const choice = form.kind === "single_choice" || form.kind === "multiple_select";
@@ -46,6 +54,12 @@ function QuestionEditor({ assessment, question, onSave, onCancel, keyVisible }) 
     setError(null);
     try {
       const body = { ...form };
+      if (withTags) {
+        body.tags = form.tags
+          .split(",")
+          .map((t) => t.trim().toLowerCase())
+          .filter(Boolean);
+      }
       if (!keyVisible) {
         delete body.correct;
         delete body.explanation;
@@ -65,8 +79,10 @@ function QuestionEditor({ assessment, question, onSave, onCancel, keyVisible }) 
         <SelectField
           label="Question type"
           value={form.kind}
-          onChange={(e) => setForm(newQuestion(e.target.value))}
-          options={QUESTION_KINDS[assessment.kind]}
+          onChange={(e) =>
+            setForm({ ...newQuestion(e.target.value), ...(withTags && { tags: form.tags }) })
+          }
+          options={kinds}
         />
       )}
       <TextAreaField
@@ -201,11 +217,25 @@ function QuestionEditor({ assessment, question, onSave, onCancel, keyVisible }) 
           />
         </div>
       )}
+      {withTags && (
+        <TextField
+          label="Tags"
+          hint="Comma-separated, e.g. breathing, beginner. Practice exams can draw by tag."
+          value={form.tags}
+          error={fieldError(error, "tags")}
+          onChange={(e) => set({ tags: e.target.value })}
+        />
+      )}
       <CheckboxField
         label="Answer required"
         checked={form.required}
         onChange={(e) => set({ required: e.target.checked })}
       />
+      {error && !fieldError(error, "prompt") && (
+        <p role="alert" className="text-sm text-red-800">
+          {error.message}
+        </p>
+      )}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={!form.prompt.trim()}>
           Save question
@@ -239,6 +269,15 @@ function AssessmentEditor({ course, assessmentId, onChanged, onClose }) {
     max_attempts: assessment.max_attempts ?? "",
     show_answers: assessment.show_answers,
     required_for_completion: assessment.required_for_completion,
+    practice: assessment.practice ?? false,
+    time_limit_minutes: assessment.time_limit_minutes ?? "",
+    shuffle_questions: assessment.shuffle_questions ?? false,
+    shuffle_options: assessment.shuffle_options ?? false,
+    selection: (assessment.selection ?? []).map((r) => ({
+      bank_id: r.bank_id,
+      count: r.count,
+      tags: (r.tags ?? []).join(", "),
+    })),
   };
   const set = (patch) => setSettings({ ...form, ...patch });
   const saveSettings = async (event) => {
@@ -251,8 +290,11 @@ function AssessmentEditor({ course, assessmentId, onChanged, onClose }) {
         lesson_id: form.lesson_id ? Number(form.lesson_id) : null,
         max_attempts: form.max_attempts === "" ? null : Number(form.max_attempts),
         show_answers: form.show_answers,
-        required_for_completion: form.required_for_completion,
-        ...(assessment.kind === "quiz" && { passing_score: Number(form.passing_score) }),
+        required_for_completion: form.practice ? false : form.required_for_completion,
+        ...(assessment.kind === "quiz" && {
+          passing_score: Number(form.passing_score),
+          ...practicePayload(form),
+        }),
       };
       const res = await api.courses.updateAssessment(course.id, assessmentId, body);
       setData(res.data);
@@ -386,9 +428,14 @@ function AssessmentEditor({ course, assessmentId, onChanged, onClose }) {
           <CheckboxField
             className="pt-6"
             label="Required for course completion"
-            checked={form.required_for_completion}
+            hint={form.practice ? "Practice exams never count towards completion." : undefined}
+            checked={!form.practice && form.required_for_completion}
+            disabled={form.practice}
             onChange={(e) => set({ required_for_completion: e.target.checked })}
           />
+          {assessment.kind === "quiz" && (
+            <PracticeSettings form={form} set={set} error={error} disabled={!canEdit} />
+          )}
           {canEdit && settings && (
             <div className="sm:col-span-2">
               <Button type="submit" size="sm">
@@ -398,13 +445,22 @@ function AssessmentEditor({ course, assessmentId, onChanged, onClose }) {
           )}
         </fieldset>
       </form>
-      <h3 className="mt-6 font-medium">Questions</h3>
+      <h3 className="mt-6 font-medium">
+        {assessment.selection?.length ? "Fixed questions (always included)" : "Questions"}
+      </h3>
+      {assessment.selection?.length > 0 && (
+        <p className="mt-1 text-sm text-muted">
+          Each attempt also draws {assessment.drawn_question_count} question
+          {assessment.drawn_question_count === 1 ? "" : "s"} from question banks. Learners see the
+          questions only after starting an attempt.
+        </p>
+      )}
       <ol className="mt-3 space-y-3">
         {assessment.questions.map((q, i) => (
           <li key={q.id} className="rounded-xl border border-charcoal/10 p-3">
             {editing === q.id ? (
               <QuestionEditor
-                assessment={assessment}
+                kinds={QUESTION_KINDS[assessment.kind]}
                 question={q}
                 keyVisible={assessment.answer_key_visible}
                 onSave={(body) => saveQuestion(body, q.id)}
@@ -467,7 +523,7 @@ function AssessmentEditor({ course, assessmentId, onChanged, onClose }) {
         (editing === "new" ? (
           <div className="mt-3">
             <QuestionEditor
-              assessment={assessment}
+              kinds={QUESTION_KINDS[assessment.kind]}
               keyVisible={assessment.answer_key_visible}
               onSave={(body) => saveQuestion(body)}
               onCancel={() => setEditing(null)}
@@ -488,6 +544,132 @@ function AssessmentEditor({ course, assessmentId, onChanged, onClose }) {
         onCancel={() => setConfirm(null)}
       />
     </section>
+  );
+}
+
+function PracticeSettings({ form, set, error, disabled }) {
+  const api = useAdminApi();
+  const { can } = usePermissions();
+  const canSeeBanks = can("question_banks.view");
+  const banks = useAdminQuery(
+    () =>
+      canSeeBanks
+        ? api.questionBanks.list({ status: "active", page_size: 100 })
+        : Promise.resolve({ data: [] }),
+    [canSeeBanks],
+  );
+  const setRule = (index, patch) =>
+    set({ selection: form.selection.map((r, i) => (i === index ? { ...r, ...patch } : r)) });
+  const bankOptions = (banks.data ?? []).map((b) => ({
+    value: b.id,
+    label: `${b.title} (${b.question_counts.active} active questions)`,
+  }));
+  return (
+    <fieldset className="space-y-4 rounded-xl border border-charcoal/10 p-4 sm:col-span-2">
+      <legend className="px-1 font-medium">Mode, timing and question selection</legend>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField
+          label="Mode"
+          value={form.practice ? "practice" : "graded"}
+          error={fieldError(error, "practice")}
+          onChange={(e) => set({ practice: e.target.value === "practice" })}
+          options={[
+            { value: "graded", label: "Graded quiz (can count towards completion)" },
+            { value: "practice", label: "Practice exam (never counts towards completion)" },
+          ]}
+        />
+        <TextField
+          label="Time limit (minutes)"
+          hint="Empty for untimed. The server fixes the deadline when a learner starts."
+          type="number"
+          min="1"
+          max="600"
+          value={form.time_limit_minutes}
+          error={fieldError(error, "time_limit_minutes")}
+          onChange={(e) => set({ time_limit_minutes: e.target.value })}
+        />
+        <CheckboxField
+          label="Shuffle question order for each attempt"
+          checked={form.shuffle_questions}
+          onChange={(e) => set({ shuffle_questions: e.target.checked })}
+        />
+        <CheckboxField
+          label="Shuffle answer options for each attempt"
+          checked={form.shuffle_options}
+          onChange={(e) => set({ shuffle_options: e.target.checked })}
+        />
+      </div>
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-medium">Draw questions from question banks</legend>
+        {fieldError(error, "selection") && (
+          <p className="text-sm text-red-800">{fieldError(error, "selection")}</p>
+        )}
+        {!canSeeBanks && form.selection.length > 0 && (
+          <p className="text-sm text-muted">
+            Your role can&apos;t list question banks; the draws are shown by bank id.
+          </p>
+        )}
+        {form.selection.map((rule, i) => (
+          <div
+            key={i}
+            className="grid gap-2 rounded-lg bg-cream/60 p-3 sm:grid-cols-[1fr_7rem_1fr_auto] sm:items-end"
+          >
+            {canSeeBanks ? (
+              <SelectField
+                label={`Draw ${i + 1}: question bank`}
+                value={rule.bank_id}
+                onChange={(e) => setRule(i, { bank_id: e.target.value })}
+                options={[
+                  { value: "", label: "Choose a bank" },
+                  ...bankOptions,
+                  ...(rule.bank_id && !bankOptions.some((o) => o.value === rule.bank_id)
+                    ? [{ value: rule.bank_id, label: `${rule.bank_id} (archived or unavailable)` }]
+                    : []),
+                ]}
+              />
+            ) : (
+              <TextField label={`Draw ${i + 1}: bank id`} value={rule.bank_id} readOnly />
+            )}
+            <TextField
+              label={`Draw ${i + 1}: number of questions`}
+              type="number"
+              min="1"
+              max="100"
+              value={rule.count}
+              onChange={(e) => setRule(i, { count: e.target.value })}
+            />
+            <TextField
+              label={`Draw ${i + 1}: only these tags (optional)`}
+              hint="Comma-separated; any tag matches."
+              value={rule.tags}
+              onChange={(e) => setRule(i, { tags: e.target.value })}
+            />
+            {!disabled && (
+              <button
+                type="button"
+                aria-label={`Remove draw ${i + 1}`}
+                onClick={() => set({ selection: form.selection.filter((_, j) => j !== i) })}
+                className="mb-1 rounded p-2 text-muted hover:text-red-800"
+              >
+                <Trash2 aria-hidden className="size-4" />
+              </button>
+            )}
+          </div>
+        ))}
+        {!disabled && canSeeBanks && form.selection.length < 10 && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              set({ selection: [...form.selection, { bank_id: "", count: 5, tags: "" }] })
+            }
+          >
+            <Plus aria-hidden /> Add a draw
+          </Button>
+        )}
+      </fieldset>
+    </fieldset>
   );
 }
 
@@ -572,7 +754,9 @@ export function CourseAssessmentsPanel({ course, onChanged }) {
                 {KIND_LABEL[a.kind]} · {a.question_count} question
                 {a.question_count === 1 ? "" : "s"} ·{" "}
                 {a.lesson_id ? `after “${lessonTitle[a.lesson_id] ?? "lesson"}”` : "course-level"}
-                {a.required_for_completion ? " · required" : ""}
+                {a.practice ? " · practice exam" : a.required_for_completion ? " · required" : ""}
+                {a.time_limit_minutes ? ` · ${a.time_limit_minutes} min` : ""}
+                {a.drawn_question_count ? ` · ${a.drawn_question_count} drawn from banks` : ""}
               </span>
             </button>
             <span className="flex items-center gap-1">

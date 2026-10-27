@@ -15,6 +15,8 @@ import {
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { AssessmentForm } from "@/components/courses/AssessmentForm";
+import { SUBMISSION_STATUS_LABEL } from "@/components/courses/assignmentLabels";
+import { PracticeExam } from "@/components/courses/PracticeExam";
 import { formatMinutes } from "@/components/courses/courseFormat";
 import { LessonBody } from "@/components/courses/LessonBody";
 import {
@@ -514,6 +516,7 @@ function CourseOutline() {
                           {a.title}
                         </Link>{" "}
                         <span className="text-sm text-muted">
+                          {a.practice ? "· Practice " : ""}
                           {a.status === "passed"
                             ? "· Passed"
                             : a.status === "failed"
@@ -529,11 +532,55 @@ function CourseOutline() {
                 </ul>
               </section>
             )}
+            <CourseAssignments courseSlug={course.slug} />
             <CertificatePanel course={course} data={data} onIssued={reload} />
+            <Link
+              to={routes.assessmentHistory}
+              className="block text-sm underline underline-offset-4"
+            >
+              All my assessment results
+            </Link>
           </aside>
         </div>
       </Container>
     </LearnShell>
+  );
+}
+
+/** Published assignments of the course with the learner's status (Batch 09.2). */
+function CourseAssignments({ courseSlug }) {
+  const shopApi = useShopApi();
+  const [state] = useLearnerData(
+    () => shopApi.assignments(courseSlug),
+    `assignments:${courseSlug}`,
+  );
+  if (state.status !== "ready" || !state.data.length) return null;
+  return (
+    <section
+      aria-labelledby="assignments-heading"
+      className="rounded-2xl border border-charcoal/10 bg-white p-5"
+    >
+      <h2 id="assignments-heading" className="font-medium">
+        Assignments
+      </h2>
+      <ul className="mt-3 space-y-2">
+        {state.data.map((a) => (
+          <li key={a.id}>
+            <Link
+              to={routes.learnAssignment(courseSlug, a.id)}
+              className="underline underline-offset-4"
+            >
+              {a.title}
+            </Link>{" "}
+            <span className="text-sm text-muted">
+              · {SUBMISSION_STATUS_LABEL[a.status] ?? a.status}
+              {a.required ? "" : " · optional"}
+              {a.due_at ? ` · due ${formatDate(a.due_at)}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -986,6 +1033,7 @@ function LessonReader({ courseSlug, lessonSlug }) {
                     <AssessmentForm
                       assessment={assessment}
                       onSubmit={submitAttempt(assessment.id)}
+                      examHref={`/learn/${courseSlug}/assessments/${assessment.id}`}
                     />
                   </div>
                 ))}
@@ -1136,6 +1184,19 @@ function AssessmentPage() {
     }));
     return res.data.attempt;
   };
+  const id = Number(assessmentId);
+  const examApi = {
+    start: () => shopApi.startAttempt(courseSlug, id),
+    save: (attemptId, answers) => shopApi.saveAttemptAnswers(courseSlug, id, attemptId, answers),
+    submit: (attemptId, answers) =>
+      shopApi.submitStartedAttempt(courseSlug, id, attemptId, answers),
+    reload: () => shopApi.learningAssessment(courseSlug, id),
+  };
+  const updateAssessment = (assessment, progress) =>
+    setState((s) => ({
+      ...s,
+      data: { ...s.data, assessment, ...(progress && { progress }) },
+    }));
   return (
     <LearnShell
       title={data.assessment.title}
@@ -1143,7 +1204,20 @@ function AssessmentPage() {
     >
       <Container className="py-10">
         <div className="mx-auto max-w-[68ch]">
-          <AssessmentForm assessment={data.assessment} onSubmit={submit} />
+          {data.assessment.requires_start ? (
+            <PracticeExam
+              assessment={data.assessment}
+              api={examApi}
+              onAssessment={updateAssessment}
+            />
+          ) : (
+            <AssessmentForm assessment={data.assessment} onSubmit={submit} />
+          )}
+          <p className="mt-6 text-sm">
+            <Link to={routes.assessmentHistory} className="underline underline-offset-4">
+              See all your assessment results
+            </Link>
+          </p>
           <div className="mt-8">
             <ProgressBar percent={data.progress.percent} />
           </div>
