@@ -45,7 +45,7 @@ export function AccountMenu() {
     return (
       <Link
         to={signInHref(pathname + search)}
-        className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.95rem] font-medium text-charcoal transition-colors hover:bg-sage-100"
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-2 text-[0.95rem] font-medium whitespace-nowrap text-charcoal transition-colors hover:bg-sage-100 sm:px-3"
       >
         <UserRound aria-hidden className="hidden size-5 sm:block" />
         Log in
