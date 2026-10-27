@@ -129,7 +129,7 @@ def seed_cms_defaults() -> dict[str, int]:
     counts = {"menus": 0, "pages": 0, "sections": 0}
     for key, spec in DEFAULT_MENUS.items():
         if not spec["items"]:
-            continue  # optional menus (mobile, legal) start empty and use their fallbacks
+            continue  # optional menus (mobile) start empty and use their fallbacks
         if db.session.scalar(select(NavigationMenu.id).where(NavigationMenu.key == key)):
             continue
         menu = NavigationMenu(key=key, name=spec["name"])

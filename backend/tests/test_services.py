@@ -81,7 +81,7 @@ def test_cli_publish_due_and_seed_commands(app):
     assert "articles=6" in result.output
     result = runner.invoke(args=["seed", "sample-content"])
     assert "articles=0" in result.output and "skipped=14" in result.output
-    assert "menus=2" in runner.invoke(args=["cms", "seed-defaults"]).output
+    assert "menus=3" in runner.invoke(args=["cms", "seed-defaults"]).output  # incl. legal
     assert "menus=0" in runner.invoke(args=["cms", "seed-defaults"]).output
     assert "No scheduled articles" in runner.invoke(args=["content", "publish-due"]).output
 

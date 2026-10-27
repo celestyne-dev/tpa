@@ -85,7 +85,19 @@ def _known_paths() -> tuple[set[str], set[str], set[str], set[str]]:
             select(ProductCollection.slug).where(ProductCollection.is_active.is_(True))
         )
     }
-    commerce_pages = {"/cart", "/account", "/account/library", "/account/orders"}
+    # App pages that exist without CMS records (sign-in, account and staff entry points).
+    commerce_pages = {
+        "/cart",
+        "/account",
+        "/account/library",
+        "/account/orders",
+        "/account/settings",
+        "/purchases",
+        "/login",
+        "/register",
+        "/forgot-password",
+        "/admin/login",
+    }
     return (
         {p for p, _, _ in STATIC_PATHS} | pages | shop | commerce_pages,
         articles,
