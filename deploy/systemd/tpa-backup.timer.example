@@ -1,0 +1,13 @@
+# /etc/systemd/system/tpa-backup.timer  (example)
+# 03:10 server time; the US audience is least active in the early morning UTC hours,
+# adjust to the quietest time for your traffic.
+[Unit]
+Description=Nightly TPA backup
+
+[Timer]
+OnCalendar=*-*-* 03:10:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

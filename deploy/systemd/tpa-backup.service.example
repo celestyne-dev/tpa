@@ -1,0 +1,18 @@
+# /etc/systemd/system/tpa-backup.service  (example)
+#
+# Nightly backup of PostgreSQL, images and premium files (deploy/backup/tpa-backup.sh).
+# Runs as root so it can read every storage folder; configuration and the database
+# password live in /etc/tpa/backup.env (chmod 600). See docs/backups.md.
+[Unit]
+Description=Think Positive Always backup (database, images, premium files)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/var/www/tpa/deploy/backup/tpa-backup.sh /etc/tpa/backup.env
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectHome=read-only

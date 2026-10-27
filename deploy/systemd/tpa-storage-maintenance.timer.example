@@ -1,0 +1,11 @@
+# /etc/systemd/system/tpa-storage-maintenance.timer  (example)
+[Unit]
+Description=Hourly TPA storage cleanup and health check
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

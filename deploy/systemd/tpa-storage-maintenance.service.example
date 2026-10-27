@@ -1,0 +1,22 @@
+# /etc/systemd/system/tpa-storage-maintenance.service  (example)
+#
+# Removes abandoned temporary uploads, then checks storage health (disk space,
+# permissions, missing files, backup age). A non-zero exit (1 warning, 2 critical)
+# marks the unit as failed, so `systemctl --failed` or any monitoring that watches
+# failed units will notice. The same report is shown in /admin/storage.
+[Unit]
+Description=Think Positive Always storage cleanup and health check
+
+[Service]
+Type=oneshot
+User=tpa
+Group=www-data
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi storage cleanup-temp
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi storage check
+# Warnings (exit 1) shouldn't fail the unit; critical problems (exit 2) should.
+SuccessExitStatus=1
+NoNewPrivileges=true
+PrivateTmp=true

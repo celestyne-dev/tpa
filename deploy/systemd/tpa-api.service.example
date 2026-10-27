@@ -9,13 +9,20 @@ Group=www-data
 WorkingDirectory=/var/www/tpa/backend
 EnvironmentFile=/var/www/tpa/backend/.env
 Environment=FLASK_CONFIG=production
-# --timeout covers synchronous image optimisation of large uploads.
-ExecStart=/var/www/tpa/backend/.venv/bin/gunicorn --workers 3 --timeout 120 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
+# --timeout covers synchronous image optimisation and large premium file uploads
+# (validated before they are stored). Rate limits need Redis with several workers
+# (RATELIMIT_STORAGE_URI=redis://127.0.0.1:6379/0).
+ExecStart=/var/www/tpa/backend/.venv/bin/gunicorn --workers 3 --timeout 300 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
 UMask=0022
+# The API writes only to the storage folders (media, premium resources, temp uploads)
+# and the instance folder. Private files get owner/group-only modes explicitly.
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tpa /var/www/tpa/backend/instance
 
 [Install]
 WantedBy=multi-user.target

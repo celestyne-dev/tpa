@@ -15,10 +15,39 @@ upstream tpa_api {
     keepalive 16;
 }
 
+# Hostinger VPS layout (Batch 08; see docs/hostinger-vps.md):
+#   /var/lib/tpa/media/public/        optimised images, served below at /media/
+#   /var/lib/tpa/media/private/       image originals (never served)
+#   /var/lib/tpa/resources/private/   premium files (internal location only)
+#   /var/lib/tpa/temporary/uploads/   uploads in progress (never served)
+
+# Keep open file handles for frequently served static files.
+open_file_cache max=2000 inactive=60s;
+open_file_cache_valid 120s;
+
+# Plain HTTP only redirects to HTTPS (certbot answers its challenge here too).
 server {
     listen 80;
+    listen [::]:80;
     server_name example.com www.example.com;   # TODO: real domain once confirmed
-    # Add TLS (e.g. certbot --nginx) before launch.
+    location /.well-known/acme-challenge/ { root /var/www/letsencrypt; }
+    location / { return 301 https://example.com$request_uri; }
+}
+
+server {
+    # Ubuntu 24.04 ships Nginx 1.24: HTTP/2 is enabled on the listen line (on 1.25.1+ you
+    # can write "http2 on;" instead).
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name example.com www.example.com;   # TODO: real domain once confirmed
+    # Certificates from `certbot certonly --webroot -w /var/www/letsencrypt -d ...`.
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:tpa_ssl:10m;
+    ssl_session_timeout 1d;
+    # Enable only after HTTPS works everywhere (browsers remember it for a year).
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     root /var/www/tpa-site/current;            # = PUBLISH_CURRENT_LINK
     index index.html;
@@ -35,7 +64,9 @@ server {
     gzip_vary on;
     gzip_min_length 1024;
     gzip_comp_level 6;
-    gzip_types text/css application/javascript application/json application/xml image/svg+xml text/plain;
+    gzip_types text/css application/javascript application/json application/xml image/svg+xml text/plain application/manifest+json application/rss+xml;
+    # Optional: with the ngx_brotli module installed, Brotli saves a further 15–20% on text.
+    # brotli on; brotli_comp_level 5; brotli_types text/css application/javascript application/json image/svg+xml;
 
     location /api/ {
         proxy_pass http://tpa_api;
@@ -62,8 +93,9 @@ server {
         client_max_body_size 21m;               # MEDIA_MAX_UPLOAD_MB + 1
     }
 
-    # Private product file uploads (PDF/EPUB/ZIP, validated server-side before they are
-    # committed to private storage). Streamed to Flask rather than buffered by Nginx.
+    # Premium file uploads (PDF/EPUB/DOCX/XLSX/ZIP, validated server-side before they are
+    # committed to private storage). Streamed to Flask rather than buffered by Nginx; Flask
+    # spools them into UPLOAD_TEMP_ROOT.
     location ~ ^/api/v1/admin/products/[0-9]+/files {
         proxy_pass http://tpa_api;
         proxy_http_version 1.1;
@@ -80,13 +112,18 @@ server {
     # Paid downloads. Flask checks the token, session and entitlement, then answers with
     # X-Accel-Redirect: /_protected_downloads/<key> (PRODUCT_FILES_ACCEL_REDIRECT_PREFIX).
     # "internal" means browsers can never request this location directly.
+    # The folder must be readable by the Nginx group (the app sets 0750/0640 when
+    # PRODUCT_FILES_ACCEL_REDIRECT_PREFIX is set; /admin/storage warns otherwise).
     location /_protected_downloads/ {
         internal;
-        alias /var/lib/tpa/product-files/;      # = PRODUCT_FILES_ROOT/ (outside every web root)
+        alias /var/lib/tpa/resources/private/;  # = PRODUCT_FILES_ROOT/ (outside every web root)
         add_header Cache-Control "private, no-store" always;
         add_header X-Content-Type-Options nosniff always;
         add_header X-Robots-Tag "noindex" always;
     }
+
+    # Never serve anything from the storage folders except /media/ above.
+    location ~ ^/(resources/private|temporary|var)/ { return 404; }
 
     # Customer area shells (cart, checkout, account, guest purchases): private, never cached
     # or indexed. Their data comes from /api/v1/account|cart|checkout|guest.
@@ -111,6 +148,13 @@ server {
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Built-in images and icons shipped with the site (not fingerprinted): a week.
+    location ~* ^/(images|icons)/ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
         try_files $uri =404;
     }
 

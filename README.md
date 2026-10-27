@@ -2,7 +2,7 @@
 
 The commercial home of **Think Positive Always (TPA)**: personal development articles, digital products, free resources, the newsletter, and brand partnerships.
 
-The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`. Since Batch 04, the homepage, CMS pages, branding, header, footer, menus and announcements are all managed in the CMS too, with a visual section builder (see [`docs/cms-guide.md`](docs/cms-guide.md)). Batch 05 adds the digital product shop: a product CMS, private product files, customer accounts, orders, Paystack payments (test mode only until explicitly activated), secure downloads, refunds and revenue reports (see [`docs/commerce.md`](docs/commerce.md)). Batch 06 adds The Positive Reset newsletter: double opt-in subscribers with consent records, campaigns, a rate-limited email queue, automations and lead magnets (see [`docs/newsletter.md`](docs/newsletter.md)).
+The stack is a React/Vite frontend and a Python Flask API on PostgreSQL. Public pages are **prerendered to static HTML at build time** from API data. Since Batch 02, editorial content, site settings and navigation live in the database and are managed through a secure admin dashboard at `/admin`. Since Batch 04, the homepage, CMS pages, branding, header, footer, menus and announcements are all managed in the CMS too, with a visual section builder (see [`docs/cms-guide.md`](docs/cms-guide.md)). Batch 05 adds the digital product shop: a product CMS, private product files, customer accounts, orders, Paystack payments (test mode only until explicitly activated), secure downloads, refunds and revenue reports (see [`docs/commerce.md`](docs/commerce.md)). Batch 06 adds The Positive Reset newsletter: double opt-in subscribers with consent records, campaigns, a rate-limited email queue, automations and lead magnets (see [`docs/newsletter.md`](docs/newsletter.md)). Batch 08 prepares self-hosting on a Hostinger VPS with every file stored on the server ([`docs/hostinger-vps.md`](docs/hostinger-vps.md), [`docs/backups.md`](docs/backups.md)) and adds the premium resources CMS with secure, entitlement-based delivery ([`docs/resources.md`](docs/resources.md)).
 
 ## 1. Technology stack
 
@@ -159,6 +159,11 @@ The Vite dev server proxies `/api` to Flask, so the admin's HttpOnly cookies are
     - Allows the `guest` customer status (guest buyer records) and the `guest_access` token purpose, and adds `orders.is_guest` (false for existing orders), `orders.guest_token_hash` (unique, nullable) and `download_grants.guest` (false). No data is changed.
     - On SQLite, `customers` and `customer_tokens` are rebuilt with foreign-key enforcement paused outside the transaction and checked afterwards, so sessions, tokens and orders are kept.
     - Downgrade refuses while guest buyer records exist. See `docs/commerce.md` (Guest checkout) and `docs/deployment.md`.
+
+  - `c3e8d1f20b47` (Batch 08): VPS storage, media categories and premium resources.
+    - Adds `media_assets.category`, product access rules (`download_limit`, `access_days`, `membership_eligible`), ordered related resources (`product_related`), `entitlements.expires_at` and the reserved entitlement sources `membership` and `course`, plus the `storage.view` permission.
+    - Plain `ADD COLUMN`s; on SQLite only `entitlements` is rebuilt, with foreign keys paused outside the transaction and checked afterwards. `products` is never rebuilt (its new positive-value checks are PostgreSQL-only).
+    - Downgrade refuses while membership or course entitlements exist. See `docs/resources.md`, `docs/hostinger-vps.md` and `docs/backups.md`.
 
 ### Upgrading to Batch 05
 

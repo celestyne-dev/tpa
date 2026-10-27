@@ -28,12 +28,17 @@ set -a && . ./.env && set +a
 
 ## Backups
 
+Batch 08 adds verified, encrypted, monitored backups of the database, images and premium
+files with a tested restore script: see `docs/backups.md`. Before a migration, run the
+backup job by hand (`sudo systemctl start tpa-backup.service`) or at least:
+
 ```bash
 pg_dump --format=custom --file=/var/backups/tpa-$(date +%F).dump "$DATABASE_URL"
 # restore: pg_restore --clean --dbname "$DATABASE_URL" /var/backups/tpa-YYYY-MM-DD.dump
 ```
 
-Back up before every migration, and keep off-server copies.
+For a complete Hostinger VPS setup (Ubuntu, Nginx, Gunicorn, PostgreSQL, Redis, storage,
+HTTPS, monitoring) see `docs/hostinger-vps.md`.
 
 ## Directories and permissions (Batch 03)
 
@@ -222,6 +227,44 @@ sudo systemctl restart tpa-api
 - Nginx: add `purchases` to the customer-area location so `/purchases` is `no-store` and `noindex`, as in `deploy/nginx/tpa.conf.example`. The page's prerendered shell is already `noindex`, and robots.txt disallows it.
 - In test mode, guests can pay only where `PAYMENTS_TEST_CHECKOUT_PUBLIC` is set, which is refused in production; otherwise only signed-in test accounts can pay. Live payments stay off until enabled in `/admin/payments`.
 - Downgrading refuses while guest buyer records exist, because orders and receipts depend on them.
+
+## Upgrading from Batch 07.6 (VPS storage and premium resources, Batch 08)
+
+One migration, `c3e8d1f20b47` (non-destructive): media categories, resource access rules
+and related resources, entitlement expiry with two reserved sources (membership,
+course), and the `storage.view` permission (granted to the Administrator and Website
+Manager templates).
+
+```bash
+sudo systemctl start tpa-backup.service || pg_dump --format=custom --file=/var/backups/tpa-before-08.dump "$DATABASE_URL"
+cd /var/www/tpa/backend && .venv/bin/pip install -r requirements.txt   # adds redis
+set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db upgrade        # a136d95dd67c -> c3e8d1f20b47
+.venv/bin/flask --app wsgi rbac sync         # should report zeros
+.venv/bin/flask --app wsgi storage init      # creates temp/category folders, fixes modes
+.venv/bin/flask --app wsgi storage check
+sudo systemctl restart tpa-api tpa-publish-worker tpa-email-worker
+.venv/bin/flask --app wsgi publish request   # rebuild: /resources page, access terms
+```
+
+- **Fix for Nginx delivery:** with `PRODUCT_FILES_ACCEL_REDIRECT_PREFIX` set, premium files
+  must be readable by the Nginx group. Earlier releases created them owner-only, so Nginx
+  answered 403. After upgrading, fix existing files once:
+  `sudo chgrp -R www-data /var/lib/tpa/product-files && sudo find /var/lib/tpa/product-files -type d -exec chmod 0750 {} + && sudo find /var/lib/tpa/product-files -type f -exec chmod 0640 {} +`
+  (use your `PRODUCT_FILES_ROOT`). `/admin/storage` reports it if it's still wrong.
+- **New settings** (see `backend/.env.example`): `UPLOAD_TEMP_ROOT`
+  (`/var/lib/tpa/temporary/uploads`), `RESOURCE_FILE_FORMATS`, `STORAGE_WARN_FREE_PERCENT`,
+  `STORAGE_CRITICAL_FREE_PERCENT`, `BACKUP_STATUS_FILE`, `BACKUP_MAX_AGE_HOURS`, and
+  `RATELIMIT_STORAGE_URI=redis://127.0.0.1:6379/0` (install `redis-server`).
+- **Optional move** to the Batch 08 layout (`/var/lib/tpa/resources/private`): see
+  `docs/hostinger-vps.md` §5. Keys are relative, so no database change is needed.
+- **New units:** `tpa-storage-maintenance.{service,timer}` and `tpa-backup.{service,timer}`
+  (`deploy/systemd/`); `tpa-api.service` now uses a 300 s timeout and `ProtectSystem=strict`
+  with `ReadWritePaths=/var/lib/tpa /var/www/tpa/backend/instance`.
+- **Nginx:** update the `/_protected_downloads/` alias if you move premium files; the new
+  example adds HTTPS, HTTP/2, cache headers for built-in images and a deny rule for storage
+  paths.
+- Downgrading refuses while membership or course entitlements exist.
 
 ## Frontend build (manual)
 

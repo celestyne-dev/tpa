@@ -103,6 +103,20 @@ Paystack ──► POST /payments/paystack/webhook (HMAC) ──► payment_even
 
 - **Separation.** Customers have their own model, session table and cookies. Admin JWT cookies are never accepted on customer endpoints, and the customer cookie is never accepted on admin endpoints.
 - **Private files.** `storage/private_files.py` writes to a temporary file, validates it (`commerce/files.py`), then moves it atomically under a random key. Nothing under `PRODUCT_FILES_ROOT` is ever served directly.
+
+## VPS storage and premium resources (Batch 08)
+
+```
+uploads ──► UPLOAD_TEMP_ROOT (request spooling + validation) ──atomic move──►
+   images:   MEDIA_ROOT/public (optimised, /media/ via Nginx) + MEDIA_ROOT/private (originals)
+   premium:  PRODUCT_FILES_ROOT/<ebooks|workbooks|templates|courses|downloads>/… (no URL)
+download: entitlement (active, not expired) ─► short-lived grant ─► Flask re-check ─►
+          X-Accel-Redirect /_protected_downloads/… (Nginx internal) or Flask stream
+```
+
+- Resources are products (`product_type` written resource types) with access rules and related resources; purchases, guest checkout, free claims and the future `access.grant()` (memberships, text-based courses) all create entitlements.
+- `services/storage_health.py` powers `/admin/storage` and `flask storage check`; `services/commerce/premium_files.py` the media library's premium files view.
+- Backups: `deploy/backup/` (verified, encrypted off-server copy, retention, status file read by the app).
 - **Payment truth.** Only provider-verified transactions change an order to paid. Webhooks and return pages share one code path (`services/commerce/payments.apply_verified`). Uniqueness constraints make replays, races and repeated clicks harmless.
 - **Settings vs secrets.** Non-secret payment settings are stored as site settings. The Paystack secret lives only in the environment. `payments/config.py` computes the effective mode and the readiness checks, and live mode is impossible without `PAYMENTS_LIVE_ALLOWED` plus the checklist.
 - **Frontend.** The public shop pages are part of the main SSR bundle so they can be prerendered. The private customer area (cart, checkout, account) is a lazily loaded chunk that is never prerendered with data. `ShopApiContext` supplies the customer API client, which sends the customer CSRF header.
