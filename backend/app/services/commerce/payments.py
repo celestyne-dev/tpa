@@ -154,6 +154,9 @@ def apply_verified(
         return "already_paid"
     db.session.refresh(order)
     granted = ent_service.grant_for_order(order)
+    from ..courses.learning import sync_for_order
+
+    sync_for_order(order)  # verified registered buyers start learning at once
     receipt = _issue_receipt(order, tx)
     owned_before = _owned_elsewhere(order)
     if previous_status == "cancelled":

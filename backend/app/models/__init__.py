@@ -39,6 +39,19 @@ from .content import (
     article_tags,
     article_topics,
 )
+from .courses import (
+    Assessment,
+    AssessmentAttempt,
+    AssessmentQuestion,
+    Course,
+    CourseCategory,
+    CourseCertificate,
+    CourseEnrollment,
+    CourseLesson,
+    CourseModule,
+    LessonProgress,
+    course_topics,
+)
 from .customer import (
     Customer,
     CustomerSession,
@@ -106,6 +119,17 @@ from .user import (
 )
 
 __all__ = [
+    "Assessment",
+    "AssessmentAttempt",
+    "AssessmentQuestion",
+    "Course",
+    "CourseCategory",
+    "CourseCertificate",
+    "CourseEnrollment",
+    "CourseLesson",
+    "CourseModule",
+    "LessonProgress",
+    "course_topics",
     "AdPlacement",
     "AffiliateClickDaily",
     "AffiliateCommission",

@@ -374,7 +374,14 @@ def export_data(customer: Customer, password: str) -> dict[str, Any]:
             {"at": iso(d.created_at), "status": d.status, "ip_address": d.ip_address}
             for d in downloads
         ],
+        "learning": _learning_export(customer),
     }
+
+
+def _learning_export(customer: Customer) -> list[dict[str, Any]]:
+    from ..courses.learning import export_learner
+
+    return export_learner(customer)
 
 
 def request_deletion(customer: Customer, password: str) -> dict[str, Any]:
@@ -443,6 +450,9 @@ def anonymise(customer: Customer, actor) -> None:
         .where(DownloadEvent.customer_id == original_id)
         .values(ip_address=None, user_agent="")
     )
+    from ..courses.learning import erase_learner
+
+    erase_learner(customer)
     audit_service.record(
         "customer.anonymised",
         "customer",

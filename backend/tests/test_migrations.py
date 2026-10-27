@@ -927,3 +927,107 @@ def test_batch076_guest_checkout_upgrade_preserves_orders_and_downgrades_safely(
         assert db.session.execute(text("SELECT number FROM orders")).scalar_one() == "TPA-1"
         db.session.remove()
         upgrade(directory=MIGRATIONS)
+
+
+def test_batch09_courses_upgrade_is_additive_and_downgrade_protects_learners(tmp_path):
+    import pytest
+
+    app = _app(tmp_path, "batch09.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="c3e8d1f20b47")
+        now = "2026-10-27 09:00:00"
+        db.session.execute(
+            text(
+                "INSERT INTO customers (public_id, email, display_name, password_hash, status, "
+                "is_test_account, support_notes, created_at, updated_at) VALUES "
+                "('c1', 'reader@example.com', 'Reader', 'x', 'active', 0, '', :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.commit()
+        counts = ("customers", "permissions", "roles", "role_permissions")
+        before = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        db.session.remove()
+
+        upgrade(directory=MIGRATIONS, revision="d4f9a2c61e58")
+        tables = set(inspect(db.engine).get_table_names())
+        assert {
+            "courses",
+            "course_categories",
+            "course_topics",
+            "course_modules",
+            "course_lessons",
+            "course_assessments",
+            "assessment_questions",
+            "course_enrollments",
+            "lesson_progress",
+            "assessment_attempts",
+            "course_certificates",
+        } <= tables
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert after["customers"] == before["customers"] and after["roles"] == before["roles"]
+        assert after["permissions"] == before["permissions"] + 10
+        assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        # The frozen grants match the code exactly (the sync changes nothing).
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        placeholder = db.session.execute(
+            text("SELECT is_available FROM permissions WHERE key = 'courses.manage'")
+        ).scalar_one()
+        assert placeholder in (0, False)
+        editor_perms = set(
+            db.session.execute(
+                text(
+                    "SELECT p.key FROM permissions p JOIN role_permissions rp ON rp.permission_id = p.id "
+                    "JOIN roles r ON r.id = rp.role_id WHERE r.name = 'editor' AND p.key LIKE 'courses.%'"
+                )
+            ).scalars()
+        )
+        assert "courses.publish" in editor_perms and "courses.view_enrollments" not in editor_perms
+
+        db.session.execute(
+            text(
+                "INSERT INTO courses (public_id, slug, title, subtitle, summary, description, "
+                "outcomes, prerequisites, audience, level, access_type, availability, "
+                "enrollment_open, certificate_enabled, is_featured, featured_order, noindex, "
+                "status, lock_version, created_at, updated_at) VALUES ('k1', 'kept', 'Kept', '', "
+                "'', '[]', '[]', '[]', '[]', 'all_levels', 'free', 'available', 1, 1, 0, 0, 0, "
+                "'draft', 1, :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.commit()
+        db.session.remove()
+        with pytest.raises(SystemExit):  # refuses: learners' records would be deleted
+            downgrade(directory=MIGRATIONS, revision="c3e8d1f20b47")
+        db.session.remove()
+        assert db.session.execute(text("SELECT COUNT(*) FROM courses")).scalar_one() == 1
+        db.session.execute(text("DELETE FROM courses"))
+        db.session.commit()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="c3e8d1f20b47")
+        assert "courses" not in set(inspect(db.engine).get_table_names())
+        restored = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert restored == before
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}  # re-upgrading lands on the same state
+
+
+def test_batch09_upgrade_after_an_early_rbac_sync(tmp_path):
+    """If the new code's RBAC sync runs before the migration, the result is the same."""
+    app = _app(tmp_path, "batch09-sync.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="c3e8d1f20b47")
+        sync_rbac()
+        db.session.commit()
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()

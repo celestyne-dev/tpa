@@ -342,6 +342,9 @@ class Shopper:
     def patch(self, url, json=None):
         return self.c.patch(url, json=json or {}, headers=self.headers())
 
+    def put(self, url, json=None):
+        return self.c.put(url, json=json or {}, headers=self.headers())
+
 
 def register_customer(app, email="reader@example.com", *, verify=True, test_account=True):
     from app.models import Customer

@@ -391,6 +391,7 @@ def library(customer: Customer, *, scope=None) -> list[dict[str, Any]]:
                     "cover": catalogue._Media([snapshot]).image(snapshot.get("cover_media_id"))
                     if snapshot
                     else None,
+                    "course": catalogue.course_link(product),
                 },
                 "source": ent.source,
                 "status": state,

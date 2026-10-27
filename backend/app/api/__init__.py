@@ -52,6 +52,12 @@ from .partnerships import PARTNERSHIP_PRIVATE_PREFIXES, PUBLIC_PARTNERSHIP_ROUTE
 for resource, path in PUBLIC_PARTNERSHIP_ROUTES:
     api.add_resource(resource, path, endpoint=f"partnership_{resource.__name__.lower()}")
 
+# ---- Text-based courses: catalogue, certificates and learners ---------------------
+from .courses import COURSE_PRIVATE_PREFIXES, PUBLIC_COURSE_ROUTES  # noqa: E402
+
+for resource, path in PUBLIC_COURSE_ROUTES:
+    api.add_resource(resource, path, endpoint=f"course_{resource.__name__.lower()}")
+
 # ---- Admin API ------------------------------------------------------------------
 from flask import request  # noqa: E402
 
@@ -82,7 +88,10 @@ def _admin_no_store(response):
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     elif request.path.startswith(
-        PRIVATE_PREFIXES + NEWSLETTER_PRIVATE_PREFIXES + PARTNERSHIP_PRIVATE_PREFIXES
+        PRIVATE_PREFIXES
+        + NEWSLETTER_PRIVATE_PREFIXES
+        + PARTNERSHIP_PRIVATE_PREFIXES
+        + COURSE_PRIVATE_PREFIXES
     ):
         response.headers.setdefault("Cache-Control", "no-store")
         response.headers["X-Robots-Tag"] = "noindex, nofollow"

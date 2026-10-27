@@ -1,8 +1,10 @@
 """Extensible product type registry.
 
-A product type decides how a product is delivered. Types that are not yet
-deliverable (courses, memberships) are registered as ``planned`` so editors see
-them coming, but they cannot be selected until a later batch implements them.
+A product type decides how a product is delivered. ``course`` products are sold through
+the normal checkout and give access to the text-based course that links to them (their
+files, if any, are the course worksheets). Types that are not yet deliverable
+(memberships) are registered as ``planned`` so editors see them coming, but they cannot
+be selected until a later batch implements them.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from dataclasses import dataclass
 class ProductType:
     key: str
     label: str
-    delivery: str  # "files" | "bundle" | "planned"
+    delivery: str  # "files" | "bundle" | "course" | "planned"
     default_format: str = ""
     description: str = ""
 
@@ -45,7 +47,13 @@ PRODUCT_TYPES: dict[str, ProductType] = {
             "Multiple products",
             "Grants access to every included product.",
         ),
-        ProductType("course", "Online course", "planned", description="Planned for a later batch."),
+        ProductType(
+            "course",
+            "Online course",
+            "course",
+            "Text-based course",
+            "Gives access to the linked course (written lessons, exercises and worksheets).",
+        ),
         ProductType(
             "membership", "Membership", "planned", description="Planned for a later batch."
         ),

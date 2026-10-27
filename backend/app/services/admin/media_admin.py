@@ -200,6 +200,28 @@ def usage_index() -> dict[int, list[dict[str, Any]]]:
                 "public": collection.is_active,
             },
         )
+    from ...models import Course, CourseLesson
+
+    for course in db.session.scalars(select(Course)):
+        public = course.status == "published"
+        base = {"type": "course", "id": course.id, "label": course.title, "status": course.status}
+        add(course.cover_media_id, {**base, "field": "course cover", "public": public})
+        add(course.social_image_id, {**base, "field": "social image", "public": public})
+        for asset_id in _block_media_ids(course.description):
+            add(asset_id, {**base, "field": "description", "public": public})
+    for lesson in db.session.scalars(select(CourseLesson)):
+        for asset_id in _block_media_ids(lesson.body):
+            add(
+                asset_id,
+                {
+                    "type": "course_lesson",
+                    "id": lesson.id,
+                    "label": lesson.title,
+                    "field": "lesson content",
+                    # Lessons are only shown to enrolled learners (never publicly listed).
+                    "public": False,
+                },
+            )
     return index
 
 

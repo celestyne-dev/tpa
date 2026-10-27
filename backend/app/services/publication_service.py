@@ -153,14 +153,17 @@ def publish_due_scheduled(now: datetime | None = None) -> dict[str, Any]:
                 details={"error": type(exc).__name__},
             )
     pages = _publish_due_pages(now)
+    from .courses.admin import publish_due as publish_due_courses
+
+    courses = publish_due_courses(now)
     rebuild = _visibility_boundaries_passed(now)
     from .commerce.payments import expire_orders
 
     expired = expire_orders(now)
     return {
         "expired_orders": expired,
-        "published": published + pages["published"],
-        "failed": failed + pages["failed"],
+        "published": published + pages["published"] + courses["published"],
+        "failed": failed + pages["failed"] + courses["failed"],
         "boundary_rebuild": rebuild,
     }
 

@@ -113,7 +113,6 @@ class Permission(StrEnum):
     EMAIL_AUTOMATIONS_MANAGE = "email_automations.manage"
     LEAD_MAGNETS_MANAGE = "lead_magnets.manage"
     EMAIL_SETTINGS_MANAGE = "email_settings.manage"
-    COURSES_MANAGE = "courses.manage"
     MEMBERSHIPS_MANAGE = "memberships.manage"
     FINANCE_VIEW = "finance.view"
     FINANCE_EXPORT = "finance.export"
@@ -124,6 +123,16 @@ class Permission(StrEnum):
     ROLES_ASSIGN = "roles.assign"
     AUDIT_VIEW = "audit.view"
     STORAGE_VIEW = "storage.view"
+    COURSES_VIEW = "courses.view"
+    COURSES_CREATE = "courses.create"
+    COURSES_EDIT = "courses.edit"
+    COURSES_PUBLISH = "courses.publish"
+    COURSES_ARCHIVE = "courses.archive"
+    COURSES_MANAGE_CURRICULUM = "courses.manage_curriculum"
+    COURSES_MANAGE_ASSESSMENTS = "courses.manage_assessments"
+    COURSES_VIEW_ENROLLMENTS = "courses.view_enrollments"
+    COURSES_MANAGE_ENROLLMENTS = "courses.manage_enrollments"
+    COURSES_VIEW_REPORTS = "courses.view_reports"
 
 
 P = Permission
@@ -598,7 +607,6 @@ CATALOGUE: list[PermissionDef] = [
         description="Sending mode (disabled/test/live), sender identity, consent wording and "
         "deliverability confirmations.",
     ),
-    _d(P.COURSES_MANAGE, "Manage courses", "Courses & memberships", "courses", available=False),
     _d(
         P.MEMBERSHIPS_MANAGE,
         "Manage memberships",
@@ -646,6 +654,53 @@ CATALOGUE: list[PermissionDef] = [
         "storage",
         description="Disk space, folder permissions, missing files, upload errors and backups.",
     ),
+    # Batch 09: text-based courses (appended so existing permissions keep their order).
+    _d(P.COURSES_VIEW, "View courses", "Courses & memberships", "courses"),
+    _d(P.COURSES_CREATE, "Create courses", "Courses & memberships", "courses"),
+    _d(
+        P.COURSES_EDIT,
+        "Edit course details",
+        "Courses & memberships",
+        "courses",
+        description="Descriptions, outcomes, pricing link, access rules, SEO and covers.",
+    ),
+    _d(
+        P.COURSES_PUBLISH,
+        "Publish courses",
+        "Courses & memberships",
+        "courses",
+        description="Publish, schedule and unpublish courses and lessons.",
+    ),
+    _d(P.COURSES_ARCHIVE, "Archive courses", "Courses & memberships", "courses"),
+    _d(
+        P.COURSES_MANAGE_CURRICULUM,
+        "Manage course curriculum",
+        "Courses & memberships",
+        "courses",
+        description="Modules, lessons, lesson content, order and worksheets.",
+    ),
+    _d(
+        P.COURSES_MANAGE_ASSESSMENTS,
+        "Manage assessments",
+        "Courses & memberships",
+        "courses",
+        description="Quizzes, reflections, questions and answer keys.",
+    ),
+    _d(
+        P.COURSES_VIEW_ENROLLMENTS,
+        "View enrolments and progress",
+        "Courses & memberships",
+        "courses",
+        description="Learners, progress, assessment results and certificates.",
+    ),
+    _d(
+        P.COURSES_MANAGE_ENROLLMENTS,
+        "Manage enrolments and certificates",
+        "Courses & memberships",
+        "courses",
+        description="Enrol or remove learners, revoke or correct certificates.",
+    ),
+    _d(P.COURSES_VIEW_REPORTS, "View course reports", "Courses & memberships", "courses"),
 ]
 
 CATALOGUE_BY_KEY: dict[str, PermissionDef] = {d.key.value: d for d in CATALOGUE}
@@ -1099,6 +1154,31 @@ BATCH_08_GRANTS: dict[str, frozenset[str]] = {
     "website_manager": _set(P.STORAGE_VIEW),
 }
 
+COURSE_AUTHORING = _set(
+    P.COURSES_VIEW,
+    P.COURSES_CREATE,
+    P.COURSES_EDIT,
+    P.COURSES_MANAGE_CURRICULUM,
+    P.COURSES_MANAGE_ASSESSMENTS,
+)
+COURSE_PUBLISHING = COURSE_AUTHORING | _set(P.COURSES_PUBLISH, P.COURSES_ARCHIVE)
+COURSES_ALL = COURSE_PUBLISHING | _set(
+    P.COURSES_VIEW_ENROLLMENTS, P.COURSES_MANAGE_ENROLLMENTS, P.COURSES_VIEW_REPORTS
+)
+BATCH_09_GRANTS: dict[str, frozenset[str]] = {
+    "editor": COURSE_PUBLISHING,
+    "analyst": _set(P.COURSES_VIEW, P.COURSES_VIEW_REPORTS),
+    "administrator": COURSES_ALL,
+    "editor_in_chief": COURSE_PUBLISHING | _set(P.COURSES_VIEW_REPORTS),
+    "content_editor": COURSE_AUTHORING,
+    "customer_support": _set(
+        P.COURSES_VIEW, P.COURSES_VIEW_ENROLLMENTS, P.COURSES_MANAGE_ENROLLMENTS
+    ),
+    "marketing_manager": _set(P.COURSES_VIEW, P.COURSES_VIEW_REPORTS),
+    "product_manager": _set(P.COURSES_VIEW),
+    "website_manager": _set(P.COURSES_VIEW),
+}
+
 
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
@@ -1108,6 +1188,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_06_GRANTS.get(spec.key, frozenset())
         | BATCH_07_GRANTS.get(spec.key, frozenset())
         | BATCH_08_GRANTS.get(spec.key, frozenset())
+        | BATCH_09_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

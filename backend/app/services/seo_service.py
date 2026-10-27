@@ -27,6 +27,7 @@ STATIC_PATHS: list[tuple[str, float, str]] = [
     ("/shop", 0.8, "weekly"),
     ("/free-resources", 0.8, "monthly"),
     ("/resources", 0.8, "weekly"),
+    ("/courses", 0.8, "weekly"),
     ("/newsletter", 0.7, "monthly"),
     ("/partner-with-us", 0.6, "monthly"),
     ("/advertise", 0.5, "monthly"),
@@ -97,9 +98,16 @@ def _known_paths() -> tuple[set[str], set[str], set[str], set[str]]:
         "/register",
         "/forgot-password",
         "/admin/login",
+        "/account/learning",
+    }
+    from ..models import Course
+
+    courses = {
+        f"/courses/{slug}"
+        for slug in db.session.scalars(select(Course.slug).where(Course.status == "published"))
     }
     return (
-        {p for p, _, _ in STATIC_PATHS} | pages | shop | commerce_pages,
+        {p for p, _, _ in STATIC_PATHS} | pages | shop | commerce_pages | courses,
         articles,
         topics,
         redirects,
@@ -697,6 +705,36 @@ def sitemap_entries() -> list[dict[str, Any]]:
             }
         )
     entries.extend(_shop_entries(excluded))
+    entries.extend(_course_entries(excluded))
+    return entries
+
+
+def _course_entries(excluded: set[str]) -> list[dict[str, Any]]:
+    """Published, indexable course pages (lessons and learner pages are never listed)."""
+    from ..models import Course
+
+    entries = []
+    for course in db.session.scalars(
+        select(Course).where(Course.status == "published", Course.noindex.is_(False))
+    ):
+        path = f"/courses/{course.slug}"
+        if path in excluded:
+            continue
+        images = []
+        asset = db.session.get(MediaAsset, course.cover_media_id) if course.cover_media_id else None
+        if asset is not None and asset.visibility == "public" and asset.status != "archived":
+            image = asset.as_image() or {}
+            images.append({"loc": _absolute(image.get("src") or asset.public_url)})
+        entries.append(
+            {
+                "type": "course",
+                "path": path,
+                "priority": 0.7,
+                "changefreq": "weekly",
+                "lastmod": iso(course.updated_at),
+                "images": images,
+            }
+        )
     return entries
 
 

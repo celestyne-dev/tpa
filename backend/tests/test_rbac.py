@@ -35,7 +35,12 @@ def test_permission_matrix_is_least_privilege():
     assert not {Permission.ARTICLES_EDIT_ANY, Permission.ARTICLES_EDIT_OWN} & moderator
     analyst = specs[RoleName.ANALYST.value].permissions
     # Read-only: views, previews and revision history only.
-    assert all(p.endswith(".view") or p == "articles.preview" for p in analyst)
+    assert all(
+        p.endswith(".view") or ".view_" in p or p == "articles.preview" for p in analyst
+    )  # read-only keys: *.view, *.view_<scope> (e.g. courses.view_reports), previews
+    assert not any(
+        k.split(".")[1].startswith(("create", "edit", "publish", "manage")) for k in analyst
+    )
     for spec in specs.values():
         assert not spec.permissions & SENSITIVE_PERMISSIONS
 

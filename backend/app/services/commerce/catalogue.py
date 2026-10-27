@@ -154,6 +154,34 @@ def bundle_depth(product: Product, depth: int = 0) -> int:
 # ---- readiness --------------------------------------------------------------------------
 
 
+def linked_course(product: Product):
+    from ...models import Course
+
+    return db.session.scalar(select(Course).where(Course.product_id == product.id))
+
+
+def course_link(product: Product) -> dict[str, str] | None:
+    """For course products: the course they open (learners follow it to start learning)."""
+    if product.product_type != "course":
+        return None
+    course = linked_course(product)
+    if course is None or course.status not in ("published", "archived"):
+        return None
+    return {"slug": course.slug, "title": course.title}
+
+
+def course_issue(product: Product) -> str | None:
+    """Why a course product can't be sold: it needs a published, available course."""
+    course = linked_course(product)
+    if course is None:
+        return "No course is linked to this product."
+    if course.status != "published":
+        return "The linked course is not published."
+    if course.availability != "available":
+        return "The linked course is marked as coming soon."
+    return None
+
+
 def readiness(product: Product, now: datetime | None = None) -> dict[str, Any]:
     """Problems that keep a product from being sold, plus the purchasable flag.
 
@@ -175,8 +203,22 @@ def readiness(product: Product, now: datetime | None = None) -> dict[str, Any]:
                 continue
             if child.status == "archived":
                 issues.append(f"Included product “{child.title}” is archived.")
+            elif child.product_type == "course":
+                if course_issue(child):
+                    issues.append(f"Included course “{child.title}” is not available yet.")
             elif not deliverable_files(child):
                 issues.append(f"Included product “{child.title}” has no deliverable files.")
+    elif product.product_type == "course":
+        # Course access is the deliverable; worksheets are optional (but must be scanned).
+        if issue := course_issue(product):
+            issues.append(issue)
+        if any(
+            f.status == "active"
+            and f.current_version is not None
+            and not f.current_version.deliverable
+            for f in product.files
+        ):
+            issues.append("Some worksheets are awaiting a malware scan or failed it.")
     else:
         files = deliverable_files(product)
         pending = [
@@ -401,6 +443,7 @@ def public_product(
         ],
         "highlights": (doc.get("benefits") or [])[:3],
         "access": access_terms(product),
+        "course": course_link(product),
         "published_at": iso(product.first_published_at or product.published_at),
         "available_from": iso(product.available_from),
     }

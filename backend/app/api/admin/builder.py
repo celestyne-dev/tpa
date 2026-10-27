@@ -451,6 +451,7 @@ def seo_service_static_labels() -> dict[str, str]:
         "/shop": "Shop",
         "/free-resources": "Free Resources",
         "/resources": "Resource Library",
+        "/courses": "Courses",
         "/newsletter": "Newsletter",
         "/partner-with-us": "Partner With Us",
         "/advertise": "Advertise (media kit)",

@@ -5,6 +5,7 @@ from . import (
     builder,
     commerce,
     content,
+    courses,
     media,
     newsletter,
     partnerships,
@@ -132,6 +133,7 @@ ADMIN_ROUTES = [
     *newsletter.NEWSLETTER_ROUTES,
     *partnerships.PARTNERSHIP_ROUTES,
     *storage.STORAGE_ROUTES,
+    *courses.COURSE_ADMIN_ROUTES,
 ]
 
 # Endpoints reachable without an access token (they authenticate in other ways).
