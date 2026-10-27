@@ -21,9 +21,11 @@ upstream tpa_api {
 #   /var/lib/tpa/resources/private/   premium files (internal location only)
 #   /var/lib/tpa/temporary/uploads/   uploads in progress (never served)
 
-# Keep open file handles for frequently served static files.
+# Keep open file handles for frequently served static files. Cached entries are
+# re-checked every 10s: publishing switches the "current" release symlink, and a longer
+# interval would keep serving the previous release's pages for that long.
 open_file_cache max=2000 inactive=60s;
-open_file_cache_valid 120s;
+open_file_cache_valid 10s;
 
 # Plain HTTP only redirects to HTTPS (certbot answers its challenge here too).
 server {
