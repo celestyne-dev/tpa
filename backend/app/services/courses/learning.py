@@ -320,30 +320,70 @@ def _assessment_done(assessment: Assessment, attempts: list[AssessmentAttempt]) 
     return state in ("passed", "submitted")
 
 
+def required_assignments(course: Course) -> list:
+    """Published, required written assignments (Batch 09.2). See the completion policy in
+    services/courses/assignment_admin.py: they apply to enrolments not yet completed."""
+    from ...models import CourseAssignment
+
+    return list(
+        db.session.scalars(
+            select(CourseAssignment).where(
+                CourseAssignment.course_id == course.id,
+                CourseAssignment.status == "published",
+                CourseAssignment.required.is_(True),
+            )
+        )
+    )
+
+
+def _assignments_done(enrollment: CourseEnrollment, assignments: list) -> int:
+    """Required assignments with a released, passing grade (submission ``completed``)."""
+    if not assignments:
+        return 0
+    from ...models import AssignmentSubmission
+
+    return int(
+        db.session.scalar(
+            select(func.count(AssignmentSubmission.id)).where(
+                AssignmentSubmission.enrollment_id == enrollment.id,
+                AssignmentSubmission.assignment_id.in_([a.id for a in assignments]),
+                AssignmentSubmission.status == "completed",
+            )
+        )
+        or 0
+    )
+
+
 def progress(enrollment: CourseEnrollment) -> dict[str, Any]:
     course = enrollment.course
     lessons, assessments = requirements(course)
+    assignments = required_assignments(course)
     rows = _progress_rows(enrollment)
     attempts = _attempts(enrollment)
     lessons_done = sum(
         1 for lesson in lessons if rows.get(lesson.id) and rows[lesson.id].completed_at
     )
     assessments_done = sum(1 for a in assessments if _assessment_done(a, attempts.get(a.id, [])))
-    total = len(lessons) + len(assessments)
-    done = lessons_done + assessments_done
+    assignments_done = _assignments_done(enrollment, assignments)
+    total = len(lessons) + len(assessments) + len(assignments)
+    done = lessons_done + assessments_done + assignments_done
     return {
         "percent": round(100 * done / total) if total else 0,
         "required_lessons": len(lessons),
         "completed_lessons": lessons_done,
         "required_assessments": len(assessments),
         "completed_assessments": assessments_done,
+        "required_assignments": len(assignments),
+        "completed_assignments": assignments_done,
         "complete": bool(total) and done == total,
     }
 
 
 def recompute(enrollment: CourseEnrollment) -> dict[str, Any]:
     state = progress(enrollment)
-    enrollment.progress_percent = state["percent"]
+    # Completion is never undone: requirements added later (e.g. a new required
+    # assignment) don't revoke a completed course or its certificate.
+    enrollment.progress_percent = 100 if enrollment.completed_at else state["percent"]
     if state["complete"] and enrollment.completed_at is None:
         enrollment.completed_at = _now()
         audit_service.record(
@@ -832,9 +872,10 @@ def export_learner(customer: Customer) -> list[dict[str, Any]]:
 def erase_learner(customer: Customer) -> None:
     """On account deletion: remove private notes and written answers, end enrolments and
     revoke certificates (their verification page would otherwise show the name)."""
-    from . import study
+    from . import study, submissions
 
     study.erase(customer)
+    submissions.erase_learner(customer)
     now = _now()
     for enrollment in db.session.scalars(
         select(CourseEnrollment).where(CourseEnrollment.customer_id == customer.id)

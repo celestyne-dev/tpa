@@ -147,6 +147,14 @@ class BaseConfig:
         if f.strip()
     ]
     PRODUCT_FILES_MIN_FREE_MB = _int("PRODUCT_FILES_MIN_FREE_MB", 500)
+    # Batch 09.2: learners' supporting documents for assignments (private storage).
+    SUBMISSION_FILE_MAX_MB = _int("SUBMISSION_FILE_MAX_MB", 20)
+    SUBMISSION_MAX_FILES = _int("SUBMISSION_MAX_FILES", 5)
+    SUBMISSION_FILE_FORMATS = [
+        f.strip()
+        for f in os.environ.get("SUBMISSION_FILE_FORMATS", "pdf,docx").split(",")
+        if f.strip()
+    ]
     # Optional malware scanner as a JSON argv list run by the background worker (no shell),
     # e.g. ["clamdscan", "--no-summary", "--fdpass", "{path}"]. Exit 0 = clean, 1 = infected.
     PRODUCT_FILES_SCAN_COMMAND = os.environ.get("PRODUCT_FILES_SCAN_COMMAND", "")

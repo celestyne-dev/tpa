@@ -1,6 +1,7 @@
 """Admin API (/api/v1/admin). Every resource enforces authentication and permissions."""
 
 from . import (
+    assignments,
     auth,
     builder,
     commerce,
@@ -134,6 +135,7 @@ ADMIN_ROUTES = [
     *partnerships.PARTNERSHIP_ROUTES,
     *storage.STORAGE_ROUTES,
     *courses.COURSE_ADMIN_ROUTES,
+    *assignments.ASSIGNMENT_ADMIN_ROUTES,
 ]
 
 # Endpoints reachable without an access token (they authenticate in other ways).

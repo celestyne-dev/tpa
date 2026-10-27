@@ -1110,8 +1110,8 @@ def test_batch091_study_upgrade_preserves_content_and_downgrade_protects_learner
         db.session.remove()
 
         upgrade(directory=MIGRATIONS, revision="e5a7c3b91d20")
-        assert set(sync_rbac().values()) == {0}  # frozen grants match the code
-        db.session.rollback()
+        # (Frozen grants are compared with the code at the head revision, below: later
+        # batches add permissions, so a sync at this revision would add those.)
         rows = db.session.execute(
             text(
                 "SELECT id, body, live_revision, lock_version, draft FROM course_lessons ORDER BY id"
@@ -1176,6 +1176,114 @@ def test_batch091_study_upgrade_preserves_content_and_downgrade_protects_learner
         assert (
             db.session.execute(
                 text("SELECT COUNT(*) FROM permissions WHERE key = 'courses.view_drafts'")
+            ).scalar_one()
+            == 0
+        )
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}
+
+
+def test_batch092_assignments_upgrade_is_additive_and_downgrade_protects_work(tmp_path):
+    """Existing accounts, courses, progress and certificates are untouched; the RBAC
+    grants match the code; downgrade refuses while any assignment exists."""
+    import pytest
+
+    app = _app(tmp_path, "batch092.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="e5a7c3b91d20")
+        now = "2026-10-28 09:00:00"
+        db.session.execute(
+            text(
+                "INSERT INTO customers (id, public_id, email, display_name, password_hash, status, "
+                "is_test_account, support_notes, created_at, updated_at) VALUES "
+                "(1, 'c1', 'reader@example.com', 'Reader', 'x', 'active', 0, '', :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.execute(
+            text(
+                "INSERT INTO courses (id, public_id, slug, title, subtitle, summary, description, "
+                "outcomes, prerequisites, audience, level, access_type, availability, "
+                "enrollment_open, certificate_enabled, is_featured, featured_order, noindex, "
+                "status, lock_version, created_at, updated_at) VALUES (1, 'k1', 'kept', 'Kept', "
+                "'', '', '[]', '[]', '[]', '[]', 'all_levels', 'free', 'available', 1, 1, 0, 0, 0, "
+                "'published', 1, :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.execute(
+            text(
+                "INSERT INTO course_enrollments (id, customer_id, course_id, source, status, "
+                "enrolled_at, progress_percent, completed_at, revoked_reason) VALUES "
+                "(1, 1, 1, 'free', 'active', :n, 100, :n, '')"
+            ),
+            {"n": now},
+        )
+        db.session.execute(
+            text(
+                "INSERT INTO course_certificates (code, enrollment_id, customer_id, course_id, "
+                "recipient_name, course_title, issued_at, revoked_reason, correction_note) VALUES "
+                "('TPA-AAAA-BBBB-CCCC', 1, 1, 1, 'Reader', 'Kept', :n, '', '')"
+            ),
+            {"n": now},
+        )
+        db.session.commit()
+        counts = ("customers", "courses", "course_enrollments", "course_certificates", "roles")
+        before = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        db.session.remove()
+
+        upgrade(directory=MIGRATIONS, revision="f6b8d4a2c913")
+        tables = set(inspect(db.engine).get_table_names())
+        assert {
+            "course_assignments",
+            "assignment_rubrics",
+            "assignment_submissions",
+            "assignment_attempts",
+            "assignment_grades",
+            "assignment_files",
+            "assignment_exceptions",
+            "course_assessors",
+        } <= tables
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert after == before
+        assert db.session.execute(
+            text("SELECT completed_at FROM course_enrollments WHERE id = 1")
+        ).scalar_one()
+        assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+
+        db.session.execute(
+            text(
+                "INSERT INTO course_assignments (public_id, course_id, kind, title, instructions, "
+                "prompts, requirements, required, resubmission_policy, late_policy, status, "
+                "position, lock_version, created_at, updated_at) VALUES ('a1', 1, 'essay', 'A', "
+                "'', '[]', '{}', 1, 'none', 'block', 'draft', 0, 1, :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.commit()
+        db.session.remove()
+        with pytest.raises(SystemExit):  # refuses: learners' work would be deleted
+            downgrade(directory=MIGRATIONS, revision="e5a7c3b91d20")
+        db.session.remove()
+        db.session.execute(text("DELETE FROM course_assignments"))
+        db.session.commit()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="e5a7c3b91d20")
+        assert "course_assignments" not in set(inspect(db.engine).get_table_names())
+        restored = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert restored == before
+        assert (
+            db.session.execute(
+                text("SELECT COUNT(*) FROM permissions WHERE key LIKE 'assignments.%'")
             ).scalar_one()
             == 0
         )

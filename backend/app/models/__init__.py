@@ -1,5 +1,15 @@
 """SQLAlchemy models. Import every model here so Flask-Migrate detects it."""
 
+from .assignments import (
+    AssignmentAttempt,
+    AssignmentException,
+    AssignmentFile,
+    AssignmentGrade,
+    AssignmentRubric,
+    AssignmentSubmission,
+    CourseAssessor,
+    CourseAssignment,
+)
 from .audit import AuditLog
 from .base import TimestampMixin
 from .cms import (
@@ -128,6 +138,14 @@ __all__ = [
     "Assessment",
     "AssessmentAttempt",
     "AssessmentQuestion",
+    "AssignmentAttempt",
+    "AssignmentException",
+    "AssignmentFile",
+    "AssignmentGrade",
+    "AssignmentRubric",
+    "AssignmentSubmission",
+    "CourseAssessor",
+    "CourseAssignment",
     "Course",
     "CourseCategory",
     "CourseCertificate",

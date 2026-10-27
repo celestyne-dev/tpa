@@ -9,8 +9,9 @@ through an ``internal`` X-Accel-Redirect location).
 
 Layout: ``<category>/<file id>/v<n>/<random>.<ext>``, where the category folder
 (``ebooks``, ``workbooks``, ``templates``, ``courses``, ``downloads``) follows the
-product type. Keys written before Batch 08 have no category folder; they stay
-valid because the full key is stored with each version.
+product type; learners' assignment documents live under ``submissions/``. Keys written
+before Batch 08 have no category folder; they stay valid because the full key is stored
+with each version.
 
 Uploads are received into ``UPLOAD_TEMP_ROOT`` (validated there), then moved into
 place atomically. Permissions are owner-only, except that the group may read when
@@ -51,7 +52,8 @@ CATEGORY_FOLDERS = {
     "checklist": "templates",
     "course": "courses",
 }
-CATEGORIES = ("ebooks", "workbooks", "templates", "courses", "downloads")
+# "submissions" holds learners' assignment documents (Batch 09.2); never product files.
+CATEGORIES = ("ebooks", "workbooks", "templates", "courses", "downloads", "submissions")
 
 
 def category_for(product_type: str) -> str:

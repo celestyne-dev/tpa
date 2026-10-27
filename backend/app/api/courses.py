@@ -18,7 +18,7 @@ from flask_restful import Resource
 
 from ..auth.customer_session import current_customer, require_customer
 from ..extensions import db, limiter
-from ..services.courses import certificates, learning, public, search, study
+from ..services.courses import certificates, learning, public, search, study, submissions
 from ..utils.errors import NotFoundError, ValidationError
 from ..utils.responses import success
 
@@ -359,6 +359,86 @@ class StudyPreferencesResource(Resource):
         return success(data)
 
 
+# ---- written assignments (Batch 09.2) -------------------------------------------------------
+
+
+class LearnerAssignmentListResource(Resource):
+    @require_customer
+    def get(self, slug: str):
+        data = submissions.list_for_learner(
+            current_customer(), learning.learner_course_by_slug(slug)
+        )
+        db.session.commit()
+        return success(data)
+
+
+class LearnerAssignmentResource(Resource):
+    @require_customer
+    def get(self, slug: str, assignment_id: str):
+        data = submissions.get_for_learner(
+            current_customer(), learning.learner_course_by_slug(slug), assignment_id
+        )
+        db.session.commit()
+        return success(data)
+
+
+class LearnerAssignmentDraftResource(Resource):
+    method_decorators = {"put": [limiter.limit("60 per minute")]}
+
+    @require_customer
+    def put(self, slug: str, assignment_id: str):
+        data = submissions.save_draft(
+            current_customer(), learning.learner_course_by_slug(slug), assignment_id, _body()
+        )
+        db.session.commit()
+        return success(data)
+
+
+class LearnerAssignmentSubmitResource(Resource):
+    method_decorators = {"post": [limiter.limit("10 per minute")]}
+
+    @require_customer
+    def post(self, slug: str, assignment_id: str):
+        data, created = submissions.submit(
+            current_customer(), learning.learner_course_by_slug(slug), assignment_id, _body()
+        )
+        db.session.commit()
+        return success(data, status=201 if created else 200)
+
+
+class LearnerAssignmentFilesResource(Resource):
+    method_decorators = {"post": [limiter.limit("20 per hour")]}
+
+    @require_customer
+    def post(self, slug: str, assignment_id: str):
+        data = submissions.upload(
+            current_customer(),
+            learning.learner_course_by_slug(slug),
+            assignment_id,
+            request.files.get("file"),
+        )
+        db.session.commit()
+        return success(data, status=201)
+
+
+class LearnerAssignmentFileResource(Resource):
+    method_decorators = {"delete": [limiter.limit("30 per minute")]}
+
+    @require_customer
+    def delete(self, file_id: str):
+        submissions.remove_file(current_customer(), file_id)
+        db.session.commit()
+        return success({"deleted": True})
+
+
+class LearnerAssignmentFileDownloadResource(Resource):
+    decorators = [limiter.limit("60 per minute")]
+
+    @require_customer
+    def get(self, file_id: str):
+        return submissions.download_for_learner(current_customer(), file_id)
+
+
 PUBLIC_COURSE_ROUTES = [
     (CourseListResource, "/courses"),
     (CourseDetailResource, "/courses/<string:slug>"),
@@ -407,6 +487,25 @@ PUBLIC_COURSE_ROUTES = [
     (StudyNotebookResource, "/account/study/notebook"),
     (StudyExportResource, "/account/study/export"),
     (StudyPreferencesResource, "/account/study/preferences"),
+    (LearnerAssignmentListResource, "/account/learning/<string:slug>/assignments"),
+    (
+        LearnerAssignmentResource,
+        "/account/learning/<string:slug>/assignments/<string:assignment_id>",
+    ),
+    (
+        LearnerAssignmentDraftResource,
+        "/account/learning/<string:slug>/assignments/<string:assignment_id>/draft",
+    ),
+    (
+        LearnerAssignmentSubmitResource,
+        "/account/learning/<string:slug>/assignments/<string:assignment_id>/submit",
+    ),
+    (
+        LearnerAssignmentFilesResource,
+        "/account/learning/<string:slug>/assignments/<string:assignment_id>/files",
+    ),
+    (LearnerAssignmentFileResource, "/account/assignment-files/<string:file_id>"),
+    (LearnerAssignmentFileDownloadResource, "/account/assignment-files/<string:file_id>/download"),
 ]
 
 # Certificate checks are public but never cached or indexed (they contain a name).

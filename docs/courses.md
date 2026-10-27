@@ -329,3 +329,46 @@ permission on the server.
 - Limitations: highlights cover text within one block; the search fallback on SQLite is
   simple word matching; reading positions are per lesson (block level, not character
   level); comparing versions shows block text, not word-by-word changes.
+
+## 20. Written assignments and grading (Batch 09.2, phase 1 — backend)
+
+- **Assignments** (written, project, case study, essay, structured reflection) belong to a
+  course and optionally a lesson. They have prompts, submission requirements (word limits,
+  supporting documents none/optional/required, file count), _required_ or optional status,
+  an attempt limit, a resubmission policy (`none`, `on_request` after _changes
+  requested_, `always`), optional availability and deadline, and draft / published /
+  archived states. Learners never see drafts or archived assignments.
+- **Deadlines** are stored in UTC; staff must send ISO 8601 times with a timezone
+  (`2026-11-30T23:59:00-05:00`). `late_policy=block` refuses late work, `allow` marks it late.
+  Staff with _Manage grading exceptions_ can grant a later deadline or extra attempts for
+  one learner (with a reason, audited).
+- **Submissions:** learners save private drafts (version-checked), then submit. A submitted
+  attempt is frozen and kept forever; retried submit requests (same `idempotency_key`) never
+  create a second attempt. Staff only see submitted attempts, never drafts.
+- **Supporting documents:** PDF and DOCX by default (`SUBMISSION_FILE_FORMATS`), at most
+  `SUBMISSION_FILE_MAX_MB` (20) each and `SUBMISSION_MAX_FILES` (5). Content is validated like
+  premium files (type sniffing, macro/ActiveX/embedded-object and PDF-script rejection) and
+  stored under `submissions/` in `PRODUCT_FILES_ROOT` with random names. Downloads: the
+  learner (with current course access) and in-scope assessors only, `no-store`, audited.
+  Removing a document from a draft deletes the file; `flask storage cleanup-temp` removes
+  abandoned temporary uploads.
+- **Rubrics** are immutable numbered versions (criteria with maximum points, performance
+  descriptors, passing percentage, optional required feedback). A grade stays tied to the
+  version it was scored against. Without a rubric, an assignment uses pass/fail grading.
+- **Workflow:** pending review → under review → graded / completed (passed) / changes
+  requested → resubmitted → … Released grades show scores and feedback to the learner;
+  private staff notes never leave the admin. Releasing, changing and retracting grades are
+  audited, and stale edits are refused (`edit_conflict`).
+- **Who can grade:** `assignments.view_submissions`, `assignments.grade`,
+  `assignments.publish_grades`, plus scope: staff who manage assignments, or users listed as
+  the course's assessors. The permission alone is not enough.
+- **Completion policy (versioned by publication):** a published, required assignment counts
+  towards completion (it needs a released, passing grade) for every enrolment that hasn't
+  completed the course yet; `required_since` records when it started to apply. Completed
+  enrolments and issued certificates are never revoked by assignment rules added or changed
+  later, and retracting a grade doesn't revoke a completion that already happened.
+- **Personal data:** the account export includes the learner's work and released grades;
+  account deletion removes written work, documents, feedback and staff notes (scores are kept
+  without content).
+- Migration `f6b8d4a2c913` adds the tables and seven `assignments.*` permissions; its
+  downgrade refuses while any assignment exists.

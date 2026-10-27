@@ -138,6 +138,13 @@ class Permission(StrEnum):
     COURSES_PUBLISH_LESSONS = "courses.publish_lessons"
     COURSES_VIEW_REVISIONS = "courses.view_revisions"
     COURSES_RESTORE_REVISIONS = "courses.restore_revisions"
+    ASSIGNMENTS_VIEW = "assignments.view"
+    ASSIGNMENTS_MANAGE = "assignments.manage"
+    ASSIGNMENTS_VIEW_SUBMISSIONS = "assignments.view_submissions"
+    ASSIGNMENTS_GRADE = "assignments.grade"
+    ASSIGNMENTS_PUBLISH_GRADES = "assignments.publish_grades"
+    ASSIGNMENTS_MANAGE_EXCEPTIONS = "assignments.manage_exceptions"
+    ASSIGNMENTS_VIEW_REPORTS = "assignments.view_reports"
 
 
 P = Permission
@@ -742,6 +749,44 @@ CATALOGUE: list[PermissionDef] = [
         "courses",
         description="Copy an earlier published version back into the lesson draft.",
     ),
+    # Batch 09.2: written assignments, submissions and grading (appended).
+    _d(P.ASSIGNMENTS_VIEW, "View assignments", "Courses & memberships", "courses"),
+    _d(
+        P.ASSIGNMENTS_MANAGE,
+        "Manage assignments",
+        "Courses & memberships",
+        "courses",
+        description="Assignment definitions, rubrics, publishing and course assessors.",
+    ),
+    _d(
+        P.ASSIGNMENTS_VIEW_SUBMISSIONS,
+        "View submissions",
+        "Courses & memberships",
+        "courses",
+        description="Read learners' submitted work and documents (assigned courses only).",
+    ),
+    _d(
+        P.ASSIGNMENTS_GRADE,
+        "Grade submissions",
+        "Courses & memberships",
+        "courses",
+        description="Score submissions and save draft grades and feedback.",
+    ),
+    _d(
+        P.ASSIGNMENTS_PUBLISH_GRADES,
+        "Publish grades",
+        "Courses & memberships",
+        "courses",
+        description="Release grades and feedback to learners, request revisions, retract.",
+    ),
+    _d(
+        P.ASSIGNMENTS_MANAGE_EXCEPTIONS,
+        "Manage grading exceptions",
+        "Courses & memberships",
+        "courses",
+        description="Deadline extensions and extra attempts for individual learners.",
+    ),
+    _d(P.ASSIGNMENTS_VIEW_REPORTS, "View assignment reports", "Courses & memberships", "courses"),
 ]
 
 CATALOGUE_BY_KEY: dict[str, PermissionDef] = {d.key.value: d for d in CATALOGUE}
@@ -1231,6 +1276,23 @@ BATCH_091_GRANTS: dict[str, frozenset[str]] = {
 }
 
 
+ASSIGNMENT_GRADING = _set(P.ASSIGNMENTS_VIEW, P.ASSIGNMENTS_VIEW_SUBMISSIONS, P.ASSIGNMENTS_GRADE)
+ASSIGNMENTS_ALL = ASSIGNMENT_GRADING | _set(
+    P.ASSIGNMENTS_MANAGE,
+    P.ASSIGNMENTS_PUBLISH_GRADES,
+    P.ASSIGNMENTS_MANAGE_EXCEPTIONS,
+    P.ASSIGNMENTS_VIEW_REPORTS,
+)
+BATCH_092_GRANTS: dict[str, frozenset[str]] = {
+    "administrator": ASSIGNMENTS_ALL,
+    "editor_in_chief": ASSIGNMENTS_ALL,
+    "editor": ASSIGNMENTS_ALL - _set(P.ASSIGNMENTS_MANAGE_EXCEPTIONS),
+    "content_editor": ASSIGNMENT_GRADING | _set(P.ASSIGNMENTS_MANAGE),
+    "analyst": _set(P.ASSIGNMENTS_VIEW, P.ASSIGNMENTS_VIEW_REPORTS),
+    "customer_support": _set(P.ASSIGNMENTS_VIEW, P.ASSIGNMENTS_MANAGE_EXCEPTIONS),
+}
+
+
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
         BATCH_03_GRANTS.get(spec.key, frozenset())
@@ -1241,6 +1303,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_08_GRANTS.get(spec.key, frozenset())
         | BATCH_09_GRANTS.get(spec.key, frozenset())
         | BATCH_091_GRANTS.get(spec.key, frozenset())
+        | BATCH_092_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

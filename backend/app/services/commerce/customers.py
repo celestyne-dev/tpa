@@ -376,7 +376,14 @@ def export_data(customer: Customer, password: str) -> dict[str, Any]:
         ],
         "learning": _learning_export(customer),
         "study": _study_export(customer),
+        "assignments": _assignments_export(customer),
     }
+
+
+def _assignments_export(customer: Customer) -> list[dict[str, Any]]:
+    from ..courses.submissions import export_learner
+
+    return export_learner(customer)
 
 
 def _study_export(customer: Customer) -> dict[str, Any]:
