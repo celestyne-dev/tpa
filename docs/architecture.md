@@ -121,6 +121,24 @@ download: entitlement (active, not expired) ─► short-lived grant ─► Flas
 - **Settings vs secrets.** Non-secret payment settings are stored as site settings. The Paystack secret lives only in the environment. `payments/config.py` computes the effective mode and the readiness checks, and live mode is impossible without `PAYMENTS_LIVE_ALLOWED` plus the checklist.
 - **Frontend.** The public shop pages are part of the main SSR bundle so they can be prerendered. The private customer area (cart, checkout, account) is a lazily loaded chunk that is never prerendered with data. `ShopApiContext` supplies the customer API client, which sends the customer CSRF header.
 
+## Text-based courses (Batch 09)
+
+- **One access system.** A premium course links to a commerce product of type `course`;
+  learning access is a usable entitlement to it (`services/courses/learning.py`), so
+  checkout, Paystack verification, guest claiming (email confirmation), refunds,
+  revocation and expiry need no course-specific code. Free courses create their own
+  enrolment and, when they have a product, a `course` entitlement for its worksheets.
+- **Curriculum integrity.** Unique `(parent, position)` constraints with two-step
+  renumbering; the client sends complete layouts that the server validates.
+- **Assessments.** Answer keys stay server-side until submission; attempts are numbered
+  under a unique constraint, so concurrent submissions can't exceed the attempt limit.
+- **Completion and certificates** are recomputed from stored progress and attempts;
+  certificates carry random verification codes and a built-in single-page PDF (no extra
+  dependency or font files).
+- **Rendering.** Catalogue and course pages are prerendered; `/learn/*` and
+  `/certificates/*` are client-only shells, so lesson content and learner data never reach
+  static HTML or caches.
+
 ## Partnerships, sponsorships and affiliates (Batch 07)
 
 - **Data.** New tables only (`models/partnerships.py`). Article and newsletter sponsorships are

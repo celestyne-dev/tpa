@@ -3,13 +3,13 @@
 Primary storage is the Hostinger VPS: the PostgreSQL database, images and premium files
 all live there. Backups protect against mistakes, damaged files and losing the server.
 
-| What                                                | Where it lives                        | How it is backed up                                        |
-| --------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------- |
-| Database (content, orders, customers, entitlements) | PostgreSQL                            | `pg_dump` custom format, verified with `pg_restore --list` |
-| Public images (optimised) and image originals       | `MEDIA_ROOT`                          | `media.tar`                                                |
-| Premium files (all versions)                        | `PRODUCT_FILES_ROOT`                  | `resources.tar`                                            |
-| Configuration and secrets                           | `backend/.env`, `/etc/tpa/backup.env` | **not** in backups: keep them in a password manager        |
-| Redis, temporary uploads, built site releases       | —                                     | not needed (rebuilt or transient)                          |
+| What                                                                                         | Where it lives                        | How it is backed up                                        |
+| -------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------- |
+| Database (content, orders, customers, entitlements, courses, learner progress, certificates) | PostgreSQL                            | `pg_dump` custom format, verified with `pg_restore --list` |
+| Public images (optimised) and image originals                                                | `MEDIA_ROOT`                          | `media.tar`                                                |
+| Premium files and course worksheets (all versions)                                           | `PRODUCT_FILES_ROOT`                  | `resources.tar`                                            |
+| Configuration and secrets                                                                    | `backend/.env`, `/etc/tpa/backup.env` | **not** in backups: keep them in a password manager        |
+| Redis, temporary uploads, built site releases                                                | —                                     | not needed (rebuilt or transient)                          |
 
 ## 1. The backup job
 

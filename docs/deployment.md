@@ -266,6 +266,31 @@ sudo systemctl restart tpa-api tpa-publish-worker tpa-email-worker
   paths.
 - Downgrading refuses while membership or course entitlements exist.
 
+## Upgrading from Batch 08.1 (text-based courses, Batch 09)
+
+One migration, `d4f9a2c61e58` (additive): the course tables and ten `courses.*`
+permissions with their default grants. No existing table changes.
+
+```bash
+sudo systemctl start tpa-backup.service || pg_dump --format=custom --file=/var/backups/tpa-before-09.dump "$DATABASE_URL"
+cd /var/www/tpa/backend && set -a && . ./.env && set +a
+.venv/bin/flask --app wsgi db upgrade        # c3e8d1f20b47 -> d4f9a2c61e58
+.venv/bin/flask --app wsgi rbac sync         # should report zeros
+sudo systemctl restart tpa-api tpa-publish-worker
+.venv/bin/flask --app wsgi publish request   # rebuild: /courses, course pages, /learn shells
+```
+
+- **Nginx:** add the `/learn` and `/certificates` locations from
+  `deploy/nginx/tpa.conf.example` (client-only shells, `no-store`, `noindex`). Without them
+  learner links would show the 404 page.
+- **Scheduling:** scheduled courses are published by the existing `tpa-publish-due` timer;
+  nothing new to install.
+- **Worksheets** are ordinary product files (same storage, permissions and backups as
+  Batch 08).
+- **Payments:** course products use the existing checkout; live Paystack payments stay
+  disabled until explicitly approved.
+- Downgrading refuses while any course exists. See `docs/courses.md`.
+
 ## Frontend build (manual)
 
 ```bash

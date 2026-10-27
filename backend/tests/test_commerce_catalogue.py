@@ -112,7 +112,9 @@ def test_published_slug_change_creates_redirect(seeded, as_role, client):
 
 def test_product_validation(seeded, as_role):
     api = as_role("product_manager")
-    assert api.post(PRODUCTS, {"title": "X", "product_type": "course"}).status_code == 400
+    # Planned types can't be selected (courses became sellable in Batch 09).
+    assert api.post(PRODUCTS, {"title": "X", "product_type": "membership"}).status_code == 400
+    assert api.post(PRODUCTS, {"title": "X", "product_type": "unknown"}).status_code == 400
     assert api.post(PRODUCTS, {"title": "", "product_type": "ebook"}).status_code == 400
     product = _create(api)
     pid = product["id"]

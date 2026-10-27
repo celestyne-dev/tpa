@@ -24,7 +24,7 @@ Backend code:
 
 ## 2. Products
 
-**Types.** The registry lives in `app/commerce/product_types.py`. Sellable now: ebook, workbook, journal, planner, reflection guide, worksheet, resource pack, bundle and free resource. Online course and membership are registered as _planned_ and cannot be selected yet. To add a type, add an entry to the registry; the admin and the API pick it up.
+**Types.** The registry lives in `app/commerce/product_types.py`. Sellable now: ebook, workbook, journal, planner, reflection guide, worksheet, resource pack, bundle and free resource. Online course (Batch 09) gives access to the course that links to it — its files are the course worksheets and it can be sold once its course is published (see `docs/courses.md`); membership is registered as _planned_ and cannot be selected yet. To add a type, add an entry to the registry; the admin and the API pick it up.
 
 **Lifecycle.** Each product has a publication status (draft, published, archived) and, separately, a sales status (`coming_soon` or `on_sale`) plus an optional availability window (`available_from` / `available_until`).
 
