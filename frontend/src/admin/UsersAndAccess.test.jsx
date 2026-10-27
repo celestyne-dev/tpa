@@ -25,7 +25,7 @@ describe("direct /admin access", () => {
   it("sends anonymous visitors to the login page and back to /admin", async () => {
     const user = userEvent.setup();
     renderApp("/admin", { adminApi: createFakeAdminApi({ role: null }) });
-    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Staff sign in" })).toBeInTheDocument();
     await signIn(user);
     expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
   });

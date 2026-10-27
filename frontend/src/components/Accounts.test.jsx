@@ -209,21 +209,63 @@ describe("password recovery and email confirmation", () => {
 });
 
 describe("header account navigation", () => {
-  it("offers log in and create account to signed-out visitors", async () => {
-    const user = userEvent.setup();
+  it("shows one labelled Log in button that leads to /login", async () => {
     const shopApi = createFakeShopApi();
     renderApp("/shop", { shopApi });
-    const menu = await screen.findByRole("button", { name: "Log in or create an account" });
-    await user.click(menu);
-    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute(
-      "href",
-      "/login?next=%2Fshop",
-    );
-    expect(screen.getByRole("link", { name: "Create account" })).toHaveAttribute(
-      "href",
-      "/register",
-    );
+    const login = await screen.findByRole("link", { name: "Log in" });
+    expect(login).toHaveAttribute("href", "/login?next=%2Fshop");
+    expect(login).toBeVisible();
+    expect(screen.queryByRole("button", { name: /log in/i })).not.toBeInTheDocument();
     expect(shopApi.me).not.toHaveBeenCalled(); // no session cookie: nothing to confirm
+  });
+
+  it("offers every way in from the login page, staff sign-in included", async () => {
+    renderApp("/login", { shopApi: createFakeShopApi() });
+    await screen.findByRole("heading", { level: 1, name: "Log in" });
+    expect(screen.getByLabelText(/^Email/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Forgot your password?" })).toHaveAttribute(
+      "href",
+      "/forgot-password",
+    );
+    expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute(
+      "href",
+      "/register?next=%2Faccount",
+    );
+    expect(screen.getByRole("link", { name: "Find your purchase" })).toHaveAttribute(
+      "href",
+      "/purchases",
+    );
+    expect(screen.getByRole("link", { name: "Sign in as staff" })).toHaveAttribute(
+      "href",
+      "/admin/login",
+    );
+    expect(screen.queryByText(/is for the Think Positive Always team/)).not.toBeInTheDocument();
+  });
+
+  it("hands staff-only return paths to the staff sign-in, never to the customer login", async () => {
+    const user = userEvent.setup();
+    const shopApi = createFakeShopApi({ customer: customerProfile() });
+    renderApp("/login?next=%2Fadmin%2Forders", { shopApi });
+    expect(await screen.findByText(/is for the Think Positive Always team/)).toBeVisible();
+    for (const link of screen.getAllByRole("link", { name: "Sign in as staff" })) {
+      expect(link).toHaveAttribute("href", "/admin/login?next=%2Fadmin%2Forders");
+    }
+    // A customer who signs in here goes to their account, not to the admin path.
+    await user.type(screen.getByLabelText(/^Email/), "reader@example.com");
+    await user.type(screen.getByLabelText(/^Password\*?$/), "Correct-Horse-Battery-9");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: /Hello|Your account/ }),
+    ).toBeVisible();
+  });
+
+  it("does not forward unsafe return paths to the staff sign-in", async () => {
+    renderApp("/login?next=%2F%2Fevil.example%2Fadmin", { shopApi: createFakeShopApi() });
+    await screen.findByRole("heading", { level: 1, name: "Log in" });
+    expect(screen.getByRole("link", { name: "Sign in as staff" })).toHaveAttribute(
+      "href",
+      "/admin/login",
+    );
   });
 
   it("shows my account and log out once the session is confirmed", async () => {
@@ -236,9 +278,7 @@ describe("header account navigation", () => {
     expect(screen.getByRole("link", { name: "My account" })).toHaveAttribute("href", "/account");
     await user.click(screen.getByRole("button", { name: "Log out" }));
     await waitFor(() => expect(shopApi.logout).toHaveBeenCalled());
-    expect(
-      await screen.findByRole("button", { name: "Log in or create an account" }),
-    ).toBeVisible();
+    expect(await screen.findByRole("link", { name: "Log in" })).toBeVisible();
   });
 
   it("lists account options in the mobile menu", async () => {

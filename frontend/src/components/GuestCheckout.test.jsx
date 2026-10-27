@@ -205,16 +205,16 @@ describe("claiming guest purchases", () => {
 });
 
 describe("header account and cart controls", () => {
-  it("have tooltips that match their accessible names", async () => {
+  it("show a labelled Log in button and a cart tooltip that matches its name", async () => {
     cartStore.add({ id: CALM, slug: "calm-mornings-workbook", title: "Calm" });
     renderApp("/");
-    const account = await screen.findByRole("button", { name: "Log in or create an account" });
-    expect(account).toHaveTextContent("Log in");
+    const login = await screen.findByRole("link", { name: "Log in" });
+    expect(login).toHaveAttribute("href", "/login");
     const cart = screen.getByRole("link", { name: "Cart, 1 item" });
     expect(cart).toHaveTextContent("Cart");
     const user = userEvent.setup();
-    await user.click(account);
-    expect(screen.getByRole("link", { name: "Find a guest purchase" })).toHaveAttribute(
+    await user.click(login);
+    expect(await screen.findByRole("link", { name: "Find your purchase" })).toHaveAttribute(
       "href",
       "/purchases",
     );
@@ -237,7 +237,7 @@ describe("admin sign-in page", () => {
   it("sends an administrator who is already signed in to the dashboard", async () => {
     renderApp("/admin/login");
     expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Admin sign in" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Staff sign in" })).not.toBeInTheDocument();
   });
 
   it("honours a safe next path and ignores unsafe ones", async () => {

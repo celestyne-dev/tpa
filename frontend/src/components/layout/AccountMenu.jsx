@@ -9,8 +9,8 @@ const itemClass =
   "block w-full rounded-xl px-3 py-2 text-left text-[0.95rem] text-charcoal hover:bg-sage-50";
 
 /**
- * Header account control. Before sign-in state is confirmed (prerendered HTML) it is a
- * plain link to the account area; afterwards it opens a menu with the right options.
+ * Header account control: a labelled "Log in" link to /login until a customer session is
+ * confirmed, then a menu with the account options.
  */
 export function AccountMenu() {
   const { status, customer } = useAccountStatus();
@@ -39,87 +39,67 @@ export function AccountMenu() {
     };
   }, [open]);
 
-  if (status === "unknown") {
+  if (status !== "signed_in") {
+    // One clearly labelled way in for everyone; staff switch to their own sign-in from
+    // the login page. Prerendered pages show it too (signed-in visitors are sent on).
     return (
-      <Link to={routes.account} className={iconClass} aria-label="Your account">
-        <UserRound aria-hidden className="size-5" />
-        <HeaderIconLabel>Account</HeaderIconLabel>
+      <Link
+        to={signInHref(pathname + search)}
+        className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.95rem] font-medium text-charcoal transition-colors hover:bg-sage-100"
+      >
+        <UserRound aria-hidden className="hidden size-5 sm:block" />
+        Log in
       </Link>
     );
   }
-  const signedIn = status === "signed_in";
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         className={iconClass}
-        aria-label={signedIn ? "Account menu" : "Log in or create an account"}
+        aria-label="Account menu"
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="relative">
           <UserRound aria-hidden className="size-5" />
-          {signedIn && (
-            <span
-              aria-hidden
-              className="absolute -right-0.5 -bottom-0.5 size-2 rounded-full bg-sage-600 ring-2 ring-ivory"
-            />
-          )}
+          <span
+            aria-hidden
+            className="absolute -right-0.5 -bottom-0.5 size-2 rounded-full bg-sage-600 ring-2 ring-ivory"
+          />
         </span>
-        <HeaderIconLabel>{signedIn ? "Account" : "Log in"}</HeaderIconLabel>
+        <HeaderIconLabel>Account</HeaderIconLabel>
       </button>
       {open && (
         <div
           id={menuId}
           className="absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-charcoal/10 bg-white p-2 shadow-soft"
         >
-          {signedIn ? (
-            <>
-              <p className="px-3 pt-2 pb-1 text-sm text-muted">
-                Signed in as
-                <span className="block truncate font-medium text-charcoal">
-                  {customer.display_name || customer.email}
-                </span>
-              </p>
-              <ul>
-                {accountLinks.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className={itemClass}>
-                      {l.label}
-                    </Link>
-                  </li>
-                ))}
-                <li className="mt-1 border-t border-charcoal/10 pt-1">
-                  <button
-                    type="button"
-                    className={itemClass}
-                    onClick={() => signOut(() => navigate(routes.home))}
-                  >
-                    Log out
-                  </button>
-                </li>
-              </ul>
-            </>
-          ) : (
-            <ul>
-              <li>
-                <Link to={signInHref(pathname + search)} className={itemClass}>
-                  Log in
+          <p className="px-3 pt-2 pb-1 text-sm text-muted">
+            Signed in as
+            <span className="block truncate font-medium text-charcoal">
+              {customer.display_name || customer.email}
+            </span>
+          </p>
+          <ul>
+            {accountLinks.map((l) => (
+              <li key={l.to}>
+                <Link to={l.to} className={itemClass}>
+                  {l.label}
                 </Link>
               </li>
-              <li>
-                <Link to={routes.register} className={itemClass}>
-                  Create account
-                </Link>
-              </li>
-              <li className="mt-1 border-t border-charcoal/10 pt-1">
-                <Link to={routes.purchases} className={itemClass}>
-                  Find a guest purchase
-                </Link>
-              </li>
-            </ul>
-          )}
+            ))}
+            <li className="mt-1 border-t border-charcoal/10 pt-1">
+              <button
+                type="button"
+                className={itemClass}
+                onClick={() => signOut(() => navigate(routes.home))}
+              >
+                Log out
+              </button>
+            </li>
+          </ul>
         </div>
       )}
     </div>

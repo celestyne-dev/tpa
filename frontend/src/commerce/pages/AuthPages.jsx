@@ -3,6 +3,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useShopApi } from "@/components/products/shopApiContext";
+import { safeNextPath } from "@/admin/components/safeNextPath";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
@@ -126,11 +127,25 @@ function useRedirectWhenSignedIn(next) {
   }, []);
 }
 
+/**
+ * Staff use their own sign-in (separate accounts, sessions and rate limits). A staff-only
+ * return path (/admin/…) is handed over to it; anything else stays with the customer login.
+ */
+function staffSignInHref(rawNext) {
+  const adminNext = safeNextPath(rawNext);
+  return adminNext === "/admin"
+    ? "/admin/login"
+    : `/admin/login?next=${encodeURIComponent(adminNext)}`;
+}
+
 export function SignInPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const next = safeNext(params.get("next"));
+  const rawNext = params.get("next");
+  const next = safeNext(rawNext);
   const markHandled = useRedirectWhenSignedIn(next);
+  const staffHref = staffSignInHref(rawNext);
+  const wantsStaffArea = staffHref !== "/admin/login" || rawNext === "/admin";
   return (
     <>
       <Seo title="Log in" path={routes.signIn} noIndex />
@@ -138,6 +153,17 @@ export function SignInPage() {
         {params.get("reason") === "expired" && (
           <div className="mb-5">
             <Alert tone="info">Your session has ended. Please log in again to continue.</Alert>
+          </div>
+        )}
+        {wantsStaffArea && (
+          <div className="mb-5">
+            <Alert tone="info">
+              That page is for the Think Positive Always team.{" "}
+              <Link to={staffHref} className="font-medium underline underline-offset-4">
+                Sign in as staff
+              </Link>{" "}
+              to continue.
+            </Alert>
           </div>
         )}
         {params.get("reset") === "1" && (
@@ -158,6 +184,18 @@ export function SignInPage() {
             className="font-medium underline underline-offset-4"
           >
             Create an account
+          </Link>
+        </p>
+        <p className="mt-3 text-center text-sm">
+          Bought as a guest?{" "}
+          <Link to={routes.purchases} className="underline underline-offset-4">
+            Find your purchase
+          </Link>
+        </p>
+        <p className="mt-6 text-center text-xs text-muted">
+          Part of the team?{" "}
+          <Link to={staffHref} className="underline underline-offset-4 hover:text-charcoal">
+            Sign in as staff
           </Link>
         </p>
       </AuthCard>

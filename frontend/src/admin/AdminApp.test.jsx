@@ -12,7 +12,7 @@ describe("admin authentication", () => {
   it("redirects anonymous visitors to the login page and back after signing in", async () => {
     const user = userEvent.setup();
     renderApp("/admin/articles", { adminApi: createFakeAdminApi({ role: null }) });
-    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Staff sign in" })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/Email/), "editor@example.org");
     await user.type(screen.getByLabelText(/Password/), "Correct-Horse-Battery-9");
@@ -59,6 +59,49 @@ describe("admin authentication", () => {
     expect(safeNextPath("/articles")).toBe("/admin");
     expect(safeNextPath("/admin/login")).toBe("/admin");
     expect(safeNextPath(null)).toBe("/admin");
+    expect(safeNextPath("/administrator")).toBe("/admin");
+    expect(safeNextPath("/admin-tools")).toBe("/admin");
+    expect(safeNextPath("/admin/login?next=/admin")).toBe("/admin");
+    expect(safeNextPath("/admin\\evil")).toBe("/admin");
+    expect(safeNextPath("/admin/ x")).toBe("/admin");
+    expect(safeNextPath("/admin")).toBe("/admin");
+  });
+
+  it("explains staff password resets and links back to the customer login", async () => {
+    const user = userEvent.setup();
+    renderApp("/admin/login", { adminApi: createFakeAdminApi({ role: null }) });
+    await screen.findByRole("heading", { name: "Staff sign in" });
+    await user.click(screen.getByText("Forgot your password?"));
+    expect(screen.getByText(/reset by an administrator/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Customer log in" })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "Back to the website" })).toHaveAttribute("href", "/");
+    // No public staff registration or self-service reset request.
+    expect(screen.queryByRole("link", { name: /create|register/i })).not.toBeInTheDocument();
+  });
+
+  it("sends signed-in staff from the login page to a safe next path", async () => {
+    renderApp("/admin/login?next=%2Fadmin%2Farticles");
+    expect(await screen.findByRole("heading", { level: 1, name: "Articles" })).toBeInTheDocument();
+  });
+
+  it("ignores an unsafe next path for signed-in staff", async () => {
+    renderApp("/admin/login?next=%2F%2Fevil.example");
+    expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+  });
+
+  it("does not widen a limited role that reaches a module through next", async () => {
+    const user = userEvent.setup();
+    renderApp("/admin/login?next=%2Fadmin%2Fsettings", {
+      adminApi: createFakeAdminApi({ role: null }),
+    });
+    // The fake signs everyone in as an editor: no settings or user management.
+    await user.type(await screen.findByLabelText(/Email/), "editor@example.org");
+    await user.type(screen.getByLabelText(/Password/), "Correct-Horse-Battery-9");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText("You don't have access to this area")).toBeInTheDocument();
+    const nav = screen.getAllByRole("navigation", { name: "Admin" })[0];
+    expect(within(nav).queryByRole("link", { name: "Users" })).not.toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Articles" })).toBeInTheDocument();
   });
 
   it("signs out and returns to the login page", async () => {
@@ -66,7 +109,7 @@ describe("admin authentication", () => {
     const { adminApi } = renderApp("/admin");
     await user.click(await screen.findByRole("button", { name: "Sign out" }));
     expect(adminApi.auth.logout).toHaveBeenCalled();
-    expect(await screen.findByRole("heading", { name: "Admin sign in" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Staff sign in" })).toBeInTheDocument();
   });
 
   it("returns to login when the session expires", async () => {

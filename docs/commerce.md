@@ -149,7 +149,7 @@ Account features (refined in Batch 07.5):
 - **Log in** has show/hide password and an opt-in **Keep me signed in** (persistent cookie for `CUSTOMER_SESSION_DAYS`). Without it the cookie ends with the browser and the session expires after `CUSTOMER_SHORT_SESSION_HOURS`. Failures are generic and rate-limited per IP and per address. An ended session is reported once (`session_expired`); its cookies are cleared and the customer is sent to log in with a notice.
 - **Password recovery** (`/forgot-password` → email → `/reset-password#token=…`) uses single-use, hashed tokens that expire after `CUSTOMER_RESET_TTL_MINUTES`. Requesting a new link invalidates older ones. Completing a reset signs the customer out everywhere.
 - **Redirects** after log in or registration only follow same-site paths: never `//host`, `/\host`, encoded variants, `/admin`, `/api` or another sign-in page.
-- **Header:** the account menu shows Log in / Create account (plus "Find a guest purchase") or My account / Log out, matching the confirmed state (prerendered pages show a neutral account link until the browser checks). The account and cart icons have accessible names ("Log in or create an account", "Account menu", "Cart, 2 items") and a matching tooltip on hover or keyboard focus. Admin sign-in is not linked from the public header; `/admin/login` sends an administrator who is already signed in to `/admin`, or to a safe `next` path inside `/admin`.
+- **Header (Batch 08.1):** one labelled **Log in** button, always to `/login` (with a safe `?next=` back to the current page), for everyone who isn't signed in as a customer, prerendered pages included. Signed-in customers get the account menu (My account, library, orders, settings, Log out). The cart icon keeps its accessible name ("Cart, 2 items") and tooltip. See _Unified login entry_ below.
 - Customers can update their name, and change their password (other devices are signed out).
 - **Library:** single products, bundle contents and free items, each listing the versions they may download.
 - **Orders:** history with honest statuses, receipts and refund state.
@@ -159,6 +159,37 @@ Account features (refined in Batch 07.5):
   - Staff with `customers.manage` can anonymise an account on request.
 
 **Free products** are claimed from the product page by signed-in customers. They create an entitlement with source `free`, with **no order**.
+
+### Unified login entry (Batch 08.1)
+
+There is one public way in, but **two separate authentication systems**: customers
+(`customers` table, `tpa_customer` cookies, `X-Customer-CSRF`, `/api/v1/account/*`) and staff
+(`users` table, JWT cookies, `X-CSRF-TOKEN`, `/api/v1/admin/auth/*`). Nothing is merged.
+
+- `/login` is the customer sign-in: email, password, _Forgot your password?_, _Create an
+  account_, _Find your purchase_ (guest orders) and a discreet **Sign in as staff** link to
+  `/admin/login`. If the requested return path is a staff page (`?next=/admin/…`), the page
+  says so and the staff link carries that path; the customer form never sends anyone to
+  `/admin` (customers land on `/account` or a safe customer path).
+- `/admin/login` ("Staff sign in") stays the dedicated staff URL. Staff who are already
+  signed in go straight to `/admin` or a safe `next` inside `/admin` (`/admin`, `/admin/…`
+  only; protocol-relative, backslash, whitespace and `/admin/login` values are ignored).
+  There is no staff registration; _Forgot your password?_ explains that an administrator
+  sends a reset link from **Users & access** (the existing admin reset mechanism).
+- After sign-in everyone with a staff account lands on the dashboard; the sidebar and every
+  API call still follow their role's permissions, so reaching `/admin` grants nothing
+  extra (a limited role sees "You don't have access to this area" on other modules).
+- **Same email in both systems:** allowed. The page the person chose decides which system
+  is asked; the server never tries the other one, so a staff password typed into `/login`
+  fails like any wrong password. Errors are generic and identical for unknown emails, and
+  customer password-reset requests answer the same way (and send nothing) for staff-only
+  addresses.
+- **Rate limits** are separate: each login endpoint has its own per-address limit
+  (`RATELIMIT_LOGIN`) and its own per-email limit, so locking one doesn't affect the other.
+- **Footer:** the bottom bar has a discreet **Staff login** link by default (the _Footer legal
+  links_ menu in **Navigation**), which administrators can rename or remove. Internal links
+  to `/login`, `/register`, `/forgot-password`, `/purchases`, `/account/settings` and
+  `/admin/login` no longer show "does not point to a published page" warnings.
 
 ### Guest checkout (Batch 07.6)
 

@@ -1,7 +1,7 @@
 import { LockKeyhole } from "lucide-react";
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Navigate, useSearchParams } from "react-router";
+import { Link, Navigate, useSearchParams } from "react-router";
 import { LogoMark } from "@/components/layout/Logo";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/Button";
@@ -41,12 +41,12 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-cream px-4 py-12">
-      <Seo title="Sign in · Admin" path="/admin/login" noIndex />
+      <Seo title="Staff sign in" path="/admin/login" noIndex />
       <div className="w-full max-w-sm rounded-2xl border border-charcoal/10 bg-ivory p-8 shadow-lift">
         <div className="mb-6 flex items-center gap-3">
           <LogoMark />
           <div>
-            <h1 className="text-2xl font-medium">Admin sign in</h1>
+            <h1 className="text-2xl font-medium">Staff sign in</h1>
             <p className="text-sm text-muted">Think Positive Always</p>
           </div>
         </div>
@@ -88,6 +88,28 @@ export function LoginPage() {
             {submitting ? "Signing in…" : "Sign in"}
           </Button>
         </form>
+        <details className="mt-5 text-sm">
+          <summary className="cursor-pointer text-sage-800 underline underline-offset-4">
+            Forgot your password?
+          </summary>
+          <p className="mt-2 text-muted">
+            For security, staff passwords are reset by an administrator. Ask a team administrator to
+            send you a reset link from Users &amp; access; it arrives by email and works once.
+          </p>
+        </details>
+        <div className="mt-6 space-y-2 border-t border-charcoal/10 pt-5 text-sm text-muted">
+          <p>
+            Shopping or reading with us?{" "}
+            <Link to="/login" className="text-charcoal underline underline-offset-4">
+              Customer log in
+            </Link>
+          </p>
+          <p>
+            <Link to="/" className="underline underline-offset-4 hover:text-charcoal">
+              Back to the website
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
