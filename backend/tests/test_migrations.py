@@ -1255,8 +1255,6 @@ def test_batch092_assignments_upgrade_is_additive_and_downgrade_protects_work(tm
             text("SELECT completed_at FROM course_enrollments WHERE id = 1")
         ).scalar_one()
         assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
-        assert set(sync_rbac().values()) == {0}
-        db.session.rollback()
 
         db.session.execute(
             text(
@@ -1284,6 +1282,136 @@ def test_batch092_assignments_upgrade_is_additive_and_downgrade_protects_work(tm
         assert (
             db.session.execute(
                 text("SELECT COUNT(*) FROM permissions WHERE key LIKE 'assignments.%'")
+            ).scalar_one()
+            == 0
+        )
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}
+
+
+def test_batch092_question_banks_preserve_attempts_and_downgrade_protects_data(tmp_path):
+    """Existing quizzes keep behaving as before, existing attempts become "submitted" with
+    their scores and times intact, completion and certificates are untouched; downgrade
+    refuses while question banks or started attempts exist."""
+    import pytest
+
+    app = _app(tmp_path, "batch092_banks.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="f6b8d4a2c913")
+        now = "2026-10-29 09:00:00"
+        for sql in (
+            "INSERT INTO customers (id, public_id, email, display_name, password_hash, status, "
+            "is_test_account, support_notes, created_at, updated_at) VALUES "
+            "(1, 'c1', 'reader@example.com', 'Reader', 'x', 'active', 0, '', :n, :n)",
+            "INSERT INTO courses (id, public_id, slug, title, subtitle, summary, description, "
+            "outcomes, prerequisites, audience, level, access_type, availability, "
+            "enrollment_open, certificate_enabled, is_featured, featured_order, noindex, "
+            "status, lock_version, created_at, updated_at) VALUES (1, 'k1', 'kept', 'Kept', "
+            "'', '', '[]', '[]', '[]', '[]', 'all_levels', 'free', 'available', 1, 1, 0, 0, 0, "
+            "'published', 1, :n, :n)",
+            "INSERT INTO course_enrollments (id, customer_id, course_id, source, status, "
+            "enrolled_at, progress_percent, completed_at, revoked_reason) VALUES "
+            "(1, 1, 1, 'free', 'active', :n, 100, :n, '')",
+            "INSERT INTO course_certificates (code, enrollment_id, customer_id, course_id, "
+            "recipient_name, course_title, issued_at, revoked_reason, correction_note) VALUES "
+            "('TPA-AAAA-BBBB-CCCC', 1, 1, 1, 'Reader', 'Kept', :n, '', '')",
+            "INSERT INTO course_assessments (id, course_id, kind, title, description, "
+            "passing_score, max_attempts, show_answers, required_for_completion, status, "
+            "position, created_at, updated_at) VALUES (1, 1, 'quiz', 'Check-in', '', 60, 3, "
+            "'after_submit', 1, 'published', 0, :n, :n)",
+            "INSERT INTO assessment_questions (id, assessment_id, kind, prompt, help_text, "
+            "options, correct, explanation, settings, points, required, position, created_at, "
+            "updated_at) VALUES (1, 1, 'true_false', 'Sleep matters.', '', "
+            '\'[{"id": "true", "text": "True"}, {"id": "false", "text": "False"}]\', '
+            "'[\"true\"]', '', '{}', 1, 1, 0, :n, :n)",
+            "INSERT INTO assessment_attempts (id, assessment_id, enrollment_id, attempt_number, "
+            "answers, results, score, max_score, percent, passed, submitted_at) VALUES "
+            "(1, 1, 1, 1, '{\"1\": \"true\"}', '[]', 1, 1, 100, 1, :n)",
+        ):
+            db.session.execute(text(sql), {"n": now})
+        db.session.commit()
+        counts = (
+            "customers",
+            "courses",
+            "course_enrollments",
+            "course_certificates",
+            "course_assessments",
+            "assessment_questions",
+            "assessment_attempts",
+        )
+        before = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        db.session.remove()
+
+        upgrade(directory=MIGRATIONS, revision="a7c9e5b3d104")
+        assert {"question_banks", "bank_questions"} <= set(inspect(db.engine).get_table_names())
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert after == before
+        row = db.session.execute(
+            text(
+                "SELECT status, score, percent, passed, submitted_at, started_at, snapshot, "
+                "lock_version FROM assessment_attempts WHERE id = 1"
+            )
+        ).one()
+        assert row[0] == "submitted" and row[1:4] == (1, 100, 1)
+        assert str(row[4]).startswith("2026-10-29 09:00:00") and row[5] is None and row[6] is None
+        assert row[7] == 1
+        quiz = db.session.execute(
+            text(
+                "SELECT practice, time_limit_minutes, selection, shuffle_questions, "
+                "shuffle_options, required_for_completion FROM course_assessments WHERE id = 1"
+            )
+        ).one()
+        assert tuple(quiz) == (0, None, None, 0, 0, 1)
+        assert db.session.execute(
+            text("SELECT completed_at FROM course_enrollments WHERE id = 1")
+        ).scalar_one()
+        assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+
+        from app.models import CourseEnrollment
+        from app.services.courses import learning
+
+        state = learning.progress(db.session.get(CourseEnrollment, 1))
+        assert state["required_assessments"] == 1 and state["completed_assessments"] == 1
+        db.session.rollback()
+
+        db.session.execute(
+            text(
+                "INSERT INTO question_banks (public_id, title, description, status, "
+                "lock_version, created_at, updated_at) VALUES ('qb1', 'Bank', '', 'active', 1, "
+                ":n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.commit()
+        db.session.remove()
+        with pytest.raises(SystemExit):  # refuses: banks would be lost
+            downgrade(directory=MIGRATIONS, revision="f6b8d4a2c913")
+        db.session.remove()
+        db.session.execute(text("DELETE FROM question_banks"))
+        db.session.commit()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="f6b8d4a2c913")
+        assert "question_banks" not in set(inspect(db.engine).get_table_names())
+        restored = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert restored == before
+        assert (
+            db.session.execute(
+                text("SELECT percent FROM assessment_attempts WHERE id = 1")
+            ).scalar_one()
+            == 100
+        )
+        assert (
+            db.session.execute(
+                text("SELECT COUNT(*) FROM permissions WHERE key LIKE 'question_banks.%'")
             ).scalar_one()
             == 0
         )

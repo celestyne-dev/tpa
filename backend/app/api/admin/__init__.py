@@ -10,6 +10,7 @@ from . import (
     media,
     newsletter,
     partnerships,
+    question_banks,
     roles,
     seo,
     site,
@@ -136,6 +137,7 @@ ADMIN_ROUTES = [
     *storage.STORAGE_ROUTES,
     *courses.COURSE_ADMIN_ROUTES,
     *assignments.ASSIGNMENT_ADMIN_ROUTES,
+    *question_banks.QUESTION_BANK_ROUTES,
 ]
 
 # Endpoints reachable without an access token (they authenticate in other ways).

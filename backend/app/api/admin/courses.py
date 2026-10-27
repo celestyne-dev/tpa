@@ -409,6 +409,14 @@ class AssessmentResource(Resource):
         return success({"deleted": True})
 
 
+class AssessmentAttemptsResource(Resource):
+    @require_permission(P.COURSES_VIEW)
+    def get(self, course_id: int, assessment_id: int):
+        course = _course(course_id)
+        assessment = assessments.get_assessment(course, assessment_id)
+        return success(assessments.staff_attempts(assessment, current_user))
+
+
 class AssessmentStatusResource(Resource):
     @require_permission(P.COURSES_VIEW)
     def post(self, course_id: int, assessment_id: int):
@@ -560,6 +568,10 @@ COURSE_ADMIN_ROUTES = [
     (
         AssessmentStatusResource,
         "/admin/courses/<int:course_id>/assessments/<int:assessment_id>/status",
+    ),
+    (
+        AssessmentAttemptsResource,
+        "/admin/courses/<int:course_id>/assessments/<int:assessment_id>/attempts",
     ),
     (
         QuestionListResource,

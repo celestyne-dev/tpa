@@ -29,6 +29,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,6 +46,7 @@ ASSESSMENT_KINDS = ("quiz", "reflection", "self_assessment")
 ASSESSMENT_STATUSES = ("draft", "published")
 SHOW_ANSWERS = ("after_submit", "after_pass", "never")
 QUESTION_KINDS = ("single_choice", "multiple_select", "true_false", "short_text", "rating")
+ATTEMPT_STATUSES = ("in_progress", "submitted", "expired")
 ENROLLMENT_SOURCES = ("free", "purchase", "manual")
 ENROLLMENT_STATUSES = ("active", "revoked")
 REVISION_ACTIONS = ("migrated", "published", "restored")
@@ -275,6 +277,10 @@ class Assessment(TimestampMixin, db.Model):
             name="passing_score_range",
         ),
         CheckConstraint("max_attempts IS NULL OR max_attempts > 0", name="max_attempts_positive"),
+        CheckConstraint(
+            "time_limit_minutes IS NULL OR (time_limit_minutes > 0 AND time_limit_minutes <= 600)",
+            name="time_limit_range",
+        ),
         UniqueConstraint("course_id", "position", name="uq_course_assessments_position"),
     )
 
@@ -296,6 +302,21 @@ class Assessment(TimestampMixin, db.Model):
     required_for_completion: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
     position: Mapped[int] = mapped_column(nullable=False)
+    # Batch 09.2 phase 2. Practice exams never count towards completion or certificates.
+    practice: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    # None: untimed. Timed attempts get a fixed server-side deadline when started.
+    time_limit_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Random draws from question banks: [{"bank_id": public id, "count": n, "tags": [...]}]
+    # added to the fixed questions when an attempt starts.
+    selection: Mapped[list[dict[str, Any]] | None] = mapped_column(NullableJSONType, nullable=True)
+    shuffle_questions: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    shuffle_options: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
 
     course: Mapped[Course] = relationship(back_populates="assessments")
     questions: Mapped[list[AssessmentQuestion]] = relationship(
@@ -308,6 +329,17 @@ class Assessment(TimestampMixin, db.Model):
     @property
     def graded(self) -> bool:
         return self.kind == "quiz"
+
+    @property
+    def needs_start(self) -> bool:
+        """Questions are drawn, shuffled or timed: learners start an attempt (which fixes
+        its questions and deadline) before they see the questions."""
+        return bool(
+            self.time_limit_minutes
+            or self.selection
+            or self.shuffle_questions
+            or self.shuffle_options
+        )
 
 
 class AssessmentQuestion(TimestampMixin, db.Model):
@@ -424,6 +456,7 @@ class AssessmentAttempt(db.Model):
             "assessment_id", "enrollment_id", "attempt_number", name="uq_assessment_attempts_number"
         ),
         Index("ix_assessment_attempts_enrollment", "enrollment_id"),
+        CheckConstraint(f"status IN {ATTEMPT_STATUSES}", name="status_valid"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -442,7 +475,24 @@ class AssessmentAttempt(db.Model):
     percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # None for ungraded reflections and self-assessments.
     passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    submitted_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    # None while in progress. Attempts submitted before Batch 09.2 phase 2 are "submitted".
+    submitted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Batch 09.2 phase 2: started attempts. ``expired``: the deadline passed and only the
+    # answers saved in time were scored.
+    status: Mapped[str] = mapped_column(
+        String(20), default="submitted", server_default="submitted", nullable=False
+    )
+    started_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    deadline_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Server-only copy of the questions this attempt was given, answer keys included:
+    # {"seed": int, "questions": [...]}. Later edits to the assessment or its banks never
+    # change it.
+    snapshot: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONType, nullable=True)
+    lock_version: Mapped[int] = mapped_column(default=1, server_default="1", nullable=False)
+
+    @property
+    def finished(self) -> bool:
+        return self.status != "in_progress"
 
 
 class CourseCertificate(db.Model):

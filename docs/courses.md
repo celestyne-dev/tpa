@@ -372,3 +372,40 @@ permission on the server.
   without content).
 - Migration `f6b8d4a2c913` adds the tables and seven `assignments.*` permissions; its
   downgrade refuses while any assignment exists.
+
+## 21. Question banks and practice exams (Batch 09.2, phase 2 — backend)
+
+- **Question banks** (`/api/v1/admin/question-banks`) are shared across courses. Questions
+  use the same kinds and validation as assessment questions, plus lower-case `tags` and a
+  status (`active`/`retired`). Every content edit bumps the question's `version`; edits need
+  the current `lock_version`.
+- **Permissions:** `question_banks.view` lists banks and questions *without* answer keys or
+  explanations; `question_banks.manage` creates, edits, archives and deletes, and is the
+  only permission that sees answer keys. Both are granted to administrator, editor in chief,
+  editor and content editor.
+- **Assessment settings** (same admin assessment endpoints): `practice` (quizzes only; never
+  counts towards completion or certificates), `time_limit_minutes` (1–600, empty for
+  untimed), `selection` (`[{"bank_id", "count", "tags"}]`, quizzes only; a question matches
+  a rule when it has any of the rule's tags), `shuffle_questions`, `shuffle_options`.
+  Publishing checks that the draws can be filled from active questions; archiving a bank,
+  or retiring or deleting questions, that would leave a published assessment short is refused.
+- **Started attempts:** drawn, shuffled or timed assessments show no questions until the
+  learner starts an attempt (`POST …/attempts/start`, idempotent while one is open). The
+  attempt stores a snapshot of the questions it was given, answer keys included, server-side
+  only. It is scored against that snapshot, so later changes to the assessment or its banks
+  never affect it. Fixed, untimed quizzes can still be answered in one step (`POST …/attempts`).
+  That route also submits an open attempt.
+- **Deadlines:** the deadline is fixed at start. After it (plus a 30-second grace period for
+  network delay), saving is refused (`attempt_expired`). The attempt is scored on the
+  answers saved in time and marked `expired` when the learner submits or next opens the
+  assessment.
+- **Limits and secrecy:** started attempts count against `max_attempts`. Answer keys and
+  explanations are never sent before submission; afterwards `show_answers` decides as before.
+  Every learner route re-checks email verification, enrolment and entitlement.
+- **History:** `GET …/assessments/<id>/history` and `GET …/assessment-history` (whole
+  course) for learners; `GET /admin/courses/<id>/assessments/<id>/attempts` for staff with
+  `courses.view_enrollments` (scores and timing, no answers).
+- Migration `a7c9e5b3d104` adds the bank tables, the new assessment and attempt columns
+  (existing attempts become `submitted` with scores and times unchanged; existing assessments
+  get the old behaviour), and two `question_banks.*` permissions. Its downgrade refuses while
+  banks, started or expired attempts, or practice, timed, drawn or shuffled assessments exist.

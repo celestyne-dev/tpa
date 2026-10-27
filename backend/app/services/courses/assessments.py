@@ -10,11 +10,29 @@
 The answer key (``AssessmentQuestion.correct``) and explanations never leave the server
 before an attempt is submitted; afterwards they are revealed according to
 ``show_answers``. Every submission is validated and scored server-side.
+
+Batch 09.2 phase 2 extends the same engine (no second scorer):
+
+- Practice exams (``practice``) are quizzes that never count towards completion or
+  certificates.
+- Assessments that draw from question banks (``selection``), shuffle, or have a time limit
+  are *started* first (``start``): the attempt stores a snapshot of exactly the questions
+  it was given, answer keys included, and a fixed deadline. Learners save answers while it
+  is open and submit it; scoring always uses the snapshot, so editing the assessment or a
+  bank never changes an attempt already started.
+- Deadlines are enforced server-side. After the deadline (plus a short grace for network
+  delay) nothing more can be saved; the attempt is scored on the answers saved in time and
+  marked ``expired`` when the learner submits or next opens the assessment.
+- Started attempts count against ``max_attempts``; starting is idempotent while one is in
+  progress.
 """
 
 from __future__ import annotations
 
+import random
 import re
+import secrets
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -39,6 +57,8 @@ from .. import audit_service
 from ..serializers import iso
 from .admin import require
 
+# Network delay allowance after a timed attempt's deadline.
+DEADLINE_GRACE = timedelta(seconds=30)
 GRADED_KINDS = ("single_choice", "multiple_select", "true_false")
 KINDS_BY_ASSESSMENT = {
     "quiz": QUESTION_KINDS,
@@ -91,6 +111,13 @@ def assessment_summary(assessment: Assessment) -> dict[str, Any]:
         "max_attempts": assessment.max_attempts,
         "show_answers": assessment.show_answers,
         "position": assessment.position,
+        "practice": assessment.practice,
+        "time_limit_minutes": assessment.time_limit_minutes,
+        "selection": assessment.selection or [],
+        "shuffle_questions": assessment.shuffle_questions,
+        "shuffle_options": assessment.shuffle_options,
+        "requires_start": assessment.needs_start,
+        "drawn_question_count": sum(r["count"] for r in assessment.selection or []),
     }
 
 
@@ -124,25 +151,43 @@ def assessment_admin_detail(assessment: Assessment, actor: User) -> dict[str, An
     }
 
 
-def _learner_question(question: AssessmentQuestion) -> dict[str, Any]:
-    """What a learner sees before submitting: never the answer key or explanations."""
-    data = {
-        "id": question.id,
+def question_copy(question: Any, qid: Any = None, source: dict | None = None) -> dict[str, Any]:
+    """A self-contained copy of a question (assessment or bank), answer key included: the
+    form attempts store in their snapshot and the form the scorer works on."""
+    return {
+        "id": question.id if qid is None else qid,
         "kind": question.kind,
         "prompt": question.prompt,
         "help_text": question.help_text,
+        "options": [dict(o) for o in question.options or []],
+        "correct": list(question.correct or []),
+        "explanation": question.explanation,
+        "settings": dict(question.settings or {}),
+        "points": question.points,
         "required": question.required,
-        "graded": question.graded,
+        "source": source or {"type": "assessment", "question_id": question.id},
     }
-    if question.kind in ("single_choice", "multiple_select", "true_false"):
-        data["options"] = [{"id": o["id"], "text": o["text"]} for o in question.options or []]
-    if question.kind == "rating":
-        settings = question.settings or {}
+
+
+def _learner_question(question: dict[str, Any]) -> dict[str, Any]:
+    """What a learner sees before submitting: never the answer key or explanations."""
+    data = {
+        "id": question["id"],
+        "kind": question["kind"],
+        "prompt": question["prompt"],
+        "help_text": question["help_text"],
+        "required": question["required"],
+        "graded": question["kind"] in GRADED_KINDS,
+    }
+    settings = question.get("settings") or {}
+    if question["kind"] in GRADED_KINDS:
+        data["options"] = [{"id": o["id"], "text": o["text"]} for o in question["options"]]
+    if question["kind"] == "rating":
         data["scale"] = settings.get("scale", 5)
         data["min_label"] = settings.get("min_label", "")
         data["max_label"] = settings.get("max_label", "")
-    if question.kind == "short_text":
-        data["max_length"] = (question.settings or {}).get("max_length", 2000)
+    if question["kind"] == "short_text":
+        data["max_length"] = settings.get("max_length", 2000)
     return data
 
 
@@ -184,12 +229,39 @@ def attempt_dict(assessment: Assessment, attempt: AssessmentAttempt) -> dict[str
         "graded": assessment.graded,
         "answers_revealed": reveal,
         "results": results,
+        "status": attempt.status,
+        "practice": assessment.practice,
+        "started_at": iso(attempt.started_at),
+        "deadline_at": iso(attempt.deadline_at),
         "submitted_at": iso(attempt.submitted_at),
     }
 
 
-def learner_assessment(assessment: Assessment, enrollment: CourseEnrollment) -> dict[str, Any]:
-    attempts = list(
+def in_progress_dict(attempt: AssessmentAttempt) -> dict[str, Any]:
+    """An open attempt: its questions (no answer key) and the answers saved so far."""
+    seconds_left = None
+    if attempt.deadline_at is not None:
+        seconds_left = max(0, int((attempt.deadline_at - _now()).total_seconds()))
+    return {
+        "id": attempt.id,
+        "attempt_number": attempt.attempt_number,
+        "status": attempt.status,
+        "started_at": iso(attempt.started_at),
+        "deadline_at": iso(attempt.deadline_at),
+        "seconds_left": seconds_left,
+        "questions": [_learner_question(q) for q in attempt.snapshot["questions"]],
+        "answers": attempt.answers or {},
+    }
+
+
+def learner_attempt(assessment: Assessment, attempt: AssessmentAttempt) -> dict[str, Any]:
+    return attempt_dict(assessment, attempt) if attempt.finished else in_progress_dict(attempt)
+
+
+def learner_attempts(
+    assessment: Assessment, enrollment: CourseEnrollment
+) -> list[AssessmentAttempt]:
+    return list(
         db.session.scalars(
             select(AssessmentAttempt)
             .where(
@@ -199,7 +271,24 @@ def learner_assessment(assessment: Assessment, enrollment: CourseEnrollment) -> 
             .order_by(AssessmentAttempt.attempt_number)
         )
     )
+
+
+def question_count(assessment: Assessment) -> int:
+    return len(assessment.questions) + sum(r["count"] for r in assessment.selection or [])
+
+
+def learner_assessment(assessment: Assessment, enrollment: CourseEnrollment) -> dict[str, Any]:
+    attempts = learner_attempts(assessment, enrollment)
+    finished = [a for a in attempts if a.finished]
+    current = next((a for a in attempts if not a.finished), None)
     used = len(attempts)
+    percents = [a.percent for a in finished if a.percent is not None]
+    # Drawn, shuffled or timed: the questions are only shown once an attempt is started.
+    questions = (
+        []
+        if assessment.needs_start
+        else [_learner_question(question_copy(q)) for q in assessment.questions]
+    )
     return {
         "id": assessment.id,
         "kind": assessment.kind,
@@ -215,13 +304,21 @@ def learner_assessment(assessment: Assessment, enrollment: CourseEnrollment) -> 
         else max(0, assessment.max_attempts - used),
         "required_for_completion": assessment.required_for_completion,
         "status": assessment_state(assessment, attempts),
-        "questions": [_learner_question(q) for q in assessment.questions],
-        "attempts": [attempt_dict(assessment, a) for a in reversed(attempts)],
+        "practice": assessment.practice,
+        "time_limit_minutes": assessment.time_limit_minutes,
+        "requires_start": assessment.needs_start,
+        "question_count": question_count(assessment),
+        "best_percent": max(percents) if percents else None,
+        "questions": questions,
+        "in_progress": in_progress_dict(current) if current else None,
+        "attempts": [attempt_dict(assessment, a) for a in reversed(finished)],
     }
 
 
 def assessment_state(assessment: Assessment, attempts: list[AssessmentAttempt]) -> str:
-    """not_started | submitted (ungraded) | passed | failed (latest graded, none passed)."""
+    """not_started | submitted (ungraded) | passed | failed (latest graded, none passed).
+    Attempts still in progress don't count."""
+    attempts = [a for a in attempts if a.finished]
     if not attempts:
         return "not_started"
     if not assessment.graded:
@@ -240,6 +337,11 @@ ASSESSMENT_FIELDS = {
     "max_attempts",
     "show_answers",
     "required_for_completion",
+    "practice",
+    "time_limit_minutes",
+    "selection",
+    "shuffle_questions",
+    "shuffle_options",
 }
 
 
@@ -303,8 +405,29 @@ def save_assessment(
         errors["max_attempts"] = ["Use 1 to 100 attempts, or leave empty for unlimited."]
     if "show_answers" in data and data["show_answers"] not in SHOW_ANSWERS:
         errors["show_answers"] = [f"Choose one of: {', '.join(SHOW_ANSWERS)}."]
-    if "required_for_completion" in data and not isinstance(data["required_for_completion"], bool):
-        errors["required_for_completion"] = ["Must be true or false."]
+    for field in ("required_for_completion", "practice", "shuffle_questions", "shuffle_options"):
+        if field in data and not isinstance(data[field], bool):
+            errors[field] = ["Must be true or false."]
+    practice = data.get("practice", assessment.practice if assessment else False)
+    required = data.get(
+        "required_for_completion", assessment.required_for_completion if assessment else True
+    )
+    if practice is True and not graded:
+        errors["practice"] = ["Only quizzes can be practice exams."]
+    elif practice is True and "required_for_completion" in data and required is True:
+        errors["required_for_completion"] = ["Practice exams never count towards completion."]
+    limit = data.get("time_limit_minutes")
+    if limit is not None and (
+        not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 600
+    ):
+        errors["time_limit_minutes"] = ["Use 1 to 600 minutes, or leave empty for untimed."]
+    selection = assessment.selection if assessment else None
+    if "selection" in data:
+        from . import question_banks
+
+        selection = question_banks.clean_selection(data["selection"], errors)
+    if selection and not graded:
+        errors["selection"] = ["Only quizzes can draw questions from question banks."]
     if errors:
         raise ValidationError("Some fields need attention.", details=errors)
     created = assessment is None
@@ -321,9 +444,22 @@ def save_assessment(
     for field in ("title", "description"):
         if field in data:
             setattr(assessment, field, data[field].strip())
-    for field in ("lesson_id", "max_attempts", "show_answers", "required_for_completion"):
+    for field in (
+        "lesson_id",
+        "max_attempts",
+        "show_answers",
+        "required_for_completion",
+        "practice",
+        "time_limit_minutes",
+        "shuffle_questions",
+        "shuffle_options",
+    ):
         if field in data:
             setattr(assessment, field, data[field])
+    if "selection" in data:
+        assessment.selection = selection
+    if assessment.practice:
+        assessment.required_for_completion = False
     db.session.flush()
     audit_service.record(
         "course.assessment_created" if created else "course.assessment_updated",
@@ -340,9 +476,19 @@ def set_assessment_status(course: Course, assessment: Assessment, status: str, a
     if status not in ("draft", "published"):
         raise ValidationError(details={"status": ["Use draft or published."]})
     if status == "published":
-        if not assessment.questions:
+        from . import question_banks
+
+        if not assessment.questions and not assessment.selection:
             raise ValidationError("Add at least one question first.")
-        if assessment.graded and not any(q.graded for q in assessment.questions):
+        problems = question_banks.selection_problems(assessment)
+        if problems:
+            raise ValidationError(
+                "The question bank draws can't be filled.", details={"selection": problems}
+            )
+        if assessment.graded and not (
+            any(q.graded for q in assessment.questions)
+            or question_banks.selection_has_graded(assessment)
+        ):
             raise ValidationError("A quiz needs at least one automatically scored question.")
     assessment.status = status
     audit_service.record(
@@ -402,15 +548,19 @@ QUESTION_FIELDS = {
 }
 
 
-def _clean_question(
-    assessment: Assessment, data: dict, question: AssessmentQuestion | None
+def clean_question(
+    allowed: tuple[str, ...],
+    data: dict,
+    question: Any | None,
+    fields: set[str] = QUESTION_FIELDS,
 ) -> dict:
+    """Validate a question (assessment or bank question; ``fields`` lists what the caller
+    accepts, extra fields are the caller's to check)."""
     errors: dict[str, Any] = {}
-    unknown = set(data) - QUESTION_FIELDS
+    unknown = set(data) - fields
     if unknown:
         errors["_unknown"] = [f"Unknown field(s): {', '.join(sorted(unknown))}."]
     kind = data.get("kind", question.kind if question else None)
-    allowed = KINDS_BY_ASSESSMENT[assessment.kind]
     if kind not in allowed:
         errors["kind"] = [f"This assessment accepts: {', '.join(allowed)}."]
         raise ValidationError("Some fields need attention.", details=errors)
@@ -528,7 +678,7 @@ def save_question(
     require(actor, P.COURSES_MANAGE_ASSESSMENTS)
     if not isinstance(data, dict):
         raise ValidationError("Send a JSON object.")
-    clean = _clean_question(assessment, data, question)
+    clean = clean_question(KINDS_BY_ASSESSMENT[assessment.kind], data, question)
     created = question is None
     if question is None:
         last = db.session.scalar(
@@ -586,20 +736,40 @@ class AttemptsExhaustedError(ConflictError):
     message = "You have used all attempts for this assessment."
 
 
-def _check_answer(question: AssessmentQuestion, value: Any, errors: dict) -> Any:
-    key = str(question.id)
+class AttemptNotStartedError(ConflictError):
+    code = "attempt_not_started"
+    message = "Start an attempt first: this assessment's questions are set when you start."
+
+
+class AttemptExpiredError(ConflictError):
+    code = "attempt_expired"
+    message = "Time is up for this attempt. Only the answers saved in time were scored."
+
+
+class AttemptClosedError(ConflictError):
+    code = "attempt_closed"
+    message = "This attempt was already submitted. Refresh to see your result."
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _check_answer(question: dict[str, Any], value: Any, errors: dict, enforce: bool) -> Any:
+    key = str(question["id"])
     missing = value is None or value == "" or value == []
     if missing:
-        if question.required:
+        if question["required"] and enforce:
             errors[key] = ["Please answer this question."]
         return None
-    option_ids = {o["id"] for o in question.options or []}
-    if question.kind in ("single_choice", "true_false"):
+    option_ids = {o["id"] for o in question["options"] or []}
+    settings = question.get("settings") or {}
+    if question["kind"] in ("single_choice", "true_false"):
         if not isinstance(value, str) or value not in option_ids:
             errors[key] = ["Choose one of the options."]
             return None
         return value
-    if question.kind == "multiple_select":
+    if question["kind"] == "multiple_select":
         if (
             not isinstance(value, list)
             or not value
@@ -609,14 +779,14 @@ def _check_answer(question: AssessmentQuestion, value: Any, errors: dict) -> Any
             errors[key] = ["Choose one or more of the options."]
             return None
         return sorted(set(value))
-    if question.kind == "short_text":
-        limit = (question.settings or {}).get("max_length", 2000)
+    if question["kind"] == "short_text":
+        limit = settings.get("max_length", 2000)
         if not isinstance(value, str) or len(value) > limit or plain_text_problem(value):
             errors[key] = [f"Write plain text of at most {limit} characters."]
             return None
         return value.strip()
-    if question.kind == "rating":
-        scale = (question.settings or {}).get("scale", 5)
+    if question["kind"] == "rating":
+        scale = settings.get("scale", 5)
         if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= scale:
             errors[key] = [f"Choose a number from 1 to {scale}."]
             return None
@@ -624,11 +794,72 @@ def _check_answer(question: AssessmentQuestion, value: Any, errors: dict) -> Any
     return None
 
 
-def submit(assessment: Assessment, enrollment: CourseEnrollment, answers: Any) -> AssessmentAttempt:
-    """Validate, score and store one attempt. Concurrent duplicates fail cleanly."""
+def _clean_answers(questions: list[dict], answers: Any, *, enforce_required: bool) -> dict:
+    """Validate answers against the attempt's questions (keys are question ids)."""
     if not isinstance(answers, dict):
         raise ValidationError(details={"answers": ["Send your answers."]})
-    used = (
+    by_key = {str(q["id"]): q for q in questions}
+    if set(answers) - set(by_key):
+        raise ValidationError(details={"answers": ["Some answers don't match this assessment."]})
+    errors: dict[str, Any] = {}
+    clean = {
+        key: _check_answer(q, answers.get(key), errors, enforce_required)
+        for key, q in by_key.items()
+    }
+    if errors:
+        raise ValidationError("Some answers need attention.", details={"answers": errors})
+    return clean
+
+
+def score(assessment: Assessment, questions: list[dict], clean: dict) -> dict[str, Any]:
+    """The one scorer: per-question results (question text as given, so history stays
+    readable), points and the pass mark. Works on question copies, so a started attempt is
+    scored against its own snapshot."""
+    total = max_score = 0
+    results = []
+    for question in questions:
+        answer = clean.get(str(question["id"]))
+        entry: dict[str, Any] = {
+            "question_id": question["id"],
+            "kind": question["kind"],
+            "prompt": question["prompt"],
+            "answer": answer,
+            "graded": assessment.graded and question["kind"] in GRADED_KINDS,
+            "explanation": question["explanation"],
+        }
+        if entry["graded"]:
+            expected = sorted(question["correct"] or [])
+            given = (
+                sorted(answer)
+                if isinstance(answer, list)
+                else ([answer] if answer is not None else [])
+            )
+            correct = given == expected
+            max_score += question["points"]
+            awarded = question["points"] if correct else 0
+            total += awarded
+            entry |= {
+                "correct": correct,
+                "points": awarded,
+                "correct_answer": expected,
+                "options": question["options"] or [],
+            }
+        results.append(entry)
+    percent = passed = None
+    if assessment.graded:
+        percent = round(100 * total / max_score) if max_score else 100
+        passed = percent >= (assessment.passing_score or 0)
+    return {
+        "results": results,
+        "score": total,
+        "max_score": max_score,
+        "percent": percent,
+        "passed": passed,
+    }
+
+
+def _used(assessment: Assessment, enrollment: CourseEnrollment) -> int:
+    return (
         db.session.scalar(
             select(func.count(AssessmentAttempt.id)).where(
                 AssessmentAttempt.assessment_id == assessment.id,
@@ -637,60 +868,190 @@ def submit(assessment: Assessment, enrollment: CourseEnrollment, answers: Any) -
         )
         or 0
     )
+
+
+def current_attempt(
+    assessment: Assessment, enrollment: CourseEnrollment
+) -> AssessmentAttempt | None:
+    return db.session.scalar(
+        select(AssessmentAttempt).where(
+            AssessmentAttempt.assessment_id == assessment.id,
+            AssessmentAttempt.enrollment_id == enrollment.id,
+            AssessmentAttempt.status == "in_progress",
+        )
+    )
+
+
+def _overdue(attempt: AssessmentAttempt, now: datetime) -> bool:
+    return attempt.deadline_at is not None and now > attempt.deadline_at + DEADLINE_GRACE
+
+
+def _close(assessment: Assessment, attempt: AssessmentAttempt, clean: dict, status: str) -> None:
+    from .submissions import claim
+
+    claim(AssessmentAttempt, attempt, attempt.lock_version)
+    outcome = score(assessment, attempt.snapshot["questions"], clean)
+    attempt.answers = clean
+    attempt.results = outcome["results"]
+    attempt.score, attempt.max_score = outcome["score"], outcome["max_score"]
+    attempt.percent, attempt.passed = outcome["percent"], outcome["passed"]
+    attempt.status = status
+    attempt.submitted_at = _now()
+    db.session.flush()
+
+
+def expire_overdue(assessment: Assessment, enrollment: CourseEnrollment) -> bool:
+    """Score an open attempt whose deadline has passed on the answers saved in time."""
+    attempt = current_attempt(assessment, enrollment)
+    if attempt is None or not _overdue(attempt, _now()):
+        return False
+    saved = _clean_answers(
+        attempt.snapshot["questions"], attempt.answers or {}, enforce_required=False
+    )
+    _close(assessment, attempt, saved, "expired")
+    return True
+
+
+def build_snapshot(assessment: Assessment, seed: int) -> dict[str, Any]:
+    """The attempt's questions: the fixed questions plus the bank draws, shuffled as
+    configured. Deterministic for a seed and the current questions; stored in full, so it
+    never needs rebuilding."""
+    from . import question_banks
+
+    rng = random.Random(seed)
+    questions = [question_copy(q) for q in assessment.questions]
+    questions += question_banks.draw(assessment, rng)
+    if assessment.shuffle_questions:
+        rng.shuffle(questions)
+    if assessment.shuffle_options:
+        for question in questions:
+            if question["kind"] in ("single_choice", "multiple_select"):
+                rng.shuffle(question["options"])
+    return {"seed": seed, "questions": questions}
+
+
+def start(assessment: Assessment, enrollment: CourseEnrollment) -> tuple[AssessmentAttempt, bool]:
+    """Open an attempt (or return the one already open). Returns (attempt, created)."""
+    expire_overdue(assessment, enrollment)
+    attempt = current_attempt(assessment, enrollment)
+    if attempt is not None:
+        return attempt, False
+    used = _used(assessment, enrollment)
     if assessment.max_attempts is not None and used >= assessment.max_attempts:
         raise AttemptsExhaustedError()
-    questions = {str(q.id): q for q in assessment.questions}
-    unknown = set(answers) - set(questions)
-    if unknown:
-        raise ValidationError(details={"answers": ["Some answers don't match this assessment."]})
-    errors: dict[str, Any] = {}
-    clean = {key: _check_answer(q, answers.get(key), errors) for key, q in questions.items()}
-    if errors:
-        raise ValidationError("Some answers need attention.", details={"answers": errors})
-    score = max_score = 0
-    results = []
-    for key, question in questions.items():
-        answer = clean[key]
-        entry: dict[str, Any] = {
-            "question_id": question.id,
-            "kind": question.kind,
-            "prompt": question.prompt,
-            "answer": answer,
-            "graded": assessment.graded and question.graded,
-            "explanation": question.explanation,
-        }
-        if entry["graded"]:
-            expected = sorted(question.correct or [])
-            given = (
-                sorted(answer)
-                if isinstance(answer, list)
-                else ([answer] if answer is not None else [])
-            )
-            correct = given == expected
-            max_score += question.points
-            awarded = question.points if correct else 0
-            score += awarded
-            entry |= {
-                "correct": correct,
-                "points": awarded,
-                "correct_answer": expected,
-                "options": question.options or [],
-            }
-        results.append(entry)
-    percent = passed = None
-    if assessment.graded:
-        percent = round(100 * score / max_score) if max_score else 100
-        passed = percent >= (assessment.passing_score or 0)
+    now = _now()
+    attempt = AssessmentAttempt(
+        assessment_id=assessment.id,
+        enrollment_id=enrollment.id,
+        attempt_number=used + 1,
+        status="in_progress",
+        started_at=now,
+        deadline_at=now + timedelta(minutes=assessment.time_limit_minutes)
+        if assessment.time_limit_minutes
+        else None,
+        snapshot=build_snapshot(assessment, secrets.randbits(48)),
+        answers={},
+        results=[],
+    )
+    try:
+        with db.session.begin_nested():
+            db.session.add(attempt)
+            db.session.flush()
+    except IntegrityError:
+        # A concurrent request opened it first.
+        attempt = current_attempt(assessment, enrollment)
+        if attempt is None:
+            raise ConflictError("Another attempt was just started. Refresh.") from None
+        return attempt, False
+    return attempt, True
+
+
+def _open_attempt(
+    assessment: Assessment, enrollment: CourseEnrollment, attempt_id: int
+) -> AssessmentAttempt:
+    attempt = db.session.get(AssessmentAttempt, attempt_id)
+    if (
+        attempt is None
+        or attempt.assessment_id != assessment.id
+        or attempt.enrollment_id != enrollment.id
+    ):
+        raise NotFoundError("Attempt not found.")
+    if attempt.finished:
+        raise AttemptClosedError()
+    return attempt
+
+
+def save_answers(
+    assessment: Assessment, enrollment: CourseEnrollment, attempt_id: int, answers: Any
+) -> AssessmentAttempt:
+    """Autosave answers on an open attempt (merged; null clears one). Nothing is accepted
+    after the deadline."""
+    from .submissions import claim
+
+    attempt = _open_attempt(assessment, enrollment, attempt_id)
+    if _overdue(attempt, _now()):
+        raise AttemptExpiredError()
+    questions = attempt.snapshot["questions"]
+    clean = _clean_answers(questions, answers, enforce_required=False)
+    merged = {**(attempt.answers or {})}
+    for key in answers:
+        if clean[key] is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = clean[key]
+    claim(AssessmentAttempt, attempt, attempt.lock_version)
+    attempt.answers = merged
+    db.session.flush()
+    return attempt
+
+
+def finish(
+    assessment: Assessment, enrollment: CourseEnrollment, attempt_id: int, answers: Any
+) -> AssessmentAttempt:
+    """Submit an open attempt. Before the deadline, ``answers`` (optional) are merged into
+    the saved ones and required questions are enforced; after it, only the saved answers
+    count and the attempt is marked expired."""
+    attempt = _open_attempt(assessment, enrollment, attempt_id)
+    questions = attempt.snapshot["questions"]
+    saved = _clean_answers(questions, attempt.answers or {}, enforce_required=False)
+    if _overdue(attempt, _now()):
+        _close(assessment, attempt, saved, "expired")
+        return attempt
+    if answers is not None:
+        given = _clean_answers(questions, answers, enforce_required=False)
+        saved |= {k: v for k, v in given.items() if k in answers}
+    clean = _clean_answers(
+        questions, {k: v for k, v in saved.items() if v is not None}, enforce_required=True
+    )
+    _close(assessment, attempt, clean, "submitted")
+    return attempt
+
+
+def submit(assessment: Assessment, enrollment: CourseEnrollment, answers: Any) -> AssessmentAttempt:
+    """Validate, score and store one attempt in a single step (fixed, untimed assessments),
+    or submit the learner's open attempt. Concurrent duplicates fail cleanly."""
+    if not isinstance(answers, dict):
+        raise ValidationError(details={"answers": ["Send your answers."]})
+    expire_overdue(assessment, enrollment)
+    current = current_attempt(assessment, enrollment)
+    if current is not None:
+        return finish(assessment, enrollment, current.id, answers)
+    if assessment.needs_start:
+        raise AttemptNotStartedError()
+    used = _used(assessment, enrollment)
+    if assessment.max_attempts is not None and used >= assessment.max_attempts:
+        raise AttemptsExhaustedError()
+    questions = [question_copy(q) for q in assessment.questions]
+    clean = _clean_answers(questions, answers, enforce_required=True)
+    outcome = score(assessment, questions, clean)
     attempt = AssessmentAttempt(
         assessment_id=assessment.id,
         enrollment_id=enrollment.id,
         attempt_number=used + 1,
         answers=clean,
-        results=results,
-        score=score,
-        max_score=max_score,
-        percent=percent,
-        passed=passed,
+        status="submitted",
+        submitted_at=_now(),
+        **outcome,
     )
     try:
         with db.session.begin_nested():
@@ -701,3 +1062,72 @@ def submit(assessment: Assessment, enrollment: CourseEnrollment, answers: Any) -
             "This attempt was already submitted. Refresh to see your result."
         ) from None
     return attempt
+
+
+# ---- history ------------------------------------------------------------------------------
+
+
+def attempt_history(assessment: Assessment, enrollment: CourseEnrollment) -> dict[str, Any]:
+    attempts = learner_attempts(assessment, enrollment)
+    finished = [a for a in attempts if a.finished]
+    percents = [a.percent for a in finished if a.percent is not None]
+    return {
+        "assessment_id": assessment.id,
+        "title": assessment.title,
+        "kind": assessment.kind,
+        "practice": assessment.practice,
+        "status": assessment_state(assessment, attempts),
+        "attempts_used": len(attempts),
+        "max_attempts": assessment.max_attempts,
+        "best_percent": max(percents) if percents else None,
+        "passing_score": assessment.passing_score if assessment.graded else None,
+        "in_progress": next(
+            ({"id": a.id, "deadline_at": iso(a.deadline_at)} for a in attempts if not a.finished),
+            None,
+        ),
+        "attempts": [
+            {
+                "id": a.id,
+                "attempt_number": a.attempt_number,
+                "status": a.status,
+                "score": a.score,
+                "max_score": a.max_score,
+                "percent": a.percent,
+                "passed": a.passed,
+                "started_at": iso(a.started_at),
+                "submitted_at": iso(a.submitted_at),
+            }
+            for a in reversed(finished)
+        ],
+    }
+
+
+def staff_attempts(assessment: Assessment, actor: User) -> list[dict[str, Any]]:
+    """Recent attempts with scores and timing (no answers), for course staff."""
+    require(actor, P.COURSES_VIEW_ENROLLMENTS)
+    rows = db.session.scalars(
+        select(AssessmentAttempt)
+        .where(AssessmentAttempt.assessment_id == assessment.id)
+        .order_by(AssessmentAttempt.id.desc())
+        .limit(500)
+    )
+    out = []
+    for a in rows:
+        enrollment = db.session.get(CourseEnrollment, a.enrollment_id)
+        out.append(
+            {
+                "id": a.id,
+                "enrollment_id": a.enrollment_id,
+                "learner": enrollment.customer.email if enrollment else None,
+                "attempt_number": a.attempt_number,
+                "status": a.status,
+                "score": a.score,
+                "max_score": a.max_score,
+                "percent": a.percent,
+                "passed": a.passed,
+                "started_at": iso(a.started_at),
+                "deadline_at": iso(a.deadline_at),
+                "submitted_at": iso(a.submitted_at),
+            }
+        )
+    return out

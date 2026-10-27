@@ -159,6 +159,8 @@ def enrollment_detail(course: Course, enrollment: CourseEnrollment, actor: User)
                         "max_score": t.max_score,
                         "percent": t.percent,
                         "passed": t.passed,
+                        "status": t.status,
+                        "started_at": iso(t.started_at),
                         "submitted_at": iso(t.submitted_at),
                     }
                     for t in attempts.get(a.id, [])
@@ -333,7 +335,8 @@ def reports(actor: User, course: Course | None = None) -> dict[str, Any]:
         attempted = (
             db.session.scalar(
                 select(func.count(func.distinct(AssessmentAttempt.enrollment_id))).where(
-                    AssessmentAttempt.assessment_id == assessment.id
+                    AssessmentAttempt.assessment_id == assessment.id,
+                    AssessmentAttempt.status != "in_progress",
                 )
             )
             or 0
@@ -352,7 +355,8 @@ def reports(actor: User, course: Course | None = None) -> dict[str, Any]:
         attempts = (
             db.session.scalar(
                 select(func.count(AssessmentAttempt.id)).where(
-                    AssessmentAttempt.assessment_id == assessment.id
+                    AssessmentAttempt.assessment_id == assessment.id,
+                    AssessmentAttempt.status != "in_progress",
                 )
             )
             or 0

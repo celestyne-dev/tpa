@@ -9,6 +9,8 @@
   previews, signed-in learners also the lessons they can open (decided server-side).
 - ``/account/study``… and lesson study routes (Batch 09.1): the learner's own notes,
   highlights, bookmarks, checklist ticks, reading position and preferences.
+- ``…/assessments/<id>/attempts/…`` and ``…/assessment-history`` (Batch 09.2 phase 2):
+  started (drawn, shuffled or timed) attempts, autosave, submission and attempt history.
 """
 
 from __future__ import annotations
@@ -175,6 +177,78 @@ class LearningAttemptResource(Resource):
         )
         db.session.commit()
         return success(data, status=201)
+
+
+class LearningAttemptStartResource(Resource):
+    method_decorators = {"post": [limiter.limit("10 per minute")]}
+
+    @require_customer
+    def post(self, slug: str, assessment_id: int):
+        data, created = learning.start_assessment(
+            current_customer(), learning.learner_course_by_slug(slug), assessment_id
+        )
+        db.session.commit()
+        return success(data, status=201 if created else 200)
+
+
+class LearningAttemptDetailResource(Resource):
+    method_decorators = {"put": [limiter.limit("60 per minute")]}
+
+    @require_customer
+    def get(self, slug: str, assessment_id: int, attempt_id: int):
+        data = learning.attempt_view(
+            current_customer(), learning.learner_course_by_slug(slug), assessment_id, attempt_id
+        )
+        db.session.commit()
+        return success(data)
+
+    @require_customer
+    def put(self, slug: str, assessment_id: int, attempt_id: int):
+        data = learning.save_attempt(
+            current_customer(),
+            learning.learner_course_by_slug(slug),
+            assessment_id,
+            attempt_id,
+            _body().get("answers"),
+        )
+        db.session.commit()
+        return success(data)
+
+
+class LearningAttemptSubmitResource(Resource):
+    method_decorators = {"post": [limiter.limit("20 per minute")]}
+
+    @require_customer
+    def post(self, slug: str, assessment_id: int, attempt_id: int):
+        data = learning.submit_attempt(
+            current_customer(),
+            learning.learner_course_by_slug(slug),
+            assessment_id,
+            attempt_id,
+            _body().get("answers"),
+        )
+        db.session.commit()
+        return success(data)
+
+
+class LearningAssessmentHistoryResource(Resource):
+    @require_customer
+    def get(self, slug: str, assessment_id: int):
+        data = learning.assessment_history(
+            current_customer(), learning.learner_course_by_slug(slug), assessment_id
+        )
+        db.session.commit()
+        return success(data)
+
+
+class LearningCourseHistoryResource(Resource):
+    @require_customer
+    def get(self, slug: str):
+        data = learning.assessment_history(
+            current_customer(), learning.learner_course_by_slug(slug)
+        )
+        db.session.commit()
+        return success(data)
 
 
 class LearningCertificateResource(Resource):
@@ -462,6 +536,24 @@ PUBLIC_COURSE_ROUTES = [
         LearningAttemptResource,
         "/account/learning/<string:slug>/assessments/<int:assessment_id>/attempts",
     ),
+    (
+        LearningAttemptStartResource,
+        "/account/learning/<string:slug>/assessments/<int:assessment_id>/attempts/start",
+    ),
+    (
+        LearningAttemptDetailResource,
+        "/account/learning/<string:slug>/assessments/<int:assessment_id>/attempts/<int:attempt_id>",
+    ),
+    (
+        LearningAttemptSubmitResource,
+        "/account/learning/<string:slug>/assessments/<int:assessment_id>/attempts/"
+        "<int:attempt_id>/submit",
+    ),
+    (
+        LearningAssessmentHistoryResource,
+        "/account/learning/<string:slug>/assessments/<int:assessment_id>/history",
+    ),
+    (LearningCourseHistoryResource, "/account/learning/<string:slug>/assessment-history"),
     (LearningCertificateResource, "/account/learning/<string:slug>/certificate"),
     (LearningCertificatePdfResource, "/account/certificates/<string:code>/pdf"),
     (LearningSearchResource, "/learning/search"),

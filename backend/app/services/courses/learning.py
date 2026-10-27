@@ -309,8 +309,11 @@ def _attempts(enrollment: CourseEnrollment) -> dict[int, list[AssessmentAttempt]
 def requirements(course: Course) -> tuple[list[CourseLesson], list[Assessment]]:
     lessons = published_lessons(course)
     required = [lesson for lesson in lessons if lesson.completion_required] or lessons
+    # Practice exams never count (Batch 09.2 phase 2).
     assessments = [
-        a for a in course.assessments if a.status == "published" and a.required_for_completion
+        a
+        for a in course.assessments
+        if a.status == "published" and a.required_for_completion and not a.practice
     ]
     return required, assessments
 
@@ -494,10 +497,7 @@ def save_exercise(
     }
 
 
-def submit_assessment(
-    customer: Customer, course: Course, assessment_id: int, answers: Any
-) -> dict[str, Any]:
-    enrollment = require_access(customer, course)
+def _published_assessment(course: Course, assessment_id: int) -> Assessment:
     assessment = db.session.get(Assessment, assessment_id)
     if assessment is None or assessment.course_id != course.id or assessment.status != "published":
         raise NotFoundError("Assessment not found.")
@@ -505,13 +505,109 @@ def submit_assessment(
         lesson = db.session.get(CourseLesson, assessment.lesson_id)
         if lesson is None or lesson.status != "published":
             raise NotFoundError("Assessment not found.")
-    attempt = assessment_service.submit(assessment, enrollment, answers)
+    return assessment
+
+
+def _open_assessment(
+    customer: Customer, course: Course, assessment_id: int
+) -> tuple[CourseEnrollment, Assessment]:
+    """Access check, then the published assessment; an attempt whose deadline passed is
+    scored on its saved answers first (so progress reflects it)."""
+    enrollment = require_access(customer, course)
+    assessment = _published_assessment(course, assessment_id)
+    if assessment_service.expire_overdue(assessment, enrollment):
+        recompute(enrollment)
+    return enrollment, assessment
+
+
+def _attempt_result(
+    enrollment: CourseEnrollment, assessment: Assessment, attempt: AssessmentAttempt
+) -> dict[str, Any]:
     _touch(enrollment)
     state = recompute(enrollment)
     return {
-        "attempt": assessment_service.attempt_dict(assessment, attempt),
+        "attempt": assessment_service.learner_attempt(assessment, attempt),
         "assessment": assessment_service.learner_assessment(assessment, enrollment),
         "progress": state,
+    }
+
+
+def submit_assessment(
+    customer: Customer, course: Course, assessment_id: int, answers: Any
+) -> dict[str, Any]:
+    enrollment = require_access(customer, course)
+    assessment = _published_assessment(course, assessment_id)
+    attempt = assessment_service.submit(assessment, enrollment, answers)
+    return _attempt_result(enrollment, assessment, attempt)
+
+
+def start_assessment(
+    customer: Customer, course: Course, assessment_id: int
+) -> tuple[dict[str, Any], bool]:
+    enrollment, assessment = _open_assessment(customer, course, assessment_id)
+    attempt, created = assessment_service.start(assessment, enrollment)
+    _touch(enrollment)
+    return {
+        "attempt": assessment_service.in_progress_dict(attempt),
+        "assessment": assessment_service.learner_assessment(assessment, enrollment),
+    }, created
+
+
+def save_attempt(
+    customer: Customer, course: Course, assessment_id: int, attempt_id: int, answers: Any
+) -> dict[str, Any]:
+    enrollment = require_access(customer, course)
+    assessment = _published_assessment(course, assessment_id)
+    attempt = assessment_service.save_answers(assessment, enrollment, attempt_id, answers)
+    _touch(enrollment)
+    return {"attempt": assessment_service.in_progress_dict(attempt)}
+
+
+def submit_attempt(
+    customer: Customer, course: Course, assessment_id: int, attempt_id: int, answers: Any
+) -> dict[str, Any]:
+    enrollment = require_access(customer, course)
+    assessment = _published_assessment(course, assessment_id)
+    attempt = assessment_service.finish(assessment, enrollment, attempt_id, answers)
+    return _attempt_result(enrollment, assessment, attempt)
+
+
+def attempt_view(
+    customer: Customer, course: Course, assessment_id: int, attempt_id: int
+) -> dict[str, Any]:
+    enrollment, assessment = _open_assessment(customer, course, assessment_id)
+    attempt = db.session.get(AssessmentAttempt, attempt_id)
+    if (
+        attempt is None
+        or attempt.assessment_id != assessment.id
+        or attempt.enrollment_id != enrollment.id
+    ):
+        raise NotFoundError("Attempt not found.")
+    return {"attempt": assessment_service.learner_attempt(assessment, attempt)}
+
+
+def assessment_history(
+    customer: Customer, course: Course, assessment_id: int | None = None
+) -> dict[str, Any]:
+    """The learner's attempts: for one assessment, or every published one in the course."""
+    enrollment = require_access(customer, course)
+    if assessment_id is not None:
+        assessments = [_published_assessment(course, assessment_id)]
+    else:
+        visible = {lesson.id for lesson in published_lessons(course)}
+        assessments = [
+            a
+            for a in course.assessments
+            if a.status == "published" and (a.lesson_id is None or a.lesson_id in visible)
+        ]
+    changed = False
+    for assessment in assessments:
+        changed = assessment_service.expire_overdue(assessment, enrollment) or changed
+    if changed:
+        recompute(enrollment)
+    return {
+        "course": {"slug": course.slug, "title": course.title},
+        "assessments": [assessment_service.attempt_history(a, enrollment) for a in assessments],
     }
 
 
@@ -658,6 +754,7 @@ def course_outline(customer: Customer, course: Course) -> dict[str, Any]:
             "graded": a.graded,
             "lesson_id": a.lesson_id,
             "required": a.required_for_completion,
+            "practice": a.practice,
             "status": assessment_service.assessment_state(a, attempts.get(a.id, [])),
         }
         for a in course.assessments
@@ -809,14 +906,7 @@ def lesson_view(customer: Customer, course: Course, lesson_slug: str) -> dict[st
 
 
 def assessment_view(customer: Customer, course: Course, assessment_id: int) -> dict[str, Any]:
-    enrollment = require_access(customer, course)
-    assessment = db.session.get(Assessment, assessment_id)
-    if assessment is None or assessment.course_id != course.id or assessment.status != "published":
-        raise NotFoundError("Assessment not found.")
-    if assessment.lesson_id is not None:
-        lesson = db.session.get(CourseLesson, assessment.lesson_id)
-        if lesson is None or lesson.status != "published":
-            raise NotFoundError("Assessment not found.")
+    enrollment, assessment = _open_assessment(customer, course, assessment_id)
     return {
         "course": {"slug": course.slug, "title": course.title},
         "assessment": assessment_service.learner_assessment(assessment, enrollment),
@@ -855,9 +945,11 @@ def export_learner(customer: Customer) -> list[dict[str, Any]]:
                 "assessments": [
                     {
                         "attempt": a.attempt_number,
+                        "status": a.status,
                         "answers": a.answers,
                         "percent": a.percent,
                         "passed": a.passed,
+                        "started_at": iso(a.started_at),
                         "submitted_at": iso(a.submitted_at),
                     }
                     for items in attempts.values()

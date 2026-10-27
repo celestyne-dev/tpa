@@ -145,6 +145,8 @@ class Permission(StrEnum):
     ASSIGNMENTS_PUBLISH_GRADES = "assignments.publish_grades"
     ASSIGNMENTS_MANAGE_EXCEPTIONS = "assignments.manage_exceptions"
     ASSIGNMENTS_VIEW_REPORTS = "assignments.view_reports"
+    QUESTION_BANKS_VIEW = "question_banks.view"
+    QUESTION_BANKS_MANAGE = "question_banks.manage"
 
 
 P = Permission
@@ -787,6 +789,21 @@ CATALOGUE: list[PermissionDef] = [
         description="Deadline extensions and extra attempts for individual learners.",
     ),
     _d(P.ASSIGNMENTS_VIEW_REPORTS, "View assignment reports", "Courses & memberships", "courses"),
+    # Batch 09.2 phase 2: reusable question banks (appended).
+    _d(
+        P.QUESTION_BANKS_VIEW,
+        "View question banks",
+        "Courses & memberships",
+        "courses",
+        description="List banks and their questions, without answer keys.",
+    ),
+    _d(
+        P.QUESTION_BANKS_MANAGE,
+        "Manage question banks",
+        "Courses & memberships",
+        "courses",
+        description="Create and edit banks and questions, including answer keys.",
+    ),
 ]
 
 CATALOGUE_BY_KEY: dict[str, PermissionDef] = {d.key.value: d for d in CATALOGUE}
@@ -1293,6 +1310,15 @@ BATCH_092_GRANTS: dict[str, frozenset[str]] = {
 }
 
 
+QUESTION_BANKS_ALL = _set(P.QUESTION_BANKS_VIEW, P.QUESTION_BANKS_MANAGE)
+BATCH_092_BANK_GRANTS: dict[str, frozenset[str]] = {
+    "administrator": QUESTION_BANKS_ALL,
+    "editor_in_chief": QUESTION_BANKS_ALL,
+    "editor": QUESTION_BANKS_ALL,
+    "content_editor": QUESTION_BANKS_ALL,
+}
+
+
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
         BATCH_03_GRANTS.get(spec.key, frozenset())
@@ -1304,6 +1330,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_09_GRANTS.get(spec.key, frozenset())
         | BATCH_091_GRANTS.get(spec.key, frozenset())
         | BATCH_092_GRANTS.get(spec.key, frozenset())
+        | BATCH_092_BANK_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

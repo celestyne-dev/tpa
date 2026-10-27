@@ -124,6 +124,7 @@ from .partnerships import (
     SponsorshipCampaign,
 )
 from .publishing import PublishJob, Redirect
+from .question_banks import BankQuestion, QuestionBank
 from .user import (
     AccountToken,
     PermissionDefinition,
@@ -138,6 +139,7 @@ __all__ = [
     "Assessment",
     "AssessmentAttempt",
     "AssessmentQuestion",
+    "BankQuestion",
     "AssignmentAttempt",
     "AssignmentException",
     "AssignmentFile",
@@ -201,6 +203,7 @@ __all__ = [
     "ProductFileVersion",
     "ProductPrice",
     "ProductRevision",
+    "QuestionBank",
     "product_categories",
     "product_related",
     "product_tags",
