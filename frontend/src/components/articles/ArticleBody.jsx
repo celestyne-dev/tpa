@@ -125,11 +125,24 @@ function ArticleBlocks({ blocks }) {
       {blocks.map((block, index) => {
         switch (block.type) {
           case "paragraph":
-            return <p key={index}>{block.text}</p>;
+            return (
+              <p
+                key={index}
+                data-block-uid={block.uid}
+                data-highlightable={block.uid ? "" : undefined}
+              >
+                {block.text}
+              </p>
+            );
           case "heading": {
             const Heading = block.level === 3 ? "h3" : "h2";
             return (
-              <Heading key={index} id={block.id ?? slugify(block.text)}>
+              <Heading
+                key={index}
+                id={block.anchorId ?? block.id ?? slugify(block.text)}
+                data-block-uid={block.uid}
+                data-highlightable={block.uid ? "" : undefined}
+              >
                 {block.text}
               </Heading>
             );
@@ -137,7 +150,11 @@ function ArticleBlocks({ blocks }) {
           case "list": {
             const List = block.ordered ? "ol" : "ul";
             return (
-              <List key={index}>
+              <List
+                key={index}
+                data-block-uid={block.uid}
+                data-highlightable={block.uid ? "" : undefined}
+              >
                 {block.items.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}
@@ -146,7 +163,11 @@ function ArticleBlocks({ blocks }) {
           }
           case "quote":
             return (
-              <blockquote key={index}>
+              <blockquote
+                key={index}
+                data-block-uid={block.uid}
+                data-highlightable={block.uid ? "" : undefined}
+              >
                 <p>{block.text}</p>
                 {block.cite && (
                   <footer className="mt-3 font-sans text-base text-muted not-italic">
@@ -159,6 +180,8 @@ function ArticleBlocks({ blocks }) {
             return (
               <figure
                 key={index}
+                data-block-uid={block.uid}
+                data-highlightable={block.uid ? "" : undefined}
                 className="not-prose my-10 border-y-2 border-gold-300 py-8 text-center"
               >
                 <blockquote className="font-serif text-3xl leading-snug text-charcoal italic">
@@ -177,6 +200,8 @@ function ArticleBlocks({ blocks }) {
             return (
               <aside
                 key={index}
+                data-block-uid={block.uid}
+                data-highlightable={block.uid ? "" : undefined}
                 className={cn("flex gap-4 rounded-2xl border p-5 text-base", style.className)}
               >
                 <Icon aria-hidden className="mt-1 size-5 shrink-0 text-charcoal" />
@@ -188,14 +213,20 @@ function ArticleBlocks({ blocks }) {
             );
           }
           case "divider":
-            return <hr key={index} className="mx-auto w-24 border-t-2 border-gold-300" />;
+            return (
+              <hr
+                key={index}
+                data-block-uid={block.uid}
+                className="mx-auto w-24 border-t-2 border-gold-300"
+              />
+            );
           case "image":
             return block.image ? (
               <Figure key={index} image={block.image} caption={block.caption} align={block.align} />
             ) : null;
           case "gallery":
             return (
-              <figure key={index} className="not-prose">
+              <figure key={index} data-block-uid={block.uid} className="not-prose">
                 <ul
                   className={cn(
                     "grid grid-cols-2 gap-3",
@@ -231,7 +262,11 @@ function ArticleBlocks({ blocks }) {
             );
           case "button":
             return (
-              <p key={index} className={cn("not-prose", block.align === "center" && "text-center")}>
+              <p
+                key={index}
+                data-block-uid={block.uid}
+                className={cn("not-prose", block.align === "center" && "text-center")}
+              >
                 <SmartLink
                   href={block.href}
                   className={cn(
@@ -250,6 +285,7 @@ function ArticleBlocks({ blocks }) {
             return (
               <aside
                 key={index}
+                data-block-uid={block.uid}
                 className="not-prose rounded-[var(--radius-card)] bg-sage-800 p-8 text-ivory"
               >
                 <p className="font-serif text-2xl">{block.title}</p>
@@ -265,7 +301,11 @@ function ArticleBlocks({ blocks }) {
             );
           case "related":
             return (
-              <aside key={index} className="not-prose rounded-2xl border border-charcoal/10 p-6">
+              <aside
+                key={index}
+                data-block-uid={block.uid}
+                className="not-prose rounded-2xl border border-charcoal/10 p-6"
+              >
                 <p className="text-sm font-semibold tracking-[0.14em] text-sage-700 uppercase">
                   {block.title || "Related reading"}
                 </p>
@@ -295,6 +335,7 @@ function ArticleBlocks({ blocks }) {
             return (
               <aside
                 key={index}
+                data-block-uid={block.uid}
                 className="not-prose flex flex-col gap-4 rounded-2xl border border-gold-300 bg-cream p-6 sm:flex-row sm:items-center"
               >
                 {block.image && (
@@ -320,7 +361,7 @@ function ArticleBlocks({ blocks }) {
           case "table": {
             const [head, ...rows] = block.header_row ? block.rows : [null, ...block.rows];
             return (
-              <div key={index} className="not-prose overflow-x-auto">
+              <div key={index} data-block-uid={block.uid} className="not-prose overflow-x-auto">
                 <table className="w-full border-collapse text-left text-base">
                   {block.caption && (
                     <caption className="mb-2 text-left text-sm text-muted">{block.caption}</caption>

@@ -16,6 +16,48 @@ function Lines({ label, items, onChange, error, hint }) {
   );
 }
 
+function ChecklistItems({ n, items, onChange, error }) {
+  const list = (items ?? []).map((i) => (typeof i === "string" ? { text: i } : i));
+  const update = (index, patch) =>
+    onChange(list.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">Checklist {n} items</legend>
+      {list.map((item, i) => (
+        <div key={item.id ?? `new-${i}`} className="flex items-end gap-2">
+          <TextField
+            className="flex-1"
+            label={`Item ${i + 1}`}
+            value={item.text ?? ""}
+            onChange={(e) => update(i, { text: e.target.value })}
+          />
+          <button
+            type="button"
+            aria-label={`Remove item ${i + 1}`}
+            disabled={list.length === 1}
+            onClick={() => onChange(list.filter((_, j) => j !== i))}
+            className="mb-1 rounded p-2 text-muted hover:bg-beige disabled:opacity-40"
+          >
+            <Trash2 aria-hidden className="size-4" />
+          </button>
+        </div>
+      ))}
+      {error && (
+        <p role="alert" className="text-sm text-red-800">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => onChange([...list, { text: "" }])}
+        className="inline-flex items-center gap-1 text-sm font-medium text-sage-800 underline underline-offset-4"
+      >
+        <Plus aria-hidden className="size-4" /> Add item
+      </button>
+    </fieldset>
+  );
+}
+
 /** Field editors for the lesson-only blocks (key points, examples, exercises, …). */
 export function LessonBlockFields({ block, n, set, error, files }) {
   switch (block.type) {
@@ -102,11 +144,16 @@ export function LessonBlockFields({ block, n, set, error, files }) {
             value={block.title ?? ""}
             onChange={(e) => set({ title: e.target.value })}
           />
-          <Lines
-            label="Checklist items"
+          <ChecklistItems
+            n={n}
             items={block.items}
             error={error}
             onChange={(items) => set({ items })}
+          />
+          <CheckboxField
+            label="Required: learners must tick every item to complete the lesson"
+            checked={Boolean(block.required)}
+            onChange={(e) => set({ required: e.target.checked })}
           />
         </div>
       );

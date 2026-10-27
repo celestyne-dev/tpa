@@ -80,7 +80,7 @@ export const BLOCK_TEMPLATES = {
   checklist: {
     label: "Checklist",
     lessonOnly: true,
-    make: () => ({ type: "checklist", title: "", items: [""] }),
+    make: () => ({ type: "checklist", title: "", items: [{ text: "" }], required: false }),
   },
   download: {
     label: "Worksheet download",
@@ -164,8 +164,13 @@ export function cleanBlocks(blocks) {
       } else delete out.url;
     }
     if (out.type === "resource" && !out.media_id) delete out.media_id;
-    if (out.type === "key_points" || out.type === "checklist")
-      out.items = out.items.map((i) => i.trim()).filter(Boolean);
+    if (out.type === "key_points") out.items = out.items.map((i) => i.trim()).filter(Boolean);
+    if (out.type === "checklist")
+      // Items keep their ids so learners' saved ticks follow them through edits.
+      out.items = out.items
+        .map((i) => (typeof i === "string" ? { text: i } : i))
+        .map(({ id, text }) => ({ ...(id && { id }), text: (text ?? "").trim() }))
+        .filter((i) => i.text);
     if (out.type === "further_reading")
       out.items = out.items
         .filter((i) => i.label?.trim() || i.href?.trim())

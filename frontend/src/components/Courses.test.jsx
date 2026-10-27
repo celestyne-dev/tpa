@@ -140,9 +140,14 @@ describe("learning", () => {
       await waitFor(() => expect(shopApi.authorizeDownload).toHaveBeenCalledWith(5, 9));
       expect(redirectTo.go).toHaveBeenCalledWith("/api/v1/downloads/token");
 
-      // Text size is adjustable.
-      await user.click(screen.getByRole("button", { name: "Larger text" }));
-      expect(screen.getByText("Text L")).toBeInTheDocument();
+      // Reading display is adjustable and saved to the account.
+      await user.click(screen.getByRole("button", { name: /Display/ }));
+      await user.click(screen.getByRole("radio", { name: "Large" }));
+      await waitFor(() =>
+        expect(shopApi.saveReadingPreferences).toHaveBeenCalledWith({ font_size: "large" }),
+      );
+      await user.click(screen.getByRole("radio", { name: "Dark" }));
+      expect(document.querySelector(".tpa-reader")).toHaveAttribute("data-reader-theme", "dark");
 
       await user.click(complete);
       await waitFor(() => expect(shopApi.completeLesson).toHaveBeenCalled());

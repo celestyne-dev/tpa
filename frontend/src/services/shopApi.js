@@ -111,6 +111,51 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
     certificatePdfUrl: (code) => `${baseURL}/account/certificates/${enc(code)}/pdf`,
     verifyCertificate: (code) => get(`/certificates/${enc(code)}`),
     previewLesson: (slug, lesson) => get(`/courses/${enc(slug)}/preview/${enc(lesson)}`),
+    // Batch 09.1 study tools (private to the signed-in learner).
+    searchLearning: (q) => get("/learning/search", { q }),
+    createNote: (slug, lesson, body) =>
+      post(`/account/learning/${enc(slug)}/lessons/${enc(lesson)}/notes`, body),
+    updateNote: (id, body) => patch(`/account/study/notes/${enc(id)}`, body),
+    deleteNote: (id) => client.delete(`/account/study/notes/${enc(id)}`).then((r) => r.data),
+    createHighlight: (slug, lesson, body) =>
+      post(`/account/learning/${enc(slug)}/lessons/${enc(lesson)}/highlights`, body),
+    updateHighlight: (id, color) => patch(`/account/study/highlights/${enc(id)}`, { color }),
+    deleteHighlight: (id) =>
+      client.delete(`/account/study/highlights/${enc(id)}`).then((r) => r.data),
+    setBookmark: (slug, lesson, bookmarked) =>
+      client
+        .put(`/account/learning/${enc(slug)}/lessons/${enc(lesson)}/bookmark`, { bookmarked })
+        .then((r) => r.data),
+    setChecklistItem: (slug, lesson, itemId, checked) =>
+      client
+        .put(`/account/learning/${enc(slug)}/lessons/${enc(lesson)}/checklist/${enc(itemId)}`, {
+          checked,
+        })
+        .then((r) => r.data),
+    savePosition: (slug, lesson, body) =>
+      client
+        .put(`/account/learning/${enc(slug)}/lessons/${enc(lesson)}/position`, body)
+        .then((r) => r.data),
+    /** Last-chance save when the page is hidden or closed (survives navigation). */
+    savePositionOnExit: (slug, lesson, body) => {
+      if (typeof fetch !== "function") return;
+      fetch(`${baseURL}/account/learning/${enc(slug)}/lessons/${enc(lesson)}/position`, {
+        method: "PUT",
+        keepalive: true,
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Customer-CSRF": readCookie("tpa_customer_csrf"),
+        },
+        body: JSON.stringify(body),
+      }).catch(() => {});
+    },
+    notebook: (params) => get("/account/study/notebook", params),
+    notebookExportUrl: (format, course) =>
+      `${baseURL}/account/study/export?format=${enc(format)}${course ? `&course=${enc(course)}` : ""}`,
+    readingPreferences: () => get("/account/study/preferences"),
+    saveReadingPreferences: (body) =>
+      client.put("/account/study/preferences", body).then((r) => r.data),
     // The Positive Reset newsletter and free resources (cookieless; signed links).
     newsletterStatus: () => get("/newsletter/status"),
     subscribe: (body) => post("/newsletter/subscribe", body),

@@ -192,3 +192,50 @@
     @apply list-disc space-y-1.5 pl-6;
   }
 }
+
+/*
+ * Lesson reader (Batch 09.1). Theme tokens, text size, line spacing and width come from
+ * readerStyle() as CSS variables; sizes are rem so browser zoom and font settings apply.
+ */
+.tpa-reader {
+  background-color: var(--color-ivory);
+  color: var(--color-ink);
+}
+.tpa-reader article {
+  font-size: var(--reader-size, 1.125rem);
+  line-height: var(--reader-leading, 1.75);
+}
+.tpa-reader .prose-tpa {
+  font-size: inherit;
+  line-height: inherit;
+}
+.tpa-reader .reader-column {
+  max-width: var(--reader-width, 68ch);
+}
+.tpa-reader [data-block-uid]:focus {
+  outline: none;
+}
+.tpa-reader [data-block-uid]:focus-visible {
+  outline: 3px solid var(--color-sage-600);
+}
+
+/* Learners' highlights, painted with the CSS Custom Highlight API (DOM unchanged). */
+::highlight(tpa-hl-yellow) {
+  background-color: #fde68a;
+  color: #24221f;
+}
+::highlight(tpa-hl-green) {
+  background-color: #bbf7d0;
+  color: #24221f;
+}
+::highlight(tpa-hl-blue) {
+  background-color: #bfdbfe;
+  color: #24221f;
+}
+::highlight(tpa-hl-pink) {
+  background-color: #fbcfe8;
+  color: #24221f;
+}
+::highlight(tpa-hl-focus) {
+  text-decoration: underline 3px #24221f;
+}

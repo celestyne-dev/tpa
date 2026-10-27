@@ -30,3 +30,4 @@ export {
   LearnCoursePage,
   LearnLessonPage,
 } from "./LearningPages";
+export { LearningSearchPage, NotebookPage } from "./StudyPages";

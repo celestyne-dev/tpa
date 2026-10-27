@@ -31,3 +31,6 @@ export function priceable(course) {
     prices: course.prices ?? [],
   };
 }
+
+/** The id a lesson heading gets so the table of contents can jump to it. */
+export const sectionId = (uid) => `section-${uid}`;

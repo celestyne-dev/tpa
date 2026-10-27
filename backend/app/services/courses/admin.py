@@ -438,6 +438,8 @@ def _clean(data: dict[str, Any], course: Course | None) -> dict[str, Any]:
         slug = data["slug"]
         if not isinstance(slug, str) or not SLUG_RE.match(slug) or len(slug) > 200:
             errors["slug"] = ["Use lowercase letters, numbers and hyphens."]
+        elif slug in RESERVED_SLUGS:
+            errors["slug"] = ["This address is used by the site; choose another."]
         elif course is not None and course.first_published_at and slug != course.slug:
             errors["slug"] = ["Published courses keep their address so links keep working."]
         elif db.session.scalar(
@@ -572,6 +574,10 @@ def _check_lock(course: Course, data: dict[str, Any]) -> None:
 # ---- commands ---------------------------------------------------------------------------
 
 
+# /learn/search is the learner search page (it would hide a course with this address).
+RESERVED_SLUGS = frozenset({"search"})
+
+
 def create(data: dict[str, Any], actor: User) -> Course:
     require(actor, P.COURSES_CREATE)
     if not isinstance(data, dict):
@@ -580,7 +586,9 @@ def create(data: dict[str, Any], actor: User) -> Course:
     if "slug" not in data and isinstance(data.get("title"), str):
         base = slugify(data["title"]) or "course"
         slug, n = base, 2
-        while db.session.scalar(select(Course.id).where(Course.slug == slug)):
+        while slug in RESERVED_SLUGS or db.session.scalar(
+            select(Course.id).where(Course.slug == slug)
+        ):
             slug, n = f"{base}-{n}"[:200], n + 1
         data["slug"] = slug
     if not isinstance(data.get("title"), str) or not data["title"].strip():

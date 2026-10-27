@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { ArticleBody } from "@/components/articles/ArticleBody";
 import { Button } from "@/components/ui/Button";
 import { formatBytes } from "@/utils/format";
+import { sectionId } from "./courseFormat";
 
 const LESSON_TYPES = new Set([
   "key_points",
@@ -14,16 +15,22 @@ const LESSON_TYPES = new Set([
   "further_reading",
 ]);
 
+const uidProps = (block) =>
+  block.uid ? { "data-block-uid": block.uid, "data-highlightable": "" } : {};
+
 function KeyPoints({ block }) {
   return (
-    <aside className="my-8 rounded-2xl border-l-4 border-sage-600 bg-sage-50 p-5">
+    <aside
+      className="my-8 rounded-2xl border-l-4 border-sage-600 bg-sage-50 p-5"
+      {...uidProps(block)}
+    >
       <p className="flex items-center gap-2 font-semibold">
         <Lightbulb aria-hidden className="size-5 text-sage-700" />
         {block.title || "Key points"}
       </p>
       <ul className="mt-3 list-disc space-y-1.5 pl-6">
-        {block.items.map((item) => (
-          <li key={item}>{item}</li>
+        {block.items.map((item, i) => (
+          <li key={i}>{item}</li>
         ))}
       </ul>
     </aside>
@@ -32,8 +39,14 @@ function KeyPoints({ block }) {
 
 function Example({ block }) {
   return (
-    <section className="my-8 rounded-2xl border border-charcoal/10 bg-cream p-5">
-      <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
+    <section
+      className="my-8 rounded-2xl border border-charcoal/10 bg-cream p-5"
+      {...uidProps(block)}
+    >
+      <p
+        className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase"
+        data-study-ignore=""
+      >
         {block.variant === "case_study" ? "Case study" : "Example"}
       </p>
       <h3 className="mt-1 text-lg font-medium">{block.title}</h3>
@@ -42,36 +55,83 @@ function Example({ block }) {
   );
 }
 
-function Checklist({ block }) {
-  // Ticks are a reading aid only (kept on this page); nothing is stored or graded.
-  const [ticked, setTicked] = useState(() => new Set());
-  const toggle = (item) =>
-    setTicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(item)) next.delete(item);
-      else next.add(item);
-      return next;
-    });
+const itemId = (item, i) => (typeof item === "string" ? `item-${i}` : item.id);
+const itemText = (item) => (typeof item === "string" ? item : item.text);
+
+/**
+ * Checklist items. For enrolled learners (``onToggle``) ticks are saved to their account
+ * and restored on return; for visitors they are a reading aid kept on this page only.
+ */
+function Checklist({ block, checked, onToggle }) {
+  const id = useId();
+  const [local, setLocal] = useState(() => new Set());
+  const [status, setStatus] = useState({ busy: null, message: "" });
+  const ticked = onToggle ? new Set(checked ?? []) : local;
+  const toggle = async (key, value) => {
+    if (!onToggle) {
+      setLocal((prev) => {
+        const next = new Set(prev);
+        if (value) next.add(key);
+        else next.delete(key);
+        return next;
+      });
+      return;
+    }
+    setStatus({ busy: key, message: "Saving…" });
+    try {
+      await onToggle(key, value);
+      setStatus({ busy: null, message: "Saved" });
+    } catch (error) {
+      setStatus({ busy: null, message: error.message || "Couldn't save. Try again." });
+    }
+  };
+  const done = block.items.filter((item, i) => ticked.has(itemId(item, i))).length;
   return (
-    <fieldset className="my-8 rounded-2xl border border-charcoal/10 bg-white p-5">
-      <legend className="px-1 font-semibold">{block.title || "Checklist"}</legend>
+    <fieldset
+      className="my-8 rounded-2xl border border-charcoal/10 bg-white p-5"
+      aria-describedby={`${id}-progress`}
+      {...uidProps(block)}
+    >
+      <legend className="px-1 font-semibold">
+        {block.title || "Checklist"}
+        {block.required && (
+          <span
+            className="ml-2 rounded-full bg-gold-100 px-2 py-0.5 text-xs font-semibold text-gold-700"
+            data-study-ignore=""
+          >
+            Required
+          </span>
+        )}
+      </legend>
       <ul className="mt-2 space-y-2">
-        {block.items.map((item) => (
-          <li key={item}>
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                className="mt-1 size-5 accent-sage-700"
-                checked={ticked.has(item)}
-                onChange={() => toggle(item)}
-              />
-              <span className={ticked.has(item) ? "text-muted line-through" : undefined}>
-                {item}
-              </span>
-            </label>
-          </li>
-        ))}
+        {block.items.map((item, i) => {
+          const key = itemId(item, i);
+          const isOn = ticked.has(key);
+          return (
+            <li key={key}>
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="mt-1 size-5 accent-sage-700"
+                  checked={isOn}
+                  disabled={status.busy === key}
+                  onChange={(e) => toggle(key, e.target.checked)}
+                />
+                <span className={isOn ? "text-muted line-through" : undefined}>
+                  {itemText(item)}
+                </span>
+              </label>
+            </li>
+          );
+        })}
       </ul>
+      <p id={`${id}-progress`} className="mt-3 text-sm text-muted" data-study-ignore="">
+        {done} of {block.items.length} done
+        {onToggle ? "" : " · ticks aren't saved on previews"}
+        <span role="status" className="ml-2">
+          {status.message}
+        </span>
+      </p>
     </fieldset>
   );
 }
@@ -96,19 +156,23 @@ function Exercise({ block, state, onSave }) {
     <section
       aria-labelledby={`${id}-title`}
       className="my-8 rounded-2xl border-2 border-gold-300 bg-gold-100/30 p-5"
+      {...uidProps(block)}
     >
       <h3 id={`${id}-title`} className="flex items-center gap-2 text-lg font-medium">
         <PenLine aria-hidden className="size-5 text-gold-700" />
         {block.title || "Exercise"}
         {block.required && (
-          <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-gold-700">
+          <span
+            className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-gold-700"
+            data-study-ignore=""
+          >
             Required
           </span>
         )}
       </h3>
       <p className="mt-2 whitespace-pre-line">{block.prompt}</p>
       {onSave ? (
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-3" data-study-ignore="">
           {block.allow_response !== false && (
             <div>
               <label htmlFor={`${id}-answer`} className="text-sm font-medium">
@@ -156,7 +220,9 @@ function Exercise({ block, state, onSave }) {
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-sm text-muted">Enrol to save your answer and progress.</p>
+        <p className="mt-3 text-sm text-muted" data-study-ignore="">
+          Enrol to save your answer and progress.
+        </p>
       )}
     </section>
   );
@@ -176,7 +242,10 @@ function DownloadBlock({ block, onDownload }) {
     }
   };
   return (
-    <div className="my-8 flex flex-col gap-3 rounded-2xl border border-charcoal/10 bg-white p-5 sm:flex-row sm:items-center">
+    <div
+      className="my-8 flex flex-col gap-3 rounded-2xl border border-charcoal/10 bg-white p-5 sm:flex-row sm:items-center"
+      data-block-uid={block.uid}
+    >
       <FileText aria-hidden className="size-8 shrink-0 text-sage-700" />
       <div className="flex-1">
         <p className="font-medium">{block.title || file.title}</p>
@@ -200,7 +269,7 @@ function DownloadBlock({ block, onDownload }) {
 
 function FurtherReading({ block }) {
   return (
-    <section className="my-8">
+    <section className="my-8" data-block-uid={block.uid}>
       <h3 className="flex items-center gap-2 text-lg font-medium">
         <BookMarked aria-hidden className="size-5 text-sage-700" />
         {block.title || "Further reading"}
@@ -231,11 +300,22 @@ function FurtherReading({ block }) {
 
 /**
  * Lesson content: article blocks (text, images, tables) plus the written-learning blocks.
- * ``onSaveExercise`` and ``onDownload`` are only given to enrolled learners.
+ * ``onSaveExercise``, ``onDownload`` and ``onToggleChecklist`` are only given to enrolled
+ * learners. Every block carries ``data-block-uid`` (highlights, notes and the reading
+ * position point at it).
  */
-export function LessonBody({ blocks, state, onSaveExercise, onDownload }) {
+export function LessonBody({
+  blocks,
+  state,
+  checklist,
+  onSaveExercise,
+  onDownload,
+  onToggleChecklist,
+}) {
   const groups = [];
-  for (const block of blocks) {
+  for (const raw of blocks) {
+    const block =
+      raw.type === "heading" && raw.uid ? { ...raw, anchorId: sectionId(raw.uid) } : raw;
     const last = groups[groups.length - 1];
     if (!LESSON_TYPES.has(block.type) && last?.article) last.blocks.push(block);
     else if (!LESSON_TYPES.has(block.type)) groups.push({ article: true, blocks: [block] });
@@ -248,13 +328,20 @@ export function LessonBody({ blocks, state, onSaveExercise, onDownload }) {
         const { block } = group;
         switch (block.type) {
           case "key_points":
-            return <KeyPoints key={index} block={block} />;
+            return <KeyPoints key={block.uid ?? index} block={block} />;
           case "example":
-            return <Example key={index} block={block} />;
+            return <Example key={block.uid ?? index} block={block} />;
           case "exercise":
             return <Exercise key={block.id} block={block} state={state} onSave={onSaveExercise} />;
           case "checklist":
-            return <Checklist key={index} block={block} />;
+            return (
+              <Checklist
+                key={block.uid ?? index}
+                block={block}
+                checked={checklist}
+                onToggle={onToggleChecklist}
+              />
+            );
           case "download":
             return onDownload ? (
               <DownloadBlock key={index} block={block} onDownload={onDownload} />

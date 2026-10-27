@@ -98,6 +98,12 @@ export const ROLE_PERMS = {
     "courses.archive",
     "courses.manage_curriculum",
     "courses.manage_assessments",
+    // Batch 09.1: lesson drafts and revisions.
+    "courses.view_drafts",
+    "courses.edit_drafts",
+    "courses.publish_lessons",
+    "courses.view_revisions",
+    "courses.restore_revisions",
   ],
   moderator: [
     "dashboard.view",
@@ -143,6 +149,15 @@ export const ROLE_PERMS = {
     "articles.view_revisions",
     "articles.restore_revisions",
     "articles.preview",
+    // Courses: authoring and lesson drafts, no publishing (like the backend role).
+    "courses.view",
+    "courses.create",
+    "courses.edit",
+    "courses.manage_curriculum",
+    "courses.manage_assessments",
+    "courses.view_drafts",
+    "courses.edit_drafts",
+    "courses.view_revisions",
   ],
   administrator: ALL.filter(
     (p) =>

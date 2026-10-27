@@ -12,6 +12,11 @@ export const COURSE_PERMS = [
   "courses.view_enrollments",
   "courses.manage_enrollments",
   "courses.view_reports",
+  "courses.view_drafts",
+  "courses.edit_drafts",
+  "courses.publish_lessons",
+  "courses.view_revisions",
+  "courses.restore_revisions",
 ];
 
 const fail = (status, code, message, details) =>
@@ -164,8 +169,101 @@ function quizFor(attempts = []) {
   };
 }
 
-export function createCourseShopApi({ enrolled = true, verified = true } = {}) {
+const quoteOf = (text, quote) => {
+  const start = text.indexOf(quote);
+  return {
+    quote,
+    prefix: text.slice(Math.max(0, start - 32), start),
+    suffix: text.slice(start + quote.length, start + quote.length + 32),
+    start,
+    end: start + quote.length,
+  };
+};
+const PARAGRAPH = "Breathe in slowly and notice three things.";
+
+export function studyNotebook() {
+  return {
+    courses: [
+      { slug: "calm-foundations", title: "Calm Foundations", access: true },
+      { slug: "resilience-course", title: "Resilience Course", access: false },
+    ],
+    notes: [
+      {
+        id: "note1",
+        course: { slug: "calm-foundations", title: "Calm Foundations" },
+        lesson: { slug: "notice-the-pause", title: "Notice the pause", available: true },
+        body: "Try this before breakfast.",
+        anchor: { block: "p1", ...quoteOf(PARAGRAPH, "notice three things"), status: "anchored" },
+        created_at: "2026-10-26T10:00:00.000Z",
+        updated_at: "2026-10-26T10:00:00.000Z",
+      },
+      {
+        id: "note2",
+        course: { slug: "resilience-course", title: "Resilience Course" },
+        lesson: { slug: null, title: "Bounce back", available: false },
+        body: "Ask for help sooner.",
+        anchor: { hidden: true, status: "anchored" },
+        created_at: "2026-10-25T10:00:00.000Z",
+        updated_at: "2026-10-25T10:00:00.000Z",
+      },
+    ],
+    highlights: [
+      {
+        id: "hl1",
+        course: { slug: "calm-foundations", title: "Calm Foundations" },
+        lesson: { slug: "notice-the-pause", title: "Notice the pause", available: true },
+        color: "green",
+        anchor: { block: "p1", ...quoteOf(PARAGRAPH, "Breathe in slowly"), status: "anchored" },
+        status: "anchored",
+        created_at: "2026-10-26T10:00:00.000Z",
+        updated_at: "2026-10-26T10:00:00.000Z",
+      },
+      {
+        id: "hl2",
+        course: { slug: "calm-foundations", title: "Calm Foundations" },
+        lesson: { slug: "notice-the-pause", title: "Notice the pause", available: true },
+        color: "yellow",
+        anchor: { block: "old1", quote: "A sentence that was removed.", status: "orphaned" },
+        status: "orphaned",
+        created_at: "2026-10-24T10:00:00.000Z",
+        updated_at: "2026-10-24T10:00:00.000Z",
+      },
+    ],
+    bookmarks: [
+      {
+        course: { slug: "calm-foundations", title: "Calm Foundations" },
+        lesson: { slug: "breathe", title: "Breathe", available: true },
+        access: "active",
+        created_at: "2026-10-26T10:00:00.000Z",
+      },
+      {
+        course: { slug: "resilience-course", title: "Resilience Course" },
+        lesson: { slug: null, title: "Bounce back", available: false },
+        access: "ended",
+        created_at: "2026-10-20T10:00:00.000Z",
+      },
+    ],
+    checklists: [
+      {
+        course: { slug: "calm-foundations", title: "Calm Foundations" },
+        lesson: { slug: "notice-the-pause", title: "Notice the pause", available: true },
+        lists: [{ title: "Before bed", done: 1, total: 2, required: false }],
+        updated_at: "2026-10-26T10:00:00.000Z",
+      },
+    ],
+  };
+}
+
+export function createCourseShopApi({ enrolled = true, verified = true, study = {} } = {}) {
   const state = { acknowledged: [], responses: {}, completed: false, attempts: [], enrolled };
+  const studyState = {
+    notes: [],
+    highlights: [],
+    bookmarked: false,
+    checklist: [],
+    position: null,
+    ...study,
+  };
   const guard = () => {
     if (!verified)
       return fail(
@@ -187,7 +285,31 @@ export function createCourseShopApi({ enrolled = true, verified = true } = {}) {
   });
   const lesson = () => ({
     course: { slug: "calm-foundations", title: "Calm Foundations" },
-    module: { id: 1, title: "Getting started" },
+    module: { id: 1, title: "Getting started", completed: state.completed ? 1 : 0, total: 2 },
+    outline: [
+      {
+        id: 1,
+        title: "Getting started",
+        completed: state.completed ? 1 : 0,
+        total: 2,
+        current: true,
+        lessons: [
+          {
+            slug: "notice-the-pause",
+            title: "Notice the pause",
+            minutes: 10,
+            completed: state.completed,
+            current: true,
+          },
+          { slug: "breathe", title: "Breathe", minutes: 15, completed: false, current: false },
+        ],
+      },
+    ],
+    toc: [
+      { uid: "h1", text: "Why it matters", level: 2 },
+      { uid: "h2", text: "Try it", level: 2 },
+    ],
+    study: { ...studyState },
     lesson: {
       slug: "notice-the-pause",
       title: "Notice the pause",
@@ -197,9 +319,22 @@ export function createCourseShopApi({ enrolled = true, verified = true } = {}) {
       count: 2,
       required: true,
       body: [
-        { type: "paragraph", text: "Breathe in slowly and notice three things." },
-        { type: "key_points", title: "Remember", items: ["Slow down", "Notice"] },
+        { uid: "h1", type: "heading", text: "Why it matters", level: 2 },
+        { uid: "p1", type: "paragraph", text: PARAGRAPH },
+        { uid: "k1", type: "key_points", title: "Remember", items: ["Slow down", "Notice"] },
+        { uid: "h2", type: "heading", text: "Try it", level: 2 },
         {
+          uid: "c1",
+          type: "checklist",
+          title: "Before bed",
+          required: false,
+          items: [
+            { id: "i1", text: "Phone away" },
+            { id: "i2", text: "Curtains open" },
+          ],
+        },
+        {
+          uid: "e1",
           type: "exercise",
           id: "three-things",
           prompt: "List three things you can see.",
@@ -207,6 +342,7 @@ export function createCourseShopApi({ enrolled = true, verified = true } = {}) {
           allow_response: true,
         },
         {
+          uid: "d1",
           type: "download",
           file_id: "file1",
           title: "Workbook",
@@ -225,6 +361,7 @@ export function createCourseShopApi({ enrolled = true, verified = true } = {}) {
       acknowledged: state.acknowledged,
       responses: state.responses,
       required_exercises: ["three-things"],
+      required_checklist: [],
     },
     previous: null,
     next: { slug: "breathe", title: "Breathe" },
@@ -334,6 +471,91 @@ export function createCourseShopApi({ enrolled = true, verified = true } = {}) {
         }),
     ),
     learningLesson: vi.fn(() => guard() ?? ok(lesson())),
+    setChecklistItem: vi.fn((_s, _l, itemId, checked) => {
+      const set = new Set(studyState.checklist);
+      if (checked) set.add(itemId);
+      else set.delete(itemId);
+      studyState.checklist = [...set];
+      return ok({ checklist: studyState.checklist });
+    }),
+    setBookmark: vi.fn((_s, _l, bookmarked) => {
+      studyState.bookmarked = bookmarked;
+      return ok({ bookmarked });
+    }),
+    savePosition: vi.fn((_s, _l, position) => ok({ position })),
+    savePositionOnExit: vi.fn(),
+    createNote: vi.fn((_s, _l, body) => {
+      const note = {
+        id: `n${studyState.notes.length + 1}`,
+        course: { slug: "calm-foundations", title: "Calm Foundations" },
+        lesson: { slug: "notice-the-pause", title: "Notice the pause", available: true },
+        body: body.body,
+        anchor: body.anchor ? { ...body.anchor, status: "anchored" } : null,
+        created_at: "2026-10-27T10:00:00.000Z",
+        updated_at: "2026-10-27T10:00:00.000Z",
+      };
+      studyState.notes = [...studyState.notes, note];
+      return ok(note);
+    }),
+    updateNote: vi.fn((id, body) => {
+      studyState.notes = studyState.notes.map((n) => (n.id === id ? { ...n, ...body } : n));
+      return ok(studyState.notes.find((n) => n.id === id) ?? { id, ...body });
+    }),
+    deleteNote: vi.fn((id) => {
+      studyState.notes = studyState.notes.filter((n) => n.id !== id);
+      return ok({ deleted: true });
+    }),
+    createHighlight: vi.fn((_s, _l, body) => {
+      if (!PARAGRAPH.includes(body.anchor.quote))
+        return fail(400, "validation_error", "Invalid", {
+          anchor: ["This text isn't in the lesson."],
+        });
+      const item = {
+        id: `h${studyState.highlights.length + 1}`,
+        color: body.color,
+        anchor: { ...body.anchor, status: "anchored" },
+        status: "anchored",
+      };
+      studyState.highlights = [...studyState.highlights, item];
+      return ok(item);
+    }),
+    updateHighlight: vi.fn((id, color) =>
+      ok({ ...studyState.highlights.find((h) => h.id === id), color }),
+    ),
+    deleteHighlight: vi.fn(() => ok({ deleted: true })),
+    readingPreferences: vi.fn(() =>
+      ok({ font_size: "medium", line_spacing: "standard", width: "standard", theme: "light" }),
+    ),
+    saveReadingPreferences: vi.fn((body) => ok(body)),
+    notebook: vi.fn(() => ok(studyNotebook())),
+    notebookExportUrl: (format, course) =>
+      `/api/v1/account/study/export?format=${format}${course ? `&course=${course}` : ""}`,
+    searchLearning: vi.fn((q) =>
+      ok({
+        query: q,
+        terms: q.toLowerCase().split(/\s+/),
+        signed_in: true,
+        courses: [
+          {
+            slug: "calm-foundations",
+            title: "Calm Foundations",
+            summary: "Short lessons.",
+            access_type: "free",
+            enrolled: true,
+          },
+        ],
+        lessons: [
+          {
+            course: { slug: "calm-foundations", title: "Calm Foundations" },
+            module: "Getting started",
+            slug: "notice-the-pause",
+            title: "Notice the pause",
+            snippet: "…Breathe in slowly and notice three things.",
+            access: "enrolled",
+          },
+        ],
+      }),
+    ),
     saveExercise: vi.fn((_slug, _lesson, exercise, body) => {
       if (body.done !== undefined) {
         state.acknowledged = body.done ? [exercise] : [];
@@ -452,7 +674,24 @@ export function createCourseAdminFake(getUser) {
       view_enrollments: p.has("courses.view_enrollments"),
       manage_enrollments: p.has("courses.manage_enrollments"),
       view_reports: p.has("courses.view_reports"),
+      view_drafts: p.has("courses.view_drafts"),
+      edit_drafts: p.has("courses.edit_drafts"),
+      publish_lessons: p.has("courses.publish_lessons"),
+      view_revisions: p.has("courses.view_revisions"),
+      restore_revisions: p.has("courses.restore_revisions"),
     };
+  };
+  const lessonExtras = {
+    lock_version: 4,
+    has_draft_changes: true,
+    draft_saved_at: "2026-10-27T09:00:00.000Z",
+    draft_saved_by: "Edith Editor",
+    live: {
+      revision: 2,
+      title: "Breathe",
+      published_at: "2026-10-26T09:00:00.000Z",
+      visible: true,
+    },
   };
   const modules = [
     {
@@ -643,21 +882,96 @@ export function createCourseAdminFake(getUser) {
       lesson: vi.fn((_id, lessonId) =>
         ok({
           ...(modules[0].lessons.find((l) => l.id === Number(lessonId)) ?? modules[0].lessons[0]),
-          body: [{ type: "paragraph", text: "Hello" }],
-          preview_body: [{ type: "paragraph", text: "Hello" }],
+          body: [{ uid: "p1", type: "paragraph", text: "Hello" }],
+          preview_body: [{ uid: "p1", type: "paragraph", text: "Hello draft preview" }],
           assessments: [],
           word_count: 1,
           reading_minutes: 1,
           course_id: 3,
+          ...lessonExtras,
         }),
       ),
       updateLesson: vi.fn((_id, _lessonId, body) =>
+        body.title === "Conflicting edit"
+          ? fail(409, "edit_conflict", "Someone else saved this lesson after you opened it.", {
+              lock_version: 5,
+              saved_at: "2026-10-27T10:00:00.000Z",
+              saved_by: "Chief Editor",
+            })
+          : ok({
+              ...modules[0].lessons[0],
+              ...body,
+              ...lessonExtras,
+              lock_version: body.lock_version + 1,
+              assessments: [],
+              word_count: 1,
+              reading_minutes: 1,
+            }),
+      ),
+      publishLesson: vi.fn(() =>
         ok({
           ...modules[0].lessons[0],
-          ...body,
+          body: [],
           assessments: [],
-          word_count: 1,
-          reading_minutes: 1,
+          ...lessonExtras,
+          has_draft_changes: false,
+          live: { ...lessonExtras.live, revision: 3 },
+        }),
+      ),
+      discardDraft: vi.fn(() =>
+        ok({
+          ...modules[0].lessons[0],
+          body: [],
+          assessments: [],
+          ...lessonExtras,
+          has_draft_changes: false,
+        }),
+      ),
+      lessonRevisions: vi.fn(() =>
+        ok([
+          {
+            number: 2,
+            title: "Breathe",
+            action: "published",
+            note: "Clearer steps",
+            restored_from: null,
+            created_at: "2026-10-26T09:00:00.000Z",
+            created_by: "Edith Editor",
+            live: true,
+          },
+          {
+            number: 1,
+            title: "Breathe",
+            action: "migrated",
+            note: "",
+            restored_from: null,
+            created_at: "2026-10-20T09:00:00.000Z",
+            created_by: null,
+            live: false,
+          },
+        ]),
+      ),
+      compareLesson: vi.fn((_id, _lessonId, left, right) =>
+        ok({
+          left: { spec: left, label: "Live (revision 2)" },
+          right: { spec: right, label: "Draft" },
+          fields: [{ field: "title", before: "Breathe", after: "Breathe deeply" }],
+          blocks: [
+            { status: "changed", type: "paragraph", before: "Hello", after: "Hello again" },
+            { status: "added", type: "paragraph", after: "A new paragraph" },
+          ],
+          counts: { added: 1, removed: 0, changed: 1 },
+          identical: false,
+        }),
+      ),
+      restoreRevision: vi.fn((_id, _lessonId, number, body) =>
+        ok({
+          ...modules[0].lessons[0],
+          body: [],
+          assessments: [],
+          ...lessonExtras,
+          restored: number,
+          ...body,
         }),
       ),
       removeLesson: vi.fn(() => ok(modules)),

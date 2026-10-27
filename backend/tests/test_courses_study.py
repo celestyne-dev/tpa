@@ -754,3 +754,10 @@ def test_account_export_and_deletion_cover_study_records(seeded, as_role):
             db.session.scalar(db.select(Customer).where(Customer.email == "reader@example.com"))
             is None
         )
+
+
+def test_search_is_a_reserved_course_address(seeded, as_role):
+    editor = as_role("editor")
+    res = editor.post(COURSES, {"title": "Anything", "slug": "search"})
+    assert res.status_code == 400 and "slug" in res.get_json()["error"]["details"]
+    assert create_course(editor, "Search")["slug"] != "search"

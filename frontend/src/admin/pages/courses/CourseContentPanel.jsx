@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAdminApi } from "../../adminApiContext";
 import { BlockEditor } from "../../components/BlockEditor";
@@ -10,6 +10,8 @@ import { CheckboxField, SelectField, TextAreaField, TextField } from "../../comp
 import { useNotify } from "../../components/notifyContext";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAdminQuery } from "../../hooks/useAdminQuery";
+import { UNSAVED_MESSAGE, useUnsavedChanges } from "../../hooks/useUnsavedChanges";
+import { DraftPreviewDialog, PublishDialog, RevisionsDialog } from "./LessonRevisions";
 
 function layoutOf(modules) {
   return modules.map((m) => ({ module_id: m.id, lesson_ids: m.lessons.map((l) => l.id) }));
@@ -87,16 +89,63 @@ function ModuleForm({ module, onSave, onCancel }) {
   );
 }
 
-function LessonEditor({ course, lessonId, onClose, onChanged }) {
+const savedAt = (iso) =>
+  iso
+    ? new Date(iso).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "";
+
+function LessonState({ lesson }) {
+  const live = lesson.live;
+  return (
+    <p className="flex flex-wrap items-center gap-2 text-sm">
+      {live?.visible ? (
+        <span className="rounded-full bg-sage-100 px-2.5 py-0.5 font-medium text-sage-800">
+          Live · revision {live.revision}
+        </span>
+      ) : live ? (
+        <span className="rounded-full bg-beige px-2.5 py-0.5 font-medium">
+          Unpublished · revision {live.revision} kept
+        </span>
+      ) : (
+        <span className="rounded-full bg-beige px-2.5 py-0.5 font-medium">Never published</span>
+      )}
+      {lesson.has_draft_changes && (
+        <span className="rounded-full bg-gold-100 px-2.5 py-0.5 font-medium text-gold-700">
+          Draft has unpublished changes
+        </span>
+      )}
+      {lesson.draft_saved_at && (
+        <span className="text-muted">
+          Last saved {savedAt(lesson.draft_saved_at)}
+          {lesson.draft_saved_by ? ` by ${lesson.draft_saved_by}` : ""}
+        </span>
+      )}
+    </p>
+  );
+}
+
+function LessonEditor({ course, lessonId, onClose, onChanged, onDirty }) {
   const api = useAdminApi();
   const notify = useNotify();
-  const { data: lesson, setData } = useAdminQuery(
-    () => api.courses.lesson(course.id, lessonId),
-    [lessonId],
-  );
+  const {
+    data: lesson,
+    setData,
+    reload,
+  } = useAdminQuery(() => api.courses.lesson(course.id, lessonId), [lessonId]);
   const [form, setForm] = useState(null);
   const [error, setError] = useState(null);
+  const [conflict, setConflict] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [dialog, setDialog] = useState(null); // "preview" | "revisions" | "publish"
+  useUnsavedChanges(Boolean(form));
+  useEffect(() => {
+    onDirty?.(Boolean(form));
+  }, [form, onDirty]);
   if (!lesson) return <p role="status">Loading lesson…</p>;
   const current = form ?? {
     title: lesson.title,
@@ -108,70 +157,141 @@ function LessonEditor({ course, lessonId, onClose, onChanged }) {
     body: lesson.body,
   };
   const set = (patch) => setForm({ ...current, ...patch });
-  const canEdit = course.can.manage_curriculum && course.status !== "archived";
+  const can = course.can;
+  const archived = course.status === "archived";
+  const canEdit = can.edit_drafts && !archived;
+  const canSlug = can.manage_curriculum && !archived && !lesson.live;
+  const replace = (data) => {
+    setData(data);
+    setForm(null);
+    setConflict(null);
+    onChanged();
+  };
   const save = async () => {
     setSaving(true);
     setError(null);
     try {
+      const { slug, ...fields } = current;
       const res = await api.courses.updateLesson(course.id, lessonId, {
-        ...current,
+        ...fields,
+        ...(canSlug && slug !== lesson.slug && { slug }),
+        lock_version: lesson.lock_version,
         estimated_minutes:
           current.estimated_minutes === "" ? null : Number(current.estimated_minutes),
         body: cleanBlocks(current.body),
       });
-      setData(res.data);
-      setForm(null);
-      notify("Lesson saved.");
-      onChanged();
+      replace(res.data);
+      notify("Draft saved. Learners still see the live version until you publish.");
     } catch (err) {
-      setError(err);
-      notify(err.message, "error");
+      if (err.code === "edit_conflict") setConflict(err.details ?? {});
+      else {
+        setError(err);
+        notify(err.message, "error");
+      }
     } finally {
       setSaving(false);
     }
   };
-  const setStatus = async (status) => {
+  const publish = async (note) => {
     try {
-      const res = await api.courses.lessonStatus(course.id, lessonId, status);
-      setData(res.data);
-      notify(status === "published" ? "Lesson published." : "Lesson moved back to draft.");
-      onChanged();
+      const res = await api.courses.publishLesson(course.id, lessonId, note);
+      replace(res.data);
+      setDialog(null);
+      notify("Lesson published.");
     } catch (err) {
       notify(err.message, "error");
     }
   };
+  const unpublish = async () => {
+    try {
+      const res = await api.courses.lessonStatus(course.id, lessonId, "draft");
+      replace(res.data);
+      notify("Lesson unpublished.");
+    } catch (err) {
+      notify(err.message, "error");
+    }
+  };
+  const discard = async () => {
+    try {
+      const res = await api.courses.discardDraft(course.id, lessonId, lesson.lock_version);
+      replace(res.data);
+      notify("Draft discarded; showing the live version.");
+    } catch (err) {
+      if (err.code === "edit_conflict") setConflict(err.details ?? {});
+      else notify(err.message, "error");
+    }
+  };
+  const loadLatest = () => {
+    setForm(null);
+    setConflict(null);
+    reload();
+  };
+  const close = () => {
+    if (form && !window.confirm(UNSAVED_MESSAGE)) return;
+    onClose();
+  };
   const words = countWords(current.body.filter((b) => b.type !== "download"));
+  const publishable = !form && (lesson.has_draft_changes || lesson.status !== "published");
   return (
     <section
       aria-labelledby="lesson-editor-heading"
       className="rounded-2xl border border-sage-200 bg-white p-5"
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 id="lesson-editor-heading" className="text-xl font-medium">
-          Edit lesson: {lesson.title}
-        </h2>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1.5">
+          <h2 id="lesson-editor-heading" className="text-xl font-medium">
+            Edit lesson: {lesson.title}
+          </h2>
+          <LessonState lesson={lesson} />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={lesson.status} />
-          {course.can.publish && lesson.status === "draft" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStatus("published")}
-              disabled={Boolean(form)}
-            >
-              Publish lesson
+          <Button size="sm" variant="outline" onClick={() => setDialog("preview")}>
+            Preview draft
+          </Button>
+          {can.view_revisions && (
+            <Button size="sm" variant="outline" onClick={() => setDialog("revisions")}>
+              Revisions &amp; compare
             </Button>
           )}
-          {course.can.publish && lesson.status === "published" && (
-            <Button size="sm" variant="outline" onClick={() => setStatus("draft")}>
+          {can.publish_lessons && !archived && publishable && (
+            <Button size="sm" onClick={() => setDialog("publish")}>
+              {lesson.live && lesson.has_draft_changes ? "Publish changes" : "Publish lesson"}
+            </Button>
+          )}
+          {canEdit && lesson.has_draft_changes && lesson.live && !form && (
+            <Button size="sm" variant="outline" onClick={discard}>
+              Discard draft
+            </Button>
+          )}
+          {can.publish_lessons && !archived && lesson.status === "published" && (
+            <Button size="sm" variant="outline" onClick={unpublish}>
               Unpublish
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={onClose}>
+          <Button size="sm" variant="outline" onClick={close}>
             Close
           </Button>
         </div>
       </div>
+      {conflict && (
+        <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm">
+          <p className="font-medium">Someone else saved this lesson after you opened it.</p>
+          <p className="mt-1">
+            {conflict.saved_by ? `${conflict.saved_by} saved it` : "It was saved"}
+            {conflict.saved_at ? ` on ${savedAt(conflict.saved_at)}` : ""}. Your changes were not
+            saved, so nothing was overwritten. Copy anything you need, then load the latest version.
+          </p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={loadLatest}>
+            Load the latest version
+          </Button>
+        </div>
+      )}
+      {!canEdit && (
+        <p className="mb-4 rounded-xl bg-cream p-3 text-sm">
+          You can read this draft but not change it.
+        </p>
+      )}
       <fieldset disabled={!canEdit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
@@ -182,8 +302,13 @@ function LessonEditor({ course, lessonId, onClose, onChanged }) {
           />
           <TextField
             label="Lesson address"
-            hint="Part of the learner link."
+            hint={
+              lesson.live
+                ? "Fixed after publishing (learners' links and bookmarks use it)."
+                : "Part of the learner link."
+            }
             value={current.slug}
+            disabled={!canSlug}
             error={fieldError(error, "slug")}
             onChange={(e) => set({ slug: e.target.value })}
           />
@@ -232,12 +357,35 @@ function LessonEditor({ course, lessonId, onClose, onChanged }) {
         )}
       </fieldset>
       {canEdit && (
-        <div className="mt-4 flex items-center gap-3">
-          <Button onClick={save} disabled={saving || !form}>
-            {saving ? "Saving…" : "Save lesson"}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button onClick={save} disabled={saving || !form || Boolean(conflict)}>
+            {saving ? "Saving…" : "Save draft"}
           </Button>
-          {form && <span className="text-sm text-muted">Unsaved changes</span>}
+          <span role="status" className="text-sm text-muted">
+            {form
+              ? "Unsaved changes"
+              : lesson.live
+                ? "Saving changes the draft only; publish to update what learners read."
+                : ""}
+          </span>
         </div>
+      )}
+      <DraftPreviewDialog
+        open={dialog === "preview"}
+        lesson={lesson}
+        onClose={() => setDialog(null)}
+      />
+      {dialog === "revisions" && (
+        <RevisionsDialog
+          open
+          course={course}
+          lesson={lesson}
+          onClose={() => setDialog(null)}
+          onRestored={replace}
+        />
+      )}
+      {dialog === "publish" && (
+        <PublishDialog open lesson={lesson} onClose={() => setDialog(null)} onPublish={publish} />
       )}
     </section>
   );
@@ -251,6 +399,15 @@ export function CourseContentPanel({ course, onChanged }) {
   const [adding, setAdding] = useState(false);
   const [newLesson, setNewLesson] = useState({});
   const [confirm, setConfirm] = useState(null);
+  const dirty = useRef(false);
+  const onDirty = useCallback((value) => {
+    dirty.current = value;
+  }, []);
+  const edit = (next) => {
+    if (dirty.current && editing?.type === "lesson" && !window.confirm(UNSAVED_MESSAGE)) return;
+    dirty.current = false;
+    setEditing(next);
+  };
   const canEdit = course.can.manage_curriculum && course.status !== "archived";
   const modules = course.modules;
 
@@ -328,8 +485,12 @@ export function CourseContentPanel({ course, onChanged }) {
           key={editing.id}
           course={course}
           lessonId={editing.id}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            dirty.current = false;
+            setEditing(null);
+          }}
           onChanged={onChanged}
+          onDirty={onDirty}
         />
       )}
       <ol className="space-y-4" aria-label="Modules">
@@ -366,7 +527,7 @@ export function CourseContentPanel({ course, onChanged }) {
                     <IconAction
                       label={`Edit module ${module.title}`}
                       icon={Pencil}
-                      onClick={() => setEditing({ type: "module", id: module.id })}
+                      onClick={() => edit({ type: "module", id: module.id })}
                     />
                     <IconAction
                       label={`Delete module ${module.title}`}
@@ -390,10 +551,15 @@ export function CourseContentPanel({ course, onChanged }) {
                 >
                   <button
                     type="button"
-                    onClick={() => setEditing({ type: "lesson", id: lesson.id })}
+                    onClick={() => edit({ type: "lesson", id: lesson.id })}
                     className="text-left hover:underline"
                   >
                     {lesson.title}
+                    {lesson.has_draft_changes && (
+                      <span className="ml-2 rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700">
+                        Unpublished changes
+                      </span>
+                    )}
                     <span className="ml-2 text-xs text-muted">
                       {lesson.minutes} min{lesson.is_preview ? " · free preview" : ""}
                       {!lesson.completion_required ? " · optional" : ""}

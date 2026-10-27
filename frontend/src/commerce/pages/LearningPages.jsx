@@ -8,15 +8,33 @@ import {
   Circle,
   Download,
   GraduationCap,
-  Minus,
-  Plus,
+  NotebookPen,
+  Search,
   ShieldAlert,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { AssessmentForm } from "@/components/courses/AssessmentForm";
 import { formatMinutes } from "@/components/courses/courseFormat";
 import { LessonBody } from "@/components/courses/LessonBody";
+import {
+  BookmarkButton,
+  ReaderOutline,
+  ReaderSettings,
+  SelectionToolbar,
+  StudyPanel,
+  TableOfContents,
+} from "@/components/courses/reader/ReaderParts";
+import { scrollBehavior, useReadingPosition } from "@/components/courses/reader/readerHooks";
+import { readerStyle, useReadingPreferences } from "@/components/courses/reader/readerPrefs";
+import {
+  anchorFromSelection,
+  blockElement,
+  COLOR_LABELS,
+  paintHighlights,
+  rangeForAnchor,
+  supportsHighlights,
+} from "@/components/courses/reader/textAnchors";
 import { useShopApi } from "@/components/products/shopApiContext";
 import { Seo } from "@/components/seo/Seo";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -162,12 +180,57 @@ export function AccountLearningPage() {
   );
 }
 
+export function LearningSearchForm({ initial = "", compact = false }) {
+  const navigate = useNavigate();
+  const [q, setQ] = useState(initial);
+  const id = useId();
+  return (
+    <form
+      role="search"
+      className={compact ? "flex gap-2" : "flex flex-col gap-2 sm:flex-row"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (q.trim()) navigate(`${routes.learnSearch}?q=${encodeURIComponent(q.trim())}`);
+      }}
+    >
+      <label htmlFor={id} className="sr-only">
+        Search your courses
+      </label>
+      <input
+        id={id}
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search lessons and courses"
+        maxLength={120}
+        className="min-w-0 flex-1 rounded-full border border-charcoal/15 bg-white px-4 py-2.5"
+      />
+      <Button type="submit" size="sm" variant="outline">
+        <Search aria-hidden className="size-4" /> Search
+      </Button>
+    </form>
+  );
+}
+
 function LearningList() {
   const shopApi = useShopApi();
   const [state] = useLearnerData(() => shopApi.learning(), "learning");
   if (state.status === "loading") return <p role="status">Loading your courses…</p>;
   if (state.status === "error") return <AccessProblem error={state.error} />;
   const items = state.data.enrollments;
+  const tools = (
+    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="sm:w-96">
+        <LearningSearchForm compact />
+      </div>
+      <Link
+        to={routes.notebook}
+        className="inline-flex items-center gap-2 font-medium text-sage-800 underline underline-offset-4"
+      >
+        <NotebookPen aria-hidden className="size-4" /> Study notebook
+      </Link>
+    </div>
+  );
   if (!items.length) {
     return (
       <EmptyState
@@ -179,57 +242,73 @@ function LearningList() {
     );
   }
   return (
-    <ul className="grid gap-5 md:grid-cols-2">
-      {items.map((item) => (
-        <li
-          key={item.course.slug}
-          className="flex flex-col rounded-2xl border border-charcoal/10 bg-white p-6"
-        >
-          <h2 className="text-xl font-medium">{item.course.title}</h2>
-          <p className="mt-1 text-sm text-muted">{item.course.summary}</p>
-          <div className="mt-4">
-            <ProgressBar
-              percent={item.progress.percent}
-              label={`Progress in ${item.course.title}`}
-            />
-          </div>
-          <p className="mt-3 text-sm text-muted">
-            {item.completed_at
-              ? `Completed ${formatDate(item.completed_at)}`
-              : item.last_activity_at
-                ? `Last read ${formatDate(item.last_activity_at)}`
-                : `Enrolled ${formatDate(item.enrolled_at)}`}
-          </p>
-          <div className="mt-4 flex flex-1 flex-col justify-end gap-3">
-            {item.access === "active" ? (
-              <ButtonLink
-                to={
-                  item.resume
-                    ? routes.learn(item.course.slug, item.resume.slug)
-                    : routes.learn(item.course.slug)
-                }
-                size="sm"
-              >
-                {item.completed_at ? "Review" : item.last_activity_at ? "Continue" : "Start"}
-                <ArrowRight aria-hidden className="size-4" />
-              </ButtonLink>
-            ) : (
-              <p className="rounded-xl bg-cream p-3 text-sm">
-                {item.access === "expired"
-                  ? "Your access period ended. "
-                  : item.access === "revoked"
-                    ? "This enrolment was ended. "
-                    : "Your access ended (refunded or removed). "}
-                <Link to={routes.course(item.course.slug)} className="underline underline-offset-4">
-                  Course page
-                </Link>
-              </p>
-            )}
-            <CertificateLinks certificate={item.certificate} shopApi={shopApi} />
-          </div>
-        </li>
-      ))}
-    </ul>
+    <>
+      {tools}
+      <ul className="grid gap-5 md:grid-cols-2">
+        {items.map((item) => (
+          <li
+            key={item.course.slug}
+            className="flex flex-col rounded-2xl border border-charcoal/10 bg-white p-6"
+          >
+            <h2 className="text-xl font-medium">{item.course.title}</h2>
+            <p className="mt-1 text-sm text-muted">{item.course.summary}</p>
+            <div className="mt-4">
+              <ProgressBar
+                percent={item.progress.percent}
+                label={`Progress in ${item.course.title}`}
+              />
+            </div>
+            <p className="mt-3 text-sm text-muted">
+              {item.completed_at
+                ? `Completed ${formatDate(item.completed_at)}`
+                : item.last_activity_at
+                  ? `Last read ${formatDate(item.last_activity_at)}`
+                  : `Enrolled ${formatDate(item.enrolled_at)}`}
+            </p>
+            <div className="mt-4 flex flex-1 flex-col justify-end gap-3">
+              {item.access === "active" ? (
+                <ButtonLink
+                  to={
+                    item.resume
+                      ? routes.learn(item.course.slug, item.resume.slug)
+                      : routes.learn(item.course.slug)
+                  }
+                  size="sm"
+                >
+                  {item.completed_at ? "Review" : item.last_activity_at ? "Continue" : "Start"}
+                  <ArrowRight aria-hidden className="size-4" />
+                </ButtonLink>
+              ) : null}
+              {item.access === "active" &&
+              item.resume &&
+              !item.completed_at &&
+              item.last_activity_at ? (
+                <p className="text-sm text-muted">
+                  Next: {item.resume.title}
+                  {item.resume.percent ? ` · about ${Math.round(item.resume.percent)}% read` : ""}
+                </p>
+              ) : null}
+              {item.access === "active" ? null : (
+                <p className="rounded-xl bg-cream p-3 text-sm">
+                  {item.access === "expired"
+                    ? "Your access period ended. "
+                    : item.access === "revoked"
+                      ? "This enrolment was ended. "
+                      : "Your access ended (refunded or removed). "}
+                  <Link
+                    to={routes.course(item.course.slug)}
+                    className="underline underline-offset-4"
+                  >
+                    Course page
+                  </Link>
+                </p>
+              )}
+              <CertificateLinks certificate={item.certificate} shopApi={shopApi} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -460,54 +539,14 @@ function CourseOutline() {
 
 // ---- lesson reader ----------------------------------------------------------------------
 
-const TEXT_SIZES = ["text-base", "text-lg", "text-xl"];
-const SIZE_KEY = "tpa-lesson-text-size";
-
-function useTextSize() {
-  const [size, setSize] = useState(() => {
-    try {
-      return Math.min(2, Math.max(0, Number(window.localStorage.getItem(SIZE_KEY)) || 1));
-    } catch {
-      return 1;
-    }
-  });
-  const change = (delta) =>
-    setSize((s) => {
-      const next = Math.min(2, Math.max(0, s + delta));
-      try {
-        window.localStorage.setItem(SIZE_KEY, String(next));
-      } catch {
-        // Private browsing: the choice just isn't remembered.
-      }
-      return next;
-    });
-  return [size, change];
-}
-
-function TextSizeControl({ size, onChange }) {
+function ReaderFrame({ prefs, children }) {
   return (
-    <div role="group" aria-label="Text size" className="flex items-center gap-1">
-      <button
-        type="button"
-        onClick={() => onChange(-1)}
-        disabled={size === 0}
-        aria-label="Smaller text"
-        className="grid size-10 place-items-center rounded-full border border-charcoal/15 bg-white disabled:opacity-40"
-      >
-        <Minus aria-hidden className="size-4" />
-      </button>
-      <span className="px-1 text-sm text-muted" aria-live="polite">
-        Text {["S", "M", "L"][size]}
-      </span>
-      <button
-        type="button"
-        onClick={() => onChange(1)}
-        disabled={size === 2}
-        aria-label="Larger text"
-        className="grid size-10 place-items-center rounded-full border border-charcoal/15 bg-white disabled:opacity-40"
-      >
-        <Plus aria-hidden className="size-4" />
-      </button>
+    <div
+      className="tpa-reader min-h-[60vh]"
+      data-reader-theme={prefs.theme}
+      style={readerStyle(prefs)}
+    >
+      {children}
     </div>
   );
 }
@@ -533,7 +572,7 @@ function PreviewLesson({ courseSlug, lessonSlug, enrolledError }) {
     () => shopApi.previewLesson(courseSlug, lessonSlug),
     `preview:${courseSlug}/${lessonSlug}`,
   );
-  const [size, changeSize] = useTextSize();
+  const [prefs, setPrefs, prefsStatus] = useReadingPreferences(shopApi, false);
   if (state.status === "loading")
     return (
       <Container className="py-20 text-center text-muted" role="status">
@@ -557,47 +596,121 @@ function PreviewLesson({ courseSlug, lessonSlug, enrolledError }) {
   const { course, lesson } = state.data;
   return (
     <LearnShell title={lesson.title} back={{ to: routes.course(course.slug), label: course.title }}>
-      <Container className="py-10">
-        <article className={`mx-auto max-w-[68ch] ${TEXT_SIZES[size]}`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold tracking-[0.14em] text-sage-700 uppercase">
-              Free preview
-            </p>
-            <TextSizeControl size={size} onChange={changeSize} />
-          </div>
-          <h1 className="mt-3 text-3xl font-medium sm:text-4xl">{lesson.title}</h1>
-          <p className="mt-2 text-sm text-muted">{formatMinutes(lesson.minutes)} read</p>
-          <div className="mt-8">
-            <LessonBody blocks={lesson.body} />
-          </div>
-          <div className="mt-12 rounded-2xl bg-sage-50 p-6 text-base">
-            <p className="font-medium">Enjoying this lesson?</p>
-            <p className="mt-1 text-muted">
-              Enrol to read every lesson, track your progress and receive a certificate.
-            </p>
-            <ButtonLink to={routes.course(course.slug)} className="mt-4">
-              See the course
-            </ButtonLink>
-          </div>
-        </article>
-      </Container>
+      <ReaderFrame prefs={prefs}>
+        <Container className="py-10">
+          <article className="reader-column mx-auto">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-base">
+              <p className="text-sm font-semibold tracking-[0.14em] text-sage-700 uppercase">
+                Free preview
+              </p>
+              <ReaderSettings prefs={prefs} onChange={setPrefs} status={prefsStatus} />
+            </div>
+            <h1 className="mt-3 text-3xl font-medium sm:text-4xl">{lesson.title}</h1>
+            <p className="mt-2 text-sm text-muted">{formatMinutes(lesson.minutes)} read</p>
+            <div className="mt-8">
+              <LessonBody blocks={lesson.body} />
+            </div>
+            <div className="mt-12 rounded-2xl bg-sage-50 p-6 text-base">
+              <p className="font-medium">Enjoying this lesson?</p>
+              <p className="mt-1 text-muted">
+                Enrol to read every lesson, save notes and highlights, track your progress and
+                receive a certificate.
+              </p>
+              <ButtonLink to={routes.course(course.slug)} className="mt-4">
+                See the course
+              </ButtonLink>
+            </div>
+          </article>
+        </Container>
+      </ReaderFrame>
     </LearnShell>
   );
+}
+
+function jumpTo(root, uid) {
+  const target = blockElement(root, uid);
+  if (!target) return;
+  target.scrollIntoView?.({ block: "start", behavior: scrollBehavior() });
+  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  target.focus?.({ preventScroll: true });
 }
 
 function LessonReader({ courseSlug, lessonSlug }) {
   const shopApi = useShopApi();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [state, setState] = useLearnerData(
     () => shopApi.learningLesson(courseSlug, lessonSlug),
     `lesson:${courseSlug}/${lessonSlug}`,
   );
-  const [size, changeSize] = useTextSize();
+  const [prefs, setPrefs, prefsStatus] = useReadingPreferences(shopApi, true);
   const [complete, setComplete] = useState({ busy: false, error: "" });
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [draftAnchor, setDraftAnchor] = useState(null);
+  const [selection, setSelection] = useState(null);
+  const [focusId, setFocusId] = useState(params.get("highlight"));
+  const [notice, setNotice] = useState("");
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const articleRef = useRef(null);
+  const toggleRef = useRef(null);
+  const panelId = useId();
+  const ready = state.status === "ready";
+  const study = ready ? state.data.study : null;
 
   useEffect(() => {
-    window.scrollTo?.(0, 0);
+    if (!params.get("highlight")) window.scrollTo?.(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonSlug]);
+
+  const patchStudy = useCallback(
+    (fn) => setState((s) => ({ ...s, data: { ...s.data, study: fn(s.data.study) } })),
+    [setState],
+  );
+
+  const position = useReadingPosition({
+    articleRef,
+    enabled: ready && !params.get("highlight"),
+    initial: study?.position,
+    save: (pos) => shopApi.savePosition(courseSlug, lessonSlug, pos),
+    saveOnExit: (pos) => shopApi.savePositionOnExit?.(courseSlug, lessonSlug, pos),
+  });
+
+  // Paint saved highlights (CSS Custom Highlight API: the lesson DOM is never changed).
+  useEffect(() => {
+    if (!ready) return undefined;
+    return paintHighlights(articleRef.current, study.highlights, focusId);
+  }, [ready, study?.highlights, focusId]);
+
+  // Opened from the notebook: show that highlight.
+  useEffect(() => {
+    if (!ready || !focusId) return;
+    const item = study.highlights.find((h) => h.id === focusId);
+    const range = item && rangeForAnchor(articleRef.current, item.anchor);
+    if (range) {
+      const rect = range.getBoundingClientRect?.();
+      if (rect) window.scrollTo?.({ top: window.scrollY + rect.top - 160, behavior: "auto" });
+      setNotice("Showing your highlight.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  // Text selection → highlight / note toolbar.
+  useEffect(() => {
+    if (!ready) return undefined;
+    let frame = null;
+    const check = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const result = anchorFromSelection(window.getSelection?.(), articleRef.current);
+        setSelection(result);
+      });
+    };
+    document.addEventListener("selectionchange", check);
+    return () => {
+      document.removeEventListener("selectionchange", check);
+      cancelAnimationFrame(frame);
+    };
+  }, [ready]);
 
   if (state.status === "loading")
     return (
@@ -629,6 +742,10 @@ function LessonReader({ courseSlug, lessonSlug }) {
   const missing = lessonState.required_exercises.filter(
     (id) => !lessonState.acknowledged.includes(id),
   );
+  const unticked = (lessonState.required_checklist ?? []).filter(
+    (id) => !study.checklist.includes(id),
+  );
+  const blocked = missing.length > 0 || unticked.length > 0;
 
   const saveExercise = async (exerciseId, patch) => {
     const res = await shopApi.saveExercise(courseSlug, lessonSlug, exerciseId, patch);
@@ -648,6 +765,10 @@ function LessonReader({ courseSlug, lessonSlug }) {
         },
       };
     });
+  };
+  const toggleChecklist = async (itemId, checked) => {
+    const res = await shopApi.setChecklistItem(courseSlug, lessonSlug, itemId, checked);
+    patchStudy((st) => ({ ...st, checklist: res.data.checklist }));
   };
   const download = async (file) => {
     const res = await shopApi.authorizeDownload(file.entitlement_id, file.version_id);
@@ -686,98 +807,288 @@ function LessonReader({ courseSlug, lessonSlug }) {
     return res.data.attempt;
   };
 
+  const openPanel = () => setPanelOpen(true);
+  const closePanel = () => {
+    setPanelOpen(false);
+    toggleRef.current?.focus();
+  };
+  const highlight = async (color) => {
+    if (!selection?.anchor) return;
+    try {
+      const res = await shopApi.createHighlight(courseSlug, lessonSlug, {
+        anchor: selection.anchor,
+        color,
+      });
+      patchStudy((st) => ({
+        ...st,
+        highlights: [...st.highlights.filter((h) => h.id !== res.data.id), res.data],
+      }));
+      window.getSelection?.()?.removeAllRanges?.();
+      setSelection(null);
+      setNotice(`Highlighted in ${COLOR_LABELS[color].toLowerCase()}.`);
+    } catch (error) {
+      setSelection({ error: error.details?.anchor?.[0] ?? error.message });
+    }
+  };
+  const noteOnSelection = () => {
+    if (!selection?.anchor) return;
+    setDraftAnchor(selection.anchor);
+    window.getSelection?.()?.removeAllRanges?.();
+    setSelection(null);
+    setPanelOpen(true);
+  };
+  const createNote = async (body, anchor) => {
+    const res = await shopApi.createNote(courseSlug, lessonSlug, {
+      body,
+      ...(anchor && { anchor }),
+    });
+    patchStudy((st) => ({ ...st, notes: [...st.notes, res.data] }));
+    return res.data;
+  };
+  const saveNote = async (id, body) => {
+    const res = await shopApi.updateNote(id, { body });
+    patchStudy((st) => ({ ...st, notes: st.notes.map((n) => (n.id === id ? res.data : n)) }));
+  };
+  const deleteNote = async (id) => {
+    await shopApi.deleteNote(id);
+    patchStudy((st) => ({ ...st, notes: st.notes.filter((n) => n.id !== id) }));
+    setNotice("Note deleted.");
+  };
+  const recolor = async (id, color) => {
+    const res = await shopApi.updateHighlight(id, color);
+    patchStudy((st) => ({
+      ...st,
+      highlights: st.highlights.map((h) => (h.id === id ? res.data : h)),
+    }));
+  };
+  const removeHighlight = async (id) => {
+    await shopApi.deleteHighlight(id);
+    patchStudy((st) => ({ ...st, highlights: st.highlights.filter((h) => h.id !== id) }));
+    setNotice("Highlight removed.");
+  };
+  const showAnchor = (anchor, id) => {
+    const range = rangeForAnchor(articleRef.current, anchor);
+    if (id) setFocusId(id);
+    if (window.innerWidth < 1280) setPanelOpen(false);
+    if (range?.getBoundingClientRect) {
+      const rect = range.getBoundingClientRect();
+      window.scrollTo?.({ top: window.scrollY + rect.top - 160, behavior: scrollBehavior() });
+    } else jumpTo(articleRef.current, anchor.block);
+  };
+  const toggleBookmark = async () => {
+    setBookmarkBusy(true);
+    try {
+      const res = await shopApi.setBookmark(courseSlug, lessonSlug, !study.bookmarked);
+      patchStudy((st) => ({ ...st, bookmarked: res.data.bookmarked }));
+      setNotice(res.data.bookmarked ? "Lesson saved to your bookmarks." : "Bookmark removed.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBookmarkBusy(false);
+    }
+  };
+  const moduleNumber = data.outline.findIndex((m) => m.current) + 1;
+
   return (
     <LearnShell
       title={lesson.title}
       back={{ to: routes.learn(courseSlug), label: data.course.title }}
     >
-      <Container className="py-10">
-        <article className={`mx-auto max-w-[68ch] ${TEXT_SIZES[size]}`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted">
-              {data.module.title} · Lesson {lesson.position} of {lesson.count}
-            </p>
-            <TextSizeControl size={size} onChange={changeSize} />
-          </div>
-          <h1 className="mt-3 text-3xl font-medium sm:text-4xl">{lesson.title}</h1>
-          <p className="mt-2 text-sm text-muted">
-            {formatMinutes(lesson.minutes)} read
-            {lessonState.completed && (
-              <span className="ml-2 inline-flex items-center gap-1 font-medium text-sage-800">
-                <BadgeCheck aria-hidden className="size-4" /> Completed
-              </span>
-            )}
-          </p>
-          <div className="mt-8">
-            <LessonBody
-              blocks={lesson.body}
-              state={lessonState}
-              onSaveExercise={saveExercise}
-              onDownload={download}
-            />
-          </div>
-          {data.assessments.map((assessment) => (
-            <div key={assessment.id} className="mt-10 text-base">
-              <AssessmentForm assessment={assessment} onSubmit={submitAttempt(assessment.id)} />
-            </div>
-          ))}
-          <div className="mt-12 border-t border-charcoal/10 pt-8 text-base">
-            <ProgressBar percent={data.progress.percent} />
-            {!lessonState.completed ? (
-              <div className="mt-5">
-                {missing.length > 0 && (
-                  <p className="mb-3 text-sm text-muted">
-                    Mark the required exercise{missing.length > 1 ? "s" : ""} as done to complete
-                    this lesson.
+      <ReaderFrame prefs={prefs}>
+        <Container size="wide" className="py-6 lg:py-10">
+          <div className="lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[16rem_minmax(0,1fr)_14rem]">
+            <aside className="hidden lg:block">
+              <ReaderOutline courseSlug={courseSlug} outline={data.outline} variant="sidebar" />
+            </aside>
+            <div className="min-w-0">
+              <div className="reader-column mx-auto space-y-4 text-base">
+                <ReaderOutline courseSlug={courseSlug} outline={data.outline} />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-muted">
+                    {moduleNumber ? `Module ${moduleNumber} · ` : ""}
+                    {data.module.title} · Lesson {lesson.position} of {lesson.count}
                   </p>
-                )}
-                <Button onClick={markComplete} disabled={complete.busy || missing.length > 0}>
-                  <CheckCircle2 aria-hidden className="size-5" />
-                  {complete.busy
-                    ? "Saving…"
-                    : data.next
-                      ? "Complete and continue"
-                      : "Mark as complete"}
-                </Button>
-                {complete.error && (
-                  <p role="alert" className="mt-2 text-sm text-red-800">
-                    {complete.error}
-                  </p>
-                )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <BookmarkButton
+                      bookmarked={study.bookmarked}
+                      busy={bookmarkBusy}
+                      onToggle={toggleBookmark}
+                    />
+                    <Button
+                      ref={toggleRef}
+                      variant="outline"
+                      size="sm"
+                      aria-expanded={panelOpen}
+                      aria-controls={panelId}
+                      onClick={panelOpen ? closePanel : openPanel}
+                    >
+                      <NotebookPen aria-hidden className="size-4" /> Notes
+                      {study.notes.length + study.highlights.length > 0 &&
+                        ` (${study.notes.length + study.highlights.length})`}
+                    </Button>
+                    <ReaderSettings prefs={prefs} onChange={setPrefs} status={prefsStatus} />
+                  </div>
+                </div>
               </div>
-            ) : data.progress.complete ? (
-              <p role="status" className="mt-5 rounded-xl bg-sage-50 p-4">
-                You've completed this course.{" "}
-                <Link to={routes.learn(courseSlug)} className="underline underline-offset-4">
-                  See your certificate
-                </Link>
-              </p>
-            ) : null}
-            <nav aria-label="Lessons" className="mt-8 flex flex-wrap justify-between gap-3">
-              {data.previous ? (
-                <ButtonLink
-                  to={routes.learn(courseSlug, data.previous.slug)}
-                  variant="outline"
-                  size="sm"
-                >
-                  <ArrowLeft aria-hidden className="size-4" /> {data.previous.title}
-                </ButtonLink>
-              ) : (
-                <span />
-              )}
-              {data.next && (
-                <ButtonLink
-                  to={routes.learn(courseSlug, data.next.slug)}
-                  variant="outline"
-                  size="sm"
-                >
-                  {data.next.title} <ArrowRight aria-hidden className="size-4" />
-                </ButtonLink>
-              )}
-            </nav>
+              <article ref={articleRef} className="reader-column mx-auto mt-6">
+                <h1 className="text-3xl font-medium sm:text-4xl">{lesson.title}</h1>
+                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+                  <span>{formatMinutes(lesson.minutes)} read</span>
+                  <span>
+                    Module progress: {data.module.completed} of {data.module.total} lessons
+                  </span>
+                  {lessonState.completed && (
+                    <span className="inline-flex items-center gap-1 font-medium text-sage-800">
+                      <BadgeCheck aria-hidden className="size-4" /> Completed
+                    </span>
+                  )}
+                </p>
+                {position.restored && (
+                  <div
+                    role="status"
+                    className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sage-50 px-4 py-3 text-sm"
+                  >
+                    We've taken you back to where you left off.
+                    <button
+                      type="button"
+                      className="font-medium underline underline-offset-4"
+                      onClick={() => {
+                        position.dismiss();
+                        window.scrollTo?.({ top: 0, behavior: scrollBehavior() });
+                      }}
+                    >
+                      Start from the top
+                    </button>
+                  </div>
+                )}
+                {data.toc?.length >= 2 && (
+                  <div className="mt-6 rounded-2xl border border-charcoal/10 bg-white p-4 xl:hidden">
+                    <TableOfContents
+                      toc={data.toc}
+                      onJump={(uid) => jumpTo(articleRef.current, uid)}
+                    />
+                  </div>
+                )}
+                <div className="mt-8">
+                  <LessonBody
+                    blocks={lesson.body}
+                    state={lessonState}
+                    checklist={study.checklist}
+                    onSaveExercise={saveExercise}
+                    onDownload={download}
+                    onToggleChecklist={toggleChecklist}
+                  />
+                </div>
+              </article>
+              <div className="reader-column mx-auto text-base">
+                {data.assessments.map((assessment) => (
+                  <div key={assessment.id} className="mt-10">
+                    <AssessmentForm
+                      assessment={assessment}
+                      onSubmit={submitAttempt(assessment.id)}
+                    />
+                  </div>
+                ))}
+                <div className="mt-12 border-t border-charcoal/10 pt-8">
+                  <ProgressBar percent={data.progress.percent} />
+                  {!lessonState.completed ? (
+                    <div className="mt-5">
+                      {missing.length > 0 && (
+                        <p className="mb-3 text-sm text-muted">
+                          Mark the required exercise{missing.length > 1 ? "s" : ""} as done to
+                          complete this lesson.
+                        </p>
+                      )}
+                      {unticked.length > 0 && (
+                        <p className="mb-3 text-sm text-muted">
+                          Tick every item in the required checklist to complete this lesson.
+                        </p>
+                      )}
+                      <Button onClick={markComplete} disabled={complete.busy || blocked}>
+                        <CheckCircle2 aria-hidden className="size-5" />
+                        {complete.busy
+                          ? "Saving…"
+                          : data.next
+                            ? "Complete and continue"
+                            : "Mark as complete"}
+                      </Button>
+                      {complete.error && (
+                        <p role="alert" className="mt-2 text-sm text-red-800">
+                          {complete.error}
+                        </p>
+                      )}
+                    </div>
+                  ) : data.progress.complete ? (
+                    <p role="status" className="mt-5 rounded-xl bg-sage-50 p-4">
+                      You've completed this course.{" "}
+                      <Link to={routes.learn(courseSlug)} className="underline underline-offset-4">
+                        See your certificate
+                      </Link>
+                    </p>
+                  ) : null}
+                  <nav aria-label="Lessons" className="mt-8 flex flex-wrap justify-between gap-3">
+                    {data.previous ? (
+                      <ButtonLink
+                        to={routes.learn(courseSlug, data.previous.slug)}
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Previous lesson: ${data.previous.title}`}
+                      >
+                        <ArrowLeft aria-hidden className="size-4" />
+                        {data.previous.title}
+                      </ButtonLink>
+                    ) : (
+                      <span />
+                    )}
+                    {data.next && (
+                      <ButtonLink
+                        to={routes.learn(courseSlug, data.next.slug)}
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Next lesson: ${data.next.title}`}
+                      >
+                        {data.next.title} <ArrowRight aria-hidden className="size-4" />
+                      </ButtonLink>
+                    )}
+                  </nav>
+                </div>
+              </div>
+            </div>
+            <aside className="hidden xl:block">
+              <div className="sticky top-24 space-y-6">
+                <TableOfContents toc={data.toc} onJump={(uid) => jumpTo(articleRef.current, uid)} />
+                <p className="text-sm text-muted">
+                  Tip: select any text to highlight it or add a note.
+                </p>
+              </div>
+            </aside>
           </div>
-        </article>
-      </Container>
+        </Container>
+        <p role="status" aria-live="polite" className="sr-only">
+          {notice}
+        </p>
+        <SelectionToolbar
+          selection={panelOpen ? null : selection}
+          onHighlight={highlight}
+          onNote={noteOnSelection}
+          onDismiss={() => setSelection(null)}
+        />
+        <StudyPanel
+          open={panelOpen}
+          onClose={closePanel}
+          study={study}
+          draftAnchor={draftAnchor}
+          onClearAnchor={() => setDraftAnchor(null)}
+          onCreateNote={createNote}
+          onSaveNote={saveNote}
+          onDeleteNote={deleteNote}
+          onRecolor={recolor}
+          onRemoveHighlight={removeHighlight}
+          onJump={showAnchor}
+          highlightsSupported={supportsHighlights()}
+          panelId={panelId}
+        />
+      </ReaderFrame>
     </LearnShell>
   );
 }

@@ -348,6 +348,17 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       removeLesson: (id, lessonId) => del(`/courses/${id}/lessons/${lessonId}`),
       lessonStatus: (id, lessonId, status) =>
         post(`/courses/${id}/lessons/${lessonId}/status`, { status }),
+      publishLesson: (id, lessonId, note = "") =>
+        post(`/courses/${id}/lessons/${lessonId}/publish`, { note }),
+      discardDraft: (id, lessonId, lockVersion) =>
+        post(`/courses/${id}/lessons/${lessonId}/discard-draft`, { lock_version: lockVersion }),
+      lessonRevisions: (id, lessonId) => get(`/courses/${id}/lessons/${lessonId}/revisions`),
+      lessonRevision: (id, lessonId, number) =>
+        get(`/courses/${id}/lessons/${lessonId}/revisions/${number}`),
+      restoreRevision: (id, lessonId, number, body) =>
+        post(`/courses/${id}/lessons/${lessonId}/revisions/${number}/restore`, body),
+      compareLesson: (id, lessonId, left, right) =>
+        get(`/courses/${id}/lessons/${lessonId}/compare`, { left, right }),
       assessments: (id) => get(`/courses/${id}/assessments`),
       assessment: (id, aid) => get(`/courses/${id}/assessments/${aid}`),
       createAssessment: (id, body) => post(`/courses/${id}/assessments`, body),

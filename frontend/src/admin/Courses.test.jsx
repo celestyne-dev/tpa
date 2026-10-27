@@ -102,8 +102,14 @@ describe("courses module", () => {
     expect(within(add).getByRole("button", { name: /Exercise \/ reflection/ })).toBeInTheDocument();
     expect(within(add).queryByRole("button", { name: /Video/ })).not.toBeInTheDocument();
     await user.click(within(add).getByRole("button", { name: /Key points/ }));
-    await user.click(screen.getByRole("button", { name: "Save lesson" }));
-    await waitFor(() => expect(adminApi.courses.updateLesson).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() =>
+      expect(adminApi.courses.updateLesson).toHaveBeenCalledWith(
+        3,
+        12,
+        expect.objectContaining({ lock_version: 4 }),
+      ),
+    );
   });
 
   it("keeps answer keys from roles that can't manage assessments", async () => {
@@ -121,5 +127,83 @@ describe("courses module", () => {
       await screen.findByRole("heading", { level: 1, name: "Preview: Calm Foundations" }),
     ).toBeVisible();
     expect(screen.getByText("Preview: enrolment actions appear here.")).toBeInTheDocument();
+  });
+
+  it("separates the draft from the live lesson, publishes with a note and previews privately", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp("/admin/courses/3/content");
+    await user.click(await screen.findByRole("button", { name: /^Breathe/ }));
+    expect(await screen.findByText("Live · revision 2")).toBeVisible();
+    expect(screen.getByText("Draft has unpublished changes")).toBeVisible();
+    expect(screen.getByText(/Last saved .* by Edith Editor/)).toBeVisible();
+    expect(screen.getByLabelText("Lesson address")).toBeDisabled(); // fixed once published
+
+    await user.click(screen.getByRole("button", { name: "Preview draft" }));
+    const preview = await screen.findByRole("dialog", { name: /Draft preview/ });
+    expect(within(preview).getByText("Hello draft preview")).toBeVisible();
+    expect(within(preview).getByText(/Private preview of unpublished changes/)).toBeVisible();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "Publish changes" }));
+    const dialog = await screen.findByRole("dialog", { name: "Publish lesson changes" });
+    await user.type(within(dialog).getByLabelText(/What changed/), "Clearer steps");
+    await user.click(within(dialog).getByRole("button", { name: "Publish" }));
+    await waitFor(() =>
+      expect(adminApi.courses.publishLesson).toHaveBeenCalledWith(3, 12, "Clearer steps"),
+    );
+    expect(await screen.findByText("Live · revision 3")).toBeVisible();
+  });
+
+  it("refuses to overwrite someone else's save and explains the conflict", async () => {
+    const user = userEvent.setup();
+    renderApp("/admin/courses/3/content");
+    await user.click(await screen.findByRole("button", { name: /^Breathe/ }));
+    const title = await screen.findByLabelText("Lesson title");
+    await user.clear(title);
+    await user.type(title, "Conflicting edit");
+    expect(screen.getByText("Unsaved changes")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Someone else saved this lesson after you opened it.");
+    expect(alert).toHaveTextContent("Chief Editor saved it");
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+    expect(within(alert).getByRole("button", { name: "Load the latest version" })).toBeVisible();
+  });
+
+  it("compares versions and restores an earlier revision into the draft", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp("/admin/courses/3/content");
+    await user.click(await screen.findByRole("button", { name: /^Breathe/ }));
+    await user.click(await screen.findByRole("button", { name: /Revisions/ }));
+    const dialog = await screen.findByRole("dialog", { name: /Revisions: Breathe/ });
+    expect(
+      await within(dialog).findByText(/Published .* by Edith Editor — Clearer steps/),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Compare" }));
+    expect(await within(dialog).findByText("1 added · 0 removed · 1 changed blocks")).toBeVisible();
+    expect(within(dialog).getByText("Breathe deeply")).toBeVisible();
+    expect(adminApi.courses.compareLesson).toHaveBeenCalledWith(3, 12, "live", "draft");
+    await user.click(within(dialog).getByRole("button", { name: "Restore to draft" }));
+    await waitFor(() =>
+      expect(adminApi.courses.restoreRevision).toHaveBeenCalledWith(3, 12, 1, {
+        lock_version: 4,
+        publish: false,
+      }),
+    );
+  });
+
+  it("lets content editors draft but not publish or restore", async () => {
+    const user = userEvent.setup();
+    renderApp("/admin/courses/3/content", {
+      adminApi: createFakeAdminApi({ role: "content_editor" }),
+    });
+    await user.click(await screen.findByRole("button", { name: /^Breathe/ }));
+    expect(await screen.findByRole("button", { name: "Save draft" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Publish/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unpublish" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Revisions/ }));
+    const dialog = await screen.findByRole("dialog", { name: /Revisions/ });
+    await within(dialog).findByText(/^Original/);
+    expect(within(dialog).queryByRole("button", { name: /Restore/ })).not.toBeInTheDocument();
   });
 });
