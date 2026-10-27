@@ -8,6 +8,9 @@ from sqlalchemy.types import TypeDecorator
 
 # JSONB on PostgreSQL, JSON elsewhere (SQLite).
 JSONType = JSON().with_variant(JSONB(), "postgresql")
+# For optional JSON values: Python None is stored as SQL NULL (not the JSON literal null),
+# so "IS NULL" queries and server-side checks behave as expected.
+NullableJSONType = JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
 
 
 def utcnow() -> datetime:

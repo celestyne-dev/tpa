@@ -34,7 +34,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
 from .base import TimestampMixin
-from .types import JSONType, UTCDateTime, utcnow
+from .types import JSONType, NullableJSONType, UTCDateTime, utcnow
 
 COURSE_STATUSES = ("draft", "scheduled", "published", "archived")
 COURSE_ACCESS = ("free", "premium")
@@ -47,6 +47,9 @@ SHOW_ANSWERS = ("after_submit", "after_pass", "never")
 QUESTION_KINDS = ("single_choice", "multiple_select", "true_false", "short_text", "rating")
 ENROLLMENT_SOURCES = ("free", "purchase", "manual")
 ENROLLMENT_STATUSES = ("active", "revoked")
+REVISION_ACTIONS = ("migrated", "published", "restored")
+ANCHOR_STATUSES = ("anchored", "orphaned")
+HIGHLIGHT_COLORS = ("yellow", "green", "blue", "pink")
 
 
 course_topics = Table(
@@ -213,8 +216,50 @@ class CourseLesson(TimestampMixin, db.Model):
     updated_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Batch 09.1: the columns above (title, summary, body, minutes, flags) are the LIVE
+    # content learners read. Editors work on ``draft`` (a full working copy of those
+    # fields, None when it matches the live content); publishing copies it to the live
+    # columns and records a numbered revision. ``lock_version`` guards concurrent edits.
+    draft: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONType, nullable=True)
+    lock_version: Mapped[int] = mapped_column(default=1, server_default="1", nullable=False)
+    draft_saved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    draft_saved_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Number of the revision learners currently read (None: never published).
+    live_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    content_published_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
     module: Mapped[CourseModule] = relationship(back_populates="lessons")
+
+
+class LessonRevision(db.Model):
+    """An immutable snapshot of a lesson's content as it was published (or restored)."""
+
+    __tablename__ = "course_lesson_revisions"
+    __table_args__ = (
+        CheckConstraint(f"action IN {REVISION_ACTIONS}", name="action_valid"),
+        UniqueConstraint("lesson_id", "number", name="uq_course_lesson_revisions_number"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lesson_id: Mapped[int] = mapped_column(
+        ForeignKey("course_lessons.id", ondelete="CASCADE"), nullable=False
+    )
+    number: Mapped[int] = mapped_column(nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    summary: Mapped[str] = mapped_column(String(400), default="", nullable=False)
+    body: Mapped[list[dict[str, Any]]] = mapped_column(JSONType, default=list, nullable=False)
+    estimated_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_preview: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    completion_required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    restored_from: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
 
 
 class Assessment(TimestampMixin, db.Model):
@@ -363,6 +408,13 @@ class LessonProgress(db.Model):
     # Exercise blocks the learner marked as done, and their private written notes.
     acknowledged: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
     responses: Mapped[dict[str, str]] = mapped_column(JSONType, default=dict, nullable=False)
+    # Batch 09.1: ticked checklist item ids, and the last meaningful reading position
+    # ({"block": uid, "percent": 0-100}), saved at most every few seconds by the reader.
+    checklist: Mapped[list[str]] = mapped_column(
+        JSONType, default=list, server_default="[]", nullable=False
+    )
+    position: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONType, nullable=True)
+    position_saved_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
 class AssessmentAttempt(db.Model):
@@ -422,3 +474,125 @@ class CourseCertificate(db.Model):
     )
 
     enrollment: Mapped[CourseEnrollment] = relationship(lazy="joined")
+
+
+# ---- Batch 09.1: private study records ---------------------------------------------------
+#
+# Notes, highlights, bookmarks and reading preferences belong to one customer and are only
+# served by the learner API (never by course-management endpoints). They are deleted when
+# the account is deleted. A passage ``anchor`` is {"block": uid, "quote", "prefix",
+# "suffix", "start", "end"} measured on the block's plain text; when a lesson is
+# republished anchors are re-matched, and those that can't be matched safely become
+# ``orphaned`` saved excerpts instead of pointing at the wrong text.
+
+
+class LearnerNote(TimestampMixin, db.Model):
+    __tablename__ = "learner_notes"
+    __table_args__ = (
+        CheckConstraint(
+            f"anchor_status IS NULL OR anchor_status IN {ANCHOR_STATUSES}",
+            name="anchor_status_valid",
+        ),
+        Index("ix_learner_notes_customer_course", "customer_id", "course_id"),
+        Index("ix_learner_notes_lesson", "lesson_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id", ondelete="CASCADE"), nullable=False
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), nullable=False
+    )
+    lesson_id: Mapped[int | None] = mapped_column(
+        ForeignKey("course_lessons.id", ondelete="SET NULL"), nullable=True
+    )
+    # Kept so the notebook stays readable if the lesson is later removed or renamed.
+    lesson_title: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    anchor: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONType, nullable=True)
+    anchor_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+
+class LearnerHighlight(TimestampMixin, db.Model):
+    __tablename__ = "learner_highlights"
+    __table_args__ = (
+        CheckConstraint(f"color IN {HIGHLIGHT_COLORS}", name="color_valid"),
+        CheckConstraint(f"anchor_status IN {ANCHOR_STATUSES}", name="anchor_status_valid"),
+        Index("ix_learner_highlights_customer_course", "customer_id", "course_id"),
+        Index("ix_learner_highlights_lesson", "lesson_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id", ondelete="CASCADE"), nullable=False
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), nullable=False
+    )
+    lesson_id: Mapped[int | None] = mapped_column(
+        ForeignKey("course_lessons.id", ondelete="SET NULL"), nullable=True
+    )
+    lesson_title: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    color: Mapped[str] = mapped_column(String(16), default="yellow", nullable=False)
+    anchor: Mapped[dict[str, Any]] = mapped_column(JSONType, nullable=False)
+    anchor_status: Mapped[str] = mapped_column(String(20), default="anchored", nullable=False)
+    # Live revision the anchor was last matched against.
+    anchored_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class LearnerBookmark(db.Model):
+    __tablename__ = "learner_bookmarks"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "lesson_id", name="uq_learner_bookmarks_lesson"),
+        Index("ix_learner_bookmarks_customer_course", "customer_id", "course_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id", ondelete="CASCADE"), nullable=False
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), nullable=False
+    )
+    lesson_id: Mapped[int] = mapped_column(
+        ForeignKey("course_lessons.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+
+class LearnerPreference(db.Model):
+    """Reading preferences (font size, spacing, width, theme), one row per customer."""
+
+    __tablename__ = "learner_preferences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    reading: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+
+class LessonSearchDocument(db.Model):
+    """Plain text of each live, published lesson for learner search (titles are read from
+    the live lesson, module and course rows at query time). Rebuilt when a lesson is
+    published or unpublished; PostgreSQL adds a full-text GIN index (migration
+    e5a7c3b91d20), other databases fall back to substring matching."""
+
+    __tablename__ = "course_lesson_search"
+
+    lesson_id: Mapped[int] = mapped_column(
+        ForeignKey("course_lessons.id", ondelete="CASCADE"), primary_key=True
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow, nullable=False
+    )

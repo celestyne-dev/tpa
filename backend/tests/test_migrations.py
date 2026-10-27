@@ -972,9 +972,8 @@ def test_batch09_courses_upgrade_is_additive_and_downgrade_protects_learners(tmp
         assert after["customers"] == before["customers"] and after["roles"] == before["roles"]
         assert after["permissions"] == before["permissions"] + 10
         assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
-        # The frozen grants match the code exactly (the sync changes nothing).
-        assert set(sync_rbac().values()) == {0}
-        db.session.rollback()
+        # (That the frozen grants match the code is checked at the head revision below:
+        # later batches add permissions, so a sync here would add those.)
         placeholder = db.session.execute(
             text("SELECT is_available FROM permissions WHERE key = 'courses.manage'")
         ).scalar_one()
@@ -1031,3 +1030,155 @@ def test_batch09_upgrade_after_an_early_rbac_sync(tmp_path):
         upgrade(directory=MIGRATIONS)
         assert set(sync_rbac().values()) == {0}
         db.session.rollback()
+
+
+def test_batch091_study_upgrade_preserves_content_and_downgrade_protects_learners(tmp_path):
+    """Lesson content survives word for word (gaining block/checklist ids), published
+    lessons get revision 1 and a search entry, and the downgrade refuses to delete
+    learners' study records or unpublished drafts."""
+    import json
+
+    import pytest
+
+    app = _app(tmp_path, "batch091.db")
+    body = [
+        {"type": "paragraph", "text": "Breathe in slowly."},
+        {"type": "checklist", "title": "Before bed", "items": ["Phone away", "Curtains"]},
+    ]
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="d4f9a2c61e58")
+        now = "2026-10-27 09:00:00"
+        db.session.execute(
+            text(
+                "INSERT INTO customers (id, public_id, email, display_name, password_hash, status, "
+                "is_test_account, support_notes, created_at, updated_at) VALUES "
+                "(1, 'c1', 'reader@example.com', 'Reader', 'x', 'active', 0, '', :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.execute(
+            text(
+                "INSERT INTO courses (id, public_id, slug, title, subtitle, summary, description, "
+                "outcomes, prerequisites, audience, level, access_type, availability, "
+                "enrollment_open, certificate_enabled, is_featured, featured_order, noindex, "
+                "status, lock_version, created_at, updated_at) VALUES (1, 'k1', 'kept', 'Kept', "
+                "'', '', '[]', '[]', '[]', '[]', 'all_levels', 'free', 'available', 1, 1, 0, 0, 0, "
+                "'published', 1, :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.execute(
+            text(
+                "INSERT INTO course_modules (id, course_id, title, description, objectives, "
+                "position, created_at, updated_at) VALUES (1, 1, 'M', '', '[]', 0, :n, :n)"
+            ),
+            {"n": now},
+        )
+        for lesson_id, status in ((1, "published"), (2, "draft")):
+            db.session.execute(
+                text(
+                    "INSERT INTO course_lessons (id, course_id, module_id, slug, title, summary, "
+                    "body, status, is_preview, completion_required, position, created_at, "
+                    "updated_at) VALUES (:id, 1, 1, :slug, 'Lesson', '', :body, :status, 0, 1, "
+                    ":pos, :n, :n)"
+                ),
+                {
+                    "id": lesson_id,
+                    "slug": f"lesson-{lesson_id}",
+                    "body": json.dumps(body),
+                    "status": status,
+                    "pos": lesson_id,
+                    "n": now,
+                },
+            )
+        db.session.execute(
+            text(
+                "INSERT INTO course_enrollments (id, customer_id, course_id, source, status, "
+                "enrolled_at, progress_percent, revoked_reason) VALUES "
+                "(1, 1, 1, 'free', 'active', :n, 50, '')"
+            ),
+            {"n": now},
+        )
+        db.session.execute(
+            text(
+                "INSERT INTO lesson_progress (enrollment_id, lesson_id, first_viewed_at, "
+                "last_viewed_at, acknowledged, responses) VALUES (1, 1, :n, :n, '[]', '{}')"
+            ),
+            {"n": now},
+        )
+        db.session.commit()
+        db.session.remove()
+
+        upgrade(directory=MIGRATIONS, revision="e5a7c3b91d20")
+        assert set(sync_rbac().values()) == {0}  # frozen grants match the code
+        db.session.rollback()
+        rows = db.session.execute(
+            text(
+                "SELECT id, body, live_revision, lock_version, draft FROM course_lessons ORDER BY id"
+            )
+        ).fetchall()
+        for row in rows:
+            migrated = json.loads(row.body) if isinstance(row.body, str) else row.body
+            assert [b["type"] for b in migrated] == ["paragraph", "checklist"]
+            assert migrated[0]["text"] == "Breathe in slowly." and migrated[0]["uid"]
+            assert [i["text"] for i in migrated[1]["items"]] == ["Phone away", "Curtains"]
+            assert all(i["id"] for i in migrated[1]["items"]) and row.lock_version == 1
+            assert row.draft is None
+        assert [r.live_revision for r in rows] == [1, None]
+        revision = db.session.execute(
+            text("SELECT lesson_id, number, action, title FROM course_lesson_revisions")
+        ).fetchall()
+        assert [tuple(r) for r in revision] == [(1, 1, "migrated", "Lesson")]
+        search = db.session.execute(
+            text("SELECT lesson_id, content FROM course_lesson_search")
+        ).fetchall()
+        assert [r.lesson_id for r in search] == [1] and "Breathe in slowly." in search[0].content
+        progress = db.session.execute(text("SELECT checklist, position FROM lesson_progress")).one()
+        assert progress.checklist in ("[]", []) and progress.position is None
+        assert db.session.execute(text("SELECT COUNT(*) FROM course_enrollments")).scalar_one() == 1
+        assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+
+        # Learners' notes block the downgrade; so do unpublished drafts.
+        db.session.execute(
+            text(
+                "INSERT INTO learner_notes (public_id, customer_id, course_id, lesson_id, "
+                "lesson_title, body, created_at, updated_at) VALUES "
+                "('n1', 1, 1, 1, 'Lesson', 'Mine', :n, :n)"
+            ),
+            {"n": now},
+        )
+        db.session.commit()
+        db.session.remove()
+        with pytest.raises(SystemExit):
+            downgrade(directory=MIGRATIONS, revision="d4f9a2c61e58")
+        db.session.remove()
+        db.session.execute(text("DELETE FROM learner_notes"))
+        db.session.execute(
+            text('UPDATE course_lessons SET draft = \'{"title": "x"}\' WHERE id = 2')
+        )
+        db.session.commit()
+        db.session.remove()
+        with pytest.raises(SystemExit):
+            downgrade(directory=MIGRATIONS, revision="d4f9a2c61e58")
+        db.session.remove()
+        db.session.execute(text("UPDATE course_lessons SET draft = NULL"))
+        db.session.commit()
+        db.session.remove()
+
+        downgrade(directory=MIGRATIONS, revision="d4f9a2c61e58")
+        tables = set(inspect(db.engine).get_table_names())
+        assert "learner_notes" not in tables and "course_lesson_revisions" not in tables
+        restored = db.session.execute(
+            text("SELECT body FROM course_lessons WHERE id = 1")
+        ).scalar_one()
+        restored = json.loads(restored) if isinstance(restored, str) else restored
+        assert restored == body  # the Batch 09 format, word for word
+        assert (
+            db.session.execute(
+                text("SELECT COUNT(*) FROM permissions WHERE key = 'courses.view_drafts'")
+            ).scalar_one()
+            == 0
+        )
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}

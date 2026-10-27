@@ -17,7 +17,14 @@ from ...auth.permissions import Permission as P
 from ...extensions import db
 from ...models import Author, CourseCategory, Product, Topic
 from ...services.courses import admin as course_admin
-from ...services.courses import assessments, certificates, curriculum, enrollments, public
+from ...services.courses import (
+    assessments,
+    certificates,
+    curriculum,
+    enrollments,
+    public,
+    revisions,
+)
 from ...utils.errors import NotFoundError, ValidationError
 from ...utils.responses import success
 
@@ -260,6 +267,7 @@ class LessonResource(Resource):
     @require_permission(P.COURSES_VIEW)
     def get(self, course_id: int, lesson_id: int):
         course = _course(course_id)
+        course_admin.require(current_user, P.COURSES_VIEW_DRAFTS)
         return success(curriculum.lesson_detail(course, curriculum.get_lesson(course, lesson_id)))
 
     @require_permission(P.COURSES_VIEW)
@@ -287,6 +295,63 @@ class LessonStatusResource(Resource):
         curriculum.set_lesson_status(course, lesson, _body().get("status"), current_user)
         db.session.commit()
         return success(curriculum.lesson_detail(course, lesson))
+
+
+class LessonPublishResource(Resource):
+    @require_permission(P.COURSES_VIEW)
+    def post(self, course_id: int, lesson_id: int):
+        course = _course(course_id)
+        lesson = curriculum.get_lesson(course, lesson_id)
+        body = request.get_json(silent=True) or {}
+        revisions.publish(course, lesson, current_user, note=body.get("note") or "")
+        db.session.commit()
+        return success(curriculum.lesson_detail(course, lesson))
+
+
+class LessonDiscardDraftResource(Resource):
+    @require_permission(P.COURSES_VIEW)
+    def post(self, course_id: int, lesson_id: int):
+        course = _course(course_id)
+        lesson = curriculum.get_lesson(course, lesson_id)
+        revisions.discard_draft(course, lesson, _body(), current_user)
+        db.session.commit()
+        return success(curriculum.lesson_detail(course, lesson))
+
+
+class LessonRevisionListResource(Resource):
+    @require_permission(P.COURSES_VIEW)
+    def get(self, course_id: int, lesson_id: int):
+        course = _course(course_id)
+        lesson = curriculum.get_lesson(course, lesson_id)
+        return success(revisions.history(lesson, current_user))
+
+
+class LessonRevisionResource(Resource):
+    @require_permission(P.COURSES_VIEW)
+    def get(self, course_id: int, lesson_id: int, number: int):
+        course = _course(course_id)
+        lesson = curriculum.get_lesson(course, lesson_id)
+        return success(revisions.revision_detail(lesson, number, current_user))
+
+
+class LessonRevisionRestoreResource(Resource):
+    @require_permission(P.COURSES_VIEW)
+    def post(self, course_id: int, lesson_id: int, number: int):
+        course = _course(course_id)
+        lesson = curriculum.get_lesson(course, lesson_id)
+        revisions.restore(course, lesson, number, _body(), current_user)
+        db.session.commit()
+        return success(curriculum.lesson_detail(course, lesson))
+
+
+class LessonCompareResource(Resource):
+    @require_permission(P.COURSES_VIEW)
+    def get(self, course_id: int, lesson_id: int):
+        course = _course(course_id)
+        lesson = curriculum.get_lesson(course, lesson_id)
+        left = (request.args.get("left") or "live")[:20]
+        right = (request.args.get("right") or "draft")[:20]
+        return success(revisions.compare(lesson, left, right, current_user))
 
 
 # ---- assessments ------------------------------------------------------------------------
@@ -471,6 +536,24 @@ COURSE_ADMIN_ROUTES = [
     (LessonListResource, "/admin/courses/<int:course_id>/modules/<int:module_id>/lessons"),
     (LessonResource, "/admin/courses/<int:course_id>/lessons/<int:lesson_id>"),
     (LessonStatusResource, "/admin/courses/<int:course_id>/lessons/<int:lesson_id>/status"),
+    (LessonPublishResource, "/admin/courses/<int:course_id>/lessons/<int:lesson_id>/publish"),
+    (
+        LessonDiscardDraftResource,
+        "/admin/courses/<int:course_id>/lessons/<int:lesson_id>/discard-draft",
+    ),
+    (
+        LessonRevisionListResource,
+        "/admin/courses/<int:course_id>/lessons/<int:lesson_id>/revisions",
+    ),
+    (
+        LessonRevisionResource,
+        "/admin/courses/<int:course_id>/lessons/<int:lesson_id>/revisions/<int:number>",
+    ),
+    (
+        LessonRevisionRestoreResource,
+        "/admin/courses/<int:course_id>/lessons/<int:lesson_id>/revisions/<int:number>/restore",
+    ),
+    (LessonCompareResource, "/admin/courses/<int:course_id>/lessons/<int:lesson_id>/compare"),
     (AssessmentListResource, "/admin/courses/<int:course_id>/assessments"),
     (AssessmentOrderResource, "/admin/courses/<int:course_id>/assessments/order"),
     (AssessmentResource, "/admin/courses/<int:course_id>/assessments/<int:assessment_id>"),

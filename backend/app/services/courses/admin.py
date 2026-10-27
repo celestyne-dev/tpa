@@ -62,6 +62,11 @@ def can(actor: User) -> dict[str, bool]:
         "view_enrollments": P.COURSES_VIEW_ENROLLMENTS,
         "manage_enrollments": P.COURSES_MANAGE_ENROLLMENTS,
         "view_reports": P.COURSES_VIEW_REPORTS,
+        "view_drafts": P.COURSES_VIEW_DRAFTS,
+        "edit_drafts": P.COURSES_EDIT_DRAFTS,
+        "publish_lessons": P.COURSES_PUBLISH_LESSONS,
+        "view_revisions": P.COURSES_VIEW_REVISIONS,
+        "restore_revisions": P.COURSES_RESTORE_REVISIONS,
     }
     return {name: perm.value in granted for name, perm in keys.items()}
 
@@ -203,31 +208,60 @@ def course_summary(course: Course, counts: dict[str, int] | None = None) -> dict
     }
 
 
-def lesson_admin_summary(lesson: CourseLesson) -> dict[str, Any]:
+def live_lesson_fields(lesson: CourseLesson) -> dict[str, Any]:
+    return {
+        "title": lesson.title,
+        "summary": lesson.summary,
+        "body": lesson.body or [],
+        "estimated_minutes": lesson.estimated_minutes,
+        "is_preview": lesson.is_preview,
+        "completion_required": lesson.completion_required,
+    }
+
+
+def lesson_admin_summary(lesson: CourseLesson, drafts: bool = True) -> dict[str, Any]:
+    """``drafts``: show the working copy (staff who may read drafts) or the live content."""
+    if drafts and lesson.draft:
+        data = {**lesson.draft}
+        version = {
+            "title": data.get("title", lesson.title),
+            "summary": data.get("summary", lesson.summary),
+            "is_preview": data.get("is_preview", lesson.is_preview),
+            "completion_required": data.get("completion_required", lesson.completion_required),
+            "estimated_minutes": data.get("estimated_minutes", lesson.estimated_minutes),
+            "minutes": data.get("estimated_minutes")
+            or content.reading_minutes(data.get("body", lesson.body)),
+        }
+    else:
+        version = {
+            "title": lesson.title,
+            "summary": lesson.summary,
+            "is_preview": lesson.is_preview,
+            "completion_required": lesson.completion_required,
+            "estimated_minutes": lesson.estimated_minutes,
+            "minutes": lesson_minutes(lesson),
+        }
     return {
         "id": lesson.id,
         "module_id": lesson.module_id,
         "slug": lesson.slug,
-        "title": lesson.title,
-        "summary": lesson.summary,
+        **version,
         "status": lesson.status,
-        "is_preview": lesson.is_preview,
-        "completion_required": lesson.completion_required,
-        "estimated_minutes": lesson.estimated_minutes,
-        "minutes": lesson_minutes(lesson),
+        "has_draft_changes": lesson.draft is not None,
+        "live_revision": lesson.live_revision,
         "position": lesson.position,
         "updated_at": iso(lesson.updated_at),
     }
 
 
-def module_dict(module: CourseModule) -> dict[str, Any]:
+def module_dict(module: CourseModule, drafts: bool = True) -> dict[str, Any]:
     return {
         "id": module.id,
         "title": module.title,
         "description": module.description,
         "objectives": module.objectives or [],
         "position": module.position,
-        "lessons": [lesson_admin_summary(lesson) for lesson in module.lessons],
+        "lessons": [lesson_admin_summary(lesson, drafts) for lesson in module.lessons],
     }
 
 
@@ -274,7 +308,10 @@ def course_detail(course: Course, actor: User) -> dict[str, Any]:
         "first_published_at": iso(course.first_published_at),
         "archived_at": iso(course.archived_at),
         "lock_version": course.lock_version,
-        "modules": [module_dict(m) for m in course.modules],
+        "modules": [
+            module_dict(m, P.COURSES_VIEW_DRAFTS.value in effective_permissions(actor))
+            for m in course.modules
+        ],
         "assessments": [assessment_summary(a) for a in course.assessments],
         "readiness": readiness(course),
         "can": can(actor),
@@ -696,20 +733,20 @@ def duplicate(course: Course, actor: User) -> Course:
         db.session.add(new_module)
         db.session.flush()
         for lesson in module.lessons:
-            body = [
-                b for b in lesson.body or [] if b.get("type") != "download"
-            ]  # files stay with the product
+            # The editors' latest version (draft included); files stay with the product.
+            source = {**live_lesson_fields(lesson), **(lesson.draft or {})}
+            body = [b for b in source["body"] or [] if b.get("type") != "download"]
             new_lesson = CourseLesson(
                 course_id=copy.id,
                 module_id=new_module.id,
                 slug=lesson.slug,
-                title=lesson.title,
-                summary=lesson.summary,
+                title=source["title"],
+                summary=source["summary"],
                 body=body,
-                estimated_minutes=lesson.estimated_minutes,
+                estimated_minutes=source["estimated_minutes"],
                 status="draft",
-                is_preview=lesson.is_preview,
-                completion_required=lesson.completion_required,
+                is_preview=source["is_preview"],
+                completion_required=source["completion_required"],
                 position=lesson.position,
                 updated_by_id=actor.id,
             )

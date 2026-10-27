@@ -408,6 +408,12 @@ def complete_lesson(customer: Customer, course: Course, lesson_slug: str) -> dic
             "Mark the required exercises as done first.",
             details={"exercises": sorted(missing)},
         )
+    unticked = content.required_checklist_item_ids(lesson.body) - set(row.checklist or [])
+    if unticked:
+        raise ValidationError(
+            "Tick every item in the required checklist first.",
+            details={"checklist": sorted(unticked)},
+        )
     if row.completed_at is None:
         row.completed_at = _now()
     _touch(enrollment, lesson)
@@ -492,6 +498,21 @@ def _resume_lesson(
     )
 
 
+def _resume_dict(
+    resume: CourseLesson | None, rows: dict[int, LessonProgress]
+) -> dict[str, Any] | None:
+    if resume is None:
+        return None
+    row = rows.get(resume.id)
+    position = row.position if row is not None else None
+    return {
+        "slug": resume.slug,
+        "title": resume.title,
+        "percent": (position or {}).get("percent"),
+        "last_viewed_at": iso(row.last_viewed_at) if row is not None else None,
+    }
+
+
 def _certificate(enrollment: CourseEnrollment) -> dict[str, Any] | None:
     certificate = db.session.scalar(
         select(CourseCertificate).where(CourseCertificate.enrollment_id == enrollment.id)
@@ -536,7 +557,7 @@ def enrollment_card(enrollment: CourseEnrollment, customer: Customer) -> dict[st
         "last_activity_at": iso(enrollment.last_activity_at),
         "completed_at": iso(enrollment.completed_at),
         "progress": state,
-        "resume": {"slug": resume.slug, "title": resume.title} if resume else None,
+        "resume": _resume_dict(resume, rows),
         "certificate": _certificate(enrollment),
         "certificate_available": course.certificate_enabled and enrollment.completed_at is not None,
     }
@@ -616,7 +637,7 @@ def course_outline(customer: Customer, course: Course) -> dict[str, Any]:
         },
         "modules": modules,
         "assessments": assessment_items,
-        "resume": {"slug": resume.slug, "title": resume.title} if resume else None,
+        "resume": _resume_dict(resume, rows),
     }
 
 
@@ -649,6 +670,37 @@ def _downloads(
     return out
 
 
+def _reader_outline(
+    course: Course, rows: dict[int, LessonProgress], current: CourseLesson
+) -> list[dict[str, Any]]:
+    out = []
+    for module in course.modules:
+        lessons = [lesson for lesson in module.lessons if lesson.status == "published"]
+        if not lessons:
+            continue
+        items = [
+            {
+                "slug": lesson.slug,
+                "title": lesson.title,
+                "minutes": lesson_minutes(lesson),
+                "completed": bool(rows.get(lesson.id) and rows[lesson.id].completed_at),
+                "current": lesson.id == current.id,
+            }
+            for lesson in lessons
+        ]
+        out.append(
+            {
+                "id": module.id,
+                "title": module.title,
+                "lessons": items,
+                "completed": sum(1 for i in items if i["completed"]),
+                "total": len(items),
+                "current": module.id == current.module_id,
+            }
+        )
+    return out
+
+
 def lesson_view(customer: Customer, course: Course, lesson_slug: str) -> dict[str, Any]:
     enrollment = require_access(customer, course)
     lesson = _find_lesson(course, lesson_slug)
@@ -672,9 +724,21 @@ def lesson_view(customer: Customer, course: Course, lesson_slug: str) -> dict[st
         if a.lesson_id == lesson.id and a.status == "published"
     ]
     module = lesson.module
+    from . import study
+
+    rows = _progress_rows(enrollment)
+    outline = _reader_outline(course, rows, lesson)
+    current_module = next((m for m in outline if m["current"]), None)
     return {
         "course": {"slug": course.slug, "title": course.title},
-        "module": {"id": module.id, "title": module.title},
+        "module": {
+            "id": module.id,
+            "title": module.title,
+            "completed": current_module["completed"] if current_module else 0,
+            "total": current_module["total"] if current_module else 0,
+        },
+        "outline": outline,
+        "toc": content.headings(lesson.body),
         "lesson": {
             "slug": lesson.slug,
             "title": lesson.title,
@@ -690,7 +754,9 @@ def lesson_view(customer: Customer, course: Course, lesson_slug: str) -> dict[st
             "acknowledged": row.acknowledged or [],
             "responses": row.responses or {},
             "required_exercises": sorted(content.required_exercise_ids(lesson.body)),
+            "required_checklist": sorted(content.required_checklist_item_ids(lesson.body)),
         },
+        "study": study.lesson_state(customer, lesson, row),
         "previous": {"slug": lessons[index - 1].slug, "title": lessons[index - 1].title}
         if index > 0
         else None,
@@ -766,6 +832,9 @@ def export_learner(customer: Customer) -> list[dict[str, Any]]:
 def erase_learner(customer: Customer) -> None:
     """On account deletion: remove private notes and written answers, end enrolments and
     revoke certificates (their verification page would otherwise show the name)."""
+    from . import study
+
+    study.erase(customer)
     now = _now()
     for enrollment in db.session.scalars(
         select(CourseEnrollment).where(CourseEnrollment.customer_id == customer.id)

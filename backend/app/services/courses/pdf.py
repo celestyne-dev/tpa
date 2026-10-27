@@ -126,29 +126,43 @@ class Page:
         )
 
     def render(self, title: str = "") -> bytes:
-        stream = b"\n".join(self.ops)
-        objects = [
-            b"<< /Type /Catalog /Pages 2 0 R >>",
-            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %d %d] /Contents 4 0 R "
-            b"/Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>" % (self.width, self.height),
-            b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
-            _FONT % b"Helvetica",
-            _FONT % b"Helvetica-Bold",
-            b"<< /Title (" + _escape(to_winansi(title)) + b") /Producer (Think Positive Always) >>",
-        ]
-        out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-        offsets = []
-        for number, body in enumerate(objects, start=1):
-            offsets.append(len(out))
-            out += b"%d 0 obj\n" % number + body + b"\nendobj\n"
-        xref = len(out)
-        out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
-        for offset in offsets:
-            out += b"%010d 00000 n \n" % offset
-        out += b"trailer\n<< /Size %d /Root 1 0 R /Info %d 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
-            len(objects) + 1,
-            len(objects),
-            xref,
+        return render_pages([self], title)
+
+
+def render_pages(pages: list[Page], title: str = "") -> bytes:
+    """A PDF with one or more pages sharing the two standard fonts."""
+    count = len(pages)
+    font_regular, font_bold, info = 3 + 2 * count, 4 + 2 * count, 5 + 2 * count
+    kids = b" ".join(b"%d 0 R" % (3 + 2 * i) for i in range(count))
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [%s] /Count %d >>" % (kids, count),
+    ]
+    for i, page in enumerate(pages):
+        stream = b"\n".join(page.ops)
+        objects.append(
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %d %d] /Contents %d 0 R "
+            b"/Resources << /Font << /F1 %d 0 R /F2 %d 0 R >> >> >>"
+            % (page.width, page.height, 4 + 2 * i, font_regular, font_bold)
         )
-        return bytes(out)
+        objects.append(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream")
+    objects += [
+        _FONT % b"Helvetica",
+        _FONT % b"Helvetica-Bold",
+        b"<< /Title (" + _escape(to_winansi(title)) + b") /Producer (Think Positive Always) >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    for offset in offsets:
+        out += b"%010d 00000 n \n" % offset
+    out += b"trailer\n<< /Size %d /Root 1 0 R /Info %d 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
+        len(objects) + 1,
+        info,
+        xref,
+    )
+    return bytes(out)

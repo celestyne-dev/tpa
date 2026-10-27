@@ -5,6 +5,10 @@
 - ``/account/learning``…: signed-in customers with a confirmed email; every request
   re-checks enrolment and access (refunds, revocation and expiry apply at once).
 - ``/certificates/<code>``: anyone can check a certificate code (no-store, noindex).
+- ``/learning/search``: course search; anonymous visitors get catalogue data and free
+  previews, signed-in learners also the lessons they can open (decided server-side).
+- ``/account/study``… and lesson study routes (Batch 09.1): the learner's own notes,
+  highlights, bookmarks, checklist ticks, reading position and preferences.
 """
 
 from __future__ import annotations
@@ -14,7 +18,7 @@ from flask_restful import Resource
 
 from ..auth.customer_session import current_customer, require_customer
 from ..extensions import db, limiter
-from ..services.courses import certificates, learning, public
+from ..services.courses import certificates, learning, public, search, study
 from ..utils.errors import NotFoundError, ValidationError
 from ..utils.responses import success
 
@@ -202,6 +206,159 @@ class LearningCertificatePdfResource(Resource):
         return response
 
 
+# ---- search and study tools (Batch 09.1) --------------------------------------------------
+
+
+class LearningSearchResource(Resource):
+    decorators = [limiter.limit("30 per minute")]
+
+    def get(self):
+        customer = current_customer()
+        data = search.search(request.args.get("q", ""), customer)
+        db.session.commit()
+        return success(data)
+
+
+def _lesson_args(slug: str):
+    return current_customer(), learning.learner_course_by_slug(slug)
+
+
+class LessonNotesResource(Resource):
+    method_decorators = {"post": [limiter.limit("60 per minute")]}
+
+    @require_customer
+    def post(self, slug: str, lesson_slug: str):
+        customer, course = _lesson_args(slug)
+        data = study.create_note(customer, course, lesson_slug, _body())
+        db.session.commit()
+        return success(data, status=201)
+
+
+class LessonHighlightsResource(Resource):
+    method_decorators = {"post": [limiter.limit("60 per minute")]}
+
+    @require_customer
+    def post(self, slug: str, lesson_slug: str):
+        customer, course = _lesson_args(slug)
+        data = study.create_highlight(customer, course, lesson_slug, _body())
+        db.session.commit()
+        return success(data, status=201)
+
+
+class LessonBookmarkResource(Resource):
+    method_decorators = {"put": [limiter.limit("60 per minute")]}
+
+    @require_customer
+    def put(self, slug: str, lesson_slug: str):
+        customer, course = _lesson_args(slug)
+        data = study.set_bookmark(customer, course, lesson_slug, _body().get("bookmarked"))
+        db.session.commit()
+        return success(data)
+
+
+class LessonChecklistResource(Resource):
+    method_decorators = {"put": [limiter.limit("120 per minute")]}
+
+    @require_customer
+    def put(self, slug: str, lesson_slug: str, item_id: str):
+        customer, course = _lesson_args(slug)
+        data = study.set_checklist_item(customer, course, lesson_slug, item_id, _body())
+        db.session.commit()
+        return success(data)
+
+
+class LessonPositionResource(Resource):
+    # The reader saves at most every few seconds; this limit only stops abuse.
+    method_decorators = {"put": [limiter.limit("30 per minute")]}
+
+    @require_customer
+    def put(self, slug: str, lesson_slug: str):
+        customer, course = _lesson_args(slug)
+        data = study.save_position(customer, course, lesson_slug, _body())
+        db.session.commit()
+        return success(data)
+
+
+class StudyNoteResource(Resource):
+    method_decorators = {
+        "patch": [limiter.limit("120 per minute")],
+        "delete": [limiter.limit("60 per minute")],
+    }
+
+    @require_customer
+    def patch(self, note_id: str):
+        data = study.update_note(current_customer(), note_id, _body())
+        db.session.commit()
+        return success(data)
+
+    @require_customer
+    def delete(self, note_id: str):
+        study.delete_note(current_customer(), note_id)
+        db.session.commit()
+        return success({"deleted": True})
+
+
+class StudyHighlightResource(Resource):
+    method_decorators = {
+        "patch": [limiter.limit("60 per minute")],
+        "delete": [limiter.limit("60 per minute")],
+    }
+
+    @require_customer
+    def patch(self, highlight_id: str):
+        data = study.update_highlight(current_customer(), highlight_id, _body())
+        db.session.commit()
+        return success(data)
+
+    @require_customer
+    def delete(self, highlight_id: str):
+        study.delete_highlight(current_customer(), highlight_id)
+        db.session.commit()
+        return success({"deleted": True})
+
+
+class StudyNotebookResource(Resource):
+    decorators = [limiter.limit("60 per minute")]
+
+    @require_customer
+    def get(self):
+        args = {k: v for k, v in request.args.items() if len(v) <= 120}
+        data = study.notebook(current_customer(), args)
+        db.session.commit()
+        return success(data)
+
+
+class StudyExportResource(Resource):
+    decorators = [limiter.limit("10 per minute")]
+
+    @require_customer
+    def get(self):
+        payload, mimetype, filename = study.export(
+            current_customer(),
+            request.args.get("format", "txt"),
+            (request.args.get("course") or "")[:200] or None,
+        )
+        response = Response(payload, mimetype=mimetype)
+        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+class StudyPreferencesResource(Resource):
+    method_decorators = {"put": [limiter.limit("30 per minute")]}
+
+    @require_customer
+    def get(self):
+        return success(study.get_preferences(current_customer()))
+
+    @require_customer
+    def put(self):
+        data = study.save_preferences(current_customer(), _body())
+        db.session.commit()
+        return success(data)
+
+
 PUBLIC_COURSE_ROUTES = [
     (CourseListResource, "/courses"),
     (CourseDetailResource, "/courses/<string:slug>"),
@@ -227,7 +384,31 @@ PUBLIC_COURSE_ROUTES = [
     ),
     (LearningCertificateResource, "/account/learning/<string:slug>/certificate"),
     (LearningCertificatePdfResource, "/account/certificates/<string:code>/pdf"),
+    (LearningSearchResource, "/learning/search"),
+    (LessonNotesResource, "/account/learning/<string:slug>/lessons/<string:lesson_slug>/notes"),
+    (
+        LessonHighlightsResource,
+        "/account/learning/<string:slug>/lessons/<string:lesson_slug>/highlights",
+    ),
+    (
+        LessonBookmarkResource,
+        "/account/learning/<string:slug>/lessons/<string:lesson_slug>/bookmark",
+    ),
+    (
+        LessonChecklistResource,
+        "/account/learning/<string:slug>/lessons/<string:lesson_slug>/checklist/<string:item_id>",
+    ),
+    (
+        LessonPositionResource,
+        "/account/learning/<string:slug>/lessons/<string:lesson_slug>/position",
+    ),
+    (StudyNoteResource, "/account/study/notes/<string:note_id>"),
+    (StudyHighlightResource, "/account/study/highlights/<string:highlight_id>"),
+    (StudyNotebookResource, "/account/study/notebook"),
+    (StudyExportResource, "/account/study/export"),
+    (StudyPreferencesResource, "/account/study/preferences"),
 ]
 
 # Certificate checks are public but never cached or indexed (they contain a name).
-COURSE_PRIVATE_PREFIXES = ("/api/v1/certificates",)
+# Search results depend on who is signed in, so they are never cached either.
+COURSE_PRIVATE_PREFIXES = ("/api/v1/certificates", "/api/v1/learning")

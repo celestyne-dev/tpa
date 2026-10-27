@@ -8,6 +8,7 @@ learner progress can't be deleted (unpublish them instead), so history is never 
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -18,8 +19,8 @@ from ...models import Course, CourseLesson, CourseModule, LessonProgress, User
 from ...utils.errors import ConflictError, NotFoundError, ValidationError
 from ...utils.validation import SLUG_RE, plain_text_problem, slugify
 from .. import audit_service
-from ..serializers import expand_body
-from . import content
+from ..serializers import expand_body, iso
+from . import content, revisions
 from .admin import lesson_admin_summary, module_dict, require, touch_public
 
 
@@ -199,10 +200,24 @@ def save_lesson(
     module: CourseModule | None = None,
     lesson: CourseLesson | None = None,
 ) -> CourseLesson:
-    require(actor, P.COURSES_MANAGE_CURRICULUM)
+    """Create a lesson, or save changes to its draft (never to the live content).
+
+    Creating needs *manage curriculum*; changing the text or settings needs *edit lesson
+    drafts* and the ``lock_version`` the editor loaded (a stale version is refused with
+    ``edit_conflict`` instead of overwriting someone else's work).
+    """
     _editable(course)
     if not isinstance(data, dict):
         raise ValidationError("Send a JSON object.")
+    content_keys = set(data) & set(revisions.DRAFT_FIELDS)
+    if lesson is None:
+        require(actor, P.COURSES_MANAGE_CURRICULUM)
+    else:
+        if "slug" in data:
+            require(actor, P.COURSES_MANAGE_CURRICULUM)
+        if content_keys or "slug" not in data:
+            require(actor, P.COURSES_EDIT_DRAFTS)
+        revisions.check_lock(lesson, data)
     errors: dict[str, Any] = {}
     unknown = set(data) - LESSON_FIELDS - {"lock_version"}
     if unknown:
@@ -214,6 +229,11 @@ def save_lesson(
         slug = data["slug"]
         if not isinstance(slug, str) or not SLUG_RE.match(slug) or len(slug) > 200:
             errors["slug"] = ["Use lowercase letters, numbers and hyphens."]
+        elif lesson is not None and lesson.live_revision is not None and slug != lesson.slug:
+            errors["slug"] = [
+                "The address is fixed once the lesson has been published "
+                "(learners' links and bookmarks use it)."
+            ]
         elif db.session.scalar(
             select(CourseLesson.id).where(
                 CourseLesson.course_id == course.id,
@@ -222,10 +242,14 @@ def save_lesson(
             )
         ):
             errors["slug"] = ["Another lesson in this course uses this address."]
+    current = revisions.working(lesson) if lesson is not None else None
     body = None
     if "body" in data:
+        previous = (current["body"] + (lesson.body or [])) if lesson is not None else None
         try:
-            body = content.validate_lesson_blocks(data["body"], file_ids=course_file_ids(course))
+            body = content.validate_lesson_blocks(
+                data["body"], file_ids=course_file_ids(course), previous=previous
+            )
         except ValidationError as exc:
             errors["body"] = (
                 exc.details.get("body") if isinstance(exc.details, dict) else [exc.message]
@@ -242,65 +266,68 @@ def save_lesson(
             errors[flag] = ["Must be true or false."]
     if errors:
         raise ValidationError("Some fields need attention.", details=errors)
-    created = lesson is None
     if lesson is None:
         last = db.session.scalar(
             select(func.max(CourseLesson.position)).where(CourseLesson.module_id == module.id)
         )
+        # A new lesson is a draft nobody can read yet: its first content is stored in the
+        # (not yet published) lesson columns directly.
         lesson = CourseLesson(
             course_id=course.id,
             module_id=module.id,
             slug=slug or _unique_slug(course, slugify(title or "")),
             title=title,
+            summary=summary or "",
+            body=body or [],
+            estimated_minutes=minutes if "estimated_minutes" in data else None,
+            is_preview=data.get("is_preview", False),
+            completion_required=data.get("completion_required", True),
             position=(last if last is not None else -1) + 1,
-            body=[],
+            updated_by_id=actor.id,
+            draft_saved_at=datetime.now(UTC),
+            draft_saved_by_id=actor.id,
         )
         db.session.add(lesson)
-    if title is not None:
-        lesson.title = title
+        db.session.flush()
+        audit_service.record(
+            "course.lesson_created",
+            "course",
+            course.id,
+            actor=actor,
+            details={"lesson_id": lesson.id, "title": lesson.title},
+        )
+        return lesson
     if slug is not None:
         lesson.slug = slug
-    if summary is not None:
-        lesson.summary = summary
-    if body is not None:
-        lesson.body = body
+    new = dict(current)
+    for field, value in (("title", title), ("summary", summary), ("body", body)):
+        if value is not None:
+            new[field] = value
     if "estimated_minutes" in data:
-        lesson.estimated_minutes = minutes
+        new["estimated_minutes"] = minutes
     for flag in ("is_preview", "completion_required"):
         if flag in data:
-            setattr(lesson, flag, data[flag])
-    lesson.updated_by_id = actor.id
+            new[flag] = data[flag]
+    changed = sorted(field for field in revisions.DRAFT_FIELDS if new[field] != current[field])
+    revisions.store_working(lesson, new, actor)
     db.session.flush()
     audit_service.record(
-        "course.lesson_created" if created else "course.lesson_updated",
+        "course.lesson_draft_saved",
         "course",
         course.id,
         actor=actor,
-        details={"lesson_id": lesson.id, "title": lesson.title},
+        details={"lesson_id": lesson.id, "title": new["title"], "fields": changed},
     )
-    if lesson.status == "published":
-        touch_public(course, "course_curriculum", actor)
     return lesson
 
 
 def set_lesson_status(course: Course, lesson: CourseLesson, status: str, actor: User) -> None:
-    require(actor, P.COURSES_PUBLISH)
-    _editable(course)
     if status not in ("draft", "published"):
         raise ValidationError(details={"status": ["Use draft or published."]})
-    if status == "published" and not lesson.body:
-        raise ValidationError("Add some content before publishing this lesson.")
-    if lesson.status == status:
-        return
-    lesson.status = status
-    audit_service.record(
-        f"course.lesson_{'published' if status == 'published' else 'unpublished'}",
-        "course",
-        course.id,
-        actor=actor,
-        details={"lesson_id": lesson.id, "title": lesson.title},
-    )
-    touch_public(course, "course_curriculum", actor)
+    if status == "published":
+        revisions.publish(course, lesson, actor)
+    else:
+        revisions.unpublish(course, lesson, actor)
 
 
 def delete_lesson(course: Course, lesson: CourseLesson, actor: User) -> None:
@@ -367,19 +394,33 @@ def reorder(course: Course, layout: Any, actor: User) -> None:
 
 
 def lesson_detail(course: Course, lesson: CourseLesson) -> dict[str, Any]:
+    """The editor's view: the working copy (draft) plus the state of the live version."""
     from .assessments import assessment_summary
 
+    current = revisions.working(lesson)
     return {
         **lesson_admin_summary(lesson),
-        "body": lesson.body or [],
+        **{k: v for k, v in current.items() if k != "body"},
+        "body": current["body"],
         "course_id": course.id,
+        "lock_version": lesson.lock_version,
+        "draft_saved_at": iso(lesson.draft_saved_at),
+        "draft_saved_by": revisions._user_name(lesson.draft_saved_by_id),
+        "live": {
+            "revision": lesson.live_revision,
+            "title": lesson.title,
+            "published_at": iso(lesson.content_published_at),
+            "visible": lesson.status == "published",
+        }
+        if lesson.live_revision is not None
+        else None,
         "assessments": [
             assessment_summary(a) for a in course.assessments if a.lesson_id == lesson.id
         ],
-        # Images resolved for the staff preview (the editor keeps working with media ids).
-        "preview_body": expand_body(lesson.body or []),
-        "word_count": content.lesson_word_count(lesson.body),
-        "reading_minutes": content.reading_minutes(lesson.body),
+        # Images resolved for the private draft preview (the editor keeps media ids).
+        "preview_body": expand_body(current["body"]),
+        "word_count": content.lesson_word_count(current["body"]),
+        "reading_minutes": content.reading_minutes(current["body"]),
     }
 
 

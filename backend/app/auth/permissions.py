@@ -133,6 +133,11 @@ class Permission(StrEnum):
     COURSES_VIEW_ENROLLMENTS = "courses.view_enrollments"
     COURSES_MANAGE_ENROLLMENTS = "courses.manage_enrollments"
     COURSES_VIEW_REPORTS = "courses.view_reports"
+    COURSES_VIEW_DRAFTS = "courses.view_drafts"
+    COURSES_EDIT_DRAFTS = "courses.edit_drafts"
+    COURSES_PUBLISH_LESSONS = "courses.publish_lessons"
+    COURSES_VIEW_REVISIONS = "courses.view_revisions"
+    COURSES_RESTORE_REVISIONS = "courses.restore_revisions"
 
 
 P = Permission
@@ -701,6 +706,42 @@ CATALOGUE: list[PermissionDef] = [
         description="Enrol or remove learners, revoke or correct certificates.",
     ),
     _d(P.COURSES_VIEW_REPORTS, "View course reports", "Courses & memberships", "courses"),
+    # Batch 09.1: lesson drafts and revisions (appended; existing order unchanged).
+    _d(
+        P.COURSES_VIEW_DRAFTS,
+        "Read lesson drafts",
+        "Courses & memberships",
+        "courses",
+        description="Open lesson drafts and preview unpublished lesson changes.",
+    ),
+    _d(
+        P.COURSES_EDIT_DRAFTS,
+        "Edit lesson drafts",
+        "Courses & memberships",
+        "courses",
+        description="Change lesson text and settings in the draft (learners don't see it).",
+    ),
+    _d(
+        P.COURSES_PUBLISH_LESSONS,
+        "Publish lessons",
+        "Courses & memberships",
+        "courses",
+        description="Publish lesson changes to learners, or unpublish lessons.",
+    ),
+    _d(
+        P.COURSES_VIEW_REVISIONS,
+        "View lesson revisions",
+        "Courses & memberships",
+        "courses",
+        description="Revision history and comparisons between lesson versions.",
+    ),
+    _d(
+        P.COURSES_RESTORE_REVISIONS,
+        "Restore lesson revisions",
+        "Courses & memberships",
+        "courses",
+        description="Copy an earlier published version back into the lesson draft.",
+    ),
 ]
 
 CATALOGUE_BY_KEY: dict[str, PermissionDef] = {d.key.value: d for d in CATALOGUE}
@@ -1180,6 +1221,16 @@ BATCH_09_GRANTS: dict[str, frozenset[str]] = {
 }
 
 
+LESSON_DRAFTING = _set(P.COURSES_VIEW_DRAFTS, P.COURSES_EDIT_DRAFTS, P.COURSES_VIEW_REVISIONS)
+LESSON_PUBLISHING = LESSON_DRAFTING | _set(P.COURSES_PUBLISH_LESSONS, P.COURSES_RESTORE_REVISIONS)
+BATCH_091_GRANTS: dict[str, frozenset[str]] = {
+    "editor": LESSON_PUBLISHING,
+    "administrator": LESSON_PUBLISHING,
+    "editor_in_chief": LESSON_PUBLISHING,
+    "content_editor": LESSON_DRAFTING,
+}
+
+
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
         BATCH_03_GRANTS.get(spec.key, frozenset())
@@ -1189,6 +1240,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_07_GRANTS.get(spec.key, frozenset())
         | BATCH_08_GRANTS.get(spec.key, frozenset())
         | BATCH_09_GRANTS.get(spec.key, frozenset())
+        | BATCH_091_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec
