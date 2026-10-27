@@ -18,6 +18,7 @@ def app(tmp_path):
         {
             "MEDIA_ROOT": str(tmp_path / "media"),
             "PRODUCT_FILES_ROOT": str(tmp_path / "product-files"),
+            "UPLOAD_TEMP_ROOT": str(tmp_path / "tmp-uploads"),
             "PRODUCT_FILES_MIN_FREE_MB": 0,
             "PUBLISH_RELEASES_DIR": str(tmp_path / "site" / "releases"),
             "PUBLISH_CURRENT_LINK": str(tmp_path / "site" / "current"),

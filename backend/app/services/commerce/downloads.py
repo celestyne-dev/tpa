@@ -104,6 +104,10 @@ def _authorize(
         _event("denied", "entitlement_revoked", **ids)
         db.session.commit()
         raise NotEntitledError("Access to this item has ended.")
+    if not ent_service.is_usable(entitlement):
+        _event("denied", "entitlement_expired", **ids)
+        db.session.commit()
+        raise NotEntitledError("Your access period for this item has ended.")
     allowed = {v.id: v for f in ent_service.accessible_files(entitlement) for _, v in f["versions"]}
     version = allowed.get(version_id)
     if version is None:
@@ -217,6 +221,10 @@ def serve(token: str, customer: Customer | None) -> Response:
         _event("denied", "entitlement_revoked", **ids)
         db.session.commit()
         raise NotEntitledError("Access to this item has ended.")
+    if not ent_service.is_usable(entitlement):
+        _event("denied", "entitlement_expired", **ids)
+        db.session.commit()
+        raise NotEntitledError("Your access period for this item has ended.")
     allowed = {v.id for f in ent_service.accessible_files(entitlement) for _, v in f["versions"]}
     version = db.session.get(ProductFileVersion, grant.file_version_id)
     if version is None or version.id not in allowed:

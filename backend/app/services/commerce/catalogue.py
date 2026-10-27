@@ -252,6 +252,7 @@ def snapshot_document(product: Product) -> dict[str, Any]:
         "noindex": product.noindex,
         "category_ids": [c.id for c in product.categories],
         "tags": [t.name for t in product.tags],
+        "related_ids": [r.id for r in product.related],
     }
 
 
@@ -323,6 +324,24 @@ def display_currencies() -> list[str]:
     return [c for c in dict.fromkeys(codes) if c in CURRENCIES] or ["USD"]
 
 
+def effective_download_limit(product: Product) -> int | None:
+    """Downloads per buyer: the resource's own limit, else the store-wide setting."""
+    if product.download_limit:
+        return product.download_limit
+    from ...payments.config import get_settings
+
+    return get_settings().get("payments.download_limit")
+
+
+def access_terms(product: Product) -> dict[str, Any]:
+    """What a buyer gets, as shown on the resource page (live, like the price)."""
+    return {
+        "lifetime": product.access_days is None,
+        "days": product.access_days,
+        "download_limit": effective_download_limit(product),
+    }
+
+
 def availability_label(product: Product, state: dict[str, Any]) -> str:
     if state["purchasable"]:
         return "free" if product.pricing_model == "free" else "available"
@@ -381,6 +400,7 @@ def public_product(
             if c in categories and categories[c].is_active
         ],
         "highlights": (doc.get("benefits") or [])[:3],
+        "access": access_terms(product),
         "published_at": iso(product.first_published_at or product.published_at),
         "available_from": iso(product.available_from),
     }
@@ -480,6 +500,12 @@ def list_public(args: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         items = [i for i in items if args["collection"] in i["collections"]]
     if args.get("type"):
         items = [i for i in items if i["type"] == args["type"]]
+    if args.get("group") == "resources":  # written resources: everything but bundles
+        items = [i for i in items if i["type"] != "bundle"]
+    if args.get("access") == "free":
+        items = [i for i in items if i["is_free"]]
+    elif args.get("access") == "premium":
+        items = [i for i in items if not i["is_free"]]
     if args.get("featured"):
         items = [i for i in items if i["featured"]]
     if args.get("q"):
@@ -514,6 +540,17 @@ def list_public(args: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     return items
 
 
+def public_types(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Resource types present in a listing, for filters (no empty options)."""
+    counts: dict[str, int] = {}
+    for item in items:
+        counts[item["type"]] = counts.get(item["type"], 0) + 1
+    return [
+        {"key": key, "label": type_label(key), "count": count}
+        for key, count in sorted(counts.items(), key=lambda kv: type_label(kv[0]))
+    ]
+
+
 def get_public(slug: str) -> dict[str, Any] | None:
     product = db.session.scalar(select(Product).where(Product.published_slug == slug))
     if product is None:
@@ -521,16 +558,28 @@ def get_public(slug: str) -> dict[str, Any] | None:
     data = public_product(product, detail=True, collections=_collections_by_product())
     if data is None:
         return None
+    # Related resources chosen by editors (published order) come first; the rest are
+    # filled from the same collections, then featured products.
+    chosen = list((product.published_snapshot or {}).get("related_ids") or [])
     related_ids = set()
     collections = _collections_by_product().get(product.id, [])
     for collection in collections:
         related_ids.update(i.product_id for i in collection.items)
     related_ids.discard(product.id)
     candidates = [p for p in published_products() if p.id != product.id]
-    candidates.sort(key=lambda p: (p.id not in related_ids, p.featured_order, p.id))
-    loader = _Media([p.published_snapshot for p in candidates[:3]])
+    rank = {pid: i for i, pid in enumerate(chosen)}
+    candidates.sort(
+        key=lambda p: (
+            rank.get(p.id, len(rank)),
+            p.id not in related_ids,
+            p.featured_order,
+            p.id,
+        )
+    )
+    limit = max(3, min(len(chosen), 6))
+    loader = _Media([p.published_snapshot for p in candidates[:limit]])
     data["related"] = [
-        r for p in candidates[:3] if (r := public_product(p, loader=loader)) is not None
+        r for p in candidates[:limit] if (r := public_product(p, loader=loader)) is not None
     ]
     return data
 

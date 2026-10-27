@@ -53,6 +53,17 @@ product_categories = Table(
     Index("ix_product_category_links_category_id", "category_id"),
 )
 
+# Related resources shown on a resource page (ordered, one direction: product -> related).
+product_related = Table(
+    "product_related",
+    db.metadata,
+    Column("product_id", Integer, ForeignKey("products.id", ondelete="CASCADE"), primary_key=True),
+    Column("related_id", Integer, ForeignKey("products.id", ondelete="CASCADE"), primary_key=True),
+    Column("position", Integer, nullable=False, default=0),
+    CheckConstraint("product_id <> related_id", name="not_self"),
+    Index("ix_product_related_related_id", "related_id"),
+)
+
 product_tags = Table(
     "product_tags",
     db.metadata,
@@ -125,6 +136,10 @@ class Product(TimestampMixin, db.Model):
         CheckConstraint(f"sales_status IN {SALES_STATUSES}", name="sales_status_valid"),
         CheckConstraint(f"pricing_model IN {PRICING_MODELS}", name="pricing_model_valid"),
         CheckConstraint("page_count IS NULL OR page_count > 0", name="page_count_positive"),
+        CheckConstraint(
+            "download_limit IS NULL OR download_limit > 0", name="download_limit_positive"
+        ),
+        CheckConstraint("access_days IS NULL OR access_days > 0", name="access_days_positive"),
         Index("ix_products_status_featured", "status", "is_featured"),
     )
 
@@ -167,6 +182,13 @@ class Product(TimestampMixin, db.Model):
     meta_description: Mapped[str | None] = mapped_column(String(320), nullable=True)
     noindex: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     tax_category: Mapped[str] = mapped_column(String(40), default="digital_goods", nullable=False)
+    # ---- Batch 08: resource access rules (applied when access is granted) ----
+    # Downloads per buyer; None uses the store-wide setting (payments.download_limit).
+    download_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Access ends this many days after it is granted; None means lifetime access.
+    access_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # A future membership may unlock this resource (no effect until memberships exist).
+    membership_eligible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
     sales_status: Mapped[str] = mapped_column(String(20), default="coming_soon", nullable=False)
@@ -201,6 +223,16 @@ class Product(TimestampMixin, db.Model):
         cascade="all, delete-orphan",
         lazy="selectin",
         order_by="ProductFile.position",
+    )
+    # Ordered related resources. Written through product_admin.set_related (keeps the order).
+    related: Mapped[list[Product]] = relationship(
+        "Product",
+        secondary=product_related,
+        primaryjoin=lambda: Product.id == product_related.c.product_id,
+        secondaryjoin=lambda: Product.id == product_related.c.related_id,
+        order_by=product_related.c.position,
+        lazy="selectin",
+        viewonly=True,
     )
     bundle_items: Mapped[list[BundleItem]] = relationship(
         foreign_keys="BundleItem.bundle_id",

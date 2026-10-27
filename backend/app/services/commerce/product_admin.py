@@ -38,6 +38,7 @@ from ...models import (
     ProductRevision,
     Tag,
     User,
+    product_related,
 )
 from ...utils.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from ...utils.validation import SLUG_RE, plain_text_problem, slugify
@@ -129,6 +130,17 @@ def summary(product: Product) -> dict[str, Any]:
         "purchasable": state["purchasable"],
         "blockers": state["blockers"],
         "file_count": len([f for f in product.files if f.status == "active"]),
+        "version_count": sum(len(f.versions) for f in product.files),
+        "formats": sorted(
+            {
+                f.current_version.file_format
+                for f in product.files
+                if f.status == "active" and f.current_version
+            }
+        ),
+        "access_days": product.access_days,
+        "download_limit": product.download_limit,
+        "membership_eligible": product.membership_eligible,
         "has_unpublished_changes": catalogue.has_unpublished_changes(product),
         "available_from": iso(product.available_from),
         "updated_at": iso(product.updated_at),
@@ -161,6 +173,15 @@ def detail(product: Product, actor: User) -> dict[str, Any]:
         meta_description=product.meta_description,
         noindex=product.noindex,
         tax_category=product.tax_category,
+        download_limit=product.download_limit,
+        access_days=product.access_days,
+        membership_eligible=product.membership_eligible,
+        effective_download_limit=catalogue.effective_download_limit(product),
+        related_ids=[r.id for r in product.related],
+        related=[
+            {"id": r.id, "title": r.title, "status": r.status, "product_type": r.product_type}
+            for r in product.related
+        ],
         category_ids=[c.id for c in product.categories],
         tag_ids=[t.id for t in product.tags],
         collection_ids=[
@@ -223,6 +244,12 @@ def list_products(args: dict[str, Any]) -> list[dict[str, Any]]:
         stmt = stmt.where(Product.status != "archived")
     if args.get("type"):
         stmt = stmt.where(Product.product_type == args["type"])
+    if args.get("group") == "resources":  # premium resources: everything but bundles
+        stmt = stmt.where(Product.product_type != "bundle")
+    if args.get("access") == "free":
+        stmt = stmt.where(Product.pricing_model == "free")
+    elif args.get("access") == "premium":
+        stmt = stmt.where(Product.pricing_model == "paid")
     if args.get("q"):
         like = f"%{args['q'].lower()}%"
         stmt = stmt.where(func.lower(Product.title).like(like) | Product.slug.like(like))
@@ -413,10 +440,14 @@ CONTENT_FIELDS = {
     "collection_ids",
     "is_featured",
     "featured_order",
+    "related_ids",
 }
 PUBLISH_FIELDS = {"sales_status", "available_from", "available_until"}
 PRICE_FIELDS = {"pricing_model"}
-ALL_FIELDS = CONTENT_FIELDS | PUBLISH_FIELDS | PRICE_FIELDS | {"lock_version"}
+# Resource access rules: commercial terms applied when access is granted (live, like prices).
+ACCESS_FIELDS = {"download_limit", "access_days", "membership_eligible"}
+ALL_FIELDS = CONTENT_FIELDS | PUBLISH_FIELDS | PRICE_FIELDS | ACCESS_FIELDS | {"lock_version"}
+MAX_RELATED = 12
 
 
 def _parse_dt(value, name, errors):
@@ -512,6 +543,7 @@ def _clean(data: dict[str, Any], product: Product | None) -> tuple[dict[str, Any
         ("category_ids", 10),
         ("tag_ids", 20),
         ("collection_ids", 20),
+        ("related_ids", MAX_RELATED),
     ):
         if name in data:
             value = data[name] or []
@@ -523,7 +555,21 @@ def _clean(data: dict[str, Any], product: Product | None) -> tuple[dict[str, Any
                 errors[name] = [f"At most {max_items}."]
             else:
                 clean[name] = list(dict.fromkeys(value))
-    for name in ("noindex", "is_featured"):
+    if product is not None and product.id in clean.get("related_ids", []):
+        errors["related_ids"] = ["A resource can't be related to itself."]
+    for name, upper, message in (
+        ("download_limit", 1000, "Use a number of downloads (1–1000), or leave it empty."),
+        ("access_days", 3650, "Use a number of days (1–3650), or leave it empty for lifetime."),
+    ):
+        if name in data:
+            value = data[name]
+            if value in (None, ""):
+                clean[name] = None
+            elif not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= upper:
+                errors[name] = [message]
+            else:
+                clean[name] = value
+    for name in ("noindex", "is_featured", "membership_eligible"):
         if name in data:
             if not isinstance(data[name], bool):
                 errors[name] = ["Must be true or false."]
@@ -567,6 +613,16 @@ def _check_refs(clean: dict[str, Any], errors: dict) -> None:
         author = db.session.get(Author, clean["author_id"])
         if author is None or author.status != "active":
             errors["author_id"] = ["Choose an active author."]
+    if clean.get("related_ids"):
+        rows = dict(
+            db.session.execute(
+                select(Product.id, Product.status).where(Product.id.in_(clean["related_ids"]))
+            ).all()
+        )
+        if set(clean["related_ids"]) - set(rows):
+            errors["related_ids"] = ["One or more related resources no longer exist."]
+        elif any(status == "archived" for status in rows.values()):
+            errors["related_ids"] = ["Archived resources can't be shown as related."]
     for name, model in (
         ("category_ids", ProductCategory),
         ("tag_ids", Tag),
@@ -697,8 +753,25 @@ def _apply(product: Product, clean: dict[str, Any]) -> None:
             )
         elif key == "collection_ids":
             _set_collections(product, value)
+        elif key == "related_ids":
+            set_related(product, value)
         else:
             setattr(product, key, value)
+
+
+def set_related(product: Product, related_ids: list[int]) -> None:
+    """Replace the ordered list of related resources."""
+    db.session.execute(product_related.delete().where(product_related.c.product_id == product.id))
+    if related_ids:
+        db.session.execute(
+            product_related.insert(),
+            [
+                {"product_id": product.id, "related_id": rid, "position": i}
+                for i, rid in enumerate(related_ids)
+            ],
+        )
+    db.session.flush()
+    db.session.expire(product, ["related"])
 
 
 def _set_collections(product: Product, collection_ids: list[int]) -> None:
@@ -725,7 +798,12 @@ def _set_collections(product: Product, collection_ids: list[int]) -> None:
             )
 
 
-LIVE_FIELDS = {"is_featured", "featured_order", "collection_ids"} | PUBLISH_FIELDS | PRICE_FIELDS
+LIVE_FIELDS = (
+    {"is_featured", "featured_order", "collection_ids"}
+    | PUBLISH_FIELDS
+    | PRICE_FIELDS
+    | ACCESS_FIELDS
+)
 
 
 def update(product: Product, data: dict[str, Any], actor: User) -> Product:
@@ -744,7 +822,7 @@ def update(product: Product, data: dict[str, Any], actor: User) -> Product:
         _require(actor, P.PRODUCTS_EDIT)
     if fields & PUBLISH_FIELDS:
         _require(actor, P.PRODUCTS_PUBLISH)
-    if fields & PRICE_FIELDS:
+    if fields & (PRICE_FIELDS | ACCESS_FIELDS):
         _require(actor, P.PRODUCTS_MANAGE_PRICES)
     clean, errors = _clean(data, product)
     _check_refs(clean, errors)
@@ -755,14 +833,16 @@ def update(product: Product, data: dict[str, Any], actor: User) -> Product:
     if errors:
         raise ValidationError("Some fields need attention.", details=errors)
     before = catalogue.snapshot_document(product) | {
-        k: getattr(product, k) for k in PUBLISH_FIELDS | PRICE_FIELDS | {"is_featured"}
+        k: getattr(product, k)
+        for k in PUBLISH_FIELDS | PRICE_FIELDS | ACCESS_FIELDS | {"is_featured"}
     }
     _apply(product, clean)
     product.updated_by_id = actor.id
     product.lock_version += 1
     db.session.flush()
     after = catalogue.snapshot_document(product) | {
-        k: getattr(product, k) for k in PUBLISH_FIELDS | PRICE_FIELDS | {"is_featured"}
+        k: getattr(product, k)
+        for k in PUBLISH_FIELDS | PRICE_FIELDS | ACCESS_FIELDS | {"is_featured"}
     }
     changes = audit_service.changed_fields(before, after)
     if changes:
@@ -899,6 +979,15 @@ def _load_snapshot(product: Product, snap: dict[str, Any]) -> None:
             select(ProductCategory).where(ProductCategory.id.in_(snap.get("category_ids") or []))
         )
     )
+    if "related_ids" in snap:
+        existing = set(
+            db.session.scalars(
+                select(Product.id).where(
+                    Product.id.in_(snap["related_ids"] or []), Product.status != "archived"
+                )
+            )
+        )
+        set_related(product, [r for r in snap["related_ids"] if r in existing and r != product.id])
 
 
 def restore_revision(product: Product, revision_id: int, actor: User) -> Product:
@@ -979,6 +1068,9 @@ def duplicate(product: Product, actor: User) -> Product:
         "meta_description",
         "noindex",
         "tax_category",
+        "download_limit",
+        "access_days",
+        "membership_eligible",
     ):
         setattr(copy, key, getattr(product, key))
     copy.categories = list(product.categories)
@@ -990,6 +1082,7 @@ def duplicate(product: Product, actor: User) -> Product:
             db.session.add(
                 BundleItem(bundle_id=copy.id, product_id=item.product_id, position=item.position)
             )
+    set_related(copy, [r.id for r in product.related if r.id != copy.id])
     _record_revision(copy, "draft", actor, f"Duplicated from “{product.title}”")
     audit_service.record(
         "product.duplicated", "product", copy.id, actor=actor, details={"source": product.id}

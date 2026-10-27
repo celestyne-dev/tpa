@@ -16,7 +16,7 @@ The file version policy is documented in ``product_files.py``.
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -70,6 +70,7 @@ def _grant(
     actor: User | None = None,
     reason: str = "",
     download_limit: int | None = None,
+    expires_at: datetime | None = None,
 ) -> tuple[Entitlement, bool]:
     """Create an entitlement once. Returns (entitlement, created)."""
     existing = db.session.scalar(select(Entitlement).where(Entitlement.grant_key == grant_key))
@@ -86,6 +87,7 @@ def _grant(
         purchased_versions=purchased_versions(product) if not product.is_bundle else {},
         download_limit=download_limit,
         granted_by_id=actor.id if actor else None,
+        expires_at=expires_at,
     )
     try:
         with db.session.begin_nested():
@@ -106,16 +108,44 @@ def _grant(
     return entitlement, True
 
 
-def grant_for_order(order: Order) -> list[Entitlement]:
-    """Entitlements for every item of a paid order (bundles expanded from the snapshot)."""
-    from ...payments.config import get_settings
+def expiry_for(product: Product, start: datetime | None = None) -> datetime | None:
+    """When access granted now ends under the resource's rules (None: lifetime)."""
+    if not product.access_days:
+        return None
+    return (start or _now()) + timedelta(days=product.access_days)
 
-    limit = get_settings().get("payments.download_limit")
+
+def is_usable(entitlement: Entitlement, now: datetime | None = None) -> bool:
+    """Active and not expired: the only state that allows downloads."""
+    if entitlement.status != "active":
+        return False
+    return entitlement.expires_at is None or entitlement.expires_at > (now or _now())
+
+
+def access_state(entitlement: Entitlement) -> str:
+    if entitlement.status != "active":
+        return entitlement.status
+    return "active" if is_usable(entitlement) else "expired"
+
+
+def not_expired():
+    """SQL condition: the entitlement has no end date or ends in the future."""
+    return Entitlement.expires_at.is_(None) | (Entitlement.expires_at > _now())
+
+
+def grant_for_order(order: Order) -> list[Entitlement]:
+    """Entitlements for every item of a paid order (bundles expanded from the snapshot).
+
+    Each resource's access rules apply: its download limit (else the store-wide one) and
+    its access period. Bundle contents share the bundle's terms.
+    """
     created: list[Entitlement] = []
     for item in order.items:
         product = db.session.get(Product, item.product_id)
         if product is None:
             continue
+        limit = catalogue.effective_download_limit(product)
+        expires = expiry_for(product)
         parent, made = _grant(
             customer=order.customer,
             product=product,
@@ -125,6 +155,7 @@ def grant_for_order(order: Order) -> list[Entitlement]:
             order_item=item,
             reason=f"Order {order.number}",
             download_limit=limit,
+            expires_at=expires,
         )
         if made:
             created.append(parent)
@@ -142,6 +173,7 @@ def grant_for_order(order: Order) -> list[Entitlement]:
                 parent=parent,
                 reason=f"Bundle “{item.title}” in order {order.number}",
                 download_limit=limit,
+                expires_at=expires,
             )
             if made:
                 created.append(ent)
@@ -160,9 +192,19 @@ def claim_free(customer: Customer, product: Product) -> tuple[Entitlement, bool]
         source="free",
         grant_key=f"free:{customer.id}:{product.id}",
         reason="Free resource",
+        download_limit=product.download_limit,
+        expires_at=expiry_for(product),
     )
     if not created and entitlement.status == "revoked":
         raise ConflictError("Access to this resource was removed. Contact us if this is a mistake.")
+    if not created and not is_usable(entitlement):
+        # Free access with a time limit can simply be claimed again.
+        entitlement.expires_at = expiry_for(product)
+        db.session.add(
+            EntitlementEvent(
+                entitlement_id=entitlement.id, action="renewed", reason="Claimed again"
+            )
+        )
     if created and product.is_bundle:
         for child in catalogue.bundle_products(product):
             _grant(
@@ -190,6 +232,8 @@ def grant_manual(customer: Customer, product: Product, reason: str, actor: User)
         grant_key=f"manual:{secrets.token_hex(8)}",
         actor=actor,
         reason=reason,
+        download_limit=product.download_limit,
+        expires_at=expiry_for(product),
     )
     audit_service.record(
         "entitlement.granted",
@@ -322,7 +366,8 @@ def library(customer: Customer, *, scope=None) -> list[dict[str, Any]]:
     for ent in entitlements:
         product = ent.product
         snapshot = product.published_snapshot or {}
-        files = accessible_files(ent) if ent.status == "active" else []
+        state = access_state(ent)
+        files = accessible_files(ent) if state == "active" else []
         if product.is_bundle:
             included = [
                 c.product.title
@@ -332,7 +377,7 @@ def library(customer: Customer, *, scope=None) -> list[dict[str, Any]]:
             ]
         else:
             included = []
-        duplicate = product.id in seen and ent.status == "active"
+        duplicate = product.id in seen and state == "active"
         seen.add(product.id)
         items.append(
             {
@@ -348,7 +393,8 @@ def library(customer: Customer, *, scope=None) -> list[dict[str, Any]]:
                     else None,
                 },
                 "source": ent.source,
-                "status": ent.status,
+                "status": state,
+                "expires_at": iso(ent.expires_at),
                 "revoked_reason": ent.revoked_reason if ent.status == "revoked" else "",
                 "granted_at": iso(ent.granted_at),
                 "order_number": db.session.get(Order, ent.order_id).number
@@ -394,6 +440,8 @@ def entitlement_dict(e: Entitlement) -> dict[str, Any]:
         "product": {"id": e.product_id, "title": e.product.title},
         "source": e.source,
         "status": e.status,
+        "access": access_state(e),
+        "expires_at": iso(e.expires_at),
         "order_id": e.order_id,
         "order_number": db.session.get(Order, e.order_id).number if e.order_id else None,
         "parent_id": e.parent_id,

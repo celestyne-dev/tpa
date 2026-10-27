@@ -397,6 +397,10 @@ def list_downloads(args: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
     stmt = select(DownloadEvent)
     if args.get("status"):
         stmt = stmt.where(DownloadEvent.status == args["status"])
+    if str(args.get("product_id") or "").isdigit():
+        stmt = stmt.where(DownloadEvent.product_id == int(args["product_id"]))
+    if args.get("reason"):
+        stmt = stmt.where(DownloadEvent.reason == args["reason"])
     if args.get("customer_id"):
         stmt = stmt.where(DownloadEvent.customer_id == args["customer_id"])
     total = db.session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
@@ -405,6 +409,55 @@ def list_downloads(args: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
         stmt.order_by(DownloadEvent.created_at.desc()).offset((page - 1) * size).limit(size)
     )
     return [download_dict(d) for d in rows], total
+
+
+def download_summary(days: int = 30) -> dict[str, Any]:
+    """Download activity for the last ``days`` days: daily counts, top resources and why
+    requests were refused (revoked, expired, limit reached, expired links …)."""
+    from datetime import UTC, datetime, timedelta
+
+    from ...models import Product
+
+    since = datetime.now(UTC) - timedelta(days=days)
+    recent = DownloadEvent.created_at >= since
+    by_status = dict(
+        db.session.execute(
+            select(DownloadEvent.status, func.count(DownloadEvent.id))
+            .where(recent)
+            .group_by(DownloadEvent.status)
+        ).all()
+    )
+    day = func.date(DownloadEvent.created_at)
+    daily: dict[str, dict[str, int]] = {}
+    for d, status, count in db.session.execute(
+        select(day, DownloadEvent.status, func.count(DownloadEvent.id))
+        .where(recent)
+        .group_by(day, DownloadEvent.status)
+    ).all():
+        daily.setdefault(str(d), {"served": 0, "denied": 0, "authorized": 0})[status] = count
+    top = db.session.execute(
+        select(Product.id, Product.title, func.count(DownloadEvent.id).label("n"))
+        .join(Product, Product.id == DownloadEvent.product_id)
+        .where(recent, DownloadEvent.status == "served")
+        .group_by(Product.id, Product.title)
+        .order_by(func.count(DownloadEvent.id).desc())
+        .limit(10)
+    ).all()
+    reasons = db.session.execute(
+        select(DownloadEvent.reason, func.count(DownloadEvent.id))
+        .where(recent, DownloadEvent.status == "denied")
+        .group_by(DownloadEvent.reason)
+        .order_by(func.count(DownloadEvent.id).desc())
+    ).all()
+    return {
+        "days": days,
+        "served": by_status.get("served", 0),
+        "authorized": by_status.get("authorized", 0),
+        "denied": by_status.get("denied", 0),
+        "daily": [{"date": d, **v} for d, v in sorted(daily.items())],
+        "top_resources": [{"product_id": i, "title": t, "downloads": n} for i, t, n in top],
+        "denial_reasons": [{"reason": r or "unknown", "count": n} for r, n in reasons],
+    }
 
 
 def update_customer(c: Customer, data: dict[str, Any], actor: User) -> Customer:

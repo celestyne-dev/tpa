@@ -24,6 +24,7 @@ from ...services.commerce import (
     customers,
     order_admin,
     payments,
+    premium_files,
     product_admin,
     product_files,
 )
@@ -77,7 +78,9 @@ def _csv(body: str, filename: str) -> Response:
 class ProductListResource(Resource):
     @require_permission(P.PRODUCTS_VIEW)
     def get(self):
-        args = {k: request.args.get(k) for k in ("status", "type", "q", "issues")}
+        args = {
+            k: request.args.get(k) for k in ("status", "type", "q", "issues", "group", "access")
+        }
         items = product_admin.list_products({k: v for k, v in args.items() if v})
         return success(items, {"total": len(items), "can": product_admin.can(current_user)})
 
@@ -539,6 +542,47 @@ class EntitlementActionResource(Resource):
         return success(ent_service.entitlement_dict(entitlement))
 
 
+class DownloadSummaryResource(Resource):
+    @require_permission(P.DOWNLOADS_AUDIT)
+    def get(self):
+        raw = request.args.get("days", "30")
+        days = int(raw) if raw.isdigit() else 30
+        return success(order_admin.download_summary(max(1, min(days, 365))))
+
+
+# ---- premium file library (media library "Premium files") -------------------------------
+
+
+class PremiumFileListResource(Resource):
+    @require_permission(P.PRODUCTS_VIEW)
+    def get(self):
+        items, summary = premium_files.list_files(dict(request.args))
+        return success(items, {"total": len(items), "summary": summary})
+
+
+class PremiumFileResource(Resource):
+    @require_permission(P.PRODUCTS_VIEW)
+    def get(self, file_id: int):
+        return success(premium_files.file_detail(premium_files.get_file(file_id)))
+
+    @require_permission(P.PRODUCTS_MANAGE_FILES)
+    def delete(self, file_id: int):
+        keys = premium_files.delete_file(premium_files.get_file(file_id), current_user)
+        db.session.commit()
+        premium_files.remove_stored(keys)  # only after the records are gone
+        return success({"deleted": True})
+
+
+class PremiumFileVersionResource(Resource):
+    @require_permission(P.PRODUCTS_MANAGE_FILES)
+    def delete(self, file_id: int, version_id: int):
+        file = premium_files.get_file(file_id)
+        key = premium_files.delete_version(file, version_id, current_user)
+        db.session.commit()
+        premium_files.remove_stored([key])
+        return success(premium_files.file_detail(premium_files.get_file(file_id)))
+
+
 class DownloadListResource(Resource):
     @require_permission(P.DOWNLOADS_AUDIT)
     def get(self):
@@ -678,6 +722,10 @@ COMMERCE_ROUTES = [
     (EntitlementListResource, "/admin/entitlements"),
     (EntitlementActionResource, "/admin/entitlements/<int:entitlement_id>/<string:action>"),
     (DownloadListResource, "/admin/downloads"),
+    (DownloadSummaryResource, "/admin/downloads/summary"),
+    (PremiumFileListResource, "/admin/premium-files"),
+    (PremiumFileResource, "/admin/premium-files/<int:file_id>"),
+    (PremiumFileVersionResource, "/admin/premium-files/<int:file_id>/versions/<int:version_id>"),
     (RevenueReportResource, "/admin/reports/revenue"),
     (RevenueExportResource, "/admin/reports/revenue/export"),
     (PaymentSettingsResource, "/admin/payments/settings"),

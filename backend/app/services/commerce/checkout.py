@@ -64,7 +64,9 @@ def owned_product_ids(customer: Customer | None) -> set[int]:
     return set(
         db.session.scalars(
             select(Entitlement.product_id).where(
-                ent_service.account_scope(customer), Entitlement.status == "active"
+                ent_service.account_scope(customer),
+                Entitlement.status == "active",
+                ent_service.not_expired(),
             )
         )
     )

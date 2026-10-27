@@ -85,6 +85,7 @@ class MediaQuerySchema(PageQuerySchema):
     usage = fields.String(
         load_default=None, validate=validate.OneOf(["used", "unused", "missing_alt"])
     )
+    category = fields.String(load_default=None, validate=validate.Length(max=40))
     status = fields.String(
         load_default="active", validate=validate.OneOf(["active", "archived", "all"])
     )
@@ -105,6 +106,7 @@ class MediaUpdateSchema(StrictSchema):
     filename = fields.String(validate=validate.Length(min=1, max=120))
     focal_x = fields.Float(validate=validate.Range(min=0, max=1))
     focal_y = fields.Float(validate=validate.Range(min=0, max=1))
+    category = fields.String(validate=validate.Length(min=1, max=40))
 
 
 class ArticleQuerySchema(PageQuerySchema):

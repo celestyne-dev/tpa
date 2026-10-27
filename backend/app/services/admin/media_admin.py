@@ -222,6 +222,7 @@ def asset_summary(asset: MediaAsset, usage: list[dict[str, Any]] | None = None) 
         credit=asset.credit,
         source_url=asset.source_url,
         status=asset.status,
+        category=asset.category,
         managed=asset.is_managed,
         thumbnail_url=public_url(thumb.storage_key) if thumb else asset.public_url,
         focal_point={"x": asset.focal_x, "y": asset.focal_y},
@@ -285,6 +286,8 @@ def list_media(args: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, An
                 MediaAsset.caption.ilike(like),
             )
         )
+    if args.get("category"):
+        stmt = stmt.where(MediaAsset.category == args["category"])
     if args.get("type"):
         stmt = stmt.where(MediaAsset.mime_type == args["type"])
     else:
@@ -342,6 +345,14 @@ def storage_stats() -> dict[str, Any]:
         "avif_enabled": bool(current_app.config["MEDIA_ENABLE_AVIF"])
         and "AVIF" in processing.SUPPORTED_FORMATS,
         "accepted_types": sorted(set(processing.SUPPORTED_FORMATS.values())),
+        "categories": [{"key": k, "label": v} for k, v in MEDIA_CATEGORIES.items()],
+        "category_counts": dict(
+            db.session.execute(
+                select(MediaAsset.category, func.count(MediaAsset.id))
+                .where(MediaAsset.visibility == "public", MediaAsset.status == "active")
+                .group_by(MediaAsset.category)
+            ).all()
+        ),
         "presets": [
             {
                 "name": p.name,
@@ -361,6 +372,18 @@ def storage_stats() -> dict[str, Any]:
 
 
 _TEXT_LIMITS = {"alt_text": 300, "title": 200, "caption": 500, "credit": 200}
+
+
+# Library categories (filters and organisation only; they never change public URLs).
+MEDIA_CATEGORIES = {
+    "general": "General",
+    "articles": "Articles",
+    "resources": "Resource covers & previews",
+    "pages": "Pages & homepage",
+    "branding": "Branding",
+    "people": "Authors & people",
+    "marketing": "Marketing & social",
+}
 
 
 def clean_metadata(data: dict[str, Any]) -> dict[str, Any]:
@@ -383,6 +406,11 @@ def clean_metadata(data: dict[str, Any]) -> dict[str, Any]:
     if "filename" in data:
         slug = processing.slugify(data.get("filename") or "")
         clean["filename"] = slug
+    if "category" in data:
+        if data.get("category") not in MEDIA_CATEGORIES:
+            errors["category"] = ["Choose a category from the list."]
+        else:
+            clean["category"] = data["category"]
     for axis in ("focal_x", "focal_y"):
         if axis in data:
             value = data[axis]
@@ -524,6 +552,7 @@ def upload(
         caption=clean.get("caption", ""),
         credit=clean.get("credit", ""),
         source_url=clean.get("source_url"),
+        category=clean.get("category", "general"),
         visibility="public",
         status="active",
         checksum=checksum,

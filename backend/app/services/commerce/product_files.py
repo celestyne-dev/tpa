@@ -24,11 +24,11 @@ from flask import current_app
 from sqlalchemy import func, select
 
 from ...auth.permissions import Permission as P
-from ...commerce.files import FileRejected, safe_display_name, validate_file
+from ...commerce.files import FORMATS, FileRejected, safe_display_name, validate_file
 from ...extensions import db
 from ...models import DownloadEvent, Entitlement, Product, ProductFile, ProductFileVersion, User
 from ...storage import StorageError
-from ...storage.private_files import get_private_storage
+from ...storage.private_files import category_for, get_private_storage
 from ...utils.errors import APIError, ConflictError, NotFoundError, ValidationError
 from .. import audit_service
 from ..publication_service import record_public_change
@@ -49,7 +49,22 @@ def _limits() -> dict[str, Any]:
         "max_uncompressed": cfg["PRODUCT_ZIP_MAX_UNCOMPRESSED_MB"] * 1024 * 1024,
         "max_entries": cfg["PRODUCT_ZIP_MAX_ENTRIES"],
         "max_ratio": cfg["PRODUCT_ZIP_MAX_RATIO"],
+        "formats": [f for f in cfg["RESOURCE_FILE_FORMATS"] if f in FORMATS],
     }
+
+
+def _storage_failed(product: Product, actor: User, reason: str) -> StorageUnavailableError:
+    """Record a storage failure (shown under upload errors in /admin/storage)."""
+    db.session.rollback()
+    audit_service.record(
+        "product_file.storage_failed",
+        "product",
+        product.id,
+        actor=actor,
+        details={"reason": reason[:200]},
+    )
+    db.session.commit()
+    return StorageUnavailableError()
 
 
 def scanner_configured() -> bool:
@@ -158,10 +173,22 @@ def upload(
     declared = getattr(upload_file, "content_length", 0) or 0
     try:
         if storage.free_bytes() < min_free + declared:
-            raise StorageUnavailableError()
+            raise _storage_failed(product, actor, "not enough free disk space")
         tmp, size, digest = storage.receive(upload_file.stream, limits["max_bytes"])
     except StorageError as exc:
         if str(exc) == "too_large":
+            db.session.rollback()
+            audit_service.record(
+                "product_file.rejected",
+                "product",
+                product.id,
+                actor=actor,
+                details={
+                    "reason": "too large",
+                    "filename": safe_display_name(upload_file.filename),
+                },
+            )
+            db.session.commit()
             raise ValidationError(
                 details={
                     "file": [
@@ -169,13 +196,14 @@ def upload(
                     ]
                 }
             ) from None
-        raise StorageUnavailableError() from None
-    except OSError:
-        raise StorageUnavailableError() from None
+        raise _storage_failed(product, actor, str(exc)) from None
+    except OSError as exc:
+        raise _storage_failed(product, actor, exc.strerror or "write failed") from None
     try:
         report = validate_file(tmp, upload_file.filename, limits)
         if storage.free_bytes() < min_free:
-            raise StorageUnavailableError()
+            storage.discard(tmp)
+            raise _storage_failed(product, actor, "not enough free disk space")
         if file is None:
             file = ProductFile(
                 public_id=secrets.token_hex(8),
@@ -187,7 +215,10 @@ def upload(
             db.session.add(file)
             db.session.flush()
         number = (max((v.version for v in file.versions), default=0)) + 1
-        key = f"{file.public_id}/v{number}/{secrets.token_hex(16)}{report.format.extensions[0]}"
+        key = (
+            f"{category_for(product.product_type)}/{file.public_id}/v{number}/"
+            f"{secrets.token_hex(16)}{report.format.extensions[0]}"
+        )
         version = ProductFileVersion(
             file_id=file.id,
             version=number,
@@ -213,10 +244,18 @@ def upload(
             "product",
             product.id,
             actor=actor,
-            details={"reason": str(exc)[:200]},
+            details={
+                "reason": str(exc)[:200],
+                "filename": safe_display_name(upload_file.filename),
+            },
         )
         db.session.commit()
         raise ValidationError("The file was not accepted.", details={"file": [str(exc)]}) from None
+    except StorageUnavailableError:
+        raise
+    except OSError as exc:
+        storage.discard(tmp)
+        raise _storage_failed(product, actor, exc.strerror or "write failed") from None
     except BaseException:
         storage.discard(tmp)
         raise

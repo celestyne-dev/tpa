@@ -211,6 +211,7 @@ def _owned_elsewhere(order: Order) -> list[str]:
                 Entitlement.customer_id == order.customer_id,
                 Entitlement.product_id == item.product_id,
                 Entitlement.status == "active",
+                ent_service.not_expired(),
                 (Entitlement.order_id.is_(None)) | (Entitlement.order_id != order.id),
             )
         )

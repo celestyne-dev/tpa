@@ -24,6 +24,7 @@ from .commerce import (
     ProductPrice,
     ProductRevision,
     product_categories,
+    product_related,
     product_tags,
 )
 from .content import (
@@ -147,6 +148,7 @@ __all__ = [
     "ProductPrice",
     "ProductRevision",
     "product_categories",
+    "product_related",
     "product_tags",
     "Customer",
     "CustomerSession",

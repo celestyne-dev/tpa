@@ -48,6 +48,11 @@ class LocalStorage:
 
     def save(self, key: str, data: bytes, *, public: bool) -> None:
         path = self._path(key, public)
+        if not public:
+            # Originals may carry camera metadata: the whole area is owner-only.
+            base = self.root / "private"
+            base.mkdir(parents=True, exist_ok=True)
+            os.chmod(base, 0o700)
         path.parent.mkdir(parents=True, exist_ok=True)
         # Write to a temporary file in the same directory, then rename atomically so
         # a half-written file is never visible at the final URL.

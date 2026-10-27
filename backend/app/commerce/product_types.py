@@ -33,6 +33,11 @@ PRODUCT_TYPES: dict[str, ProductType] = {
         ProductType("reflection_guide", "Reflection guide", "files", "PDF"),
         ProductType("worksheet", "Downloadable worksheet", "files", "Printable PDF"),
         ProductType("resource_pack", "Digital resource pack", "files", "ZIP"),
+        # Batch 08: written premium resources (all text-based; no video delivery).
+        ProductType("guide", "Guide", "files", "PDF"),
+        ProductType("template", "Template", "files", "DOCX / XLSX / PDF"),
+        ProductType("checklist", "Checklist", "files", "Printable PDF"),
+        ProductType("learning_pack", "Written learning pack", "files", "PDF / ZIP"),
         ProductType(
             "bundle",
             "Bundle",

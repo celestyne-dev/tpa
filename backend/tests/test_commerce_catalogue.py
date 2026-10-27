@@ -307,7 +307,8 @@ def test_private_file_uploads_are_validated(seeded, as_role, app):
             assert media_root not in path.parents
             assert v.original_filename not in v.storage_key  # random keys only
             assert oct(path.stat().st_mode)[-3:] == "600"
-        assert not list((root / ".incoming").iterdir())  # rejected uploads leave nothing
+        # Uploads are received in UPLOAD_TEMP_ROOT; rejected ones leave nothing there.
+        assert not list(Path(app.config["UPLOAD_TEMP_ROOT"]).iterdir())
 
 
 def test_zip_symlinks_and_encryption_are_refused(seeded, as_role):

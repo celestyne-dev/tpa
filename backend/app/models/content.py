@@ -104,6 +104,8 @@ class MediaAsset(db.Model):
         UTCDateTime, default=utcnow, onupdate=utcnow, nullable=True
     )
     archived_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Batch 08: library category for filtering (see media_admin.MEDIA_CATEGORIES).
+    category: Mapped[str] = mapped_column(String(40), default="general", nullable=False)
 
     variants: Mapped[list[MediaVariant]] = relationship(
         back_populates="asset",

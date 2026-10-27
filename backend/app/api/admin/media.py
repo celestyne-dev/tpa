@@ -4,14 +4,16 @@ from flask_restful import Resource
 
 from ...auth.decorators import require_permission
 from ...auth.permissions import Permission as P
+from ...commerce.files import safe_display_name
 from ...extensions import db
 from ...schemas.admin import MediaQuerySchema, MediaUpdateSchema
+from ...services import audit_service
 from ...services.admin import media_admin
-from ...utils.errors import ValidationError
+from ...utils.errors import APIError, ValidationError
 from ...utils.responses import success
 from .._validation import load_body, load_query
 
-_META_FIELDS = ("alt_text", "title", "caption", "credit", "source_url", "filename")
+_META_FIELDS = ("alt_text", "title", "caption", "credit", "source_url", "filename", "category")
 
 
 def _uploaded_file():
@@ -20,6 +22,30 @@ def _uploaded_file():
         raise ValidationError("Choose an image to upload.", details={"file": ["Required."]})
     data = upload.read()
     return data, upload.filename or ""
+
+
+def _record_failure(exc: BaseException, filename: str, media_id: int | None = None) -> None:
+    """Log rejected uploads and storage failures (shown under upload errors in
+    /admin/storage). Called after the failed request has been rolled back."""
+    if isinstance(exc, ValidationError):
+        action, reason = "media.rejected", exc.message
+    elif isinstance(exc, OSError):
+        action, reason = "media.storage_failed", exc.strerror or "write failed"
+    elif isinstance(exc, APIError):
+        return
+    else:
+        action, reason = "media.storage_failed", type(exc).__name__
+    try:
+        audit_service.record(
+            action,
+            "media",
+            media_id,
+            actor=current_user,
+            details={"reason": str(reason)[:200], "filename": safe_display_name(filename)},
+        )
+        db.session.commit()
+    except Exception:  # never hide the original error
+        db.session.rollback()
 
 
 def _commit(written: media_admin.Written) -> None:
@@ -45,9 +71,10 @@ class MediaListResource(Resource):
         written = media_admin.Written()
         try:
             asset, created = media_admin.upload(data, filename, meta, current_user, written)
-        except Exception:
+        except Exception as exc:
             db.session.rollback()
             written.cleanup()
+            _record_failure(exc, filename)
             raise
         _commit(written)
         body = media_admin.asset_detail(asset)
@@ -96,9 +123,10 @@ class MediaReplaceResource(Resource):
         written = media_admin.Written()
         try:
             _, changed = media_admin.replace(asset, data, filename, current_user, written)
-        except Exception:
+        except Exception as exc:
             db.session.rollback()
             written.cleanup()
+            _record_failure(exc, filename, media_id)
             raise
         _commit(written)
         return success({**media_admin.asset_detail(asset), "changed": changed})

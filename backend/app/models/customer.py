@@ -28,7 +28,9 @@ from .types import JSONType, UTCDateTime, utcnow
 CUSTOMER_STATUSES = ("active", "disabled", "deleted", "guest")
 # "guest_access": emailed link to purchases made with guest checkout (reusable until expiry).
 CUSTOMER_TOKEN_PURPOSES = ("verify_email", "password_reset", "guest_access")
-ENTITLEMENT_SOURCES = ("purchase", "bundle", "free", "manual")
+# "membership" and "course" are reserved for future modules: they grant access through
+# the same entitlement and download authorisation as purchases (see services/commerce/access.py).
+ENTITLEMENT_SOURCES = ("purchase", "bundle", "free", "manual", "membership", "course")
 ENTITLEMENT_STATUSES = ("active", "revoked")
 DOWNLOAD_STATUSES = ("authorized", "served", "denied")
 
@@ -148,6 +150,8 @@ class Entitlement(db.Model):
     )
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     revoked_reason: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    # Access ends at this time (resource access rules, memberships); None is lifetime.
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
     customer: Mapped[Customer] = relationship(lazy="joined")
     product = relationship("Product", lazy="joined")

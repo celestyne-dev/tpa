@@ -139,6 +139,13 @@ class BaseConfig:
     PRODUCT_ZIP_MAX_UNCOMPRESSED_MB = _int("PRODUCT_ZIP_MAX_UNCOMPRESSED_MB", 1024)
     PRODUCT_ZIP_MAX_ENTRIES = _int("PRODUCT_ZIP_MAX_ENTRIES", 2000)
     PRODUCT_ZIP_MAX_RATIO = _int("PRODUCT_ZIP_MAX_RATIO", 100)
+    # Written resource formats accepted for premium files (comma-separated keys from
+    # app/commerce/files.py: pdf, epub, docx, xlsx, zip).
+    RESOURCE_FILE_FORMATS = [
+        f.strip().lower()
+        for f in os.environ.get("RESOURCE_FILE_FORMATS", "pdf,epub,docx,xlsx,zip").split(",")
+        if f.strip()
+    ]
     PRODUCT_FILES_MIN_FREE_MB = _int("PRODUCT_FILES_MIN_FREE_MB", 500)
     # Optional malware scanner as a JSON argv list run by the background worker (no shell),
     # e.g. ["clamdscan", "--no-summary", "--fdpass", "{path}"]. Exit 0 = clean, 1 = infected.
@@ -147,6 +154,18 @@ class BaseConfig:
     # Nginx "internal" location that maps to PRODUCT_FILES_ROOT (X-Accel-Redirect). Empty:
     # Flask streams the file itself.
     PRODUCT_FILES_ACCEL_REDIRECT_PREFIX = os.environ.get("PRODUCT_FILES_ACCEL_REDIRECT_PREFIX", "")
+    # Uploads in progress (request bodies spooled to disk, files being validated) live here,
+    # never in the final storage areas. Put it on the same filesystem as the storage roots
+    # so finished files are moved into place atomically. Stale files are removed by
+    # `flask storage cleanup-temp` (systemd timer).
+    UPLOAD_TEMP_ROOT = os.environ.get("UPLOAD_TEMP_ROOT") or str(INSTANCE_DIR / "tmp-uploads")
+    UPLOAD_TEMP_MAX_AGE_HOURS = _int("UPLOAD_TEMP_MAX_AGE_HOURS", 6)
+    # Disk space warnings in /admin/storage and `flask storage check` (percent free).
+    STORAGE_WARN_FREE_PERCENT = _int("STORAGE_WARN_FREE_PERCENT", 15)
+    STORAGE_CRITICAL_FREE_PERCENT = _int("STORAGE_CRITICAL_FREE_PERCENT", 5)
+    # Written by deploy/backup/tpa-backup.sh after every run (read-only for the app).
+    BACKUP_STATUS_FILE = os.environ.get("BACKUP_STATUS_FILE", "")
+    BACKUP_MAX_AGE_HOURS = _int("BACKUP_MAX_AGE_HOURS", 36)
     DOWNLOAD_LINK_TTL_SECONDS = _int("DOWNLOAD_LINK_TTL_SECONDS", 300)
     DOWNLOAD_LINK_MAX_USES = _int("DOWNLOAD_LINK_MAX_USES", 5)
     RATELIMIT_DOWNLOADS = os.environ.get("RATELIMIT_DOWNLOADS", "30 per minute;300 per day")
@@ -341,8 +360,44 @@ class ProductionConfig(BaseConfig):
             missing.append("NEWSLETTER_MAIL_BACKEND (console/memory are not allowed in production)")
         if _bool("PAYMENTS_TEST_CHECKOUT_PUBLIC"):
             missing.append("PAYMENTS_TEST_CHECKOUT_PUBLIC (development only)")
+        missing.extend(storage_layout_problems(cls))
         if missing:
             raise RuntimeError(f"Missing required production settings: {', '.join(missing)}")
+
+
+def _inside(child: str, parent: str) -> bool:
+    child_path, parent_path = Path(child).resolve(), Path(parent).resolve()
+    return child_path == parent_path or parent_path in child_path.parents
+
+
+def storage_layout_problems(cfg) -> list[str]:
+    """Storage roots that would expose private files or lose data. Used at production
+    start-up and by `flask storage check`."""
+    problems = []
+    roots = {
+        "MEDIA_ROOT": cfg.MEDIA_ROOT,
+        "PRODUCT_FILES_ROOT": cfg.PRODUCT_FILES_ROOT,
+        "UPLOAD_TEMP_ROOT": cfg.UPLOAD_TEMP_ROOT,
+    }
+    for name, value in roots.items():
+        if not value or not os.path.isabs(value):
+            problems.append(f"{name} (must be an absolute path)")
+    if problems:
+        return problems
+    public_roots = [str(Path(cfg.MEDIA_ROOT) / "public")]
+    for name in ("PUBLISH_RELEASES_DIR", "PUBLISH_CURRENT_LINK"):
+        value = getattr(cfg, name, "")
+        if value:
+            public_roots.append(value)
+    for name in ("PRODUCT_FILES_ROOT", "UPLOAD_TEMP_ROOT"):
+        for public in public_roots:
+            if _inside(roots[name], public):
+                problems.append(f"{name} (must be outside the public web root {public})")
+    if _inside(cfg.PRODUCT_FILES_ROOT, cfg.MEDIA_ROOT) or _inside(
+        cfg.MEDIA_ROOT, cfg.PRODUCT_FILES_ROOT
+    ):
+        problems.append("PRODUCT_FILES_ROOT (must not overlap MEDIA_ROOT)")
+    return problems
 
 
 CONFIGS: dict[str, type[BaseConfig]] = {

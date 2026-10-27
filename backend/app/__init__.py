@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine
 
 from .config import INSTANCE_DIR, get_config
 from .extensions import cors, db, jwt, limiter, migrate
+from .storage.uploads import UploadRequest
 from .utils.errors import register_error_handlers
 
 
@@ -28,6 +29,7 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
         config.validate()
 
     app = Flask(__name__, instance_path=str(INSTANCE_DIR))
+    app.request_class = UploadRequest
     app.config.from_object(config)
     if overrides:
         app.config.update(overrides)

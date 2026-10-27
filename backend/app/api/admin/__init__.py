@@ -1,6 +1,18 @@
 """Admin API (/api/v1/admin). Every resource enforces authentication and permissions."""
 
-from . import auth, builder, commerce, content, media, newsletter, partnerships, roles, seo, site
+from . import (
+    auth,
+    builder,
+    commerce,
+    content,
+    media,
+    newsletter,
+    partnerships,
+    roles,
+    seo,
+    site,
+    storage,
+)
 
 ADMIN_ROUTES = [
     (auth.LoginResource, "/admin/auth/login"),
@@ -119,6 +131,7 @@ ADMIN_ROUTES = [
     *commerce.COMMERCE_ROUTES,
     *newsletter.NEWSLETTER_ROUTES,
     *partnerships.PARTNERSHIP_ROUTES,
+    *storage.STORAGE_ROUTES,
 ]
 
 # Endpoints reachable without an access token (they authenticate in other ways).

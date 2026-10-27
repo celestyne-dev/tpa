@@ -6,7 +6,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from flask_migrate import downgrade, upgrade
 from sqlalchemy import event, inspect, text
-from sqlalchemy.orm import configure_mappers, raiseload
+from sqlalchemy.orm import configure_mappers, defer, raiseload
 
 from app import create_app
 from app.auth.permissions import TEMPLATE_ROLES
@@ -257,7 +257,10 @@ def test_batch03_upgrade_preserves_content_and_adds_permissions(tmp_path):
         )
         assert article.lock_version == 1 and article.pending_changes is None
         assert article.featured_image_id == media_id
-        asset = db.session.get(MediaAsset, media_id)
+        # media_assets.category arrives in Batch 08: don't select it at this revision.
+        asset = db.session.get(
+            MediaAsset, media_id, options=[defer(MediaAsset.category, raiseload=True)]
+        )
         assert asset.status == "active" and asset.public_id is None and not asset.variants
         assert asset.as_image()["src"] == "/images/articles/calm.svg"
         writer = db.session.get(User, uid)
@@ -567,14 +570,23 @@ def test_batch05_upgrade_preserves_data_and_grants_commerce_roles_only(tmp_path)
         helper = db.session.get(Role, role_id)
         assert helper.permission_keys == {"pages.view"}  # custom roles unchanged
 
-        products = db.session.scalars(db.select(Product).order_by(Product.id)).all()
+        # Checked with SQL: the ORM model already has later (Batch 08) product columns.
+        products = db.session.execute(
+            text(
+                "SELECT id, status, sales_status, page_count, published_snapshot, product_type "
+                "FROM products ORDER BY id"
+            )
+        ).all()
         assert len(products) == 6
         live = [p for p in products if p.status == "published"]
         assert len(live) == 5 and all(p.sales_status == "coming_soon" for p in live)
         assert all(p.page_count is None and p.published_snapshot for p in live)
         bundle = products[-1]
         assert bundle.product_type == "bundle" and bundle.status == "draft"
-        assert len(bundle.bundle_items) == 3
+        items = db.session.execute(
+            text("SELECT COUNT(*) FROM bundle_items WHERE bundle_id = :b"), {"b": bundle.id}
+        ).scalar_one()
+        assert items == 3
         assert db.session.scalar(db.select(db.func.count(ProductPrice.id))) == 0
         db.session.rollback()
         db.session.remove()
@@ -818,6 +830,8 @@ def test_batch07_upgrade_adds_partnership_tables_only_and_preserves_data(tmp_pat
         assert "partnership_finance.manage" not in pm
         fin = effective_permissions(db.session.get(User, ids["finance_manager"]))
         assert {"partnership_finance.manage", "partnership_reports.export"} <= fin
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)  # the code catalogue is ahead of this revision
         assert set(sync_rbac().values()) == {0}
         db.session.rollback()
         db.session.remove()

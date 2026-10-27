@@ -123,6 +123,7 @@ class Permission(StrEnum):
     ROLES_MANAGE = "roles.manage"
     ROLES_ASSIGN = "roles.assign"
     AUDIT_VIEW = "audit.view"
+    STORAGE_VIEW = "storage.view"
 
 
 P = Permission
@@ -638,6 +639,13 @@ CATALOGUE: list[PermissionDef] = [
         sensitive=True,
     ),
     _d(P.AUDIT_VIEW, "View audit log", "Users, roles & audit", "audit"),
+    _d(
+        P.STORAGE_VIEW,
+        "View storage health",
+        "Users, roles & audit",
+        "storage",
+        description="Disk space, folder permissions, missing files, upload errors and backups.",
+    ),
 ]
 
 CATALOGUE_BY_KEY: dict[str, PermissionDef] = {d.key.value: d for d in CATALOGUE}
@@ -1086,6 +1094,12 @@ BATCH_07_GRANTS: dict[str, frozenset[str]] = {
 }
 
 
+BATCH_08_GRANTS: dict[str, frozenset[str]] = {
+    "administrator": _set(P.STORAGE_VIEW),
+    "website_manager": _set(P.STORAGE_VIEW),
+}
+
+
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
         BATCH_03_GRANTS.get(spec.key, frozenset())
@@ -1093,6 +1107,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_05_GRANTS.get(spec.key, frozenset())
         | BATCH_06_GRANTS.get(spec.key, frozenset())
         | BATCH_07_GRANTS.get(spec.key, frozenset())
+        | BATCH_08_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

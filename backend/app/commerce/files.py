@@ -1,4 +1,4 @@
-"""Validation of private digital product files (PDF, EPUB and ZIP resource packs).
+"""Validation of private digital product files (PDF, EPUB, DOCX, XLSX and ZIP packs).
 
 The decision is based on the actual content, not on the uploaded name or the
 browser's declared type: the content is sniffed, the extension must agree with
@@ -6,7 +6,10 @@ it, and each format gets structural checks. ZIP-based formats are inspected
 entry by entry with hard limits on entry count, total uncompressed size and
 compression ratio (decompression bombs), and with path traversal, symlink,
 encryption and executable checks. PDFs containing JavaScript or launch actions
-are refused. A malware scanner can additionally be configured (see
+are refused. Word and Excel files (Office Open XML) must have their required
+parts and may not contain macros, ActiveX controls or embedded objects. Which
+formats are accepted is configurable (``RESOURCE_FILE_FORMATS``). A malware
+scanner can additionally be configured (see
 ``PRODUCT_FILES_SCAN_COMMAND``); it runs in the background worker, never in a
 web request.
 """
@@ -34,9 +37,29 @@ FORMATS: dict[str, FileFormat] = {
     for f in (
         FileFormat("pdf", "PDF", (".pdf",), "application/pdf"),
         FileFormat("epub", "EPUB", (".epub",), "application/epub+zip"),
+        FileFormat(
+            "docx",
+            "Word document (DOCX)",
+            (".docx",),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+        FileFormat(
+            "xlsx",
+            "Excel workbook (XLSX)",
+            (".xlsx",),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ),
         FileFormat("zip", "ZIP resource pack", (".zip",), "application/zip"),
     )
 }
+
+# Required part for each Office Open XML format (besides [Content_Types].xml).
+_OOXML_MAIN_PART = {"docx": "word/document.xml", "xlsx": "xl/workbook.xml"}
+# Parts that carry code or opaque objects. Macro-enabled files (.docm/.xlsm) are refused
+# even when renamed, as are ActiveX controls and embedded OLE objects.
+_OOXML_FORBIDDEN = re.compile(
+    r"(^|/)(vbaProject\.bin|vbaData\.xml)$|(^|/)activeX/|(^|/)embeddings/"
+)
 
 # What a resource pack may contain. Executables, scripts, nested archives and SVG
 # (which can carry script) are never accepted.
@@ -125,7 +148,9 @@ def _check_pdf(path: Path, limits: dict[str, int]) -> dict[str, Any]:
     return {"pdf_version": head[5:8].decode("ascii", "replace")}
 
 
-def _check_zip(path: Path, limits: dict[str, int], *, epub: bool) -> dict[str, Any]:
+def _check_zip(
+    path: Path, limits: dict[str, int], *, epub: bool, ooxml: str | None = None
+) -> dict[str, Any]:
     try:
         archive = zipfile.ZipFile(path)
     except (zipfile.BadZipFile, OSError):
@@ -161,6 +186,13 @@ def _check_zip(path: Path, limits: dict[str, int], *, epub: bool) -> dict[str, A
             if info.is_dir():
                 continue
             files += 1
+            if ooxml:
+                if _OOXML_FORBIDDEN.search(name):
+                    raise FileRejected(
+                        "Documents with macros, ActiveX controls or embedded objects are not "
+                        "accepted. Save a plain .docx/.xlsx copy and upload that."
+                    )
+                continue
             if epub:
                 continue
             if parts and (parts[0] == "__MACOSX" or parts[-1] == ".DS_Store"):
@@ -193,6 +225,17 @@ def _check_zip(path: Path, limits: dict[str, int], *, epub: bool) -> dict[str, A
             except RuntimeError:  # encrypted entry
                 raise FileRejected("Encrypted archives are not accepted.") from None
             total += seen
+        if ooxml:
+            names = {i.filename for i in infos}
+            if "[Content_Types].xml" not in names or _OOXML_MAIN_PART[ooxml] not in names:
+                raise FileRejected(
+                    f"This {FORMATS[ooxml].label} is missing its required structure."
+                )
+            types = archive.read("[Content_Types].xml").lower()
+            if b"macroenabled" in types or b"vbaproject" in types:
+                raise FileRejected(
+                    "Macro-enabled documents are not accepted. Save a plain .docx/.xlsx copy."
+                )
         if epub:
             names = {i.filename for i in infos}
             if infos[0].filename != "mimetype" or "META-INF/container.xml" not in names:
@@ -211,11 +254,16 @@ def validate_file(path: Path, original_name: str, limits: dict[str, int]) -> Fil
     if head.startswith(_EXECUTABLE_MAGIC):
         raise FileRejected("Executable files are not accepted.")
     kind = _sniff(head)
-    if kind is None or kind not in limits.get("formats", FORMATS):
-        allowed = ", ".join(FORMATS[k].label for k in limits.get("formats", FORMATS))
+    suffix = Path(safe_display_name(original_name)).suffix.lower()
+    if kind == "zip" and suffix in (".docx", ".xlsx"):
+        # Office documents are ZIP containers; the name says which, the structure check
+        # below confirms it.
+        kind = suffix[1:]
+    allowed_formats = limits.get("formats", FORMATS)
+    if kind is None or kind not in allowed_formats:
+        allowed = ", ".join(FORMATS[k].label for k in allowed_formats if k in FORMATS)
         raise FileRejected(f"Unsupported file type. Allowed: {allowed}.")
     fmt = FORMATS[kind]
-    suffix = Path(safe_display_name(original_name)).suffix.lower()
     if suffix not in fmt.extensions:
         raise FileRejected(
             f"The file content is {fmt.label}, but its name ends in “{suffix or 'nothing'}”. "
@@ -223,6 +271,8 @@ def validate_file(path: Path, original_name: str, limits: dict[str, int]) -> Fil
         )
     if kind == "pdf":
         details = _check_pdf(path, limits)
+    elif kind in _OOXML_MAIN_PART:
+        details = _check_zip(path, limits, epub=False, ooxml=kind)
     else:
         details = _check_zip(path, limits, epub=kind == "epub")
     return FileReport(fmt, details)

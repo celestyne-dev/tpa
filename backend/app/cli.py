@@ -408,6 +408,54 @@ def newsletter_seed_defaults():
     click.echo(f"Added {templates} template(s) and {automations} automation(s).")
 
 
+storage_cli = AppGroup("storage", help="VPS file storage: folders, health and cleanup.")
+
+
+@storage_cli.command("init")
+def storage_init():
+    """Create the storage folders (media, premium resources, temp) with safe permissions."""
+    from .services.storage_health import init_layout
+
+    for path in init_layout():
+        click.echo(f"ok: {path}")
+
+
+@storage_cli.command("check")
+@click.option("--json", "as_json", is_flag=True, help="Print the full report as JSON.")
+@click.option("--quick", is_flag=True, help="Skip the file integrity scan.")
+def storage_check(as_json: bool, quick: bool):
+    """Report disk space, permissions, missing files and backup status.
+
+    Exit code: 0 ok, 1 warnings, 2 critical problems (for monitoring).
+    """
+    import json
+
+    from .services.storage_health import report
+
+    data = report(integrity=not quick)
+    if as_json:
+        click.echo(json.dumps(data, indent=2))
+    else:
+        for area in data["areas"]:
+            disk = area["disk"] or {}
+            click.echo(
+                f"{area['label']}: {area['path']} (mode {area['mode']}, "
+                f"{disk.get('free_percent', '?')}% free)"
+            )
+        for w in data["warnings"]:
+            click.echo(f"[{w['level']}] {w['message']}")
+        click.echo(f"status: {data['status']}")
+    sys.exit({"ok": 0, "warning": 1, "critical": 2}[data["status"]])
+
+
+@storage_cli.command("cleanup-temp")
+def storage_cleanup_temp():
+    """Remove abandoned temporary uploads older than UPLOAD_TEMP_MAX_AGE_HOURS."""
+    from .services.storage_health import cleanup_temp
+
+    click.echo(f"Removed {cleanup_temp()} stale temporary file(s).")
+
+
 def register_cli(app: Flask) -> None:
     for group in (
         admin_cli,
@@ -419,5 +467,6 @@ def register_cli(app: Flask) -> None:
         media_cli,
         commerce_cli,
         newsletter_cli,
+        storage_cli,
     ):
         app.cli.add_command(group)

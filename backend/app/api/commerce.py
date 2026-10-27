@@ -64,7 +64,11 @@ class ShopProductListResource(Resource):
             "sort": sort,
             "currency": (_arg("currency", 3) or "").upper() or None,
             "featured": request.args.get("featured") in ("1", "true"),
+            "group": _arg("group", 20),
+            "access": _arg("access", 10),
         }
+        if args["access"] and args["access"] not in ("free", "premium"):
+            raise ValidationError(details={"access": ["Use free or premium."]})
         items = catalogue.list_public(args)
         return success(
             items,
@@ -77,6 +81,12 @@ class ShopProductListResource(Resource):
                     for c in catalogue.public_collections()
                     if c["product_count"]
                 ],
+                # Filter options come from the unfiltered listing (all types stay selectable).
+                "types": catalogue.public_types(
+                    catalogue.list_public({"group": args["group"]})
+                    if any(args[k] for k in ("type", "access", "category", "collection", "q"))
+                    else items
+                ),
             },
         )
 
