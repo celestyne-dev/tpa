@@ -1,0 +1,15 @@
+# /etc/systemd/system/tpa-analytics-maintain.service  (example)
+# Website analytics (Batch 11.1): rolls up completed days into daily aggregates and
+# applies retention (raw page views, rollups, daily visitor salts). Idempotent.
+[Unit]
+Description=Think Positive Always: website analytics rollups and retention
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=tpa
+Group=www-data
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi analytics maintain

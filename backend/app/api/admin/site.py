@@ -38,6 +38,19 @@ class AnalyticsResource(Resource):
         return success(dashboard.analytics_summary())
 
 
+class AnalyticsTrafficResource(Resource):
+    """Website traffic and content performance (Batch 11.1); reuses ``analytics.view``."""
+
+    @require_permission(P.ANALYTICS_VIEW)
+    def get(self):
+        from flask import request
+
+        from ...services.analytics.reports import traffic_report
+
+        args = {k: request.args.get(k) for k in ("range", "date_from", "date_to", "granularity")}
+        return success(traffic_report(args))
+
+
 # ---- navigation & settings ------------------------------------------------------
 
 

@@ -1,5 +1,12 @@
 """SQLAlchemy models. Import every model here so Flask-Migrate detects it."""
 
+from .analytics import (
+    AnalyticsDailyPage,
+    AnalyticsDailySource,
+    AnalyticsPageView,
+    AnalyticsRollupDay,
+    AnalyticsSalt,
+)
 from .assignments import (
     AssignmentAttempt,
     AssignmentException,
@@ -146,6 +153,11 @@ from .user import (
 )
 
 __all__ = [
+    "AnalyticsDailyPage",
+    "AnalyticsDailySource",
+    "AnalyticsPageView",
+    "AnalyticsRollupDay",
+    "AnalyticsSalt",
     "Assessment",
     "AssessmentAttempt",
     "AssessmentQuestion",

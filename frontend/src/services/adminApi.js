@@ -118,6 +118,7 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       completePasswordReset: (body) => post("/auth/password-reset/complete", body),
     },
     analytics: () => get("/analytics"),
+    traffic: (params) => get("/analytics/traffic", params),
     dashboard: () => get("/dashboard"),
     articles: {
       ...collection("articles"),

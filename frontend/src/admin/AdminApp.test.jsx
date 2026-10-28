@@ -144,23 +144,16 @@ describe("dashboard and role-aware navigation", () => {
     expect(within(nav).getByRole("link", { name: "Articles" })).toBeInTheDocument();
   });
 
-  it("lists planned modules without links", async () => {
-    const user = userEvent.setup();
+  it("has no planned modules left: Analytics is a real section", async () => {
     renderApp("/admin");
     await screen.findByRole("heading", { level: 1, name: "Dashboard" });
     const nav = screen.getAllByRole("navigation", { name: "Admin" })[0];
-    await user.click(within(nav).getByRole("button", { name: "Planned modules" }));
-    const planned = within(nav).getByRole("list", { name: /Planned modules/ });
-    expect(within(planned).getByText("Analytics")).toBeInTheDocument();
-    // Membership plans shipped in Batch 10.1: a real section with a link now.
-    expect(within(planned).queryByText("Memberships")).not.toBeInTheDocument();
-    // Courses shipped in Batch 09: a real section with a link now.
-    expect(within(planned).queryByText("Courses")).not.toBeInTheDocument();
-    // The newsletter shipped in Batch 06: it is a real section now.
-    expect(within(planned).queryByText("Newsletter")).not.toBeInTheDocument();
-    // Commerce shipped in Batch 05: it is a real section now, not a planned module.
-    expect(within(planned).queryByText("Digital products")).not.toBeInTheDocument();
-    expect(within(planned).queryAllByRole("link")).toHaveLength(0);
+    // Analytics shipped in Batch 11.1; memberships, courses, newsletter and commerce earlier.
+    expect(within(nav).getByRole("link", { name: "Analytics" })).toHaveAttribute(
+      "href",
+      "/admin/analytics",
+    );
+    expect(within(nav).queryByRole("button", { name: "Planned modules" })).toBeNull();
   });
 
   it("shows an error state when the dashboard API fails", async () => {

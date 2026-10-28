@@ -356,6 +356,18 @@ def memberships_reconcile(no_provider: bool):
     click.echo("Memberships: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
+analytics_cli = AppGroup("analytics", help="First-party website analytics.")
+
+
+@analytics_cli.command("maintain")
+def analytics_maintain():
+    """Roll up completed days, then apply retention (raw rows, rollups, daily salts)."""
+    from .services.analytics.rollup import maintain
+
+    counts = maintain()
+    click.echo("Analytics: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+
+
 newsletter_cli = AppGroup("newsletter", help="The Positive Reset: email queue, automations.")
 
 
@@ -485,6 +497,7 @@ def register_cli(app: Flask) -> None:
         media_cli,
         commerce_cli,
         memberships_cli,
+        analytics_cli,
         newsletter_cli,
         storage_cli,
     ):

@@ -34,7 +34,7 @@ const member = (options) => ({
 const EDITOR = "/admin/membership-plans/plan1";
 
 describe("membership plans admin", () => {
-  it("is a real Learning section for permitted roles; Analytics stays planned", async () => {
+  it("is a real Learning section for permitted roles", async () => {
     renderApp("/admin/membership-plans");
     expect(
       await screen.findByRole("heading", { level: 1, name: "Membership plans" }),
@@ -44,7 +44,7 @@ describe("membership plans admin", () => {
       "href",
       "/admin/membership-plans",
     );
-    expect(plannedModules.map((m) => m.label)).toEqual(["Analytics"]);
+    expect(plannedModules).toEqual([]);
     const table = await screen.findByRole("table", { name: "Membership plans" });
     expect(within(table).getByRole("link", { name: /Positive Circle/ })).toHaveAttribute(
       "href",

@@ -69,6 +69,12 @@ export const adminSections = [
         permission: "dashboard.view",
         end: true,
       },
+      {
+        label: "Analytics",
+        to: "/admin/analytics",
+        icon: BarChart3,
+        permission: "analytics.view",
+      },
     ],
   },
   {
@@ -297,4 +303,4 @@ export const adminSections = [
 ];
 
 /** Business modules scheduled for later batches. Displayed as "Planned", never as links. */
-export const plannedModules = [{ label: "Analytics", icon: BarChart3 }];
+export const plannedModules = [];

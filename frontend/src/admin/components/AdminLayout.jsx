@@ -61,38 +61,43 @@ function SidebarNav({ onNavigate }) {
           </div>
         );
       })}
-      <div>
-        <button
-          type="button"
-          aria-expanded={plannedOpen}
-          aria-controls="admin-nav-planned"
-          onClick={() => setPlannedOpen((v) => !v)}
-          className="flex w-full items-center justify-between rounded px-2 py-1 text-[0.7rem] font-semibold tracking-[0.14em] text-sand/80 uppercase hover:text-ivory"
-        >
-          Planned modules
-          <ChevronDown
-            aria-hidden
-            className={cn("size-3.5 transition-transform", !plannedOpen && "-rotate-90")}
-          />
-        </button>
-        {plannedOpen && (
-          <ul
-            id="admin-nav-planned"
-            className="mt-1 space-y-0.5"
-            aria-label="Planned modules (not yet available)"
+      {plannedModules.length > 0 && (
+        <div>
+          <button
+            type="button"
+            aria-expanded={plannedOpen}
+            aria-controls="admin-nav-planned"
+            onClick={() => setPlannedOpen((v) => !v)}
+            className="flex w-full items-center justify-between rounded px-2 py-1 text-[0.7rem] font-semibold tracking-[0.14em] text-sand/80 uppercase hover:text-ivory"
           >
-            {plannedModules.map(({ label, icon: Icon }) => (
-              <li key={label} className="flex items-center gap-3 px-3 py-1.5 text-sm text-sand/50">
-                <Icon aria-hidden className="size-4" />
-                <span className="flex-1">{label}</span>
-                <span className="rounded-full border border-sand/30 px-1.5 text-[0.65rem] tracking-wide uppercase">
-                  Planned
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+            Planned modules
+            <ChevronDown
+              aria-hidden
+              className={cn("size-3.5 transition-transform", !plannedOpen && "-rotate-90")}
+            />
+          </button>
+          {plannedOpen && (
+            <ul
+              id="admin-nav-planned"
+              className="mt-1 space-y-0.5"
+              aria-label="Planned modules (not yet available)"
+            >
+              {plannedModules.map(({ label, icon: Icon }) => (
+                <li
+                  key={label}
+                  className="flex items-center gap-3 px-3 py-1.5 text-sm text-sand/50"
+                >
+                  <Icon aria-hidden className="size-4" />
+                  <span className="flex-1">{label}</span>
+                  <span className="rounded-full border border-sand/30 px-1.5 text-[0.65rem] tracking-wide uppercase">
+                    Planned
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

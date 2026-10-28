@@ -30,6 +30,7 @@ ADMIN_ROUTES = [
     (auth.PasswordResetCompleteResource, "/admin/auth/password-reset/complete"),
     (site.DashboardResource, "/admin/dashboard"),
     (site.AnalyticsResource, "/admin/analytics"),
+    (site.AnalyticsTrafficResource, "/admin/analytics/traffic"),
     (content.ArticleListResource, "/admin/articles"),
     (content.ArticleResource, "/admin/articles/<int:article_id>"),
     (content.ArticlePublishResource, "/admin/articles/<int:article_id>/publish"),

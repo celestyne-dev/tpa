@@ -59,6 +59,7 @@ import { CoursePreviewPage } from "./pages/courses/CoursePreviewPage";
 import { CoursesPage } from "./pages/courses/CoursesPage";
 import { GradingDashboardPage } from "./pages/grading/GradingDashboardPage";
 import { MembershipPlanEditorPage } from "./pages/memberships/MembershipPlanEditorPage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { MembershipGrantsPage } from "./pages/memberships/MembershipGrantsPage";
 import { MembershipPlansPage } from "./pages/memberships/MembershipPlansPage";
 import { MembershipReportsPage } from "./pages/memberships/MembershipReportsPage";
@@ -175,6 +176,7 @@ export default function AdminApp() {
             path="membership-grants"
             element={guarded(SUBSCRIBER_READ, <MembershipGrantsPage />)}
           />
+          <Route path="analytics" element={guarded("analytics.view", <AnalyticsPage />)} />
           <Route
             path="membership-reports"
             element={guarded("memberships.view_reports", <MembershipReportsPage />)}

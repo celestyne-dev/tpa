@@ -1697,3 +1697,32 @@ def test_batch104_operations_upgrade_adds_grants_and_permissions(tmp_path):
         db.session.remove()
         with pytest.raises(SystemExit):
             downgrade(directory=MIGRATIONS, revision="d4a2f7c9e815")
+
+
+def test_batch111_analytics_tables_upgrade_and_downgrade(tmp_path):
+    app = _app(tmp_path, "batch111.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="e8c4a2d6b917")
+        before = db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one()
+        db.session.remove()
+        upgrade(directory=MIGRATIONS, revision="f2b6d8e4a173")
+        tables = set(inspect(db.engine).get_table_names())
+        assert {
+            "analytics_page_views",
+            "analytics_daily_pages",
+            "analytics_daily_sources",
+            "analytics_rollup_days",
+            "analytics_salts",
+        } <= tables
+        indexes = {i["name"] for i in inspect(db.engine).get_indexes("analytics_page_views")}
+        assert {"ix_analytics_page_views_day", "ix_analytics_page_views_visitor"} <= indexes
+        columns = {c["name"] for c in inspect(db.engine).get_columns("analytics_page_views")}
+        assert not columns & {"ip_address", "user_agent", "query", "customer_id", "user_id"}
+        # No permission changes: reports reuse analytics.view.
+        assert db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one() == before
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="e8c4a2d6b917")
+        assert "analytics_page_views" not in set(inspect(db.engine).get_table_names())
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}

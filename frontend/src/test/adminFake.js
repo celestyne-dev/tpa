@@ -4,6 +4,7 @@ import { createBuilderFake } from "./builderFake";
 import { COMMERCE_PERMS, createCommerceAdminFake } from "./commerceFake";
 import { ASSIGNMENT_PERMS, BANK_PERMS, createAssessmentAdminFake } from "./assessmentFake";
 import { COURSE_PERMS, createCourseAdminFake } from "./courseFake";
+import { trafficFake } from "./analyticsFake";
 import { MEMBERSHIP_PERMS, createMembershipAdminFake } from "./membershipFake";
 import { NEWSLETTER_EDITING, NEWSLETTER_PERMS, createNewsletterAdminFake } from "./newsletterFake";
 import {
@@ -703,6 +704,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
       ),
       completePasswordReset: vi.fn(() => ok({ reset: true })),
     },
+    traffic: trafficFake(),
     analytics: vi.fn(() =>
       ok({
         articles_by_status: { draft: 1, scheduled: 0, published: 5, archived: 0 },

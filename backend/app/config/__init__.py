@@ -252,6 +252,19 @@ class BaseConfig:
         "RATELIMIT_NEWSLETTER_SIGNUP", "5 per minute;30 per hour"
     )
 
+    # ---- Website analytics (Batch 11.1: first-party, cookieless) ----
+    # "enabled" or "disabled". No cookies or browser storage are used; raw IPs are never
+    # stored (a daily-rotating salted hash estimates daily visitors).
+    ANALYTICS_TRACKING = os.environ.get("ANALYTICS_TRACKING", "enabled").strip().lower()
+    ANALYTICS_RESPECT_DNT = _bool("ANALYTICS_RESPECT_DNT", True)
+    ANALYTICS_RAW_RETENTION_DAYS = max(7, min(400, _int("ANALYTICS_RAW_RETENTION_DAYS", 90)))
+    ANALYTICS_AGGREGATE_RETENTION_DAYS = max(
+        30, min(3650, _int("ANALYTICS_AGGREGATE_RETENTION_DAYS", 760))
+    )
+    RATELIMIT_ANALYTICS_COLLECT = os.environ.get(
+        "RATELIMIT_ANALYTICS_COLLECT", "60 per minute;1000 per hour"
+    )
+
     # ---- Partnerships ----
     # Internal address notified of new partnership inquiries (only when MAIL_BACKEND sends).
     PARTNERSHIP_NOTIFY_EMAIL = os.environ.get("PARTNERSHIP_NOTIFY_EMAIL", "").strip()

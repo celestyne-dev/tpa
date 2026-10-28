@@ -80,5 +80,5 @@ def analytics_summary() -> dict[str, Any]:
         "articles_by_status": status_counts(),
         "published_by_topic": [{"topic": name, "count": n} for name, n in by_topic],
         "published_by_month": [{"month": k, "count": per_month[k]} for k in sorted(per_month)],
-        "note": "Traffic, audience and revenue analytics arrive with the analytics module.",
+        "note": "Website traffic and content performance are in Analytics.",
     }

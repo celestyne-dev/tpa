@@ -1,0 +1,12 @@
+# /etc/systemd/system/tpa-analytics-maintain.timer  (example)
+# Hourly: the first run after midnight (UTC) rolls up the previous day and deletes its salt.
+[Unit]
+Description=Run tpa-analytics-maintain hourly
+
+[Timer]
+OnCalendar=*-*-* *:05:00
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -64,6 +64,12 @@ from .memberships import PUBLIC_MEMBERSHIP_ROUTES  # noqa: E402
 for resource, path in PUBLIC_MEMBERSHIP_ROUTES:
     api.add_resource(resource, path, endpoint=f"membership_{resource.__name__.lower()}")
 
+# ---- First-party page-view beacon (Batch 11.1) -------------------------------------
+from .analytics import PUBLIC_ANALYTICS_ROUTES  # noqa: E402
+
+for resource, path in PUBLIC_ANALYTICS_ROUTES:
+    api.add_resource(resource, path, endpoint=f"analytics_{resource.__name__.lower()}")
+
 # ---- Admin API ------------------------------------------------------------------
 from flask import request  # noqa: E402
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router";
+import { usePageViewTracking } from "@/analytics/pageViews";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { useSite } from "@/hooks/useContent";
 import { siteJsonLd } from "@/utils/structuredData";
@@ -15,6 +16,7 @@ export function RootLayout() {
   const { pathname } = useLocation();
   const mainRef = useRef(null);
   const firstRender = useRef(true);
+  usePageViewTracking();
 
   // On client-side navigation: scroll to top and move focus to the new content.
   useEffect(() => {
