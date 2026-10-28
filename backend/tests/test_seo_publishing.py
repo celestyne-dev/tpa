@@ -90,11 +90,19 @@ def test_seo_overview_reports_real_counts(seeded, as_role):
 
 
 def test_static_paths_match_the_frontend():
+    """The sitemap lists exactly the frontend's indexable static routes (``staticRoutes``),
+    never a private route (account, checkout, auth, newsletter tokens) and nothing under
+    /admin or /learn."""
     nav = (Path(__file__).resolve().parents[2] / "frontend/src/config/navigation.js").read_text()
     routes = dict(re.findall(r'^\s+(\w+): "(/[^"]*)",', nav, re.M))
-    block = nav.split("export const staticRoutes")[1]
-    frontend = [routes[k] for k in re.findall(r"path: routes\.(\w+)", block)]
-    assert frontend == [p for p, _, _ in seo_service.STATIC_PATHS]
+    static_block = nav.split("export const staticRoutes")[1].split("];")[0]
+    frontend = [routes[k] for k in re.findall(r"path: routes\.(\w+)", static_block)]
+    sitemap = [p for p, _, _ in seo_service.STATIC_PATHS]
+    assert frontend == sitemap
+    private_block = nav.split("export const privateRoutes")[1].split("];")[0]
+    private = {routes[k] for k in re.findall(r"routes\.(\w+)", private_block)}
+    assert private and not private & set(sitemap)
+    assert not [p for p in sitemap if p.startswith(("/admin", "/learn", "/account", "/checkout"))]
 
 
 # ---- sitemap -----------------------------------------------------------------------------
