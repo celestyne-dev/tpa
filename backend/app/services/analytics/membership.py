@@ -24,6 +24,8 @@ from typing import Any
 
 from sqlalchemy import func, select
 
+from ...auth.permissions import Permission as P
+from ...auth.rbac import effective_permissions
 from ...commerce.currency import money
 from ...extensions import db
 from ...models import (
@@ -35,7 +37,7 @@ from ...models import (
     SubscriptionPeriod,
     User,
 )
-from ...utils.errors import NotFoundError
+from ...utils.errors import ForbiddenError, NotFoundError
 from ..memberships import reports as membership_reports
 
 S = CustomerSubscription
@@ -51,6 +53,56 @@ def _plan(args: dict[str, Any]) -> MembershipPlan | None:
     if plan is None:
         raise NotFoundError("Membership plan not found.")
     return plan
+
+
+def _recurring(scope) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """MRR/ARR estimate and the monthly value at risk, per mode and currency."""
+    recurring: dict[tuple[str, str], int] = defaultdict(int)
+    counted: dict[tuple[str, str], int] = defaultdict(int)
+    at_risk: dict[tuple[str, str], int] = defaultdict(int)
+    for status, cancelling, interval, mode, currency, amount in db.session.execute(
+        select(
+            S.status, S.cancel_at_period_end, S.interval, S.mode, S.currency, S.amount_minor
+        ).where(S.status.in_(PAID_LIVE), *scope)
+    ):
+        monthly = amount if interval == "month" else amount / 12
+        if status == "active" and not cancelling:
+            recurring[(mode, currency)] += monthly
+            counted[(mode, currency)] += 1
+        else:
+            at_risk[(mode, currency)] += monthly
+    estimate = [
+        {
+            "mode": mode,
+            "subscriptions": counted[(mode, currency)],
+            "mrr": money(round(total), currency),
+            "arr": money(round(total * 12), currency),
+        }
+        for (mode, currency), total in sorted(recurring.items())
+    ]
+    risk = [
+        {"mode": mode, "monthly": money(round(total), currency)}
+        for (mode, currency), total in sorted(at_risk.items())
+    ]
+    return estimate, risk
+
+
+def membership_summary(ranges: list[dict[str, Any]], actor: User) -> dict[str, Any]:
+    """Current figures, the recurring estimate and per-range period/money figures, from
+    the same helpers as ``membership_analytics`` but without the monthly trend, access
+    and per-plan tables. Used by the unified overview."""
+    if P.MEMBERSHIPS_VIEW_REPORTS.value not in effective_permissions(actor):
+        raise ForbiddenError()
+    current, _total = membership_reports.current_figures()
+    periods = []
+    for args in ranges:
+        start, end, _sd, _ed = membership_reports._range(args)
+        periods.append(membership_reports.period_figures(start, end))
+    return {
+        "current": current,
+        "recurring_estimate": _recurring([])[0],
+        "periods": periods,
+    }
 
 
 def membership_analytics(args: dict[str, Any], actor: User) -> dict[str, Any]:
@@ -72,20 +124,7 @@ def membership_analytics(args: dict[str, Any], actor: User) -> dict[str, Any]:
         .order_by(MembershipPlan.name, S.interval)
     ).all()
 
-    recurring: dict[tuple[str, str], int] = defaultdict(int)
-    counted: dict[tuple[str, str], int] = defaultdict(int)
-    at_risk: dict[tuple[str, str], int] = defaultdict(int)
-    for status, cancelling, interval, mode, currency, amount in db.session.execute(
-        select(
-            S.status, S.cancel_at_period_end, S.interval, S.mode, S.currency, S.amount_minor
-        ).where(S.status.in_(PAID_LIVE), *scope)
-    ):
-        monthly = amount if interval == "month" else amount / 12
-        if status == "active" and not cancelling:
-            recurring[(mode, currency)] += monthly
-            counted[(mode, currency)] += 1
-        else:
-            at_risk[(mode, currency)] += monthly
+    recurring_estimate, recurring_at_risk = _recurring(scope)
 
     when = func.coalesce(PaymentTransaction.occurred_at, PaymentTransaction.created_at)
     plan_money = db.session.execute(
@@ -170,19 +209,8 @@ def membership_analytics(args: dict[str, Any], actor: User) -> dict[str, Any]:
             }
             for (name, mode, currency), v in sorted(revenue_by_plan.items())
         ],
-        "recurring_estimate": [
-            {
-                "mode": mode,
-                "subscriptions": counted[(mode, currency)],
-                "mrr": money(round(total), currency),
-                "arr": money(round(total * 12), currency),
-            }
-            for (mode, currency), total in sorted(recurring.items())
-        ],
-        "recurring_at_risk": [
-            {"mode": mode, "monthly": money(round(total), currency)}
-            for (mode, currency), total in sorted(at_risk.items())
-        ],
+        "recurring_estimate": recurring_estimate,
+        "recurring_at_risk": recurring_at_risk,
         "complimentary_by_plan": [
             {"plan": name, "members": int(n)} for name, n in complimentary_by_plan
         ],

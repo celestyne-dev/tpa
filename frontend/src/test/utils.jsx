@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
+import { preloadAdminScreens } from "@/admin/screens";
 import { App } from "@/app/App";
 import { loadAdminApp } from "@/routes/loadAdminApp";
 import { loadCommerce } from "@/routes/loadCommerce";
@@ -23,6 +24,7 @@ export const notFound = (message = "Not found") =>
  */
 export async function preloadAdminApp() {
   await loadAdminApp();
+  await preloadAdminScreens();
 }
 
 /** Same for the lazily loaded customer chunk (cart, checkout, account). */

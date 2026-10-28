@@ -168,12 +168,18 @@ def save_program(
 # ---- links --------------------------------------------------------------------------------
 
 
-def link_dict(link: AffiliateLink) -> dict[str, Any]:
-    clicks = db.session.scalar(
-        select(func.coalesce(func.sum(AffiliateClickDaily.clicks), 0)).where(
-            AffiliateClickDaily.link_id == link.id
-        )
+def _clicks_for(ids) -> dict[int, int]:
+    rows = db.session.execute(
+        select(AffiliateClickDaily.link_id, func.coalesce(func.sum(AffiliateClickDaily.clicks), 0))
+        .where(AffiliateClickDaily.link_id.in_(ids))
+        .group_by(AffiliateClickDaily.link_id)
     )
+    return {link_id: int(n) for link_id, n in rows}
+
+
+def link_dict(link: AffiliateLink, *, clicks: int | None = None) -> dict[str, Any]:
+    if clicks is None:
+        clicks = _clicks_for([link.id]).get(link.id, 0)
     return {
         "id": link.id,
         "slug": link.slug,
@@ -202,7 +208,9 @@ def list_links(args: dict[str, Any]) -> list[dict[str, Any]]:
         query = query.where(AffiliateLink.program_id == int(args["program_id"]))
     if args.get("active") in ("1", "true"):
         query = query.where(AffiliateLink.is_active.is_(True))
-    return [link_dict(link) for link in db.session.scalars(query.order_by(AffiliateLink.name))]
+    links = db.session.scalars(query.order_by(AffiliateLink.name)).all()
+    clicks = _clicks_for([link.id for link in links])  # one grouped query, not one per link
+    return [link_dict(link, clicks=clicks.get(link.id, 0)) for link in links]
 
 
 def get_link(link_id: int) -> AffiliateLink:

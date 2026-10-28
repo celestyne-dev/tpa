@@ -94,12 +94,9 @@ def _first_views(enrollment_ids=None, course=None) -> dict[int, datetime]:
     return dict(db.session.execute(stmt).all())
 
 
-def learning_report(args: dict[str, Any], actor: User) -> dict[str, Any]:
-    start, end, granularity = traffic.resolve_range(args)
-    course = _course_filter(args)
-    lo, hi = _bounds(start, end)
+def _population(course: Course | None):
+    """All enrollments in scope with their start moments (independent of the range)."""
     scope = [E.course_id == course.id] if course else []
-
     enrollments = db.session.execute(
         select(
             E.id,
@@ -116,10 +113,32 @@ def learning_report(args: dict[str, Any], actor: User) -> dict[str, Any]:
     for e in enrollments:  # completed without recorded lesson views: started at completion
         if e.id not in first_view and e.completed_at is not None:
             first_view[e.id] = e.completed_at
+    return enrollments, first_view
+
+
+def _current_figures(enrollments, first_view) -> dict[str, Any]:
     current = [e for e in enrollments if e.status == "active"]
     started = [e for e in current if e.id in first_view]
     completed = [e for e in current if e.completed_at is not None]
     unfinished = [e for e in started if e.completed_at is None]
+    return {
+        "enrollments": len(current),
+        "revoked": len(enrollments) - len(current),
+        "started": len(started),
+        "completed": len(completed),
+        "unfinished": len(unfinished),
+        "not_started": len(current) - len(started),
+        "completion_rate": _rate(len(completed), len(current)),
+        "completion_rate_of_started": _rate(len(completed), len(started)),
+        "average_progress": round(sum(e.progress_percent for e in current) / len(current), 1)
+        if current
+        else None,
+        "by_access": {s: sum(1 for e in current if e.source == s) for s in SOURCES},
+    }
+
+
+def _period_figures(enrollments, first_view, scope, lo, hi):
+    """Range figures plus the matching enrollment rows (for trends)."""
 
     def in_range(when):
         if when is None:
@@ -160,7 +179,37 @@ def learning_report(args: dict[str, Any], actor: User) -> dict[str, Any]:
         )
     )
     learner_of = {e.id: e.customer_id for e in enrollments}
-    active_learners = len({learner_of[i] for i in active_ids if i in learner_of})
+    period = {
+        "new_enrollments": len(new),
+        "new_by_access": {s: sum(1 for e in new if e.source == s) for s in SOURCES},
+        "starts": len(starts),
+        "completions": len(completions),
+        "active_learners": len({learner_of[i] for i in active_ids if i in learner_of}),
+    }
+    return period, new, starts, completions
+
+
+def learning_summary(ranges: list[dict[str, Any]]) -> dict[str, Any]:
+    """Current figures and the period figures for each range, from one load of the
+    enrollments (all courses). Same definitions as ``learning_report``; used by the
+    unified overview."""
+    enrollments, first_view = _population(None)
+    periods = []
+    for args in ranges:
+        start, end, _g = traffic.resolve_range(args)
+        lo, hi = _bounds(start, end)
+        periods.append(_period_figures(enrollments, first_view, [], lo, hi)[0])
+    return {"current": _current_figures(enrollments, first_view), "periods": periods}
+
+
+def learning_report(args: dict[str, Any], actor: User) -> dict[str, Any]:
+    start, end, granularity = traffic.resolve_range(args)
+    course = _course_filter(args)
+    lo, hi = _bounds(start, end)
+    scope = [E.course_id == course.id] if course else []
+
+    enrollments, first_view = _population(course)
+    period, new, starts, completions = _period_figures(enrollments, first_view, scope, lo, hi)
 
     # Trends.
     buckets: dict[str, dict[str, int]] = {}
@@ -186,27 +235,8 @@ def learning_report(args: dict[str, Any], actor: User) -> dict[str, Any]:
         "generated_at": iso(datetime.now(UTC)),
         "has_data": bool(enrollments),
         "course_options": course_options(),
-        "current": {
-            "enrollments": len(current),
-            "revoked": len(enrollments) - len(current),
-            "started": len(started),
-            "completed": len(completed),
-            "unfinished": len(unfinished),
-            "not_started": len(current) - len(started),
-            "completion_rate": _rate(len(completed), len(current)),
-            "completion_rate_of_started": _rate(len(completed), len(started)),
-            "average_progress": round(sum(e.progress_percent for e in current) / len(current), 1)
-            if current
-            else None,
-            "by_access": {s: sum(1 for e in current if e.source == s) for s in SOURCES},
-        },
-        "period": {
-            "new_enrollments": len(new),
-            "new_by_access": {s: sum(1 for e in new if e.source == s) for s in SOURCES},
-            "starts": len(starts),
-            "completions": len(completions),
-            "active_learners": active_learners,
-        },
+        "current": _current_figures(enrollments, first_view),
+        "period": period,
         "trend": [{"period": k, **v} for k, v in buckets.items()],
         "courses": _courses(course, enrollments, first_view, lo, hi),
         "lessons": _lessons(course, enrollments, first_view) if course else None,

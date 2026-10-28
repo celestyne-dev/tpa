@@ -171,17 +171,14 @@ def _page_rows(start, end, raw_days) -> dict[str, dict[str, Any]]:
 def _source_rows(start, end, raw_days) -> list[tuple]:
     """(source, referrer_host, utm_source, utm_medium, utm_campaign, views, visitors)."""
     S = AnalyticsDailySource
+    # Rolled-up days are summed in the database (visitors are already per-day counts, so
+    # the sum is the same "sum of daily visitors" as adding the rows one by one).
+    stored = (S.source, S.referrer_host, S.utm_source, S.utm_medium, S.utm_campaign)
     rows = list(
         db.session.execute(
-            select(
-                S.source,
-                S.referrer_host,
-                S.utm_source,
-                S.utm_medium,
-                S.utm_campaign,
-                S.views,
-                S.visitors,
-            ).where(S.day >= start, S.day <= end)
+            select(*stored, func.sum(S.views), func.sum(S.visitors))
+            .where(S.day >= start, S.day <= end)
+            .group_by(*stored)
         )
     )
     if raw_days:
@@ -199,6 +196,17 @@ def _source_rows(start, end, raw_days) -> list[tuple]:
 def _rank(counter: dict, key_name: str, limit: int = TOP) -> list[dict[str, Any]]:
     items = sorted(counter.items(), key=lambda kv: (-kv[1][0], str(kv[0])))[:limit]
     return [{key_name: k, "views": v[0], "visitors": v[1]} for k, v in items]
+
+
+def traffic_totals(args: dict[str, Any]) -> dict[str, int]:
+    """Only the range totals of ``traffic_report`` (same definitions), for comparisons."""
+    start, end, _g = resolve_range(args)
+    rolled, raw_days = _split_days(start, end)
+    daily = _daily_totals(start, end, rolled, raw_days)
+    return {
+        "views": sum(v for v, _ in daily.values()),
+        "visitors_daily_sum": sum(u for _, u in daily.values()),
+    }
 
 
 def traffic_report(args: dict[str, Any]) -> dict[str, Any]:

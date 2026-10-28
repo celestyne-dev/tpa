@@ -203,10 +203,8 @@ def _access() -> dict[str, Any]:
     }
 
 
-def report(args: dict[str, Any], actor: User) -> dict[str, Any]:
-    if P.MEMBERSHIPS_VIEW_REPORTS.value not in effective_permissions(actor):
-        raise ForbiddenError()
-    start, end, start_day, end_day = _range(args)
+def current_figures() -> tuple[dict[str, Any], int]:
+    """Point-in-time figures, and the number of subscription records of any status."""
     now = _now()
     sub = CustomerSubscription
     status_counts = dict(
@@ -218,6 +216,31 @@ def report(args: dict[str, Any], actor: User) -> dict[str, Any]:
             select(sub.interval, func.count(sub.id)).where(paid_live).group_by(sub.interval)
         ).all()
     )
+    figures = {
+        "paid_subscribers": _count(select(func.count(sub.id)).where(paid_live)),
+        "active": int(status_counts.get("active", 0)),
+        "past_due": int(status_counts.get("past_due", 0)),
+        "grace": int(status_counts.get("grace", 0)),
+        "pending_checkout": int(status_counts.get("pending", 0)),
+        "cancelling": _count(
+            select(func.count(sub.id)).where(paid_live, sub.cancel_at_period_end.is_(True))
+        ),
+        "monthly": int(by_interval.get("month", 0)),
+        "yearly": int(by_interval.get("year", 0)),
+        "complimentary": _count(
+            select(func.count(MembershipGrant.id)).where(
+                MembershipGrant.status == "active",
+                MembershipGrant.starts_at <= now,
+                MembershipGrant.expires_at > now,
+            )
+        ),
+    }
+    return figures, sum(status_counts.values())
+
+
+def period_figures(start: datetime, end: datetime) -> dict[str, Any]:
+    """Counts and verified money for [start, end)."""
+    sub = CustomerSubscription
     ended_rows = db.session.execute(
         select(sub.end_reason, func.count(sub.id))
         .where(sub.activated_at.is_not(None), sub.ended_at >= start, sub.ended_at < end)
@@ -225,30 +248,7 @@ def report(args: dict[str, Any], actor: User) -> dict[str, Any]:
     ).all()
     revenue = _money_rows("charge", "success", start, end)
     refunds = _money_rows("refund", "processed", start, end)
-    total_subscriptions = sum(status_counts.values())
     return {
-        "range": {"from": start_day.isoformat(), "to": end_day.isoformat()},
-        "generated_at": iso(now),
-        "has_data": total_subscriptions > 0,
-        "current": {
-            "paid_subscribers": _count(select(func.count(sub.id)).where(paid_live)),
-            "active": int(status_counts.get("active", 0)),
-            "past_due": int(status_counts.get("past_due", 0)),
-            "grace": int(status_counts.get("grace", 0)),
-            "pending_checkout": int(status_counts.get("pending", 0)),
-            "cancelling": _count(
-                select(func.count(sub.id)).where(paid_live, sub.cancel_at_period_end.is_(True))
-            ),
-            "monthly": int(by_interval.get("month", 0)),
-            "yearly": int(by_interval.get("year", 0)),
-            "complimentary": _count(
-                select(func.count(MembershipGrant.id)).where(
-                    MembershipGrant.status == "active",
-                    MembershipGrant.starts_at <= now,
-                    MembershipGrant.expires_at > now,
-                )
-            ),
-        },
         "period": {
             "new_subscriptions": _count(
                 select(func.count(sub.id)).where(sub.activated_at >= start, sub.activated_at < end)
@@ -269,6 +269,20 @@ def report(args: dict[str, Any], actor: User) -> dict[str, Any]:
         "revenue": revenue,
         "refunds": refunds,
         "net_revenue": _net(revenue, refunds),
+    }
+
+
+def report(args: dict[str, Any], actor: User) -> dict[str, Any]:
+    if P.MEMBERSHIPS_VIEW_REPORTS.value not in effective_permissions(actor):
+        raise ForbiddenError()
+    start, end, start_day, end_day = _range(args)
+    current, total_subscriptions = current_figures()
+    return {
+        "range": {"from": start_day.isoformat(), "to": end_day.isoformat()},
+        "generated_at": iso(_now()),
+        "has_data": total_subscriptions > 0,
+        "current": current,
+        **period_figures(start, end),
         "trend": _trend(start_day, end_day),
         "access": _access(),
         "notes": [

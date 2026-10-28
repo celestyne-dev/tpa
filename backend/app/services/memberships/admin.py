@@ -237,8 +237,20 @@ def list_subscriptions(args: dict[str, Any], actor: User) -> tuple[list[dict[str
     page, size = args.get("page", 1), args.get("page_size", 25)
     rows = db.session.scalars(
         stmt.order_by(CustomerSubscription.id.desc()).offset((page - 1) * size).limit(size)
-    )
-    return [summary(s) for s in rows], total
+    ).all()
+    # One query each for the page's customers and plans (summary() then finds them in the
+    # session instead of loading one per row). Kept referenced until serialised.
+    loaded = [
+        db.session.scalars(
+            select(Customer).where(Customer.id.in_({s.customer_id for s in rows}))
+        ).all(),
+        db.session.scalars(
+            select(MembershipPlan).where(MembershipPlan.id.in_({s.plan_id for s in rows}))
+        ).all(),
+    ]
+    items = [summary(s) for s in rows]
+    del loaded
+    return items, total
 
 
 def _order_dict(order: Order) -> dict[str, Any]:

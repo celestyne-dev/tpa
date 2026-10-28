@@ -96,6 +96,10 @@ class Subscriber(TimestampMixin, db.Model):
     __table_args__ = (
         CheckConstraint(f"status IN {SUBSCRIBER_STATUSES}", name="status_valid"),
         Index("ix_subscribers_status_source", "status", "source"),
+        # Audience analytics count signups, confirmations and unsubscribes by date range.
+        Index("ix_subscribers_created_at", "created_at"),
+        Index("ix_subscribers_confirmed_at", "confirmed_at"),
+        Index("ix_subscribers_unsubscribed_at", "unsubscribed_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

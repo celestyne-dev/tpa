@@ -1,5 +1,5 @@
 import { ChevronDown, ExternalLink, KeyRound, LogOut, Menu, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { LogoMark } from "@/components/layout/Logo";
@@ -7,6 +7,15 @@ import { logout, selectAuth } from "@/store/slices/authSlice";
 import { cn } from "@/utils/format";
 import { usePermissions } from "../hooks/usePermissions";
 import { adminSections, plannedModules } from "../navigation";
+
+/** Shown while an admin screen's code loads (the navigation stays usable). */
+export function ScreenLoading() {
+  return (
+    <p role="status" className="text-muted">
+      Loading…
+    </p>
+  );
+}
 
 function SidebarNav({ onNavigate }) {
   const { allows } = usePermissions();
@@ -261,7 +270,9 @@ export function AdminLayout() {
           tabIndex={-1}
           className="flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-10 lg:py-8"
         >
-          <Outlet />
+          <Suspense fallback={<ScreenLoading />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

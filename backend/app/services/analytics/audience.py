@@ -45,6 +45,62 @@ def _day(value: datetime):
     return (value if value.tzinfo else value.replace(tzinfo=UTC)).astimezone(UTC).date()
 
 
+CAMPAIGN_LIMIT = 50  # campaigns listed (and counted as sent) per range
+
+
+def _current(statuses: dict[str, int]) -> dict[str, int]:
+    return {
+        "subscribed": int(statuses.get("subscribed", 0)),
+        "pending": int(statuses.get("pending", 0)),
+        "unsubscribed": int(statuses.get("unsubscribed", 0)),
+        "bounced_or_complained": int(statuses.get("bounced", 0))
+        + int(statuses.get("complained", 0)),
+        "quarantined": int(statuses.get("quarantined", 0)),
+    }
+
+
+def _statuses() -> dict[str, int]:
+    return dict(
+        db.session.execute(select(SUB.status, func.count(SUB.id)).group_by(SUB.status)).all()
+    )
+
+
+def audience_summary(ranges: list[dict[str, Any]]) -> dict[str, Any]:
+    """Current figures and per-range period counts of ``audience_report`` (same
+    definitions), counted in the database instead of loading each record. Used by the
+    unified overview."""
+
+    def count(column, lo, hi) -> int:
+        return db.session.scalar(select(func.count(SUB.id)).where(column >= lo, column < hi)) or 0
+
+    periods = []
+    for args in ranges:
+        start, end, _g = traffic.resolve_range(args)
+        lo, hi = _bounds(start, end)
+        confirmed = count(SUB.confirmed_at, lo, hi)
+        unsubscribed = count(SUB.unsubscribed_at, lo, hi)
+        sent = (
+            db.session.scalar(
+                select(func.count(Campaign.id)).where(
+                    Campaign.status == "sent",
+                    Campaign.completed_at >= lo,
+                    Campaign.completed_at < hi,
+                )
+            )
+            or 0
+        )
+        periods.append(
+            {
+                "signups": count(SUB.created_at, lo, hi),
+                "new_subscriptions": confirmed,
+                "unsubscriptions": unsubscribed,
+                "net_growth": confirmed - unsubscribed,
+                "campaigns_sent": min(sent, CAMPAIGN_LIMIT),
+            }
+        )
+    return {"current": _current(_statuses()), "periods": periods}
+
+
 def audience_report(args: dict[str, Any]) -> dict[str, Any]:
     start, end, granularity = traffic.resolve_range(args)
     lo, hi = _bounds(start, end)
@@ -56,9 +112,7 @@ def audience_report(args: dict[str, Any]) -> dict[str, Any]:
         if campaign_filter is None:
             raise NotFoundError("Campaign not found.")
 
-    statuses = dict(
-        db.session.execute(select(SUB.status, func.count(SUB.id)).group_by(SUB.status)).all()
-    )
+    statuses = _statuses()
 
     def times(column):
         return [
@@ -108,7 +162,9 @@ def audience_report(args: dict[str, Any]) -> dict[str, Any]:
         cstmt = select(Campaign).where(Campaign.id == campaign_filter.id)
     else:
         cstmt = cstmt.where(Campaign.completed_at >= lo, Campaign.completed_at < hi)
-    campaigns = db.session.scalars(cstmt.order_by(Campaign.completed_at.desc()).limit(50)).all()
+    campaigns = db.session.scalars(
+        cstmt.order_by(Campaign.completed_at.desc()).limit(CAMPAIGN_LIMIT)
+    ).all()
     counts: dict[int, dict[str, int]] = defaultdict(dict)
     if campaigns:
         for cid, status, n in db.session.execute(
@@ -165,14 +221,7 @@ def audience_report(args: dict[str, Any]) -> dict[str, Any]:
     return {
         "range": {"from": start.isoformat(), "to": end.isoformat(), "granularity": granularity},
         "has_data": bool(sum(statuses.values())),
-        "current": {
-            "subscribed": int(statuses.get("subscribed", 0)),
-            "pending": int(statuses.get("pending", 0)),
-            "unsubscribed": int(statuses.get("unsubscribed", 0)),
-            "bounced_or_complained": int(statuses.get("bounced", 0))
-            + int(statuses.get("complained", 0)),
-            "quarantined": int(statuses.get("quarantined", 0)),
-        },
+        "current": _current(statuses),
         "period": {
             "signups": len(signups),
             "new_subscriptions": len(confirmations),

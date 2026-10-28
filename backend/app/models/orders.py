@@ -60,6 +60,7 @@ class Order(TimestampMixin, db.Model):
         ),
         UniqueConstraint("customer_id", "idempotency_key", name="uq_orders_idempotency"),
         Index("ix_orders_status_created", "status", "created_at"),
+        Index("ix_orders_paid_at", "paid_at"),  # revenue and analytics ranges
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -182,6 +183,8 @@ class PaymentTransaction(db.Model):
         CheckConstraint(f"kind IN {TRANSACTION_KINDS}", name="kind_valid"),
         CheckConstraint(f"mode IN {PAYMENT_MODES}", name="mode_valid"),
         CheckConstraint("amount_minor >= 0", name="amount_non_negative"),
+        # Finance and analytics reports filter charges/refunds by kind and time range.
+        Index("ix_payment_transactions_kind_created", "kind", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

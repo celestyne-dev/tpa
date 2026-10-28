@@ -2,8 +2,11 @@
 
 A permission-aware summary built only from the existing module reports (website 11.1,
 commerce 11.2, learning 11.3, membership and audience 11.4). No figure is recomputed
-here, so each keeps its module's definition. A module is included only when the
-requesting user holds that module's permission (the same one its own tab requires):
+here, so each keeps its module's definition: the overview uses each module's summary
+function, built from the same helpers as its full report but without the detail tables,
+and computes the previous range's figures only where they are compared (Batch 12.2).
+A module is included only when the requesting user holds that module's permission (the
+same one its own tab requires):
 
 - website: ``analytics.view``; commerce: ``finance.view``; learning:
   ``courses.view_reports``; membership: ``memberships.view_reports``; audience:
@@ -94,11 +97,11 @@ def _money_compare(
 
 def _website(cur_args, prev_args) -> dict[str, Any]:
     now = traffic.traffic_report(cur_args)
-    before = traffic.traffic_report(prev_args)
+    before = traffic.traffic_totals(prev_args)  # only the totals are compared
     return {
-        "page_views": compare(now["totals"]["views"], before["totals"]["views"]),
+        "page_views": compare(now["totals"]["views"], before["views"]),
         "visitors_daily_sum": compare(
-            now["totals"]["visitors_daily_sum"], before["totals"]["visitors_daily_sum"]
+            now["totals"]["visitors_daily_sum"], before["visitors_daily_sum"]
         )
         | {"estimate": True},
         "top_articles": [
@@ -111,10 +114,10 @@ def _website(cur_args, prev_args) -> dict[str, Any]:
 
 
 def _commerce(cur_args, prev_args, mode) -> dict[str, Any]:
-    from .commerce import commerce_report
+    from .commerce import commerce_summary
 
-    now = commerce_report(cur_args | {"mode": mode})
-    before = commerce_report(prev_args | {"mode": mode})
+    now = commerce_summary(cur_args | {"mode": mode})
+    before = commerce_summary(prev_args | {"mode": mode}, products=False)
 
     def rows(report, key):
         return [{"mode": mode, key: c[key]} for c in report["currencies"]]
@@ -133,43 +136,35 @@ def _commerce(cur_args, prev_args, mode) -> dict[str, Any]:
             | {"currency": c}
             for c in sorted(set(by_cur) | set(prev_cur))
         ],
-        "top_products": [
-            {
-                "title": p["title"],
-                "currency": p["currency"],
-                "units": p["units"],
-                "revenue": p["revenue"],
-            }
-            for p in now["products"][:5]
-        ],
+        "top_products": now["products"][:5],
         "other_mode_payments": sum(m["verified_sales"] for m in now["modes"] if m["mode"] != mode),
     }
 
 
-def _learning(cur_args, prev_args, actor) -> dict[str, Any]:
-    from .learning import learning_report
+def _learning(cur_args, prev_args) -> dict[str, Any]:
+    from .learning import learning_summary
 
-    now = learning_report(cur_args, actor)
-    before = learning_report(prev_args, actor)
-    p, q = now["period"], before["period"]
+    summary = learning_summary([cur_args, prev_args])  # enrollments are loaded once
+    p, q = summary["periods"]
+    current = summary["current"]
     return {
         "new_enrollments": compare(p["new_enrollments"], q["new_enrollments"]),
         "completions": compare(p["completions"], q["completions"]),
         "starts": compare(p["starts"], q["starts"]),
         "active_learners": compare(p["active_learners"], q["active_learners"]) | {"minimum": True},
-        "current_enrollments": point(now["current"]["enrollments"]),
-        "completion_rate": point(now["current"]["completion_rate"]),
+        "current_enrollments": point(current["enrollments"]),
+        "completion_rate": point(current["completion_rate"]),
     }
 
 
 def _membership(cur_args, prev_args, actor) -> dict[str, Any]:
-    from .membership import membership_analytics
+    from .membership import membership_summary
 
-    now = membership_analytics(cur_args, actor)
-    before = membership_analytics(prev_args, actor)
+    summary = membership_summary([cur_args, prev_args], actor)
+    now, before = summary["periods"]
     return {
-        "paid_members": point(now["current"]["paid_subscribers"]),
-        "complimentary": point(now["current"]["complimentary"]),
+        "paid_members": point(summary["current"]["paid_subscribers"]),
+        "complimentary": point(summary["current"]["complimentary"]),
         "new_subscriptions": compare(
             now["period"]["new_subscriptions"], before["period"]["new_subscriptions"]
         ),
@@ -178,19 +173,18 @@ def _membership(cur_args, prev_args, actor) -> dict[str, Any]:
         "net_revenue": _money_compare(now["net_revenue"], before["net_revenue"], "net_revenue"),
         "mrr_estimate": [
             {"kind": "estimate", "mode": r["mode"], "value": r["mrr"]}
-            for r in now["recurring_estimate"]
+            for r in summary["recurring_estimate"]
         ],
     }
 
 
 def _audience(cur_args, prev_args) -> dict[str, Any]:
-    from .audience import audience_report
+    from .audience import audience_summary
 
-    now = audience_report(cur_args)
-    before = audience_report(prev_args)
-    p, q = now["period"], before["period"]
+    summary = audience_summary([cur_args, prev_args])
+    p, q = summary["periods"]
     return {
-        "subscribed": point(now["current"]["subscribed"]),
+        "subscribed": point(summary["current"]["subscribed"]),
         "signups": compare(p["signups"], q["signups"]),
         "new_subscriptions": compare(p["new_subscriptions"], q["new_subscriptions"]),
         "unsubscriptions": compare(p["unsubscriptions"], q["unsubscriptions"]),
@@ -265,7 +259,7 @@ def overview_report(args: dict[str, Any], actor: User) -> dict[str, Any]:
     if "commerce" in modules:
         sections["commerce"] = _commerce(cur, prev, mode)
     if "learning" in modules:
-        sections["learning"] = _learning(cur, prev, actor)
+        sections["learning"] = _learning(cur, prev)
     if "membership" in modules:
         sections["membership"] = _membership(cur, prev, actor)
     if "audience" in modules:

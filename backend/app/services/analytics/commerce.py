@@ -67,34 +67,28 @@ def _day(value) -> date:
     return value
 
 
-def commerce_report(args: dict[str, Any]) -> dict[str, Any]:
-    start, end, granularity = traffic.resolve_range(args)
-    mode, currency = _filters(args)
-    lo, hi = _bounds(start, end)
+def _transactions(lo, hi, mode, currency, kind: str, status: str):
+    """Verified purchase transactions of one kind in [lo, hi) (one mode)."""
     T = PaymentTransaction
-
-    def tx_rows(kind: str, status: str, any_mode: bool = False):
-        stmt = (
-            select(T.mode, T.currency, T.amount_minor, T.created_at, T.order_id)
-            .join(Order, Order.id == T.order_id)
-            .where(
-                Order.kind == "purchase",
-                T.kind == kind,
-                T.status == status,
-                T.created_at >= lo,
-                T.created_at < hi,
-            )
+    stmt = (
+        select(T.mode, T.currency, T.amount_minor, T.created_at, T.order_id)
+        .join(Order, Order.id == T.order_id)
+        .where(
+            Order.kind == "purchase",
+            T.kind == kind,
+            T.status == status,
+            T.created_at >= lo,
+            T.created_at < hi,
+            T.mode == mode,
         )
-        if not any_mode:
-            stmt = stmt.where(T.mode == mode)
-        if currency:
-            stmt = stmt.where(T.currency == currency)
-        return db.session.execute(stmt).all()
+    )
+    if currency:
+        stmt = stmt.where(T.currency == currency)
+    return db.session.execute(stmt).all()
 
-    charges = tx_rows("charge", "success")
-    refunds = tx_rows("refund", "processed")
 
-    paid_stmt = select(Order.id, Order.currency, Order.total_minor, Order.paid_at).where(
+def _paid_orders(lo, hi, mode, currency):
+    stmt = select(Order.id, Order.currency, Order.total_minor, Order.paid_at).where(
         Order.kind == "purchase",
         Order.mode == mode,
         Order.status.in_(RECOGNISED),
@@ -102,10 +96,12 @@ def commerce_report(args: dict[str, Any]) -> dict[str, Any]:
         Order.paid_at < hi,
     )
     if currency:
-        paid_stmt = paid_stmt.where(Order.currency == currency)
-    paid_orders = db.session.execute(paid_stmt).all()
+        stmt = stmt.where(Order.currency == currency)
+    return db.session.execute(stmt).all()
 
-    # ---- per-currency KPIs -------------------------------------------------------------
+
+def _currency_rows(charges, refunds, paid_orders) -> tuple[dict[str, dict[str, int]], list]:
+    """Per-currency KPIs (gross, refunds, net, recognised orders, AOV)."""
     cur: dict[str, dict[str, int]] = defaultdict(
         lambda: {
             "gross": 0,
@@ -142,6 +138,110 @@ def commerce_report(args: dict[str, Any]) -> dict[str, Any]:
                 else None,
             }
         )
+    return cur, currencies
+
+
+def _mode_rows(lo, hi, currency) -> list[dict[str, Any]]:
+    """Verified sales per (mode, currency), always both modes (aggregated in SQL)."""
+    T = PaymentTransaction
+    stmt = (
+        select(T.mode, T.currency, func.count(T.id), func.coalesce(func.sum(T.amount_minor), 0))
+        .join(Order, Order.id == T.order_id)
+        .where(
+            Order.kind == "purchase",
+            T.kind == "charge",
+            T.status == "success",
+            T.created_at >= lo,
+            T.created_at < hi,
+        )
+        .group_by(T.mode, T.currency)
+    )
+    if currency:
+        stmt = stmt.where(T.currency == currency)
+    return [
+        {"mode": m, "currency": c, "verified_sales": int(n), "gross": money(int(total), c)}
+        for m, c, n, total in sorted(db.session.execute(stmt).all())
+    ]
+
+
+def _order_lines(paid_orders):
+    order_ids = [o[0] for o in paid_orders]
+    if not order_ids:
+        return []
+    return db.session.execute(
+        select(
+            OrderItem.order_id,
+            OrderItem.product_id,
+            OrderItem.title,
+            OrderItem.product_type,
+            OrderItem.currency,
+            OrderItem.quantity,
+            OrderItem.line_total_minor,
+        ).where(OrderItem.order_id.in_(order_ids))
+    ).all()
+
+
+def _product_totals(lines) -> dict[tuple[int, str], dict[str, Any]]:
+    products: dict[tuple[int, str], dict[str, Any]] = {}
+    for _oid, pid, title, ptype, code, qty, total in lines:
+        row = products.setdefault(
+            (pid, code),
+            {
+                "product_id": pid,
+                "title": title,
+                "product_type": ptype,
+                "currency": code,
+                "units": 0,
+                "revenue_minor": 0,
+                "orders": 0,
+            },
+        )
+        row["units"] += qty
+        row["revenue_minor"] += total
+        row["orders"] += 1
+    return products
+
+
+def _ranked(products) -> list[dict[str, Any]]:
+    return sorted(products.values(), key=lambda r: (-r["units"], -r["revenue_minor"], r["title"]))
+
+
+def commerce_summary(args: dict[str, Any], *, products: bool = True) -> dict[str, Any]:
+    """The headline figures of ``commerce_report`` from the same helpers (per-currency KPIs,
+    test/live sales and, optionally, top products), without trends, refund attribution,
+    categories, unsold products or conversion. Used by the unified overview."""
+    start, end, _g = traffic.resolve_range(args)
+    mode, currency = _filters(args)
+    lo, hi = _bounds(start, end)
+    paid_orders = _paid_orders(lo, hi, mode, currency)
+    _cur, currencies = _currency_rows(
+        _transactions(lo, hi, mode, currency, "charge", "success"),
+        _transactions(lo, hi, mode, currency, "refund", "processed"),
+        paid_orders,
+    )
+    out: dict[str, Any] = {"currencies": currencies, "modes": _mode_rows(lo, hi, currency)}
+    if products:
+        out["products"] = [
+            {
+                "title": r["title"],
+                "currency": r["currency"],
+                "units": r["units"],
+                "revenue": money(r["revenue_minor"], r["currency"]),
+            }
+            for r in _ranked(_product_totals(_order_lines(paid_orders)))[:TOP]
+        ]
+    return out
+
+
+def commerce_report(args: dict[str, Any]) -> dict[str, Any]:
+    start, end, granularity = traffic.resolve_range(args)
+    mode, currency = _filters(args)
+    lo, hi = _bounds(start, end)
+
+    charges = _transactions(lo, hi, mode, currency, "charge", "success")
+    refunds = _transactions(lo, hi, mode, currency, "refund", "processed")
+    paid_orders = _paid_orders(lo, hi, mode, currency)
+    cur, currencies = _currency_rows(charges, refunds, paid_orders)
 
     # ---- order statuses (counts only; created in range) ---------------------------------
     status_stmt = (
@@ -159,14 +259,7 @@ def commerce_report(args: dict[str, Any]) -> dict[str, Any]:
     statuses = {s: int(n) for s, n in db.session.execute(status_stmt)}
 
     # ---- test vs live (always both modes) ----------------------------------------------
-    modes: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0])
-    for m, code, amount, _at, _o in tx_rows("charge", "success", any_mode=True):
-        modes[(m, code)][0] += 1
-        modes[(m, code)][1] += amount
-    mode_rows = [
-        {"mode": m, "currency": c, "verified_sales": v[0], "gross": money(v[1], c)}
-        for (m, c), v in sorted(modes.items())
-    ]
+    mode_rows = _mode_rows(lo, hi, currency)
 
     # ---- trends ------------------------------------------------------------------------
     buckets = []
@@ -203,43 +296,13 @@ def commerce_report(args: dict[str, Any]) -> dict[str, Any]:
     ]
 
     # ---- products ----------------------------------------------------------------------
-    order_ids = [o[0] for o in paid_orders]
-    lines = (
-        db.session.execute(
-            select(
-                OrderItem.order_id,
-                OrderItem.product_id,
-                OrderItem.title,
-                OrderItem.product_type,
-                OrderItem.currency,
-                OrderItem.quantity,
-                OrderItem.line_total_minor,
-            ).where(OrderItem.order_id.in_(order_ids))
-        ).all()
-        if order_ids
-        else []
-    )
-    products: dict[tuple[int, str], dict[str, Any]] = {}
+    lines = _order_lines(paid_orders)
+    products = _product_totals(lines)
     groups: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0, 0])
     types: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0])
     sold_ids = set()
-    for _oid, pid, title, ptype, code, qty, total in lines:
+    for _oid, pid, _title, ptype, code, qty, total in lines:
         sold_ids.add(pid)
-        row = products.setdefault(
-            (pid, code),
-            {
-                "product_id": pid,
-                "title": title,
-                "product_type": ptype,
-                "currency": code,
-                "units": 0,
-                "revenue_minor": 0,
-                "orders": 0,
-            },
-        )
-        row["units"] += qty
-        row["revenue_minor"] += total
-        row["orders"] += 1
         g = groups[(product_group(ptype), code)]
         g[0] += qty
         g[1] += total
@@ -288,7 +351,7 @@ def commerce_report(args: dict[str, Any]) -> dict[str, Any]:
             select(Product).where(Product.id.in_({k[0] for k in product_refunds} | sold_ids or {0}))
         )
     }
-    ranked = sorted(products.values(), key=lambda r: (-r["units"], -r["revenue_minor"], r["title"]))
+    ranked = _ranked(products)
     best = [
         {
             "product_id": r["product_id"],

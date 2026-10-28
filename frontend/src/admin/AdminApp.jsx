@@ -1,76 +1,15 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Navigate, Route, Routes } from "react-router";
 import { loadSession, selectAuth } from "@/store/slices/authSlice";
 import { AdminIndex } from "./components/AdminIndex";
-import { AdminLayout } from "./components/AdminLayout";
+import { AdminLayout, ScreenLoading } from "./components/AdminLayout";
 import { RequireAuth, RequirePermission } from "./components/Guards";
 import { NotificationProvider } from "./components/Notifications";
-import { AccountPage } from "./pages/AccountPage";
-import { AnnouncementsPage } from "./pages/AnnouncementsPage";
-import { BrandingPage } from "./pages/BrandingPage";
-import { FooterPage } from "./pages/FooterPage";
-import { HomepageBuilderPage } from "./pages/HomepageBuilderPage";
-import { PagePreviewPage } from "./pages/PagePreviewPage";
-import { PreviewFramePage } from "./pages/PreviewFramePage";
-import { SharedSectionsPage } from "./pages/SharedSectionsPage";
+import { PAGE_LOADERS } from "./screens";
 import { ActivatePage } from "./pages/ActivatePage";
-import { ArticleEditorPage } from "./pages/ArticleEditorPage";
-import { ArticlePreviewPage } from "./pages/ArticlePreviewPage";
-import { MediaLibraryPage } from "./pages/MediaLibraryPage";
-import { PublishingPage } from "./pages/PublishingPage";
-import { RedirectsPage } from "./pages/RedirectsPage";
-import { SeoPage } from "./pages/SeoPage";
-import { WorkflowPage } from "./pages/WorkflowPage";
-import { ArticlesPage } from "./pages/ArticlesPage";
-import { AuditLogPage } from "./pages/AuditLogPage";
 import { LoginPage } from "./pages/LoginPage";
-import { NavigationPage } from "./pages/NavigationPage";
-import { PageEditorPage } from "./pages/PageEditorPage";
-import { PagesPage } from "./pages/PagesPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
-import { RoleEditorPage } from "./pages/RoleEditorPage";
-import { RolesPage } from "./pages/RolesPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { TaxonomyPage } from "./pages/TaxonomyPage";
-import { UsersPage } from "./pages/UsersPage";
-import { CustomerDetailPage, CustomersPage } from "./pages/CustomersPage";
-import { EntitlementsPage } from "./pages/EntitlementsPage";
-import { OrderDetailPage } from "./pages/OrderDetailPage";
-import { OrdersPage } from "./pages/OrdersPage";
-import { PaymentSettingsPage } from "./pages/PaymentSettingsPage";
-import { AutomationDetailPage, AutomationsPage } from "./pages/newsletter/AutomationsPage";
-import { EmailSettingsPage } from "./pages/newsletter/EmailSettingsPage";
-import { LeadMagnetsPage } from "./pages/newsletter/LeadMagnetsPage";
-import { NewsletterEditorPage } from "./pages/newsletter/NewsletterEditorPage";
-import { NewslettersPage } from "./pages/newsletter/NewslettersPage";
-import { AffiliateLinksPage, AffiliatesPage } from "./pages/partnerships/AffiliatesPage";
-import { MediaKitPage } from "./pages/partnerships/MediaKitPage";
-import { PartnersPage, PartnershipInquiriesPage } from "./pages/partnerships/PartnersPage";
-import { PartnershipReportsPage } from "./pages/partnerships/PartnershipReportsPage";
-import { SponsorshipsPage } from "./pages/partnerships/SponsorshipsPage";
-import { SubscriberDetailPage, SubscribersPage } from "./pages/newsletter/SubscribersPage";
-import { ProductCollectionsPage } from "./pages/ProductCollectionsPage";
-import { ProductEditorPage } from "./pages/ProductEditorPage";
-import { ProductPreviewPage } from "./pages/ProductPreviewPage";
-import { BundlesPage, ProductsPage } from "./pages/ProductsPage";
-import { CourseEditorPage } from "./pages/courses/CourseEditorPage";
-import { CoursePreviewPage } from "./pages/courses/CoursePreviewPage";
-import { CoursesPage } from "./pages/courses/CoursesPage";
-import { GradingDashboardPage } from "./pages/grading/GradingDashboardPage";
-import { MembershipPlanEditorPage } from "./pages/memberships/MembershipPlanEditorPage";
-import { AnalyticsPage } from "./pages/AnalyticsPage";
-import { MembershipGrantsPage } from "./pages/memberships/MembershipGrantsPage";
-import { MembershipPlansPage } from "./pages/memberships/MembershipPlansPage";
-import { MembershipReportsPage } from "./pages/memberships/MembershipReportsPage";
-import { MembershipSubscriptionDetailPage } from "./pages/memberships/MembershipSubscriptionDetailPage";
-import { MembershipSubscriptionsPage } from "./pages/memberships/MembershipSubscriptionsPage";
-import { SubmissionReviewPage } from "./pages/grading/SubmissionReviewPage";
-import { QuestionBankPage } from "./pages/questionBanks/QuestionBankPage";
-import { QuestionBanksPage } from "./pages/questionBanks/QuestionBanksPage";
-import { ResourcesPage } from "./pages/ResourcesPage";
-import { RevenueReportPage } from "./pages/RevenueReportPage";
-import { StoragePage } from "./pages/StoragePage";
 import {
   ANALYTICS_ACCESS,
   ARTICLE_ACCESS,
@@ -83,6 +22,93 @@ import {
   TAXONOMY_READ,
 } from "./permissions";
 
+// Each admin screen is its own lazily loaded chunk: opening one page never downloads the
+// others, and a guarded page's code is only requested once its permission check passes.
+// Login, activation and password reset stay in the main admin chunk.
+const screen = (module, name) =>
+  lazy(() => PAGE_LOADERS[module]().then((m) => ({ default: m[name] })));
+
+const AccountPage = screen("AccountPage", "AccountPage");
+const AnnouncementsPage = screen("AnnouncementsPage", "AnnouncementsPage");
+const BrandingPage = screen("BrandingPage", "BrandingPage");
+const FooterPage = screen("FooterPage", "FooterPage");
+const HomepageBuilderPage = screen("HomepageBuilderPage", "HomepageBuilderPage");
+const PagePreviewPage = screen("PagePreviewPage", "PagePreviewPage");
+const PreviewFramePage = screen("PreviewFramePage", "PreviewFramePage");
+const SharedSectionsPage = screen("SharedSectionsPage", "SharedSectionsPage");
+const ArticleEditorPage = screen("ArticleEditorPage", "ArticleEditorPage");
+const ArticlePreviewPage = screen("ArticlePreviewPage", "ArticlePreviewPage");
+const MediaLibraryPage = screen("MediaLibraryPage", "MediaLibraryPage");
+const PublishingPage = screen("PublishingPage", "PublishingPage");
+const RedirectsPage = screen("RedirectsPage", "RedirectsPage");
+const SeoPage = screen("SeoPage", "SeoPage");
+const WorkflowPage = screen("WorkflowPage", "WorkflowPage");
+const ArticlesPage = screen("ArticlesPage", "ArticlesPage");
+const AuditLogPage = screen("AuditLogPage", "AuditLogPage");
+const NavigationPage = screen("NavigationPage", "NavigationPage");
+const PageEditorPage = screen("PageEditorPage", "PageEditorPage");
+const PagesPage = screen("PagesPage", "PagesPage");
+const RoleEditorPage = screen("RoleEditorPage", "RoleEditorPage");
+const RolesPage = screen("RolesPage", "RolesPage");
+const SettingsPage = screen("SettingsPage", "SettingsPage");
+const TaxonomyPage = screen("TaxonomyPage", "TaxonomyPage");
+const UsersPage = screen("UsersPage", "UsersPage");
+const CustomerDetailPage = screen("CustomersPage", "CustomerDetailPage");
+const CustomersPage = screen("CustomersPage", "CustomersPage");
+const EntitlementsPage = screen("EntitlementsPage", "EntitlementsPage");
+const OrderDetailPage = screen("OrderDetailPage", "OrderDetailPage");
+const OrdersPage = screen("OrdersPage", "OrdersPage");
+const PaymentSettingsPage = screen("PaymentSettingsPage", "PaymentSettingsPage");
+const AutomationDetailPage = screen("newsletter/AutomationsPage", "AutomationDetailPage");
+const AutomationsPage = screen("newsletter/AutomationsPage", "AutomationsPage");
+const EmailSettingsPage = screen("newsletter/EmailSettingsPage", "EmailSettingsPage");
+const LeadMagnetsPage = screen("newsletter/LeadMagnetsPage", "LeadMagnetsPage");
+const NewsletterEditorPage = screen("newsletter/NewsletterEditorPage", "NewsletterEditorPage");
+const NewslettersPage = screen("newsletter/NewslettersPage", "NewslettersPage");
+const AffiliateLinksPage = screen("partnerships/AffiliatesPage", "AffiliateLinksPage");
+const AffiliatesPage = screen("partnerships/AffiliatesPage", "AffiliatesPage");
+const MediaKitPage = screen("partnerships/MediaKitPage", "MediaKitPage");
+const PartnersPage = screen("partnerships/PartnersPage", "PartnersPage");
+const PartnershipInquiriesPage = screen("partnerships/PartnersPage", "PartnershipInquiriesPage");
+const PartnershipReportsPage = screen(
+  "partnerships/PartnershipReportsPage",
+  "PartnershipReportsPage",
+);
+const SponsorshipsPage = screen("partnerships/SponsorshipsPage", "SponsorshipsPage");
+const SubscriberDetailPage = screen("newsletter/SubscribersPage", "SubscriberDetailPage");
+const SubscribersPage = screen("newsletter/SubscribersPage", "SubscribersPage");
+const ProductCollectionsPage = screen("ProductCollectionsPage", "ProductCollectionsPage");
+const ProductEditorPage = screen("ProductEditorPage", "ProductEditorPage");
+const ProductPreviewPage = screen("ProductPreviewPage", "ProductPreviewPage");
+const BundlesPage = screen("ProductsPage", "BundlesPage");
+const ProductsPage = screen("ProductsPage", "ProductsPage");
+const CourseEditorPage = screen("courses/CourseEditorPage", "CourseEditorPage");
+const CoursePreviewPage = screen("courses/CoursePreviewPage", "CoursePreviewPage");
+const CoursesPage = screen("courses/CoursesPage", "CoursesPage");
+const GradingDashboardPage = screen("grading/GradingDashboardPage", "GradingDashboardPage");
+const MembershipPlanEditorPage = screen(
+  "memberships/MembershipPlanEditorPage",
+  "MembershipPlanEditorPage",
+);
+const AnalyticsPage = screen("AnalyticsPage", "AnalyticsPage");
+const MembershipGrantsPage = screen("memberships/MembershipGrantsPage", "MembershipGrantsPage");
+const MembershipPlansPage = screen("memberships/MembershipPlansPage", "MembershipPlansPage");
+const MembershipReportsPage = screen("memberships/MembershipReportsPage", "MembershipReportsPage");
+const MembershipSubscriptionDetailPage = screen(
+  "memberships/MembershipSubscriptionDetailPage",
+  "MembershipSubscriptionDetailPage",
+);
+const MembershipSubscriptionsPage = screen(
+  "memberships/MembershipSubscriptionsPage",
+  "MembershipSubscriptionsPage",
+);
+const SubmissionReviewPage = screen("grading/SubmissionReviewPage", "SubmissionReviewPage");
+const QuestionBankPage = screen("questionBanks/QuestionBankPage", "QuestionBankPage");
+const QuestionBanksPage = screen("questionBanks/QuestionBanksPage", "QuestionBanksPage");
+const ResourcesPage = screen("ResourcesPage", "ResourcesPage");
+const RevenueReportPage = screen("RevenueReportPage", "RevenueReportPage");
+const StoragePage = screen("StoragePage", "StoragePage");
+
 const SUBSCRIBER_READ = ["memberships.manage_subscriptions", "memberships.view"];
 /** `rule` is one permission key or a list of alternatives (any one suffices). */
 const guarded = (rule, element) =>
@@ -91,6 +117,9 @@ const guarded = (rule, element) =>
   ) : (
     <RequirePermission permission={rule}>{element}</RequirePermission>
   );
+
+/** Full-screen previews render outside the admin layout, so they need their own boundary. */
+const fullScreen = (element) => <Suspense fallback={<ScreenLoading />}>{element}</Suspense>;
 
 /** Admin area (/admin/*). Hiding UI is a convenience; Flask authorises every request. */
 export default function AdminApp() {
@@ -110,15 +139,21 @@ export default function AdminApp() {
         {/* Full-screen private previews (no admin chrome; still require a session). */}
         <Route
           path="pages/:id/preview"
-          element={<RequireAuth>{guarded(PAGE_READ, <PagePreviewPage />)}</RequireAuth>}
+          element={<RequireAuth>{fullScreen(guarded(PAGE_READ, <PagePreviewPage />))}</RequireAuth>}
         />
         <Route
           path="products/:id/preview"
-          element={<RequireAuth>{guarded("products.view", <ProductPreviewPage />)}</RequireAuth>}
+          element={
+            <RequireAuth>
+              {fullScreen(guarded("products.view", <ProductPreviewPage />))}
+            </RequireAuth>
+          }
         />
         <Route
           path="preview-frame/:id"
-          element={<RequireAuth>{guarded(PAGE_READ, <PreviewFramePage />)}</RequireAuth>}
+          element={
+            <RequireAuth>{fullScreen(guarded(PAGE_READ, <PreviewFramePage />))}</RequireAuth>
+          }
         />
         <Route
           element={

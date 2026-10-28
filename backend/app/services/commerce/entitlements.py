@@ -429,12 +429,20 @@ def library(customer: Customer, *, scope=None) -> list[dict[str, Any]]:
     return items
 
 
-def entitlement_dict(e: Entitlement) -> dict[str, Any]:
-    events = db.session.scalars(
+def _events_for(ids) -> dict[int, list[EntitlementEvent]]:
+    out: dict[int, list[EntitlementEvent]] = {i: [] for i in ids}
+    for ev in db.session.scalars(
         select(EntitlementEvent)
-        .where(EntitlementEvent.entitlement_id == e.id)
-        .order_by(EntitlementEvent.created_at)
-    ).all()
+        .where(EntitlementEvent.entitlement_id.in_(ids))
+        .order_by(EntitlementEvent.created_at, EntitlementEvent.id)
+    ):
+        out[ev.entitlement_id].append(ev)
+    return out
+
+
+def entitlement_dict(e: Entitlement, *, events: list | None = None) -> dict[str, Any]:
+    if events is None:
+        events = _events_for([e.id])[e.id]
     return {
         "id": e.id,
         "customer": {"id": e.customer_id, "email": e.customer.email},
@@ -480,7 +488,15 @@ def list_entitlements(args: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
     rows = db.session.scalars(
         stmt.order_by(Entitlement.granted_at.desc()).offset((page - 1) * size).limit(size)
     ).all()
-    return [entitlement_dict(e) for e in rows], total or 0
+    # Batched per page: every row's events in one query, and the orders loaded once so
+    # entitlement_dict() finds them in the session (kept referenced until serialised).
+    events = _events_for([e.id for e in rows])
+    orders = db.session.scalars(
+        select(Order).where(Order.id.in_({e.order_id for e in rows if e.order_id}))
+    ).all()
+    items = [entitlement_dict(e, events=events[e.id]) for e in rows]
+    del orders
+    return items, total or 0
 
 
 def get_entitlement(entitlement_id: int) -> Entitlement:
