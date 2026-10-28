@@ -414,6 +414,22 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
         post(`/assignment-attempts/${encodeURIComponent(attemptId)}/grade/retract`, body),
       fileUrl: (fileId) => `${baseURL}/assignment-files/${encodeURIComponent(fileId)}/download`,
     },
+    // Batch 10.1: membership plans (no billing yet).
+    memberships: {
+      list: () => get("/membership-plans"),
+      get: (id) => get(`/membership-plans/${encodeURIComponent(id)}`),
+      create: (body) => post("/membership-plans", body),
+      update: (id, body) => patch(`/membership-plans/${encodeURIComponent(id)}`, body),
+      setStatus: (id, body) => post(`/membership-plans/${encodeURIComponent(id)}/status`, body),
+      addPrice: (id, body) => post(`/membership-plans/${encodeURIComponent(id)}/prices`, body),
+      removePrice: (id, priceId, body) =>
+        post(
+          `/membership-plans/${encodeURIComponent(id)}/prices/${encodeURIComponent(priceId)}/remove`,
+          body,
+        ),
+      setAccess: (id, body) => put(`/membership-plans/${encodeURIComponent(id)}/access`, body),
+      eligibleProducts: (q) => get("/membership-eligible-products", q ? { q } : undefined),
+    },
     // Batch 09.2: reusable question banks (answer keys only for question_banks.manage).
     questionBanks: {
       list: (params) => get("/question-banks", params),

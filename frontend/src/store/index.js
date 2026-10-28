@@ -7,6 +7,7 @@ import auth, { sessionExpired } from "./slices/authSlice";
 import courses from "./slices/coursesSlice";
 import customer from "./slices/customerSlice";
 import mediaKit from "./slices/mediaKitSlice";
+import memberships from "./slices/membershipsSlice";
 import pages from "./slices/pagesSlice";
 import products from "./slices/productsSlice";
 import site from "./slices/siteSlice";
@@ -25,6 +26,7 @@ export const rootReducer = combineReducers({
   courses,
   pages,
   mediaKit,
+  memberships,
   auth,
   customer,
 });

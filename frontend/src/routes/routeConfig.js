@@ -14,6 +14,7 @@ import { ArticlesPage } from "@/pages/ArticlesPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { CourseDetailPage } from "@/pages/CourseDetailPage";
 import { CoursesPage } from "@/pages/CoursesPage";
+import { MembershipPage } from "@/pages/MembershipPage";
 import { FreeResourcesPage } from "@/pages/FreeResourcesPage";
 import { HomePage } from "@/pages/HomePage";
 import { NewsletterPage } from "@/pages/NewsletterPage";
@@ -32,6 +33,7 @@ import * as commerce from "@/routes/commerceRoutes";
 import { fetchArticle, fetchArticles } from "@/store/slices/articlesSlice";
 import { fetchCourse, fetchCourses } from "@/store/slices/coursesSlice";
 import { fetchMediaKit } from "@/store/slices/mediaKitSlice";
+import { fetchMemberships } from "@/store/slices/membershipsSlice";
 import { fetchPage } from "@/store/slices/pagesSlice";
 import { fetchCollection, fetchProduct, fetchProducts } from "@/store/slices/productsSlice";
 import { fetchSite } from "@/store/slices/siteSlice";
@@ -71,6 +73,7 @@ export const routeTable = [
   { path: routes.shop, Component: ShopPage, load: () => [fetchProducts()] },
   { path: routes.resources, Component: ResourceLibraryPage, load: () => [fetchProducts()] },
   { path: routes.courses, Component: CoursesPage, load: () => [fetchCourses()] },
+  { path: routes.membership, Component: MembershipPage, load: () => [fetchMemberships()] },
   {
     path: "/courses/:slug",
     Component: CourseDetailPage,

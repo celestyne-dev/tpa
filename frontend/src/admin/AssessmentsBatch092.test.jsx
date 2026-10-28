@@ -22,9 +22,9 @@ describe("Batch 09.2 navigation and permissions", () => {
       "/admin/assignment-reviews",
     );
     expect(within(nav).getByRole("link", { name: "Question banks" })).toBeInTheDocument();
-    // Memberships and Analytics stay planned (never links).
-    expect(plannedModules.map((m) => m.label)).toEqual(["Memberships", "Analytics"]);
-    expect(within(nav).queryByRole("link", { name: /Memberships|Analytics/ })).toBeNull();
+    // Analytics stays planned (never a link); memberships became a section in Batch 10.1.
+    expect(plannedModules.map((m) => m.label)).toEqual(["Analytics"]);
+    expect(within(nav).queryByRole("link", { name: /Analytics/ })).toBeNull();
   });
 
   it("hides the new areas from roles without the permissions", async () => {

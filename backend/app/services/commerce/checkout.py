@@ -125,6 +125,10 @@ def quote(raw_items: Any, currency: Any, customer: Customer | None) -> dict[str,
         if product is None or product.status != "published" or not doc:
             line["problem"] = "This product is no longer available."
             continue
+        if product.product_type == "membership":
+            # Memberships are subscriptions (Batch 10): never sold through the cart.
+            line["problem"] = "Memberships are joined from the membership page."
+            continue
         state = catalogue.readiness(product)
         if not state["purchasable"]:
             line["problem"] = (

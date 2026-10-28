@@ -58,6 +58,12 @@ from .courses import COURSE_PRIVATE_PREFIXES, PUBLIC_COURSE_ROUTES  # noqa: E402
 for resource, path in PUBLIC_COURSE_ROUTES:
     api.add_resource(resource, path, endpoint=f"course_{resource.__name__.lower()}")
 
+# ---- Membership plans (Batch 10.1: published plans; no billing yet) ------------------
+from .memberships import PUBLIC_MEMBERSHIP_ROUTES  # noqa: E402
+
+for resource, path in PUBLIC_MEMBERSHIP_ROUTES:
+    api.add_resource(resource, path, endpoint=f"membership_{resource.__name__.lower()}")
+
 # ---- Admin API ------------------------------------------------------------------
 from flask import request  # noqa: E402
 

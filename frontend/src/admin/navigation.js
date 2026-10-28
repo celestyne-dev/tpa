@@ -92,6 +92,12 @@ export const adminSections = [
     items: [
       { label: "Courses", to: "/admin/courses", icon: GraduationCap, permission: "courses.view" },
       {
+        label: "Membership plans",
+        to: "/admin/membership-plans",
+        icon: Crown,
+        permission: "memberships.view",
+      },
+      {
         label: "Assignment reviews",
         to: "/admin/assignment-reviews",
         icon: ClipboardCheck,
@@ -279,7 +285,4 @@ export const adminSections = [
 ];
 
 /** Business modules scheduled for later batches. Displayed as "Planned", never as links. */
-export const plannedModules = [
-  { label: "Memberships", icon: Crown },
-  { label: "Analytics", icon: BarChart3 },
-];
+export const plannedModules = [{ label: "Analytics", icon: BarChart3 }];

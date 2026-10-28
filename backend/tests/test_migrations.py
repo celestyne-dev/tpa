@@ -1371,7 +1371,6 @@ def test_batch092_question_banks_preserve_attempts_and_downgrade_protects_data(t
             text("SELECT completed_at FROM course_enrollments WHERE id = 1")
         ).scalar_one()
         assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
-        assert set(sync_rbac().values()) == {0}
         db.session.rollback()
 
         from app.models import CourseEnrollment
@@ -1415,6 +1414,95 @@ def test_batch092_question_banks_preserve_attempts_and_downgrade_protects_data(t
             ).scalar_one()
             == 0
         )
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}
+
+
+def test_batch101_membership_plans_upgrade_is_additive_and_downgrade_protects_plans(tmp_path):
+    """New tables only; existing purchases and entitlements are untouched; the
+    memberships.manage placeholder becomes available; RBAC matches the code at head;
+    downgrade refuses while plans exist and restores the placeholder."""
+    import pytest
+
+    app = _app(tmp_path, "batch101.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="a7c9e5b3d104")
+        manage = db.session.execute(
+            text("SELECT label, is_available FROM permissions WHERE key = 'memberships.manage'")
+        ).one()
+        assert manage == ("Manage memberships", 0)
+        counts = ("roles", "permissions", "products", "entitlements", "orders")
+        before = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        db.session.remove()
+
+        upgrade(directory=MIGRATIONS, revision="b8d0f6c4e215")
+        tables = set(inspect(db.engine).get_table_names())
+        assert {"membership_plans", "membership_plan_prices", "membership_plan_access"} <= tables
+        indexes = {i["name"] for i in inspect(db.engine).get_indexes("membership_plan_prices")}
+        assert "uq_membership_plan_prices_active" in indexes
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert after["permissions"] == before["permissions"] + 2
+        assert {k: v for k, v in after.items() if k != "permissions"} == {
+            k: v for k, v in before.items() if k != "permissions"
+        }
+        manage = db.session.execute(
+            text("SELECT label, is_available FROM permissions WHERE key = 'memberships.manage'")
+        ).one()
+        assert manage == ("Manage membership plans", 1)
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+
+        now = "2026-10-28 09:00:00"
+        db.session.execute(
+            text(
+                "INSERT INTO membership_plans (public_id, slug, name, tagline, description, "
+                "benefits, tier_rank, status, lock_version, created_at, updated_at) VALUES "
+                "('mp1', 'circle', 'Circle', '', '', '[]', 1, 'draft', 1, :n, :n)"
+            ),
+            {"n": now},
+        )
+        # The partial unique index allows retired history but one active price per interval.
+        for status in ("retired", "active"):
+            db.session.execute(
+                text(
+                    "INSERT INTO membership_plan_prices (public_id, plan_id, interval, currency, "
+                    "amount_minor, status, created_at) VALUES (:p, 1, 'month', 'USD', 999, :s, :n)"
+                ),
+                {"p": f"pr-{status}", "s": status, "n": now},
+            )
+        db.session.commit()
+        with pytest.raises(Exception):  # noqa: B017
+            db.session.execute(
+                text(
+                    "INSERT INTO membership_plan_prices (public_id, plan_id, interval, currency, "
+                    "amount_minor, status, created_at) VALUES ('dup', 1, 'month', 'USD', 1, "
+                    "'active', :n)"
+                ),
+                {"n": now},
+            )
+        db.session.rollback()
+        db.session.remove()
+        with pytest.raises(SystemExit):  # refuses: plans would be deleted
+            downgrade(directory=MIGRATIONS, revision="a7c9e5b3d104")
+        db.session.remove()
+        db.session.execute(text("DELETE FROM membership_plans"))
+        db.session.commit()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="a7c9e5b3d104")
+        assert "membership_plans" not in set(inspect(db.engine).get_table_names())
+        manage = db.session.execute(
+            text("SELECT label, is_available FROM permissions WHERE key = 'memberships.manage'")
+        ).one()
+        assert manage == ("Manage memberships", 0)
+        restored = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert restored == before
         db.session.remove()
         upgrade(directory=MIGRATIONS)
         assert set(sync_rbac().values()) == {0}

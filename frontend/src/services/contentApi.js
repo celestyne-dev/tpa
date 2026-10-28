@@ -22,6 +22,7 @@ export function createContentApi(client = createApiClient()) {
     getPages: () => get("/pages"),
     getSitemap: () => get("/sitemap"),
     getMediaKit: () => get("/media-kit"),
+    getMemberships: () => get("/memberships"),
     getRedirects: () => get("/redirects"),
     resolveRedirect: (path) => get("/redirects/resolve", { path }),
   };

@@ -22,6 +22,7 @@ import {
   selectProducts,
 } from "@/store/slices/productsSlice";
 import { fetchMediaKit, selectMediaKit } from "@/store/slices/mediaKitSlice";
+import { fetchMemberships, selectMemberships } from "@/store/slices/membershipsSlice";
 import { fetchSite, selectSite } from "@/store/slices/siteSlice";
 import { fetchTopic, fetchTopics, selectTopic, selectTopicList } from "@/store/slices/topicsSlice";
 import { Status } from "@/store/status";
@@ -57,6 +58,12 @@ export function useSite() {
 export function useMediaKit() {
   const entry = useSelector(selectMediaKit);
   const load = useCallback((force) => fetchMediaKit({ force }), []);
+  return useResource(entry, load, [load], (s) => s.data);
+}
+
+export function useMemberships() {
+  const entry = useSelector(selectMemberships);
+  const load = useCallback((force) => fetchMemberships({ force }), []);
   return useResource(entry, load, [load], (s) => s.data);
 }
 

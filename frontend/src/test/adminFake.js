@@ -4,6 +4,7 @@ import { createBuilderFake } from "./builderFake";
 import { COMMERCE_PERMS, createCommerceAdminFake } from "./commerceFake";
 import { ASSIGNMENT_PERMS, BANK_PERMS, createAssessmentAdminFake } from "./assessmentFake";
 import { COURSE_PERMS, createCourseAdminFake } from "./courseFake";
+import { MEMBERSHIP_PERMS, createMembershipAdminFake } from "./membershipFake";
 import { NEWSLETTER_EDITING, NEWSLETTER_PERMS, createNewsletterAdminFake } from "./newsletterFake";
 import {
   PARTNERSHIP_PERMS,
@@ -61,6 +62,7 @@ const ALL = [
   ...COURSE_PERMS,
   ...ASSIGNMENT_PERMS,
   ...BANK_PERMS,
+  ...MEMBERSHIP_PERMS,
   ...COMMERCE_PERMS,
   ...NEWSLETTER_PERMS,
   ...PARTNERSHIP_PERMS,
@@ -180,6 +182,8 @@ export const ROLE_PERMS = {
   ),
   product_manager: [
     "dashboard.view",
+    "memberships.view",
+    "memberships.manage",
     ...COMMERCE_PERMS.filter((p) => p.startsWith("products.")),
     "media.view",
     "media.upload",
@@ -201,6 +205,7 @@ export const ROLE_PERMS = {
   ],
   customer_support: [
     "dashboard.view",
+    "memberships.view",
     "products.view",
     "orders.view",
     "customers.view",
@@ -1404,6 +1409,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     ...createCommerceAdminFake(() => user),
     ...createCourseAdminFake(() => user),
     ...createAssessmentAdminFake(() => user),
+    ...createMembershipAdminFake(),
     ...createNewsletterAdminFake(() => user),
     ...createPartnershipAdminFake(),
   };

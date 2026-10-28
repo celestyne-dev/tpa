@@ -58,6 +58,8 @@ import { CourseEditorPage } from "./pages/courses/CourseEditorPage";
 import { CoursePreviewPage } from "./pages/courses/CoursePreviewPage";
 import { CoursesPage } from "./pages/courses/CoursesPage";
 import { GradingDashboardPage } from "./pages/grading/GradingDashboardPage";
+import { MembershipPlanEditorPage } from "./pages/memberships/MembershipPlanEditorPage";
+import { MembershipPlansPage } from "./pages/memberships/MembershipPlansPage";
 import { SubmissionReviewPage } from "./pages/grading/SubmissionReviewPage";
 import { QuestionBankPage } from "./pages/questionBanks/QuestionBankPage";
 import { QuestionBanksPage } from "./pages/questionBanks/QuestionBanksPage";
@@ -146,6 +148,14 @@ export default function AdminApp() {
           <Route
             path="assignment-reviews/:submissionId"
             element={guarded("assignments.view_submissions", <SubmissionReviewPage />)}
+          />
+          <Route
+            path="membership-plans"
+            element={guarded("memberships.view", <MembershipPlansPage />)}
+          />
+          <Route
+            path="membership-plans/:planId"
+            element={guarded("memberships.view", <MembershipPlanEditorPage />)}
           />
           <Route
             path="question-banks"

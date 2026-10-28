@@ -114,6 +114,8 @@ class Permission(StrEnum):
     LEAD_MAGNETS_MANAGE = "lead_magnets.manage"
     EMAIL_SETTINGS_MANAGE = "email_settings.manage"
     MEMBERSHIPS_MANAGE = "memberships.manage"
+    MEMBERSHIPS_VIEW = "memberships.view"
+    MEMBERSHIPS_PUBLISH = "memberships.publish"
     FINANCE_VIEW = "finance.view"
     FINANCE_EXPORT = "finance.export"
     FINANCE_MANAGE = "finance.manage"
@@ -623,10 +625,10 @@ CATALOGUE: list[PermissionDef] = [
     ),
     _d(
         P.MEMBERSHIPS_MANAGE,
-        "Manage memberships",
+        "Manage membership plans",
         "Courses & memberships",
         "memberships",
-        available=False,
+        description="Plan content, benefits, prices and the courses and resources included.",
     ),
     _d(
         P.FINANCE_VIEW,
@@ -803,6 +805,15 @@ CATALOGUE: list[PermissionDef] = [
         "Courses & memberships",
         "courses",
         description="Create and edit banks and questions, including answer keys.",
+    ),
+    # Batch 10.1: membership plans (appended).
+    _d(P.MEMBERSHIPS_VIEW, "View membership plans", "Courses & memberships", "memberships"),
+    _d(
+        P.MEMBERSHIPS_PUBLISH,
+        "Publish membership plans",
+        "Courses & memberships",
+        "memberships",
+        description="Publish, unpublish and archive plans shown on the membership page.",
     ),
 ]
 
@@ -1319,6 +1330,17 @@ BATCH_092_BANK_GRANTS: dict[str, frozenset[str]] = {
 }
 
 
+MEMBERSHIP_PLANS_ALL = _set(P.MEMBERSHIPS_VIEW, P.MEMBERSHIPS_MANAGE, P.MEMBERSHIPS_PUBLISH)
+BATCH_10_GRANTS: dict[str, frozenset[str]] = {
+    "administrator": MEMBERSHIP_PLANS_ALL,
+    "editor_in_chief": MEMBERSHIP_PLANS_ALL,
+    "product_manager": _set(P.MEMBERSHIPS_VIEW, P.MEMBERSHIPS_MANAGE),
+    "marketing_manager": _set(P.MEMBERSHIPS_VIEW),
+    "customer_support": _set(P.MEMBERSHIPS_VIEW),
+    "finance_manager": _set(P.MEMBERSHIPS_VIEW),
+}
+
+
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
         BATCH_03_GRANTS.get(spec.key, frozenset())
@@ -1331,6 +1353,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_091_GRANTS.get(spec.key, frozenset())
         | BATCH_092_GRANTS.get(spec.key, frozenset())
         | BATCH_092_BANK_GRANTS.get(spec.key, frozenset())
+        | BATCH_10_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

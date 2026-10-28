@@ -8,6 +8,7 @@ from . import (
     content,
     courses,
     media,
+    memberships,
     newsletter,
     partnerships,
     question_banks,
@@ -138,6 +139,7 @@ ADMIN_ROUTES = [
     *courses.COURSE_ADMIN_ROUTES,
     *assignments.ASSIGNMENT_ADMIN_ROUTES,
     *question_banks.QUESTION_BANK_ROUTES,
+    *memberships.MEMBERSHIP_ADMIN_ROUTES,
 ]
 
 # Endpoints reachable without an access token (they authenticate in other ways).

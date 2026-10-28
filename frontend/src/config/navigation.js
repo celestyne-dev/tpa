@@ -22,6 +22,7 @@ export const routes = {
   freeResources: "/free-resources",
   resources: "/resources",
   courses: "/courses",
+  membership: "/membership",
   course: (slug) => `/courses/${slug}`,
   learn: (courseSlug, lessonSlug) =>
     lessonSlug ? `/learn/${courseSlug}/${lessonSlug}` : `/learn/${courseSlug}`,
@@ -139,6 +140,7 @@ export const staticRoutes = [
   { path: routes.freeResources, priority: 0.8, changefreq: "monthly" },
   { path: routes.resources, priority: 0.8, changefreq: "weekly" },
   { path: routes.courses, priority: 0.8, changefreq: "weekly" },
+  { path: routes.membership, priority: 0.7, changefreq: "weekly" },
   { path: routes.newsletter, priority: 0.7, changefreq: "monthly" },
   { path: routes.partner, priority: 0.6, changefreq: "monthly" },
   { path: routes.advertise, priority: 0.5, changefreq: "monthly" },

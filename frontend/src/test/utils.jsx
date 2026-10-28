@@ -9,6 +9,7 @@ import { createAppStore } from "@/store";
 import { createFakeAdminApi } from "./adminFake";
 import { createFakeShopApi, shopContentApi } from "./commerceFake";
 import { courseContentApi } from "./courseFake";
+import { membershipContentApi } from "./membershipFake";
 import * as fx from "./fixtures";
 
 export const notFound = (message = "Not found") =>
@@ -79,6 +80,7 @@ export function createFakeApi(overrides = {}) {
     ),
     ...shopContentApi(),
     ...courseContentApi(),
+    ...membershipContentApi(),
     getPage: vi.fn(async (path) => {
       if (path === "/") return { data: fx.homePage };
       return fx.cmsPages[path] ? { data: fx.cmsPages[path] } : notFound("Page not found.");
