@@ -218,6 +218,12 @@ const SUB = {
   created_at: NOW,
   checkout_url: "https://checkout.paystack.com/test-sub1",
   receipt_order: null,
+  cancel_at_period_end: false,
+  past_due_since: null,
+  can_cancel: false,
+  can_resume: false,
+  can_update_payment_method: false,
+  linked: false,
 };
 
 export const ACTIVE_SUB = {
@@ -229,6 +235,9 @@ export const ACTIVE_SUB = {
   activated_at: NOW,
   checkout_url: null,
   receipt_order: "o1",
+  can_cancel: true,
+  can_update_payment_method: true,
+  linked: true,
 };
 
 /** Customer membership endpoints. `paidAfter` verify calls report the payment as confirmed. */
@@ -244,6 +253,19 @@ export function membershipShopApi({ subscription = SUB, paidAfter = 1 } = {}) {
           ...(current.status === "active" ? [{ type: "activated", created_at: NOW }] : []),
         ]
       : [],
+    periods:
+      current && current.status !== "pending"
+        ? [
+            {
+              sequence: 1,
+              status: "paid",
+              period_start: NOW,
+              period_end: "2026-11-28T10:00:00.000Z",
+              amount: usd(1000),
+              order: "o1",
+            },
+          ]
+        : [],
     history: [],
     billing: OPEN_BILLING,
   });
@@ -251,6 +273,17 @@ export function membershipShopApi({ subscription = SUB, paidAfter = 1 } = {}) {
     membership: vi.fn(() => ok(view())),
     membershipCheckout: vi.fn(() =>
       ok({ subscription: SUB, checkout_url: SUB.checkout_url, resumed: false }),
+    ),
+    cancelMembership: vi.fn(() => {
+      current = { ...current, cancel_at_period_end: true, can_cancel: false, can_resume: true };
+      return ok(view());
+    }),
+    resumeMembership: vi.fn(() => {
+      current = { ...current, cancel_at_period_end: false, can_cancel: true, can_resume: false };
+      return ok(view());
+    }),
+    membershipPaymentMethod: vi.fn(() =>
+      ok({ url: "https://paystack.com/manage/subscriptions/sub1" }),
     ),
     verifyMembership: vi.fn(() => {
       verifies += 1;

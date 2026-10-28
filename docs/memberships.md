@@ -1,4 +1,4 @@
-# Memberships (Batch 10.1: plans foundation; Batch 10.2: test-mode checkout below)
+# Memberships (Batch 10.1: plans; 10.2: test-mode checkout; 10.3: lifecycle — see below)
 
 Batch 10.1 adds CMS-controlled membership plans. **Billing is not open:** there is no
 checkout, no subscription and no entitlement grant. The public page shows plans with a
@@ -147,3 +147,142 @@ cancellation, plan changes or live mode. Membership access expires at the end of
 first period until renewal processing arrives in Batch 10.3. The Paystack behaviours
 (plan initialisation, `subscription.create` payloads, USD plans) are covered by fakes
 here and still need checking against the real test account.
+
+# Batch 10.3: subscription lifecycle and billing recovery (test mode only)
+
+## Data model (migration `d4a2f7c9e815`, revises `c9e1a7d5f326`)
+
+- `customer_subscriptions` gains:
+  - `cancel_at_period_end` (false for existing rows) and `cancel_requested_at`;
+  - `past_due_since`, the first unpaid renewal of the current cycle;
+  - `last_reconciled_at`.
+- `subscription_periods.order_id` is now unique, so one payment can only ever pay for one
+  billing period.
+- The downgrade refuses while a cancellation is scheduled or any renewal period exists.
+
+New setting: `MEMBERSHIP_GRACE_DAYS` (default 3, allowed 0–14).
+
+## Renewals
+
+1. Paystack charges a renewal with its own reference. The `charge.success` webhook, or a
+   paid `invoice.update`, only matters when it carries a plan or subscription code.
+2. The reference is verified with `GET /transaction/verify`. The verified plan code and
+   Paystack customer code select the membership.
+3. A renewal `Order` (`kind=subscription`, total = the price agreed at checkout,
+   idempotency key `renewal-<provider transaction id>`), a `PaymentAttempt` and the next
+   `SubscriptionPeriod` are created together.
+4. They then go through the normal `payments.apply_verified`. That checks reference,
+   amount, currency, mode, plan and the membership's customer code, then records the
+   payment transaction, receipt and emails. A mismatch flags the order and extends nothing.
+5. On success the period becomes `paid` and the membership stays or becomes `active`:
+   - Periods are contiguous: the next period starts at the previous period end, even when
+     the payment came during grace.
+   - The plan's entitlements are extended to the new period end.
+   - The `membership_renewed` email is sent.
+6. Duplicates and races are prevented by:
+   - unique payment events;
+   - unique payment transactions per provider id;
+   - unique order keys;
+   - unique periods per (subscription, sequence) and per order;
+   - entitlement grant keys;
+   - row locks on PostgreSQL.
+
+   A delivery that crashed half-way is finished by the next delivery.
+7. A renewal for a membership whose first payment isn't confirmed yet is deferred and
+   retried by reconciliation.
+8. A charge after a membership ended is recorded as a paid order flagged for refund. It
+   never reactivates the membership.
+
+## Failed payments and grace
+
+- `invoice.payment_failed` is confirmed by re-fetching the subscription from Paystack.
+  - If the failure arrives while the current period is still paid and more than 3 days
+    from its end, it is treated as stale (out of order) and ignored.
+  - Otherwise the membership becomes `past_due`, or `grace` once the paid period is over.
+- In both states access continues until `current_period_end + MEMBERSHIP_GRACE_DAYS`.
+  This is fixed when grace starts and is never measured from "now". Entitlement
+  `expires_at` is set to the same moment. The `membership_payment_failed` email is sent.
+- A verified renewal at any point during grace restores `active`.
+- After grace the membership ends (`payment_failed`):
+  - membership entitlements are revoked;
+  - Paystack is asked to disable the subscription;
+  - the `membership_ended` email is sent.
+
+## Cancellation, resumption and payment method
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/api/v1/account/membership/cancel` | `subscription_id`; 10 per minute |
+| POST | `/api/v1/account/membership/resume` | `subscription_id`; 10 per minute |
+| POST | `/api/v1/account/membership/payment-method` | `subscription_id`; returns a Paystack-hosted `url`; 10 per minute |
+
+- **Cancel:**
+  - `POST /subscription/disable` (code + email token) runs first. If Paystack can't
+    confirm it, nothing changes locally (502).
+  - The membership then keeps access until the end of the paid period. Unpaid grace time
+    is dropped.
+  - Reconciliation ends it after that date.
+  - Before the Paystack subscription is linked (`subscription.create` not yet received),
+    cancel returns 409 `subscription_not_linked`.
+- **Resume** (only while paid time remains): `POST /subscription/enable`. If Paystack
+  refuses, the response is 409 `resume_unavailable`.
+- **Payment method:** `GET /subscription/:code/manage/link`. Only https links on
+  `paystack.com` are accepted. Nothing about the card is stored or proxied.
+- **Cancelled at Paystack:** a `subscription.not_renew` / `subscription.disable` webhook,
+  or reconciliation finding a non-renewing status, is confirmed by re-fetching and then
+  treated as a cancellation at period end.
+
+All of these act only on the signed-in customer's own membership; any other id returns 404.
+
+## Reconciliation: `flask memberships reconcile [--no-provider]`
+
+Run hourly by `deploy/systemd/tpa-membership-reconcile.{service,timer}.example`. It:
+
+- marks abandoned pending checkouts `incomplete`;
+- moves active memberships whose paid period ended without a verified renewal into grace
+  (after checking whether Paystack reports them cancelled);
+- moves `past_due` → `grace` once the paid period is over;
+- ends memberships whose grace or cancellation date has passed;
+- retries deferred membership webhooks.
+
+It is idempotent. It can end or shorten access but never extends it. If Paystack is
+unreachable, the time-based rules still apply.
+
+## Refunds and disputes
+
+- Refunds keep using the admin refund workflow.
+- When a refund of a membership payment is processed with "revoke access", the membership
+  ends (`refunded`): membership entitlements are revoked and Paystack is asked to stop
+  charging. A refund without revoke is recorded in the history only.
+- `charge.dispute.*` webhooks, for any order, flag the order for review and record a
+  `payment_disputed` membership event. Access is left to staff.
+
+## Notifications
+
+Email templates: `membership_renewed`, `membership_payment_failed`,
+`membership_cancelled` and `membership_ended`. They are sent through the existing email
+infrastructure and recorded in `email_deliveries`.
+
+## Not confirmed without a real Paystack test merchant
+
+These behaviours follow Paystack's public documentation, but the tests use the in-memory
+fake. Check each against the test dashboard before relying on it:
+
+- **Renewal charges:**
+  - that `GET /transaction/verify` includes the `plan` and the `customer.customer_code`;
+  - that the `charge.success` payload carries the plan.
+- **Invoice payloads:** the shape of `invoice.update` and `invoice.payment_failed`
+  (`subscription.subscription_code`, `transaction.reference`, `status`/`paid`), and when
+  Paystack sends them relative to its retries.
+- **Disable:** the exact status after `/subscription/disable` (`non-renewing` or
+  `cancelled`), and whether Paystack still charges the current cycle.
+- **Enable:** whether `/subscription/enable` works on a disabled subscription, and whether
+  the next payment date is kept.
+- **Manage link:** the host and lifetime of the `manage/link` URL.
+- **Disputes:** the dispute event names (`charge.dispute.create/remind/resolve`) and their
+  `transaction.reference` field.
+- **Customer codes:** that they are stable per customer email, since renewals are matched
+  by customer code plus plan code.
+
+Live billing stays disabled: `MEMBERSHIP_BILLING_MODE` only accepts `test`, and any
+live-mode charge is a mismatch.

@@ -6,6 +6,9 @@ Uses Paystack's documented REST API:
 - POST /refund, GET /refund/:id     -> refund status
 - POST /plan, GET /plan/:code       -> recurring plans (Batch 10.2, subscriptions)
 - GET  /subscription/:code          -> subscription status, plan and customer
+- POST /subscription/disable|enable -> stop / restart future charges (code + email token)
+- GET  /subscription/:code/manage/link -> hosted page where the customer updates their card
+  (Batch 10.3). Card details and authorisation codes never reach this application.
 - Webhooks: ``x-paystack-signature`` is the HMAC-SHA512 of the raw request body,
   keyed with the secret key.
 
@@ -293,6 +296,32 @@ class PaystackProvider:
             mode=("live" if domain == "live" else "test") if domain else None,
         )
 
+    def disable_subscription(self, subscription_code: str, email_token: str) -> None:
+        """Stop future charges (Paystack keeps the subscription record)."""
+        self._request(
+            "POST", "/subscription/disable", {"code": subscription_code, "token": email_token}
+        )
+
+    def enable_subscription(self, subscription_code: str, email_token: str) -> None:
+        self._request(
+            "POST", "/subscription/enable", {"code": subscription_code, "token": email_token}
+        )
+
+    def manage_link(self, subscription_code: str) -> str:
+        """A short-lived Paystack-hosted page for updating the payment method."""
+        data = self._request(
+            "GET", f"/subscription/{urllib.parse.quote(subscription_code, safe='')}/manage/link"
+        )
+        link = data.get("link")
+        host = urllib.parse.urlparse(link).hostname if isinstance(link, str) else None
+        if (
+            not host
+            or not link.startswith("https://")
+            or not (host == "paystack.com" or host.endswith(".paystack.com"))
+        ):
+            raise ProviderError("Paystack returned an invalid management link.")
+        return link
+
     # ---- webhooks -----------------------------------------------------------------------
 
     def verify_signature(self, raw_body: bytes, headers: dict[str, str]) -> bool:
@@ -314,6 +343,11 @@ class PaystackProvider:
         elif event_type.startswith("subscription."):
             reference = None
             ident = data.get("subscription_code") or data.get("id")
+        elif event_type.startswith(("invoice.", "charge.dispute.")):
+            # Invoices (renewal attempts) and disputes point at a transaction.
+            tx = data.get("transaction") if isinstance(data.get("transaction"), dict) else {}
+            reference = tx.get("reference") or data.get("transaction_reference")
+            ident = data.get("invoice_code") or data.get("id") or reference
         else:
             reference = data.get("reference")
             ident = data.get("id") or reference
@@ -323,7 +357,11 @@ class PaystackProvider:
             "plan_code": (
                 _code(data.get("plan"), "plan_code") or _code(data.get("plan_object"), "plan_code")
             )[:60],
-            "subscription_code": str(data.get("subscription_code") or "")[:60],
+            "subscription_code": (
+                str(data.get("subscription_code") or "")
+                or _code(data.get("subscription"), "subscription_code")
+            )[:60],
+            "invoice_code": str(data.get("invoice_code") or "")[:60],
             "customer_code": _code(data.get("customer"), "customer_code")[:60],
         }
         clean |= {k: v for k, v in codes.items() if v}

@@ -11,7 +11,7 @@ import { routes } from "@/config/navigation";
 import { formatDate } from "@/utils/format";
 import { AccountShell } from "../AccountShell";
 import { RequireCustomer } from "../RequireCustomer";
-import { useLoad } from "../hooks";
+import { redirectTo, useLoad } from "../hooks";
 
 const STATUS_LABEL = {
   pending: "Waiting for payment confirmation",
@@ -28,6 +28,27 @@ const EVENT_LABEL = {
   checkout_abandoned: "Checkout not completed",
   superseded: "Replaced by a newer checkout",
   duplicate_payment: "Extra payment flagged for review",
+  renewed: "Membership renewed",
+  payment_failed: "Renewal payment failed",
+  grace_started: "Paid period ended; payment still due",
+  cancellation_scheduled: "Cancelled (access continues to the period end)",
+  resumed: "Cancellation undone",
+  ended: "Membership ended",
+  refunded: "Payment refunded",
+  payment_disputed: "Payment disputed",
+  payment_method_link: "Opened payment method update",
+};
+const PERIOD_STATUS = {
+  paid: "Paid",
+  pending: "Awaiting payment",
+  failed: "Failed",
+  refunded: "Refunded",
+  void: "Void",
+};
+const ACTION_ERROR = {
+  subscription_not_linked:
+    "Your membership is still being set up with Paystack. Please try again in a few minutes.",
+  resume_unavailable: "Paystack couldn't resume this membership. You can join again once it ends.",
 };
 const INTERVAL = { month: "Monthly", year: "Yearly" };
 /** Paystack can confirm a payment a few seconds after the customer returns. */
@@ -148,7 +169,166 @@ function Included({ items }) {
   );
 }
 
-function CurrentMembership({ data }) {
+function BillingNotice({ sub }) {
+  if (sub.cancel_at_period_end && sub.status !== "ended")
+    return (
+      <Notice title="Your membership is cancelled">
+        It won&apos;t renew and you won&apos;t be charged again. You keep access until{" "}
+        {formatDate(sub.access_until)}.
+      </Notice>
+    );
+  if (sub.status === "past_due" || sub.status === "grace")
+    return (
+      <Notice title="Your renewal payment didn't go through">
+        Paystack will try again. Update your card to keep your membership; otherwise access ends on{" "}
+        {formatDate(sub.access_until)}.
+      </Notice>
+    );
+  return null;
+}
+
+/** Cancel (at period end), resume, and the Paystack-hosted card update page. */
+function ManageMembership({ sub, onChanged }) {
+  const shopApi = useShopApi();
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const run = async (name, action) => {
+    setBusy(name);
+    setError("");
+    try {
+      await action();
+      setConfirming(false);
+      onChanged();
+    } catch (err) {
+      setError(
+        ACTION_ERROR[err?.details?.code] ??
+          err?.message ??
+          "Something went wrong. Please try again in a moment.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+  const body = sub.id;
+  const updateCard = () =>
+    run("card", async () => {
+      const res = await shopApi.membershipPaymentMethod(body);
+      redirectTo.go(res.data.url);
+    });
+  if (!sub.can_cancel && !sub.can_resume && !sub.can_update_payment_method) return null;
+  return (
+    <section aria-labelledby="manage-heading" className="mt-8 space-y-3">
+      <h2 id="manage-heading" className="text-xl font-medium">
+        Manage membership
+      </h2>
+      <div className="flex flex-wrap gap-3">
+        {sub.can_update_payment_method && (
+          <button
+            type="button"
+            onClick={updateCard}
+            disabled={busy !== null}
+            className={buttonStyles({ variant: "outline" })}
+          >
+            {busy === "card" ? "Opening Paystack…" : "Update payment method"}
+          </button>
+        )}
+        {sub.can_resume && (
+          <button
+            type="button"
+            onClick={() => run("resume", () => shopApi.resumeMembership(body))}
+            disabled={busy !== null}
+            className={buttonStyles({})}
+          >
+            {busy === "resume" ? "Resuming…" : "Resume membership"}
+          </button>
+        )}
+        {sub.can_cancel && !confirming && (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            disabled={busy !== null}
+            className={buttonStyles({ variant: "outline" })}
+          >
+            Cancel membership
+          </button>
+        )}
+      </div>
+      {confirming && (
+        <div role="group" aria-label="Confirm cancellation" className="rounded-xl bg-cream p-4">
+          <p>
+            Cancel your membership? You won&apos;t be charged again and you keep access until{" "}
+            {formatDate(sub.current_period_end)}.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => run("cancel", () => shopApi.cancelMembership(body))}
+              disabled={busy !== null}
+              className={buttonStyles({})}
+            >
+              {busy === "cancel" ? "Cancelling…" : "Yes, cancel at period end"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className={buttonStyles({ variant: "outline" })}
+            >
+              Keep my membership
+            </button>
+          </div>
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-red-800">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function BillingHistory({ periods }) {
+  if (!periods?.length) return null;
+  return (
+    <section aria-labelledby="billing-heading" className="mt-8">
+      <h2 id="billing-heading" className="text-xl font-medium">
+        Billing history
+      </h2>
+      <table className="mt-3 w-full text-left text-sm">
+        <caption className="sr-only">Billing periods</caption>
+        <thead>
+          <tr className="text-muted">
+            <th scope="col" className="py-1 pr-3 font-medium">
+              Period
+            </th>
+            <th scope="col" className="py-1 pr-3 font-medium">
+              Amount
+            </th>
+            <th scope="col" className="py-1 font-medium">
+              Status
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {periods.map((p) => (
+            <tr key={p.sequence} className="border-t border-charcoal/10">
+              <td className="py-2 pr-3">
+                {p.period_start
+                  ? `${formatDate(p.period_start)} – ${formatDate(p.period_end)}`
+                  : "—"}
+              </td>
+              <td className="py-2 pr-3">{p.amount.formatted}</td>
+              <td className="py-2">{PERIOD_STATUS[p.status] ?? p.status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function CurrentMembership({ data, onChanged }) {
   const sub = data.subscription;
   return (
     <section
@@ -165,6 +345,9 @@ function CurrentMembership({ data }) {
         {INTERVAL[sub.interval]} · {sub.price.formatted}
         {sub.test_mode && " · Test mode (no real money)"}
       </p>
+      <div className="mt-4">
+        <BillingNotice sub={sub} />
+      </div>
       {sub.status === "active" && sub.current_period_end && (
         <p className="mt-3">
           Current period: {formatDate(sub.current_period_start)} to{" "}
@@ -191,7 +374,9 @@ function CurrentMembership({ data }) {
           </Link>
         </p>
       )}
+      <ManageMembership sub={sub} onChanged={onChanged} />
       <Included items={data.included} />
+      <BillingHistory periods={data.periods} />
       {data.events.length > 0 && (
         <section aria-labelledby="events-heading" className="mt-8">
           <h2 id="events-heading" className="text-xl font-medium">
@@ -226,7 +411,7 @@ function MembershipContent() {
     <div className="max-w-3xl space-y-6">
       <ReturnNotice state={returnState} />
       {data.subscription ? (
-        <CurrentMembership data={data} />
+        <CurrentMembership data={data} onChanged={reload} />
       ) : (
         <EmptyState
           icon={Crown}

@@ -229,6 +229,8 @@ class FakePaystack:
         self.subscriptions = {}
         self.fail_initialize = False
         self.fail_verify = False
+        self.fail_disable = False
+        self.fail_enable = False
         self.calls = []
         self._next_id = 5000
 
@@ -291,6 +293,24 @@ class FakePaystack:
             if code not in self.plans:
                 raise ProviderError("Paystack: Plan not found")
             return dict(self.plans[code])
+        if path in ("/subscription/disable", "/subscription/enable"):
+            sub = self.subscriptions.get(body["code"])
+            if sub is None or body["token"] != sub["email_token"]:
+                raise ProviderError("Paystack: Subscription not found")
+            if path.endswith("enable"):
+                if self.fail_enable:
+                    raise ProviderError("Paystack: Subscription cannot be enabled")
+                sub["status"] = "active"
+            else:
+                if self.fail_disable:
+                    raise ProviderError("Paystack could not be reached. Please try again.")
+                sub["status"] = "non-renewing"
+            return {}
+        if path.startswith("/subscription/") and path.endswith("/manage/link"):
+            code = path.split("/")[2]
+            if code not in self.subscriptions:
+                raise ProviderError("Paystack: Subscription not found")
+            return {"link": f"https://paystack.com/manage/subscriptions/{code.lower()}?t=x"}
         if path.startswith("/subscription/"):
             code = path.rsplit("/", 1)[1]
             if code not in self.subscriptions:
@@ -334,6 +354,25 @@ class FakePaystack:
             "next_payment_date": "2026-11-23T10:00:00.000Z",
         }
         return dict(self.subscriptions[code])
+
+    def charge_renewal(self, subscription_code, *, amount=None, status="success", domain="test"):
+        """A recurring charge Paystack makes on its own (its own reference, no checkout)."""
+        sub = self.subscriptions[subscription_code]
+        plan = self.plans[sub["plan"]["plan_code"]]
+        ref = f"rnw_{self._id()}"
+        self.transactions[ref] = {
+            "id": self._id(),
+            "reference": ref,
+            "amount": plan["amount"] if amount is None else amount,
+            "currency": plan["currency"],
+            "status": status,
+            "domain": domain,
+            "channel": "card",
+            "paid_at": "2026-11-23T10:00:00.000Z",
+            "plan": plan["plan_code"],
+            "customer": {"customer_code": sub["customer"]["customer_code"]},
+        }
+        return dict(self.transactions[ref])
 
     def webhook(self, event, data, secret=TEST_SECRET):
         import hashlib

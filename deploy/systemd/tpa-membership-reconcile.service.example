@@ -1,0 +1,17 @@
+# /etc/systemd/system/tpa-membership-reconcile.service  (example)
+# Membership lifecycle housekeeping (Batch 10.3): starts grace periods for unpaid renewals,
+# ends memberships whose grace or cancellation date has passed (revoking membership-only
+# access), confirms cancellations with Paystack and retries webhooks that arrived early.
+# Idempotent and safe to overlap with webhooks; it never extends paid access.
+[Unit]
+Description=Think Positive Always: reconcile membership subscriptions
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=tpa
+Group=www-data
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi memberships reconcile

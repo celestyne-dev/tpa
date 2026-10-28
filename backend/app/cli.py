@@ -338,6 +338,24 @@ def commerce_seed_catalogue():
     click.echo("Catalogue: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
+memberships_cli = AppGroup("memberships", help="Membership subscriptions (Paystack test mode).")
+
+
+@memberships_cli.command("reconcile")
+@click.option(
+    "--no-provider", is_flag=True, help="Skip Paystack status checks (time-based rules only)."
+)
+def memberships_reconcile(no_provider: bool):
+    """Start grace periods, end expired or cancelled memberships, retry early webhooks.
+
+    Idempotent; it can shorten or end access but never extends paid access.
+    """
+    from .services.memberships.lifecycle import reconcile
+
+    counts = reconcile(check_provider=not no_provider)
+    click.echo("Memberships: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+
+
 newsletter_cli = AppGroup("newsletter", help="The Positive Reset: email queue, automations.")
 
 
@@ -466,6 +484,7 @@ def register_cli(app: Flask) -> None:
         publish_cli,
         media_cli,
         commerce_cli,
+        memberships_cli,
         newsletter_cli,
         storage_cli,
     ):

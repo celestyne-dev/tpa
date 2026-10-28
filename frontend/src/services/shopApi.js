@@ -64,6 +64,12 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
     membershipCheckout: (body) => post("/account/membership/checkout", body),
     verifyMembership: (subscriptionId) =>
       post("/account/membership/verify", { subscription_id: subscriptionId }),
+    cancelMembership: (subscriptionId) =>
+      post("/account/membership/cancel", { subscription_id: subscriptionId }),
+    resumeMembership: (subscriptionId) =>
+      post("/account/membership/resume", { subscription_id: subscriptionId }),
+    membershipPaymentMethod: (subscriptionId) =>
+      post("/account/membership/payment-method", { subscription_id: subscriptionId }),
     checkout: (body) => post("/checkout", body),
     checkoutOrder: (id) => get(`/checkout/orders/${enc(id)}`),
     verifyOrder: (id) => post(`/checkout/orders/${enc(id)}/verify`),

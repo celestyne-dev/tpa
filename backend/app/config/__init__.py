@@ -219,6 +219,9 @@ class BaseConfig:
     # verified in the Paystack *test* dashboard; anything else keeps membership checkout
     # closed. Live subscriptions are not supported yet and are always refused.
     MEMBERSHIP_BILLING_MODE = os.environ.get("MEMBERSHIP_BILLING_MODE", "disabled").strip().lower()
+    # Days a member keeps access after an unpaid renewal date (counted from the end of the
+    # paid period, never from "now"), while Paystack retries the charge. 0-14.
+    MEMBERSHIP_GRACE_DAYS = max(0, min(14, int(os.environ.get("MEMBERSHIP_GRACE_DAYS", "3"))))
 
     # ---- Newsletter & email marketing (The Positive Reset) ----
     # Delivery backend for newsletter mail: none | console (development) | memory (tests) |

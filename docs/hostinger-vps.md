@@ -193,7 +193,7 @@ Copy the examples from `deploy/systemd/` to `/etc/systemd/system/` (dropping
 sudo systemctl daemon-reload
 sudo systemctl enable --now tpa-api tpa-publish-worker tpa-email-worker
 sudo systemctl enable --now tpa-publish-due.timer tpa-media-prune.timer \
-  tpa-storage-maintenance.timer tpa-backup.timer
+  tpa-storage-maintenance.timer tpa-backup.timer tpa-membership-reconcile.timer
 ```
 
 | Unit                            | Purpose                                                                                                       |
@@ -205,6 +205,7 @@ sudo systemctl enable --now tpa-publish-due.timer tpa-media-prune.timer \
 | `tpa-media-prune.timer`         | removes replaced image versions after their retention period                                                  |
 | `tpa-storage-maintenance.timer` | hourly: removes abandoned temporary uploads, runs `flask storage check` (fails the unit on critical problems) |
 | `tpa-backup.timer`              | nightly backup (`docs/backups.md`)                                                                            |
+| `tpa-membership-reconcile.timer` | hourly: membership grace periods, expiry and cancellations (`flask memberships reconcile`, `docs/memberships.md`) |
 
 ## 8. React client and prerendered pages
 

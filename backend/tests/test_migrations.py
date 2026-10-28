@@ -1579,3 +1579,55 @@ def test_batch102_subscription_upgrade_preserves_orders_and_downgrade_protects_b
         db.session.remove()
         upgrade(directory=MIGRATIONS)
         assert set(sync_rbac().values()) == {0}
+
+
+def test_batch103_lifecycle_upgrade_is_additive_and_downgrade_protects_state(tmp_path):
+    import pytest
+
+    app = _app(tmp_path, "batch103.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="c9e1a7d5f326")
+        counts = ("customers", "orders", "customer_subscriptions", "subscription_periods")
+        before = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        db.session.remove()
+        upgrade(directory=MIGRATIONS, revision="d4a2f7c9e815")
+        columns = {c["name"] for c in inspect(db.engine).get_columns("customer_subscriptions")}
+        assert {
+            "cancel_at_period_end",
+            "cancel_requested_at",
+            "past_due_since",
+            "last_reconciled_at",
+        } <= columns
+        indexes = {i["name"] for i in inspect(db.engine).get_indexes("subscription_periods")}
+        assert "uq_subscription_periods_order" in indexes
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert after == before
+        assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="c9e1a7d5f326")
+        columns = {c["name"] for c in inspect(db.engine).get_columns("customer_subscriptions")}
+        assert "cancel_at_period_end" not in columns
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+        # Refuses while lifecycle state exists (here: a scheduled cancellation).
+        db.session.execute(text("PRAGMA foreign_keys=OFF"))
+        db.session.execute(
+            text(
+                "INSERT INTO customer_subscriptions (public_id, customer_id, plan_id, price_id, "
+                "provider_plan_id, status, provider, mode, interval, currency, amount_minor, "
+                "idempotency_key, end_reason, lock_version, cancel_at_period_end, created_at, "
+                "updated_at) VALUES ('s1', 1, 1, 1, 1, 'ended', 'paystack', 'test', 'month', "
+                "'USD', 999, 'k', '', 1, 1, '2026-10-28', '2026-10-28')"
+            )
+        )
+        db.session.commit()
+        db.session.remove()
+        with pytest.raises(SystemExit):
+            downgrade(directory=MIGRATIONS, revision="c9e1a7d5f326")

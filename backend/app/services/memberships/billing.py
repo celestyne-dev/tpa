@@ -19,7 +19,8 @@ Reuses the commerce payment infrastructure instead of a second engine:
   published, eligible products (expiring at the period end) and course enrolments are
   synced. Separately purchased entitlements are separate rows and are never touched.
 
-Not in this batch: renewals, failed-payment recovery, cancellation and live payments.
+Renewals, failed payments, grace, cancellation and reconciliation: ``lifecycle`` (10.3).
+Live payments remain disabled.
 """
 
 from __future__ import annotations
@@ -526,13 +527,30 @@ def start_checkout(customer: Customer, data: Any) -> dict[str, Any]:
 
 
 def subscription_for_order(order: Order) -> CustomerSubscription | None:
-    return db.session.scalar(
+    """The subscription an order pays for: its first order, or a renewal period's order."""
+    sub = db.session.scalar(
         select(CustomerSubscription).where(CustomerSubscription.order_id == order.id)
     )
+    if sub is None:
+        period = db.session.scalar(
+            select(SubscriptionPeriod).where(SubscriptionPeriod.order_id == order.id)
+        )
+        sub = period.subscription if period is not None else None
+    return sub
+
+
+def _renewal_period(order: Order) -> SubscriptionPeriod | None:
+    period = db.session.scalar(
+        select(SubscriptionPeriod).where(SubscriptionPeriod.order_id == order.id)
+    )
+    return period if period is not None and period.sequence > 1 else None
 
 
 def charge_problems(order: Order, tx: VerifiedTransaction) -> list[str]:
-    """Extra checks for a subscription's first charge: it must be for the expected plan."""
+    """Extra checks for a subscription charge: it must be for the expected plan (and, for a
+    renewal, the membership's Paystack customer)."""
+    from .lifecycle import renewal_problems
+
     sub = subscription_for_order(order)
     if sub is None:
         return ["no subscription for this order"]
@@ -541,15 +559,45 @@ def charge_problems(order: Order, tx: VerifiedTransaction) -> list[str]:
         return [f"plan {tx.plan_code or 'none'} does not match {expected}"]
     if sub.mode != tx.mode:
         return [f"{tx.mode} payment for a {sub.mode} subscription"]
+    if _renewal_period(order) is not None:
+        return renewal_problems(sub, tx)
     return []
+
+
+def grant_plan_access(sub: CustomerSubscription, until: datetime) -> int:
+    """Grant (or extend to ``until``) the plan's published, eligible products."""
+    from ..commerce import access
+
+    customer = db.session.get(Customer, sub.customer_id)
+    plan = db.session.get(MembershipPlan, sub.plan_id)
+    granted = 0
+    for item in plan.access:
+        product = item.product
+        if product.status != "published" or plan_service.eligibility_problem(product):
+            continue
+        access.grant(
+            customer,
+            product,
+            source="membership",
+            reference=f"subscription-{sub.id}",
+            expires_at=until,
+            reason=f"Membership {plan.name}",
+        )
+        granted += 1
+    return granted
 
 
 def activate_from_order(order: Order, tx: VerifiedTransaction, source: str) -> int:
     """Activate the subscription paid by ``order`` (after verification). Returns the number
-    of entitlements granted. Idempotent: a second call does nothing."""
-    from ..commerce import access
+    of entitlements granted. Idempotent: a second call does nothing. Renewal orders extend
+    the membership instead (``lifecycle.apply_renewal``)."""
     from ..courses.learning import sync
 
+    renewal = _renewal_period(order)
+    if renewal is not None:
+        from .lifecycle import apply_renewal
+
+        return apply_renewal(order, renewal, tx, source)
     sub = subscription_for_order(order)
     if sub is None or sub.status == "active" and sub.activated_at is not None:
         return 0
@@ -582,21 +630,7 @@ def activate_from_order(order: Order, tx: VerifiedTransaction, source: str) -> i
     if period is not None:
         period.status = "paid"
         period.period_start, period.period_end = start, end
-    granted = 0
-    plan = db.session.get(MembershipPlan, sub.plan_id)
-    for item in plan.access:
-        product = item.product
-        if product.status != "published" or plan_service.eligibility_problem(product):
-            continue
-        access.grant(
-            customer,
-            product,
-            source="membership",
-            reference=f"subscription-{sub.id}",
-            expires_at=end,
-            reason=f"Membership {plan.name}",
-        )
-        granted += 1
+    granted = grant_plan_access(sub, end)
     _event(
         sub,
         "activated",
@@ -615,15 +649,20 @@ def activate_from_order(order: Order, tx: VerifiedTransaction, source: str) -> i
     return granted
 
 
-def activation_email_context(order: Order) -> dict[str, Any] | None:
+def membership_email(order: Order) -> tuple[str, dict[str, Any]] | None:
+    """The membership email for a paid subscription order: welcome or renewal."""
     sub = subscription_for_order(order)
     if sub is None or sub.status != "active":
         return None
-    return {
+    period = _renewal_period(order)
+    if period is not None and period.status != "paid":
+        return None  # the payment did not extend the membership (flagged for review)
+    context = {
         "plan_name": sub.plan.name,
         "period_end": sub.current_period_end.strftime("%d %B %Y") if sub.current_period_end else "",
         "test": sub.mode == "test",
     }
+    return ("membership_renewed" if period is not None else "membership_activated"), context
 
 
 # ---- webhooks ---------------------------------------------------------------------------------
@@ -722,7 +761,19 @@ def subscription_dict(sub: CustomerSubscription) -> dict[str, Any]:
         "created_at": iso(sub.created_at),
         "checkout_url": checkout_url,
         "receipt_order": order.public_id if order is not None and order.status == "paid" else None,
+        "cancel_at_period_end": sub.cancel_at_period_end,
+        "cancel_requested_at": iso(sub.cancel_requested_at),
+        "past_due_since": iso(sub.past_due_since),
+        "ended_at": iso(sub.ended_at),
+        "end_reason": sub.end_reason or None,
+        **lifecycle_actions(sub),
     }
+
+
+def lifecycle_actions(sub: CustomerSubscription) -> dict[str, bool]:
+    from .lifecycle import actions
+
+    return actions(sub)
 
 
 def customer_view(customer: Customer) -> dict[str, Any]:
@@ -737,8 +788,12 @@ def customer_view(customer: Customer) -> dict[str, Any]:
         current = None
     included: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
+    periods: list[dict[str, Any]] = []
     if current is not None:
-        if current.status == "active":
+        from .lifecycle import periods_view
+
+        periods = periods_view(current)
+        if current.status in ("active", "past_due", "grace"):
             included = plan_service.public_plan(current.plan)["included"]
         events = [
             {"type": e.type, "created_at": iso(e.created_at)}
@@ -752,6 +807,7 @@ def customer_view(customer: Customer) -> dict[str, Any]:
         "subscription": subscription_dict(current) if current else None,
         "included": included,
         "events": events,
+        "periods": periods,
         "history": [subscription_dict(s) for s in rows if s is not current][:20],
         "billing": billing_status(customer),
     }

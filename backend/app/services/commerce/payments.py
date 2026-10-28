@@ -322,14 +322,15 @@ def _send_paid_emails(order: Order, receipt: Receipt, tx: VerifiedTransaction) -
     emails.send("order_confirmation", order.email, ctx, customer=customer, order=order)
     emails.send("payment_received", order.email, ctx, customer=customer, order=order)
     if order.kind == "subscription":
-        from ..memberships.billing import activation_email_context
+        from ..memberships.billing import membership_email
 
-        welcome = activation_email_context(order)
-        if welcome is not None:
+        notice = membership_email(order)  # welcome (first payment) or renewal
+        if notice is not None:
+            template, context = notice
             emails.send(
-                "membership_activated",
+                template,
                 order.email,
-                {"name": customer.display_name, **welcome},
+                {"name": customer.display_name, **context},
                 customer=customer,
                 order=order,
             )
@@ -458,6 +459,19 @@ def process_event(record: PaymentEvent) -> dict[str, Any]:
             from ..memberships.billing import process_subscription_created
 
             status, result = process_subscription_created(record)
+        elif record.event_type == "invoice.update":
+            # A renewal invoice was paid: verified like any charge (by its transaction).
+            status, result = _process_invoice_paid(record)
+        elif record.event_type == "invoice.payment_failed":
+            from ..memberships.lifecycle import process_payment_failed
+
+            status, result = process_payment_failed(record)
+        elif record.event_type in ("subscription.not_renew", "subscription.disable"):
+            from ..memberships.lifecycle import process_subscription_disabled
+
+            status, result = process_subscription_disabled(record)
+        elif record.event_type.startswith("charge.dispute."):
+            status, result = _process_dispute(record)
         else:
             status, result = "ignored", "Event type not used by this application."
     except ProviderError as exc:
@@ -487,7 +501,11 @@ def _attempt_for(reference: str | None) -> PaymentAttempt | None:
 def _process_charge(record: PaymentEvent) -> tuple[str, str]:
     attempt = _attempt_for(record.reference)
     if attempt is None:
-        return "ignored", "No order uses this payment reference."
+        # Possibly a membership renewal (Paystack creates its own reference); verified
+        # with Paystack and recorded through apply_verified, or ignored.
+        from ..memberships.lifecycle import process_unmatched_charge
+
+        return process_unmatched_charge(record)
     order = db.session.get(Order, attempt.order_id)
     record.order_id = order.id
     # Never trust the webhook body alone: confirm with the provider's verify API.
@@ -498,6 +516,42 @@ def _process_charge(record: PaymentEvent) -> tuple[str, str]:
     if outcome in ("paid", "already_paid"):
         return "processed", f"Order {order.number}: {outcome.replace('_', ' ')}."
     return "processed", f"Payment status: {tx.status}."
+
+
+def _process_invoice_paid(record: PaymentEvent) -> tuple[str, str]:
+    if not record.reference:
+        return "ignored", "Invoice without a transaction."
+    if (record.payload or {}).get("raw_status", "").lower() not in ("success", "paid"):
+        return "ignored", "Invoice not paid."
+    if _attempt_for(record.reference) is not None:
+        return "processed", "Payment already handled through its charge."
+    from ..memberships.lifecycle import process_unmatched_charge
+
+    return process_unmatched_charge(record)
+
+
+def _process_dispute(record: PaymentEvent) -> tuple[str, str]:
+    """Chargebacks are flagged for staff (who refund or revoke); access is not changed
+    automatically and nothing is treated as a payment."""
+    attempt = _attempt_for(record.reference)
+    if attempt is None:
+        return "ignored", "No order uses this payment reference."
+    order = db.session.get(Order, attempt.order_id)
+    record.order_id = order.id
+    status = str((record.payload or {}).get("raw_status") or record.event_type.rsplit(".", 1)[1])
+    order.needs_review = True
+    order.review_reason = f"Payment disputed at Paystack ({status[:40]})."[:300]
+    audit_service.record(
+        "payment.disputed",
+        "order",
+        order.id,
+        details={"event": record.event_type, "status": status[:40]},
+    )
+    if order.kind == "subscription":
+        from ..memberships.lifecycle import on_dispute
+
+        on_dispute(order, record)
+    return "processed", f"Order {order.number} flagged: dispute {status[:40]}."
 
 
 def _process_refund_event(record: PaymentEvent) -> tuple[str, str]:
@@ -783,6 +837,11 @@ def _complete_refund(refund: Refund, actor: User | None, via: str) -> None:
             )
         ):
             revoked += ent_service.revoke(ent, f"Refunded (refund #{refund.id})", actor)
+    if order.kind == "subscription":
+        # Membership access comes from the subscription, not the order's entitlements.
+        from ..memberships.lifecycle import on_refund
+
+        on_refund(order, refund, actor)
     audit_service.record(
         "refund.processed",
         "order",

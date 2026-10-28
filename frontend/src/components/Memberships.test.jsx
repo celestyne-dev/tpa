@@ -332,6 +332,59 @@ describe("account membership page", () => {
     );
   });
 
+  it("cancels at period end, resumes, and opens the Paystack card page", async () => {
+    const user = userEvent.setup();
+    const go = vi.spyOn(redirectTo, "go").mockImplementation(() => {});
+    signIn();
+    const shopApi = member({ subscription: ACTIVE_SUB });
+    renderApp("/account/membership", { shopApi });
+    const manage = await screen.findByRole("region", { name: "Manage membership" });
+    await user.click(within(manage).getByRole("button", { name: "Update payment method" }));
+    await waitFor(() =>
+      expect(go).toHaveBeenCalledWith("https://paystack.com/manage/subscriptions/sub1"),
+    );
+    expect(shopApi.membershipPaymentMethod).toHaveBeenCalledWith("sub1");
+
+    await user.click(within(manage).getByRole("button", { name: "Cancel membership" }));
+    const confirm = screen.getByRole("group", { name: "Confirm cancellation" });
+    expect(confirm).toHaveTextContent("you keep access until");
+    await user.click(within(confirm).getByRole("button", { name: "Yes, cancel at period end" }));
+    expect(shopApi.cancelMembership).toHaveBeenCalledWith("sub1");
+    expect(await screen.findByText("Your membership is cancelled")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Resume membership" }));
+    expect(shopApi.resumeMembership).toHaveBeenCalledWith("sub1");
+    expect(await screen.findByRole("button", { name: "Cancel membership" })).toBeInTheDocument();
+  });
+
+  it("explains a past-due membership and shows billing history", async () => {
+    signIn();
+    renderApp("/account/membership", {
+      shopApi: member({ subscription: { ...ACTIVE_SUB, status: "past_due" } }),
+    });
+    expect(await screen.findByText("Your renewal payment didn't go through")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Billing periods" })).toBeInTheDocument();
+  });
+
+  it("shows server errors from management actions", async () => {
+    const user = userEvent.setup();
+    signIn();
+    const shopApi = member({ subscription: ACTIVE_SUB });
+    shopApi.cancelMembership.mockImplementationOnce(() =>
+      Promise.reject(
+        new ApiError({
+          status: 409,
+          code: "conflict",
+          message: "x",
+          details: { code: "subscription_not_linked" },
+        }),
+      ),
+    );
+    renderApp("/account/membership", { shopApi });
+    await user.click(await screen.findByRole("button", { name: "Cancel membership" }));
+    await user.click(screen.getByRole("button", { name: "Yes, cancel at period end" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("still being set up with Paystack");
+  });
+
   it("shows the current period for active members", async () => {
     signIn();
     renderApp("/account/membership", { shopApi: member({ subscription: ACTIVE_SUB }) });

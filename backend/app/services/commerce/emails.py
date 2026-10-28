@@ -151,6 +151,42 @@ def render(template: str, context: dict[str, Any]) -> tuple[str, str]:
             + ("\n\nTest mode: no real money was charged." if context.get("test") else "")
             + _signature(),
         )
+    test_note = "\n\nTest mode: no real money was charged." if context.get("test") else ""
+    if template == "membership_renewed":
+        return (
+            f"Your {context['plan_name']} membership has renewed",
+            f"Hello {name},\n\nThank you: your renewal payment was verified and your membership "
+            f"continues. Current period ends: {context['period_end']}.\n\n"
+            f"{_site()}/account/membership" + test_note + _signature(),
+        )
+    if template == "membership_payment_failed":
+        return (
+            f"We couldn't take your {context['plan_name']} payment",
+            f"Hello {name},\n\nYour membership renewal payment didn't go through. Paystack will "
+            "try again; you can also update your card from your membership page:\n\n"
+            f"{_site()}/account/membership\n\nIf the payment still hasn't succeeded, your "
+            f"membership access ends on {context['access_until']}. Anything you bought "
+            "separately stays yours." + test_note + _signature(),
+        )
+    if template == "membership_cancelled":
+        return (
+            f"Your {context['plan_name']} membership is cancelled",
+            f"Hello {name},\n\nYour membership won't renew and you won't be charged again. You "
+            f"keep access until {context['access_until']}. You can resume before then from "
+            f"your membership page:\n\n{_site()}/account/membership" + test_note + _signature(),
+        )
+    if template == "membership_ended":
+        why = {
+            "payment_failed": "because the renewal payment didn't go through",
+            "cancelled": "as you requested",
+            "refunded": "because the payment was refunded",
+        }.get(context.get("reason", ""), "")
+        return (
+            f"Your {context['plan_name']} membership has ended",
+            f"Hello {name},\n\nYour membership has ended{(' ' + why) if why else ''}. Courses "
+            "and resources you bought separately stay in your account. You're welcome back "
+            f"any time:\n\n{_site()}/membership" + test_note + _signature(),
+        )
     if template == "refund_confirmation":
         return (
             f"Refund processed for order {order.number}",
@@ -174,6 +210,10 @@ TEMPLATES = (
     "guest_access",
     "refund_confirmation",
     "membership_activated",
+    "membership_renewed",
+    "membership_payment_failed",
+    "membership_cancelled",
+    "membership_ended",
 )
 
 

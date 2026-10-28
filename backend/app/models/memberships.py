@@ -19,12 +19,14 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     ForeignKey,
     Index,
     String,
     Text,
     UniqueConstraint,
+    false,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -234,6 +236,14 @@ class CustomerSubscription(db.Model):
     activated_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     end_reason: Mapped[str] = mapped_column(String(60), default="", nullable=False)
+    # Batch 10.3 lifecycle: cancellation takes effect at the end of the paid period;
+    # past_due_since marks the first unpaid renewal of the current cycle.
+    cancel_at_period_end: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    past_due_since: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    last_reconciled_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     lock_version: Mapped[int] = mapped_column(default=1, nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -253,6 +263,8 @@ class SubscriptionPeriod(db.Model):
     __table_args__ = (
         CheckConstraint(f"status IN {PERIOD_STATUSES}", name="status_valid"),
         UniqueConstraint("subscription_id", "sequence", name="uq_subscription_periods_sequence"),
+        # One billing period per order (a renewal order pays exactly one period).
+        Index("uq_subscription_periods_order", "order_id", unique=True),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

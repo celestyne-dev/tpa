@@ -2,7 +2,8 @@
 
 Only published plans, their current prices and their published included courses and
 resources are returned. ``/account/membership``… (Batch 10.2): the signed-in customer's own
-membership, test-mode checkout and server-side payment verification.
+membership, test-mode checkout and server-side payment verification. Batch 10.3: cancel at
+period end, resume, and a Paystack-hosted payment-method link.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from flask_restful import Resource
 
 from ..auth.customer_session import current_customer, require_customer
 from ..extensions import db, limiter
-from ..services.memberships import billing, plans
+from ..services.memberships import billing, lifecycle, plans
 from ..utils.errors import ValidationError
 from ..utils.responses import success
 
@@ -62,10 +63,43 @@ class AccountMembershipVerifyResource(Resource):
         return success(data)
 
 
+class AccountMembershipCancelResource(Resource):
+    method_decorators = {"post": [limiter.limit("10 per minute")]}
+
+    @require_customer
+    def post(self):
+        data = lifecycle.cancel(current_customer(), _body())
+        db.session.commit()
+        return success(data)
+
+
+class AccountMembershipResumeResource(Resource):
+    method_decorators = {"post": [limiter.limit("10 per minute")]}
+
+    @require_customer
+    def post(self):
+        data = lifecycle.resume(current_customer(), _body())
+        db.session.commit()
+        return success(data)
+
+
+class AccountMembershipPaymentMethodResource(Resource):
+    method_decorators = {"post": [limiter.limit("10 per minute")]}
+
+    @require_customer
+    def post(self):
+        data = lifecycle.payment_method_link(current_customer(), _body().get("subscription_id"))
+        db.session.commit()
+        return success(data)
+
+
 PUBLIC_MEMBERSHIP_ROUTES = [
     (MembershipPlansPublicResource, "/memberships"),
     (MembershipPlanPublicResource, "/memberships/<string:slug>"),
     (AccountMembershipResource, "/account/membership"),
     (AccountMembershipCheckoutResource, "/account/membership/checkout"),
     (AccountMembershipVerifyResource, "/account/membership/verify"),
+    (AccountMembershipCancelResource, "/account/membership/cancel"),
+    (AccountMembershipResumeResource, "/account/membership/resume"),
+    (AccountMembershipPaymentMethodResource, "/account/membership/payment-method"),
 ]
