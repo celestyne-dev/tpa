@@ -41,6 +41,12 @@ fi
 pg() { if [[ -n "$PG_BIN" ]]; then "$PG_BIN/$1" "${@:2}"; else "$@"; fi; }
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*"; }
 
+# shellcheck source=tpa-pg-env.sh
+. "$(dirname "$(readlink -f "$0")")/tpa-pg-env.sh"
+# The password goes to PGPASSWORD, never onto the pg_dump/psql command line.
+pg_url_to_env "$DATABASE_URL"
+DATABASE_URL="$PG_URL"
+
 STAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
 WORK="$BACKUP_DIR/$STAMP.partial"
 FINAL="$BACKUP_DIR/$STAMP"

@@ -317,6 +317,27 @@ sudo systemctl restart tpa-api tpa-publish-worker
   bookmarks, or lessons have unpublished drafts (see `docs/courses.md` §19). Restore from the
   backup taken above if you must roll back with learner data present.
 
+## Upgrading to Batch 12.3 (deployment and operations hardening)
+
+No migration (head stays `a7c2e9f4b318`). The staging runbook is `docs/operations.md`.
+
+- **Nginx:** install the new `tpa-security-headers.conf` snippet, then replace the site
+  with `deploy/nginx/tpa.conf.example` (set the domain again) and run `nginx -t`.
+  - Security headers now reach every page; before, locations with their own `add_header`
+    dropped them.
+  - Proxy headers are set once for every proxied location, including `X-Forwarded-Host`.
+  - Unknown hostnames are refused.
+  - Learners' assignment uploads get their own 21 MB limit.
+- **systemd:** recopy `tpa-api.service` (Redis ordering, `systemctl reload` support,
+  graceful timeout) and the oneshot units, then run `daemon-reload`. Disable
+  `tpa-publish-due.timer` if it was enabled together with the worker.
+- **Settings** (optional; defaults shown): `RATELIMIT_KEY_PREFIX=tpa` and
+  `RATELIMIT_IN_MEMORY_FALLBACK_ENABLED=true`.
+- **Backups:** copy the new `deploy/backup/tpa-pg-env.sh` next to the scripts. It is
+  sourced by both scripts and keeps the database password off the command line.
+- **New:** run `flask deploy check` before each deploy. `/api/v1/health/ready` is
+  available for monitoring.
+
 ## Frontend build (manual)
 
 ```bash
@@ -331,6 +352,7 @@ Set `VITE_ALLOW_INDEXING=true` only for the launch build, after the domain is ve
 
 ```bash
 sudo cp deploy/nginx/tpa.conf.example /etc/nginx/sites-available/tpa
+sudo cp deploy/nginx/tpa-security-headers.conf.example /etc/nginx/snippets/tpa-security-headers.conf
 sudo cp deploy/nginx/redirects.conf.example /etc/nginx/snippets/tpa-redirects.conf
 sudo ln -s /etc/nginx/sites-available/tpa /etc/nginx/sites-enabled/tpa
 sudo nginx -t && sudo systemctl reload nginx

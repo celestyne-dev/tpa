@@ -1,7 +1,10 @@
 # /etc/systemd/system/tpa-api.service  (example)
 [Unit]
 Description=Think Positive Always API (Gunicorn)
-After=network.target postgresql.service
+After=network.target postgresql.service redis-server.service
+# Rate-limit counters live in Redis (RATELIMIT_STORAGE_URI); if it is down the API keeps
+# working with per-worker counters (RATELIMIT_IN_MEMORY_FALLBACK_ENABLED).
+Wants=redis-server.service
 
 [Service]
 User=tpa
@@ -9,12 +12,18 @@ Group=www-data
 WorkingDirectory=/var/www/tpa/backend
 EnvironmentFile=/var/www/tpa/backend/.env
 Environment=FLASK_CONFIG=production
-# --timeout covers synchronous image optimisation and large premium file uploads
-# (validated before they are stored). Rate limits need Redis with several workers
-# (RATELIMIT_STORAGE_URI=redis://127.0.0.1:6379/0).
-ExecStart=/var/www/tpa/backend/.venv/bin/gunicorn --workers 3 --timeout 300 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
+# Workers: synchronous, 2 × vCPU + 1 is the usual ceiling; 3 suits 2 vCPU / 4 GB RAM
+# (see docs/operations.md, "Gunicorn"). --timeout covers synchronous image optimisation
+# and large premium file uploads (validated before they are stored). Bound to loopback
+# only: Nginx is the single entry point (upstream tpa_api in deploy/nginx/tpa.conf).
+# Rate limits need Redis with several workers (RATELIMIT_STORAGE_URI=redis://127.0.0.1:6379/0).
+ExecStart=/var/www/tpa/backend/.venv/bin/gunicorn --workers 3 --timeout 300 --graceful-timeout 30 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
+# `systemctl reload tpa-api`: Gunicorn starts new workers with the new code, then retires
+# the old ones after their current request (no dropped requests).
+ExecReload=/bin/kill -s HUP $MAINPID
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=45
 NoNewPrivileges=true
 PrivateTmp=true
 UMask=0022

@@ -35,6 +35,14 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -n "$FROM" ]] || die "--from is required"
 
+# shellcheck source=tpa-pg-env.sh
+. "$(dirname "$(readlink -f "$0")")/tpa-pg-env.sh"
+if [[ -n "$DATABASE" ]]; then
+  # Keep the password off the pg_restore command line (visible to every local user).
+  pg_url_to_env "$DATABASE" || die "--database must be a PostgreSQL URL"
+  DATABASE="$PG_URL"
+fi
+
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/tpa-restore.XXXXXX")"
 trap 'rm -rf "$SCRATCH"' EXIT
 

@@ -1,0 +1,12 @@
+# /etc/nginx/snippets/tpa-security-headers.conf  (example)
+#
+# Nginx drops server-level add_header directives in any location that has its own
+# add_header, so this snippet is included at server level AND in every such location of
+# tpa.conf. Keep the list here only.
+add_header X-Content-Type-Options nosniff always;
+add_header Referrer-Policy strict-origin-when-cross-origin always;
+add_header X-Frame-Options SAMEORIGIN always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+# Enable only after HTTPS works on every hostname (browsers remember it for a year;
+# see docs/operations.md, "TLS certificates"). Add "; preload" only deliberately.
+# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
