@@ -1454,7 +1454,23 @@ def test_batch101_membership_plans_upgrade_is_additive_and_downgrade_protects_pl
             text("SELECT label, is_available FROM permissions WHERE key = 'memberships.manage'")
         ).one()
         assert manage == ("Manage membership plans", 1)
-        assert set(sync_rbac().values()) == {0}
+        # At this revision only the Batch 10.1 grants exist (sync_rbac() would also add
+        # permissions from later batches, so head-level sync is checked after upgrade below).
+        from app.auth.permissions import BATCH_10_GRANTS
+
+        rows = db.session.execute(
+            text(
+                "SELECT r.name, p.key FROM role_permissions rp "
+                "JOIN roles r ON r.id = rp.role_id JOIN permissions p ON p.id = rp.permission_id "
+                "WHERE p.key LIKE 'memberships.%'"
+            )
+        ).all()
+        granted: dict[str, set[str]] = {}
+        for role, key in rows:
+            granted.setdefault(role, set()).add(key)
+        expected = {r: set(k) for r, k in BATCH_10_GRANTS.items() if r in granted}
+        assert {r: k for r, k in granted.items() if r in BATCH_10_GRANTS} == expected
+        assert set(granted) - set(BATCH_10_GRANTS) <= {"super_admin"}
         db.session.rollback()
 
         now = "2026-10-28 09:00:00"
@@ -1538,7 +1554,15 @@ def test_batch102_subscription_upgrade_preserves_orders_and_downgrade_protects_b
             {"c": cid, "n": now},
         )
         db.session.commit()
-        counts = ("customers", "orders", "products", "membership_plans", "course_enrollments")
+        counts = (
+            "customers",
+            "orders",
+            "products",
+            "membership_plans",
+            "course_enrollments",
+            "permissions",  # Batch 10.2 adds no permissions or role grants
+            "role_permissions",
+        )
         before = {
             t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
         }
@@ -1561,8 +1585,7 @@ def test_batch102_subscription_upgrade_preserves_orders_and_downgrade_protects_b
         assert db.session.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
         assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
         assert db.session.execute(text("SELECT kind FROM orders")).scalar_one() == "purchase"
-        assert set(sync_rbac().values()) == {0}
-        db.session.rollback()
+        # Head-level RBAC sync is verified after the final upgrade at the end of this test.
         db.session.execute(text("UPDATE orders SET kind = 'subscription'"))
         db.session.commit()
         db.session.remove()
