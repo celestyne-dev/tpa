@@ -207,3 +207,52 @@ Refunds on multi-product orders are shown as "unattributed".
 - **Visitor or session purchase conversion is unavailable**, and is always reported as
   such. Orders are deliberately not linked to visitors (cookieless tracking, no
   identifiers).
+
+# Learning analytics (Batch 11.3)
+
+The Learning tab of Admin → Analytics is backed by `GET /api/v1/admin/analytics/learning`.
+
+- **Parameters:** `range` / `date_from` / `date_to`, `granularity` (day, week or month)
+  and `course` (id).
+- **Sources:** existing LMS records only: enrollments, lesson progress, assessment
+  attempts, and assignment submissions, attempts and grades.
+- **No new tracking, no schema change.**
+
+## Access and privacy
+
+| Section | Requires |
+| --- | --- |
+| Endpoint and Learning tab | `courses.view_reports` (Super Admin, Administrator, Editor-in-Chief, Analyst, Marketing Manager) |
+| Assignment and grading section | Also `assignments.view_reports`; otherwise reported as unavailable |
+
+- Roles with only `analytics.view` (e.g. SEO Manager) get a 403.
+- Responses are aggregates only. They never contain learner names, emails, answers,
+  essay responses, feedback, private notes or individual grades. Learner-level detail
+  stays in the existing course enrolment and grading screens with their own permissions.
+
+## Definitions
+
+| Metric | Meaning |
+| --- | --- |
+| Enrollment | One row per learner and course (unique), so duplicates are impossible. "Current" excludes revoked access |
+| Access type | `free`, `purchase` (bought individually), `membership` (included in a membership) or `manual` (staff grant), from the enrollment's source |
+| Started | At least one lesson viewed, or completed. Start time = first lesson view (or completion time when no views were recorded) |
+| Completed | Completion recorded by the course's own completion rules |
+| Completion rate | Completed ÷ current enrollments, plus completed ÷ started |
+| Unfinished | Started, not completed. "Not started" = current enrollments with no lesson view |
+| Active learners (range) | Learners with a lesson view, lesson completion, assessment or assignment submission in the range. Only the first and latest view of each lesson are stored, so this is a minimum |
+| Trends | New enrollments (`enrolled_at`), starts and completions per day, week or month |
+| Course table | All-time enrolled, started, completed and average progress, plus non-draft assignment submissions, assessment participants and the average of each learner's best score on graded, non-practice quizzes. New enrollments and completions are also given for the range |
+| Lesson progress (one course) | Per published lesson: learners who viewed it and completed it (and % of started learners). "Stopped here" = unfinished learners whose furthest completed lesson is this one: where learners stall, not why |
+| Assessments (range) | Submitted attempts by type: graded quizzes, timed (time limit, not practice), practice, and ungraded reflections/self-assessments. Expired timed attempts are counted separately. Pass rate = passed ÷ graded attempts; retakes count as attempts, participants are distinct learners |
+| Assignments (range) | Attempts submitted (and late); grades published with pass/fail and average percent; "changes requested" grades. The grading queue (pending, under review, resubmitted) and submissions awaiting resubmission are current snapshots |
+
+## Performance and limitations
+
+- Range-bound attempt, grade and lesson-view queries filter by date in SQL using the
+  existing tables. There is no new index; on very large histories consider an index on
+  `assessment_attempts.submitted_at` and `assignment_attempts.submitted_at`.
+- Course-level figures are computed from the course's enrollments (all time) in Python.
+  That is fine at the current scale, but it hasn't been load-tested.
+- Time spent per lesson, repeated lesson views and session lengths aren't stored, so they
+  aren't reported.

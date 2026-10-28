@@ -178,7 +178,10 @@ export default function AdminApp() {
           />
           <Route
             path="analytics"
-            element={guarded(["analytics.view", "finance.view"], <AnalyticsPage />)}
+            element={guarded(
+              ["analytics.view", "finance.view", "courses.view_reports"],
+              <AnalyticsPage />,
+            )}
           />
           <Route
             path="membership-reports"

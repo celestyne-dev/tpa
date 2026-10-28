@@ -215,3 +215,20 @@ class AuditLogResource(Resource):
         stmt = stmt.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
         items, pagination = paginate(stmt, args["page"], args["page_size"])
         return success([dashboard.audit_entry(e) for e in items], {"pagination": pagination})
+
+
+class LearningAnalyticsResource(Resource):
+    """Learning analytics (Batch 11.3): aggregates only, needs ``courses.view_reports``;
+    the assignment section also needs ``assignments.view_reports``."""
+
+    @require_permission(P.COURSES_VIEW_REPORTS)
+    def get(self):
+        from flask import request
+
+        from ...services.analytics.learning import learning_report
+
+        args = {
+            k: request.args.get(k)
+            for k in ("range", "date_from", "date_to", "granularity", "course")
+        }
+        return success(learning_report(args, current_user))

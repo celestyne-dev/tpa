@@ -33,6 +33,7 @@ ADMIN_ROUTES = [
     (site.AnalyticsTrafficResource, "/admin/analytics/traffic"),
     (site.CommerceAnalyticsResource, "/admin/analytics/commerce"),
     (site.CommerceAnalyticsExportResource, "/admin/analytics/commerce/export"),
+    (site.LearningAnalyticsResource, "/admin/analytics/learning"),
     (content.ArticleListResource, "/admin/articles"),
     (content.ArticleResource, "/admin/articles/<int:article_id>"),
     (content.ArticlePublishResource, "/admin/articles/<int:article_id>/publish"),

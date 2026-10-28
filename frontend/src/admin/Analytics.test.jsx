@@ -94,6 +94,52 @@ describe("commerce analytics", () => {
   });
 });
 
+describe("learning analytics", () => {
+  it("shows learning KPIs, courses, assessments and grading for permitted staff", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp("/admin/analytics");
+    await user.click(await screen.findByRole("tab", { name: "Learning" }));
+    const overview = await screen.findByRole("region", { name: "Learning overview" });
+    expect(within(overview).getByText("4 / 2")).toBeInTheDocument();
+    expect(within(overview).getByText("40%")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Course performance" })).toHaveTextContent(
+      "Calm Foundations",
+    );
+    expect(screen.getByRole("region", { name: "Assessment performance" })).toHaveTextContent(
+      "Timed assessments",
+    );
+    expect(screen.getByRole("region", { name: "Assignments and grading" })).toHaveTextContent(
+      "Waiting for grading now",
+    );
+    expect(screen.getByText(/Choose a course to see lesson progress/)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Course"), "5");
+    await waitFor(() =>
+      expect(adminApi.learningAnalytics).toHaveBeenLastCalledWith({ range: "30d", course: "5" }),
+    );
+    const lessons = await screen.findByRole("region", { name: "Lesson progress" });
+    expect(within(lessons).getByText("Lesson 2")).toBeInTheDocument();
+    // Website and Commerce tabs are still there.
+    expect(screen.getByRole("tab", { name: "Website" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Commerce" })).toBeInTheDocument();
+  });
+
+  it("filters by date with an empty state", async () => {
+    const user = userEvent.setup();
+    renderApp("/admin/analytics");
+    await user.click(await screen.findByRole("tab", { name: "Learning" }));
+    await screen.findByRole("region", { name: "Learning overview" });
+    await user.selectOptions(screen.getByLabelText("Time period"), "custom");
+    await user.type(screen.getByLabelText("First day"), "2020-01-01");
+    expect(await screen.findByText("No enrollments yet")).toBeInTheDocument();
+  });
+
+  it("is hidden without the course reports permission", async () => {
+    renderApp("/admin/analytics", { adminApi: createFakeAdminApi({ role: "finance_manager" }) });
+    await screen.findByRole("region", { name: "Sales in USD" });
+    expect(screen.queryByRole("tab", { name: "Learning" })).toBeNull();
+  });
+});
+
 describe("page-view beacon", () => {
   it("sends path, UTM search and referrer on first load, nothing private", () => {
     const send = vi.spyOn(beacon, "send").mockReturnValue(true);

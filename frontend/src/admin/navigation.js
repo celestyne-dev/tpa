@@ -73,7 +73,7 @@ export const adminSections = [
         label: "Analytics",
         to: "/admin/analytics",
         icon: BarChart3,
-        anyOf: ["analytics.view", "finance.view"],
+        anyOf: ["analytics.view", "finance.view", "courses.view_reports"],
       },
     ],
   },
