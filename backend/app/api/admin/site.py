@@ -232,3 +232,29 @@ class LearningAnalyticsResource(Resource):
             for k in ("range", "date_from", "date_to", "granularity", "course")
         }
         return success(learning_report(args, current_user))
+
+
+class MembershipAnalyticsResource(Resource):
+    """Membership analytics (Batch 11.4): needs ``memberships.view_reports``."""
+
+    @require_permission(P.MEMBERSHIPS_VIEW_REPORTS)
+    def get(self):
+        from flask import request
+
+        from ...services.analytics.membership import membership_analytics
+
+        args = {k: request.args.get(k) for k in ("range", "date_from", "date_to", "plan")}
+        return success(membership_analytics(args, current_user))
+
+
+class AudienceAnalyticsResource(Resource):
+    """Audience analytics (Batch 11.4): needs ``newsletters.reports``."""
+
+    @require_permission(P.NEWSLETTERS_REPORTS)
+    def get(self):
+        from flask import request
+
+        from ...services.analytics.audience import audience_report
+
+        keys = ("range", "date_from", "date_to", "granularity", "campaign")
+        return success(audience_report({k: request.args.get(k) for k in keys}))

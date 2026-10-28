@@ -8,7 +8,9 @@ import { SelectField, TextField } from "../components/Fields";
 import { usePermissions } from "../hooks/usePermissions";
 import { useAdminQuery } from "../hooks/useAdminQuery";
 import { CommerceAnalytics } from "./CommerceAnalytics";
+import { AudienceAnalytics } from "./AudienceAnalytics";
 import { LearningAnalytics } from "./LearningAnalytics";
+import { MembershipAnalytics } from "./MembershipAnalytics";
 import { RankTable, Stat } from "./analyticsParts";
 
 const PRESETS = [
@@ -271,6 +273,8 @@ export function AnalyticsPage() {
     can("analytics.view") && { key: "website", label: "Website" },
     can("finance.view") && { key: "commerce", label: "Commerce" },
     can("courses.view_reports") && { key: "learning", label: "Learning" },
+    can("memberships.view_reports") && { key: "membership", label: "Membership" },
+    can("newsletters.reports") && { key: "audience", label: "Audience" },
   ].filter(Boolean);
   const [tab, setTab] = useState(tabs[0]?.key ?? "website");
   return (
@@ -304,6 +308,10 @@ export function AnalyticsPage() {
         <CommerceAnalytics />
       ) : tab === "learning" ? (
         <LearningAnalytics />
+      ) : tab === "membership" ? (
+        <MembershipAnalytics />
+      ) : tab === "audience" ? (
+        <AudienceAnalytics />
       ) : (
         <WebsiteAnalytics />
       )}

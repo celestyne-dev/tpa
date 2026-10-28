@@ -45,6 +45,7 @@ import {
   Library,
 } from "lucide-react";
 import {
+  ANALYTICS_ACCESS,
   ARTICLE_ACCESS,
   REDIRECT_READ,
   ROLE_READ,
@@ -73,7 +74,7 @@ export const adminSections = [
         label: "Analytics",
         to: "/admin/analytics",
         icon: BarChart3,
-        anyOf: ["analytics.view", "finance.view", "courses.view_reports"],
+        anyOf: ANALYTICS_ACCESS,
       },
     ],
   },

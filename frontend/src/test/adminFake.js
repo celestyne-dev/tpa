@@ -4,7 +4,13 @@ import { createBuilderFake } from "./builderFake";
 import { COMMERCE_PERMS, createCommerceAdminFake } from "./commerceFake";
 import { ASSIGNMENT_PERMS, BANK_PERMS, createAssessmentAdminFake } from "./assessmentFake";
 import { COURSE_PERMS, createCourseAdminFake } from "./courseFake";
-import { commerceFake, learningFake, trafficFake } from "./analyticsFake";
+import {
+  audienceFake,
+  commerceFake,
+  learningFake,
+  membershipAnalyticsFake,
+  trafficFake,
+} from "./analyticsFake";
 import { MEMBERSHIP_PERMS, createMembershipAdminFake } from "./membershipFake";
 import { NEWSLETTER_EDITING, NEWSLETTER_PERMS, createNewsletterAdminFake } from "./newsletterFake";
 import {
@@ -707,6 +713,8 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     traffic: trafficFake(),
     commerceAnalytics: commerceFake(),
     learningAnalytics: learningFake(),
+    membershipAnalytics: membershipAnalyticsFake(),
+    audienceAnalytics: audienceFake(),
     commerceAnalyticsExportUrl: (params = {}) =>
       `/api/v1/admin/analytics/commerce/export?${new URLSearchParams(params).toString()}`,
     analytics: vi.fn(() =>

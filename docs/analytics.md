@@ -256,3 +256,48 @@ The Learning tab of Admin → Analytics is backed by `GET /api/v1/admin/analytic
   That is fine at the current scale, but it hasn't been load-tested.
 - Time spent per lesson, repeated lesson views and session lengths aren't stored, so they
   aren't reported.
+
+# Membership and audience analytics (Batch 11.4)
+
+No schema changes and no new tracking or integrations.
+
+## Membership tab
+
+`GET /api/v1/admin/analytics/membership` takes `range` or `date_from`/`date_to`, and
+`plan` (public id). It requires `memberships.view_reports` (Super Admin, Administrator,
+Analyst, Finance Manager).
+
+It extends the Batch 10.4 membership report rather than duplicating it.
+
+| Area | Content and definition |
+| --- | --- |
+| Overview (from 10.4) | Paid subscribers (verified activation; active, past due or grace), monthly/yearly split, past-due and grace counts, cancelling, complimentary (separate, never paid). Period figures: new subscriptions, paid renewals, cancellations requested, endings by reason, monthly trend with churn (ended ÷ active at month start; "not enough data" without a base), membership access |
+| Realised revenue | Verified Paystack charges and processed refunds on membership orders, grouped by mode and currency, never converted. Revenue by plan attributes each payment through its billing period to the plan it paid for |
+| MRR / ARR | **Estimates, not revenue.** Active, non-cancelling subscriptions at the price agreed at checkout (yearly ÷ 12); ARR = MRR × 12, per mode and currency. Past-due, grace and cancelling memberships are shown separately as "at risk" |
+| Plan filter | Applies to the plan, recurring, revenue-by-plan and complimentary tables. The overview covers all plans |
+
+Test-mode payments are always labelled.
+
+## Audience tab
+
+`GET /api/v1/admin/analytics/audience` takes `range` or `date_from`/`date_to`,
+`granularity` and `campaign` (public id). It requires `newsletters.reports` (Super Admin,
+Administrator, Marketing Manager, Newsletter Manager).
+
+| Metric | Definition |
+| --- | --- |
+| Subscribed contacts | Status `subscribed` now. Pending, unsubscribed, bounced/complained and quarantined are shown separately |
+| Signups | Subscriber records created in range, including unconfirmed |
+| New subscriptions | Double opt-in confirmations in range |
+| Unsubscriptions | Unsubscribes recorded in range |
+| Growth | New − unsubscriptions per period. A historical running total is **not** reconstructed, because statuses change in place |
+| Sources | The recorded signup source: new in range, and subscribed now |
+| Campaigns | Campaigns finished sending in range (or the selected one): eligible, accepted by the provider (not proof of delivery), and delivered / bounced / complained, which exist only from signed provider feedback |
+| Opens and clicks | **Not tracked** (no pixels or link redirects); always reported as unavailable |
+| Lead magnets | Claims in range, and confirmed subscribers whose signup source is that lead magnet |
+
+## Privacy
+
+Both endpoints return aggregates only, with no emails, names or individual activity.
+Each tab is shown only to staff holding its permission, and the server enforces the same
+permission.

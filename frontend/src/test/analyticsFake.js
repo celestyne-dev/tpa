@@ -305,3 +305,125 @@ export function learningFake() {
     return Promise.resolve({ data: LEARNING });
   });
 }
+
+export const MEMBERSHIP_ANALYTICS = {
+  range: { from: "2026-07-31", to: "2026-10-28" },
+  has_data: true,
+  current: {
+    paid_subscribers: 3,
+    active: 2,
+    past_due: 1,
+    grace: 0,
+    pending_checkout: 0,
+    cancelling: 1,
+    monthly: 2,
+    yearly: 1,
+    complimentary: 1,
+  },
+  period: {
+    new_subscriptions: 2,
+    renewals: 1,
+    cancellations_requested: 1,
+    ended: { payment_failed: 1 },
+    abandoned_checkouts: 0,
+  },
+  revenue: [{ mode: "live", count: 3, amount: usd(2997) }],
+  refunds: [{ mode: "live", count: 1, amount: usd(300) }],
+  net_revenue: [{ mode: "live", amount: usd(2697) }],
+  trend: [
+    { month: "2026-10", active_at_start: 0, new: 2, renewals: 1, ended: 1, churn_rate: null },
+  ],
+  access: {
+    entitlements: 4,
+    members_with_access: 3,
+    complimentary_entitlements: 1,
+    by_product_type: [],
+    course_enrollments: 2,
+  },
+  plan: null,
+  plan_options: [{ id: "plan1", name: "Positive Circle", status: "published" }],
+  by_plan: [
+    { plan_id: "plan1", plan: "Positive Circle", interval: "month", mode: "live", paid_members: 2 },
+  ],
+  revenue_by_plan: [
+    {
+      plan: "Positive Circle",
+      mode: "live",
+      payments: 3,
+      gross: usd(2997),
+      refunds: usd(300),
+      net: usd(2697),
+    },
+  ],
+  recurring_estimate: [{ mode: "live", subscriptions: 2, mrr: usd(1998), arr: usd(23976) }],
+  recurring_at_risk: [],
+  complimentary_by_plan: [{ plan: "Positive Circle", members: 1 }],
+  definitions: { mrr: "Estimate, not revenue." },
+};
+
+export const AUDIENCE = {
+  range: { from: "2026-09-29", to: "2026-10-28", granularity: "day" },
+  has_data: true,
+  current: {
+    subscribed: 120,
+    pending: 4,
+    unsubscribed: 6,
+    bounced_or_complained: 1,
+    quarantined: 0,
+  },
+  period: {
+    signups: 14,
+    new_subscriptions: 12,
+    unsubscriptions: 2,
+    net_growth: 10,
+    campaigns_sent: 1,
+  },
+  trend: [
+    {
+      period: "2026-10-28",
+      signups: 14,
+      new_subscriptions: 12,
+      unsubscriptions: 2,
+      net_growth: 10,
+    },
+  ],
+  sources: [{ source: "lead_magnet", new_subscriptions: 7, subscribed_now: 40 }],
+  campaign: null,
+  campaign_options: [{ id: "camp1", name: "October letter" }],
+  campaigns: [
+    {
+      id: "camp1",
+      name: "October letter",
+      send_mode: "live",
+      completed_at: "2026-10-27T10:00:00Z",
+      eligible: 120,
+      accepted: 118,
+      delivered_confirmed: 0,
+      bounced: 0,
+      complained: 0,
+      failed: 2,
+      suppressed: 0,
+      skipped_test_mode: 0,
+    },
+  ],
+  engagement: {
+    delivery_feedback_recorded: false,
+    opens: null,
+    clicks: null,
+    explanation: "Opens and clicks are not tracked.",
+  },
+  lead_magnets: [{ slug: "calm-kit", title: "Calm Kit", claims: 9, confirmed_subscribers: 7 }],
+  definitions: { subscribed: "Contacts whose status is subscribed now." },
+};
+
+export function membershipAnalyticsFake() {
+  return vi.fn(() => Promise.resolve({ data: MEMBERSHIP_ANALYTICS }));
+}
+
+export function audienceFake() {
+  return vi.fn((params = {}) =>
+    Promise.resolve({
+      data: params.date_from === "2020-01-01" ? { ...AUDIENCE, has_data: false } : AUDIENCE,
+    }),
+  );
+}

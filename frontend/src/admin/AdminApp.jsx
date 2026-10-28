@@ -72,6 +72,7 @@ import { ResourcesPage } from "./pages/ResourcesPage";
 import { RevenueReportPage } from "./pages/RevenueReportPage";
 import { StoragePage } from "./pages/StoragePage";
 import {
+  ANALYTICS_ACCESS,
   ARTICLE_ACCESS,
   PAGE_READ,
   REDIRECT_READ,
@@ -176,13 +177,7 @@ export default function AdminApp() {
             path="membership-grants"
             element={guarded(SUBSCRIBER_READ, <MembershipGrantsPage />)}
           />
-          <Route
-            path="analytics"
-            element={guarded(
-              ["analytics.view", "finance.view", "courses.view_reports"],
-              <AnalyticsPage />,
-            )}
-          />
+          <Route path="analytics" element={guarded(ANALYTICS_ACCESS, <AnalyticsPage />)} />
           <Route
             path="membership-reports"
             element={guarded("memberships.view_reports", <MembershipReportsPage />)}

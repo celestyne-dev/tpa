@@ -29,3 +29,12 @@ export function previewPermissions(roles, chosen) {
   if (picked.some((r) => r.grants_all)) return null;
   return [...new Set(picked.flatMap((r) => r.permissions))].sort();
 }
+
+/** Any analytics tab: website, commerce, learning, membership or audience (Batch 11). */
+export const ANALYTICS_ACCESS = [
+  "analytics.view",
+  "finance.view",
+  "courses.view_reports",
+  "memberships.view_reports",
+  "newsletters.reports",
+];
