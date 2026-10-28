@@ -9,6 +9,7 @@ import {
   commerceFake,
   learningFake,
   membershipAnalyticsFake,
+  overviewFake,
   trafficFake,
 } from "./analyticsFake";
 import { MEMBERSHIP_PERMS, createMembershipAdminFake } from "./membershipFake";
@@ -715,6 +716,9 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     learningAnalytics: learningFake(),
     membershipAnalytics: membershipAnalyticsFake(),
     audienceAnalytics: audienceFake(),
+    analyticsOverview: overviewFake(user?.permissions ?? []),
+    analyticsExportUrl: (report, params = {}) =>
+      `/api/v1/admin/analytics/export?${new URLSearchParams({ report, ...params }).toString()}`,
     commerceAnalyticsExportUrl: (params = {}) =>
       `/api/v1/admin/analytics/commerce/export?${new URLSearchParams(params).toString()}`,
     analytics: vi.fn(() =>

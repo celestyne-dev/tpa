@@ -8,9 +8,15 @@ import { preloadAdminApp, renderApp } from "@/test/utils";
 beforeAll(preloadAdminApp);
 afterEach(() => vi.restoreAllMocks());
 
+/** Overview is the default tab (Batch 11.5): open a module tab first. */
+async function openTab(name) {
+  await userEvent.setup().click(await screen.findByRole("tab", { name }));
+}
+
 describe("analytics dashboard", () => {
   it("shows real report data with honest visitor and session notes", async () => {
     const { adminApi } = renderApp("/admin/analytics");
+    await openTab("Website");
     expect(await screen.findByRole("heading", { level: 1, name: "Analytics" })).toBeVisible();
     const overview = await screen.findByRole("region", { name: "Traffic overview" });
     expect(within(overview).getByText("1,234")).toBeInTheDocument();
@@ -33,6 +39,7 @@ describe("analytics dashboard", () => {
   it("filters by preset, custom dates and grouping, with an empty state", async () => {
     const user = userEvent.setup();
     const { adminApi } = renderApp("/admin/analytics");
+    await openTab("Website");
     await screen.findByRole("region", { name: "Traffic overview" });
     await user.selectOptions(screen.getByLabelText("Date range"), "7d");
     await waitFor(() => expect(adminApi.traffic).toHaveBeenLastCalledWith({ range: "7d" }));
@@ -56,6 +63,7 @@ describe("analytics dashboard", () => {
 describe("commerce analytics", () => {
   it("shows per-currency KPIs, products and limits for finance roles", async () => {
     renderApp("/admin/analytics", { adminApi: createFakeAdminApi({ role: "finance_manager" }) });
+    await openTab("Commerce");
     // Finance has no analytics.view: Commerce first (Membership is the other tab).
     const kes = await screen.findByRole("region", { name: "Sales in KES" });
     expect(within(kes).getByText("KES 15.00")).toBeInTheDocument(); // net, never mixed with USD
@@ -89,6 +97,7 @@ describe("commerce analytics", () => {
 
   it("hides commerce from analytics-only roles", async () => {
     renderApp("/admin/analytics", { adminApi: createFakeAdminApi({ role: "analyst" }) });
+    await openTab("Website");
     await screen.findByRole("region", { name: "Traffic overview" });
     expect(screen.queryByRole("tab", { name: "Commerce" })).toBeNull();
   });
@@ -135,6 +144,7 @@ describe("learning analytics", () => {
 
   it("is hidden without the course reports permission", async () => {
     renderApp("/admin/analytics", { adminApi: createFakeAdminApi({ role: "finance_manager" }) });
+    await openTab("Commerce");
     await screen.findByRole("region", { name: "Sales in USD" });
     expect(screen.queryByRole("tab", { name: "Learning" })).toBeNull();
   });
@@ -190,6 +200,55 @@ describe("membership and audience analytics", () => {
     expect(await screen.findByRole("tab", { name: "Membership" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Audience" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Learning" })).toBeNull();
+  });
+});
+
+describe("unified overview", () => {
+  it("is the default tab with period comparisons, point-in-time labels and exports", async () => {
+    const { adminApi } = renderApp("/admin/analytics");
+    const website = await screen.findByRole("region", { name: "Website" });
+    expect(within(website).getByText("1,234")).toBeInTheDocument();
+    expect(website).toHaveTextContent("50.1% increase vs previous period"); // 1,234 vs 822
+    const commerce = screen.getByRole("region", { name: "Commerce (live payments)" });
+    expect(within(commerce).getByText("Verified revenue (USD)")).toBeInTheDocument();
+    expect(within(commerce).getByText("Verified revenue (KES)")).toBeInTheDocument(); // separate
+    expect(within(commerce).getByText("Test-mode payments")).toBeInTheDocument();
+    const membership = screen.getByRole("region", { name: "Membership" });
+    expect(within(membership).getAllByText("Right now").length).toBeGreaterThan(0);
+    expect(within(membership).getByText("Estimate, not revenue")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Analytics health" })).toHaveTextContent(
+      "Days waiting for rollup",
+    );
+    const exportsBar = screen.getByRole("region", { name: "Exports" });
+    expect(within(exportsBar).getByRole("link", { name: "Overview" })).toHaveAttribute(
+      "href",
+      "/api/v1/admin/analytics/export?report=overview&range=30d",
+    );
+    expect(adminApi.analyticsOverview).toHaveBeenCalledWith({ range: "30d" });
+  });
+
+  it("uses the shared date presets and the sales mode filter", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp("/admin/analytics");
+    await screen.findByRole("region", { name: "Website" });
+    const period = screen.getByLabelText("Overview period");
+    expect(
+      within(period)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["Last 7 days", "Last 30 days", "Last 90 days", "Last 365 days", "Custom range"]);
+    await user.selectOptions(period, "7d");
+    await user.selectOptions(screen.getByLabelText("Sales mode"), "test");
+    await waitFor(() =>
+      expect(adminApi.analyticsOverview).toHaveBeenLastCalledWith({ range: "7d", mode: "test" }),
+    );
+  });
+
+  it("only shows the sections a role may see", async () => {
+    renderApp("/admin/analytics", { adminApi: createFakeAdminApi({ role: "analyst" }) });
+    await screen.findByRole("region", { name: "Website" });
+    expect(screen.queryByRole("region", { name: /Commerce/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Membership" })).toBeNull(); // no finance.export
   });
 });
 

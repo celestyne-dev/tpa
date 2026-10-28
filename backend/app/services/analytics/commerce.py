@@ -17,8 +17,6 @@ policy is configured) and test/live mode are never mixed.
 
 from __future__ import annotations
 
-import csv
-import io
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
@@ -464,8 +462,16 @@ def _conversion(start, end, mode, currency, products, paid_orders) -> dict[str, 
 
 def export_csv(args: dict[str, Any]) -> str:
     report = commerce_report(args)
-    out = io.StringIO()
-    w = csv.writer(out)
+    from .exports import SafeWriter
+
+    safe = SafeWriter()
+
+    class _W:
+        @staticmethod
+        def writerow(cells):
+            safe.row(*cells)
+
+    w = _W()
     w.writerow(
         [
             "report",
@@ -508,4 +514,4 @@ def export_csv(args: dict[str, Any]) -> str:
                 p["refunds"]["amount"],
             ]
         )
-    return out.getvalue()
+    return safe.value()

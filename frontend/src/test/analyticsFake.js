@@ -427,3 +427,75 @@ export function audienceFake() {
     }),
   );
 }
+
+const period = (value, previous) => ({
+  kind: "period",
+  value,
+  previous,
+  change: value - previous,
+  change_pct: previous ? Math.round((1000 * (value - previous)) / previous) / 10 : null,
+});
+const moneyPeriod = (mode, m, prev) => ({
+  ...period(m.amount_minor, prev),
+  mode,
+  currency: m.currency,
+  formatted: m.formatted,
+});
+
+/** Like the API: only sections the user's permissions allow. */
+export function overviewFake(permissions = []) {
+  const has = (p) => permissions.includes(p);
+  return vi.fn(() => {
+    const sections = {};
+    if (has("analytics.view"))
+      sections.website = {
+        page_views: period(1234, 822),
+        visitors_daily_sum: { ...period(456, 400), estimate: true },
+        top_articles: [{ title: "Calm mornings", topic: "Positive Mindset", views: 600 }],
+        series: [],
+        notes: [],
+      };
+    if (has("finance.view"))
+      sections.commerce = {
+        mode: "live",
+        gross: [moneyPeriod("live", usd(9100), 1000), moneyPeriod("live", kes(2000), 0)],
+        refunds: [],
+        net: [moneyPeriod("live", usd(4200), 1000)],
+        paid_orders: [{ ...period(3, 1), currency: "USD" }],
+        top_products: [],
+        other_mode_payments: 1,
+      };
+    if (has("memberships.view_reports"))
+      sections.membership = {
+        paid_members: { kind: "point_in_time", value: 3 },
+        complimentary: { kind: "point_in_time", value: 1 },
+        new_subscriptions: period(2, 1),
+        renewals: period(1, 0),
+        revenue: [moneyPeriod("live", usd(2997), 999)],
+        net_revenue: [],
+        mrr_estimate: [{ kind: "estimate", mode: "live", value: usd(1998) }],
+      };
+    return Promise.resolve({
+      data: {
+        range: { from: "2026-09-29", to: "2026-10-28" },
+        previous_range: { from: "2026-08-30", to: "2026-09-28" },
+        modules: Object.keys(sections),
+        sections,
+        health: has("analytics.view")
+          ? {
+              tracking_enabled: true,
+              raw_retention_days: 90,
+              aggregate_retention_days: 760,
+              latest_rollup_day: "2026-10-27",
+              latest_rollup_at: "2026-10-28T00:05:00Z",
+              pending_rollup_days: 0,
+              page_views_today: 12,
+              job_runs_recorded: false,
+              warnings: ["Sessions are not measured."],
+            }
+          : null,
+        notes: ["Each figure keeps its module's definition."],
+      },
+    });
+  });
+}

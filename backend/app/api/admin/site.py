@@ -258,3 +258,71 @@ class AudienceAnalyticsResource(Resource):
 
         keys = ("range", "date_from", "date_to", "granularity", "campaign")
         return success(audience_report({k: request.args.get(k) for k in keys}))
+
+
+_OVERVIEW_ARGS = ("range", "date_from", "date_to", "mode")
+
+
+class AnalyticsOverviewResource(Resource):
+    """Permission-aware overview (Batch 11.5): each section needs its module permission."""
+
+    @require_any_permission(
+        P.ANALYTICS_VIEW,
+        P.FINANCE_VIEW,
+        P.COURSES_VIEW_REPORTS,
+        P.MEMBERSHIPS_VIEW_REPORTS,
+        P.NEWSLETTERS_REPORTS,
+    )
+    def get(self):
+        from flask import request
+
+        from ...services.analytics.overview import overview_report
+
+        return success(
+            overview_report({k: request.args.get(k) for k in _OVERVIEW_ARGS}, current_user)
+        )
+
+
+class AnalyticsHealthResource(Resource):
+    @require_permission(P.ANALYTICS_VIEW)
+    def get(self):
+        from ...services.analytics.overview import health
+
+        return success(health())
+
+
+class AnalyticsExportResource(Resource):
+    """CSV exports of aggregate reports; permissions checked per report; audited."""
+
+    @require_any_permission(
+        P.ANALYTICS_VIEW,
+        P.FINANCE_VIEW,
+        P.COURSES_VIEW_REPORTS,
+        P.MEMBERSHIPS_VIEW_REPORTS,
+        P.NEWSLETTERS_REPORTS,
+    )
+    def get(self):
+        from flask import Response, request
+
+        from ...services import audit_service
+        from ...services.analytics.exports import export
+
+        report = request.args.get("report") or ""
+        keys = (
+            "range",
+            "date_from",
+            "date_to",
+            "granularity",
+            "mode",
+            "course",
+            "plan",
+            "campaign",
+        )
+        body = export(report, {k: request.args.get(k) for k in keys}, current_user)
+        audit_service.record(
+            "analytics.report_exported", "analytics", actor=current_user, details={"report": report}
+        )
+        db.session.commit()
+        response = Response(body, mimetype="text/csv")
+        response.headers["Content-Disposition"] = f'attachment; filename="analytics-{report}.csv"'
+        return response

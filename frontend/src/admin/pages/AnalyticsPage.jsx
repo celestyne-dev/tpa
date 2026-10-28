@@ -11,15 +11,11 @@ import { CommerceAnalytics } from "./CommerceAnalytics";
 import { AudienceAnalytics } from "./AudienceAnalytics";
 import { LearningAnalytics } from "./LearningAnalytics";
 import { MembershipAnalytics } from "./MembershipAnalytics";
+import { OverviewAnalytics } from "./OverviewAnalytics";
 import { RankTable, Stat } from "./analyticsParts";
+import { ANALYTICS_PRESETS } from "./analyticsPresets";
 
-const PRESETS = [
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "90d", label: "Last 90 days" },
-  { value: "365d", label: "Last 12 months" },
-  { value: "custom", label: "Custom range" },
-];
+const PRESETS = ANALYTICS_PRESETS;
 const SOURCE_LABEL = {
   direct: "Direct",
   search: "Search engines",
@@ -270,6 +266,7 @@ function WebsiteAnalytics() {
 export function AnalyticsPage() {
   const { can } = usePermissions();
   const tabs = [
+    { key: "overview", label: "Overview" },
     can("analytics.view") && { key: "website", label: "Website" },
     can("finance.view") && { key: "commerce", label: "Commerce" },
     can("courses.view_reports") && { key: "learning", label: "Learning" },
@@ -304,7 +301,9 @@ export function AnalyticsPage() {
           ))}
         </div>
       )}
-      {tab === "commerce" ? (
+      {tab === "overview" ? (
+        <OverviewAnalytics />
+      ) : tab === "commerce" ? (
         <CommerceAnalytics />
       ) : tab === "learning" ? (
         <LearningAnalytics />

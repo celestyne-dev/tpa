@@ -7,14 +7,9 @@ import { SelectField, TextField } from "../components/Fields";
 import { useAdminQuery } from "../hooks/useAdminQuery";
 import { usePermissions } from "../hooks/usePermissions";
 import { RankTable, Stat } from "./analyticsParts";
+import { ANALYTICS_PRESETS } from "./analyticsPresets";
 
-const PRESETS = [
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "90d", label: "Last 90 days" },
-  { value: "365d", label: "Last 12 months" },
-  { value: "custom", label: "Custom range" },
-];
+const PRESETS = ANALYTICS_PRESETS;
 const STATUS_LABEL = {
   pending: "Pending",
   awaiting_payment: "Awaiting payment",

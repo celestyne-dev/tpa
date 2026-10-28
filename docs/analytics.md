@@ -301,3 +301,110 @@ Administrator, Marketing Manager, Newsletter Manager).
 Both endpoints return aggregates only, with no emails, names or individual activity.
 Each tab is shown only to staff holding its permission, and the server enforces the same
 permission.
+
+# Unified overview, health and exports (Batch 11.5)
+
+No schema changes. Everything is built from the existing module reports, so each figure
+keeps its module's definition.
+
+## Overview tab (default)
+
+`GET /api/v1/admin/analytics/overview` takes `range` or `date_from`/`date_to`, and `mode`
+(live or test, commerce only).
+
+**Permissions.** The endpoint accepts any analytics permission, but each section is
+included only with its module's own permission:
+
+| Section | Requires |
+| --- | --- |
+| website | `analytics.view` |
+| commerce | `finance.view` |
+| learning | `courses.view_reports` |
+| membership | `memberships.view_reports` |
+| audience | `newsletters.reports` |
+| health | `analytics.view` |
+
+The frontend shows only the sections returned. An analytics-only user (e.g. SEO Manager)
+gets website figures and health, nothing financial or learner-related.
+
+**Kinds of figure:**
+
+- **Period figures** (counts and money in the range) are compared with the previous
+  range of the same length: change, plus a percentage only when the previous value is
+  above zero.
+- **Point-in-time figures** (paid and complimentary members, subscribed contacts, current
+  enrollments, completion rate) are labelled "right now" and never compared.
+- **Estimates** (daily visitors, MRR) are labelled.
+- **Minimums** (active learners) are labelled.
+
+**Money:**
+
+- Per currency and payment mode, never combined.
+- Commerce revenue and membership revenue stay separate measures.
+- Commerce shows the chosen mode, plus a count of payments in the other mode.
+
+## Unified date filters
+
+Every tab uses the same presets: last 7, 30, 90 and 365 days, or a custom range. Module
+filters (course, plan, campaign, currency, payment mode, grouping) are unchanged.
+
+## Health
+
+`GET /api/v1/admin/analytics/health` (`analytics.view`; also embedded in the overview)
+reports:
+
+- whether tracking is on, and whether Do Not Track is respected;
+- retention settings;
+- the latest rollup day and when it was built;
+- completed days waiting for rollup;
+- the oldest raw day;
+- page views recorded today;
+- warnings.
+
+The maintenance job's runs aren't recorded (`job_runs_recorded: false`); the newest
+rollup is the evidence that it ran.
+
+## Exports
+
+`GET /api/v1/admin/analytics/export?report=…` takes the same range and module filters.
+Each export is audited as `analytics.report_exported`.
+
+| Report | Requires |
+| --- | --- |
+| website | `analytics.view` (no separate analytics export permission exists; aggregates only) |
+| learning | `courses.view_reports` |
+| membership | `memberships.view_reports` **and** `finance.export` (contains revenue) |
+| audience | `newsletters.reports` (campaign and growth aggregates; no subscriber list, which stays behind `subscribers.export`) |
+| overview | Any analytics permission. Commerce and membership rows are included only with `finance.export` |
+| commerce | Existing `/analytics/commerce/export` (`finance.export`) |
+
+All exports are aggregates only: no emails, names, customer or learner ids, answers or
+private records. Money columns keep mode and currency.
+
+Cells starting with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with an
+apostrophe to prevent CSV formula injection. The commerce export now uses the same
+writer. The older finance revenue export (`/admin/reports/revenue/export`) was not changed
+in this batch. It writes product titles too, so it should get the same protection.
+
+PDF export isn't provided; there is no existing PDF capability.
+
+## Performance and scaling (before production launch)
+
+- **Overview cost:** the overview runs each permitted module report twice (current and
+  previous period). Each is range-bounded, but:
+  - Commerce loads the range's transactions and order lines into Python, and lists unsold
+    products.
+  - Learning loads all enrollments for its scope.
+  - Membership's trend runs a few queries per month.
+
+  This is fine for a small catalogue and audience. At scale, cache overview responses for
+  a few minutes or precompute daily commerce/learning rollups like the website ones.
+- **Recommended indexes** once tables grow:
+  - `payment_transactions (kind, created_at)`
+  - `orders (kind, mode, paid_at)`
+  - `subscribers (confirmed_at)` and `subscribers (unsubscribed_at)`
+  - `assessment_attempts (submitted_at)` and `assignment_attempts (submitted_at)`
+  - `customer_subscriptions (activated_at)` and `customer_subscriptions (ended_at)`
+- Website reports already read daily rollups, with raw rows only for days not yet rolled
+  up.
+- Exports reuse the same report functions, so their cost equals one report request.
