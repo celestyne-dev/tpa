@@ -5,7 +5,10 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { useAdminApi } from "../adminApiContext";
 import { AdminPageHeader } from "../components/AdminPageHeader";
 import { SelectField, TextField } from "../components/Fields";
+import { usePermissions } from "../hooks/usePermissions";
 import { useAdminQuery } from "../hooks/useAdminQuery";
+import { CommerceAnalytics } from "./CommerceAnalytics";
+import { RankTable, Stat } from "./analyticsParts";
 
 const PRESETS = [
   { value: "7d", label: "Last 7 days" },
@@ -36,16 +39,6 @@ const PAGE_TYPE_LABEL = {
   page: "Other pages",
 };
 const fmt = (n) => new Intl.NumberFormat("en").format(n);
-
-function Stat({ label, value, hint }) {
-  return (
-    <div className="rounded-xl border border-charcoal/10 bg-white p-4">
-      <p className="text-sm text-muted">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
-    </div>
-  );
-}
 
 /** Bars drawn from the reported numbers only, with the figures as text for everyone. */
 function TrendChart({ series }) {
@@ -86,45 +79,10 @@ function TrendChart({ series }) {
   );
 }
 
-function RankTable({ caption, rows, columns, empty = "Nothing recorded in this period." }) {
-  return (
-    <section aria-label={caption} className="rounded-xl border border-charcoal/10 bg-white p-4">
-      <h2 className="text-base font-semibold">{caption}</h2>
-      {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">{empty}</p>
-      ) : (
-        <table className="mt-2 w-full text-left text-sm">
-          <caption className="sr-only">{caption}</caption>
-          <thead className="text-muted">
-            <tr>
-              {columns.map((c) => (
-                <th key={c.header} scope="col" className={c.numeric ? "text-right" : undefined}>
-                  {c.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-t border-charcoal/10">
-                {columns.map((c) => (
-                  <td key={c.header} className={c.numeric ? "py-1 text-right" : "py-1 pr-2"}>
-                    {c.render(r)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
-  );
-}
-
 const views = { header: "Views", numeric: true, render: (r) => fmt(r.views) };
 
 /** Website traffic and content performance from first-party, cookieless page views. */
-export function AnalyticsPage() {
+function WebsiteAnalytics() {
   const api = useAdminApi();
   const [preset, setPreset] = useState("30d");
   const [custom, setCustom] = useState({ date_from: "", date_to: "" });
@@ -141,11 +99,6 @@ export function AnalyticsPage() {
   );
   return (
     <>
-      <AdminPageHeader
-        title="Analytics"
-        description="Website traffic and content performance, measured first-party without cookies."
-        breadcrumbs={[{ label: "Analytics" }]}
-      />
       <div className="mb-6 flex flex-wrap items-end gap-3">
         <SelectField
           label="Date range"
@@ -306,6 +259,46 @@ export function AnalyticsPage() {
           </section>
         </div>
       )}
+    </>
+  );
+}
+
+/** Analytics: website traffic (analytics.view) and commerce (finance.view) tabs. */
+export function AnalyticsPage() {
+  const { can } = usePermissions();
+  const tabs = [
+    can("analytics.view") && { key: "website", label: "Website" },
+    can("finance.view") && { key: "commerce", label: "Commerce" },
+  ].filter(Boolean);
+  const [tab, setTab] = useState(tabs[0]?.key ?? "website");
+  return (
+    <>
+      <AdminPageHeader
+        title="Analytics"
+        description="Website traffic, content performance and sales, from first-party records."
+        breadcrumbs={[{ label: "Analytics" }]}
+      />
+      {tabs.length > 1 && (
+        <div role="tablist" aria-label="Analytics sections" className="mb-6 flex gap-2">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTab(t.key)}
+              className={
+                tab === t.key
+                  ? "rounded-full bg-charcoal px-4 py-1.5 text-sm font-medium text-ivory"
+                  : "rounded-full border border-charcoal/20 px-4 py-1.5 text-sm"
+              }
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {tab === "commerce" ? <CommerceAnalytics /> : <WebsiteAnalytics />}
     </>
   );
 }

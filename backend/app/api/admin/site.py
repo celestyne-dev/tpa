@@ -51,6 +51,37 @@ class AnalyticsTrafficResource(Resource):
         return success(traffic_report(args))
 
 
+_COMMERCE_ARGS = ("range", "date_from", "date_to", "granularity", "mode", "currency")
+
+
+class CommerceAnalyticsResource(Resource):
+    """Commerce and revenue analytics (Batch 11.2): aggregates only, needs ``finance.view``."""
+
+    @require_permission(P.FINANCE_VIEW)
+    def get(self):
+        from flask import request
+
+        from ...services.analytics.commerce import commerce_report
+
+        return success(commerce_report({k: request.args.get(k) for k in _COMMERCE_ARGS}))
+
+
+class CommerceAnalyticsExportResource(Resource):
+    @require_permission(P.FINANCE_EXPORT)
+    def get(self):
+        from flask import Response, request
+
+        from ...services import audit_service
+        from ...services.analytics.commerce import export_csv
+
+        body = export_csv({k: request.args.get(k) for k in _COMMERCE_ARGS})
+        audit_service.record("finance.commerce_analytics_exported", "finance", actor=current_user)
+        db.session.commit()
+        response = Response(body, mimetype="text/csv")
+        response.headers["Content-Disposition"] = 'attachment; filename="commerce-analytics.csv"'
+        return response
+
+
 # ---- navigation & settings ------------------------------------------------------
 
 

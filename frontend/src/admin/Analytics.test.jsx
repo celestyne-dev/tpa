@@ -53,6 +53,47 @@ describe("analytics dashboard", () => {
   });
 });
 
+describe("commerce analytics", () => {
+  it("shows per-currency KPIs, products and limits for finance roles", async () => {
+    renderApp("/admin/analytics", { adminApi: createFakeAdminApi({ role: "finance_manager" }) });
+    // Finance has no analytics.view: Commerce only, no tab list.
+    const kes = await screen.findByRole("region", { name: "Sales in KES" });
+    expect(within(kes).getByText("KES 15.00")).toBeInTheDocument(); // net, never mixed with USD
+    const usd = screen.getByRole("region", { name: "Sales in USD" });
+    expect(within(usd).getByText("USD 42.00")).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getByRole("region", { name: "Best-selling products" })).toHaveTextContent(
+      "Calm Guide",
+    );
+    expect(screen.getByRole("region", { name: "Products with no sales" })).toHaveTextContent(
+      "Never Sold Pack",
+    );
+    expect(screen.getByText(/Purchase conversion rate: unavailable/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download CSV" })).toHaveAttribute(
+      "href",
+      "/api/v1/admin/analytics/commerce/export?range=30d&mode=live",
+    );
+  });
+
+  it("switches tabs and filters by payment mode with an empty state", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp("/admin/analytics");
+    await user.click(await screen.findByRole("tab", { name: "Commerce" }));
+    await screen.findByRole("region", { name: "Sales in USD" });
+    await user.selectOptions(screen.getByLabelText("Payment mode"), "test");
+    await waitFor(() =>
+      expect(adminApi.commerceAnalytics).toHaveBeenLastCalledWith({ range: "30d", mode: "test" }),
+    );
+    expect(await screen.findByText("No sales or orders in this period")).toBeInTheDocument();
+  });
+
+  it("hides commerce from analytics-only roles", async () => {
+    renderApp("/admin/analytics", { adminApi: createFakeAdminApi({ role: "analyst" }) });
+    await screen.findByRole("region", { name: "Traffic overview" });
+    expect(screen.queryByRole("tab", { name: "Commerce" })).toBeNull();
+  });
+});
+
 describe("page-view beacon", () => {
   it("sends path, UTM search and referrer on first load, nothing private", () => {
     const send = vi.spyOn(beacon, "send").mockReturnValue(true);

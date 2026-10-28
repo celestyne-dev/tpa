@@ -119,6 +119,9 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
     },
     analytics: () => get("/analytics"),
     traffic: (params) => get("/analytics/traffic", params),
+    commerceAnalytics: (params) => get("/analytics/commerce", params),
+    commerceAnalyticsExportUrl: (params = {}) =>
+      `${baseURL}/analytics/commerce/export?${new URLSearchParams(params).toString()}`,
     dashboard: () => get("/dashboard"),
     articles: {
       ...collection("articles"),

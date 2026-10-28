@@ -145,3 +145,65 @@ sudo systemctl daemon-reload && sudo systemctl enable --now tpa-analytics-mainta
 
 Not included yet: commerce, learning and membership analytics (later Batch 11 phases),
 device/country breakdowns, and real-time views.
+
+# Commerce and revenue analytics (Batch 11.2)
+
+The Commerce tab of Admin → Analytics is backed by `GET /api/v1/admin/analytics/commerce`
+and a CSV export at `GET …/commerce/export`. No schema changes; it reads existing
+orders, order lines, payment transactions and products, plus the Batch 11.1 page views.
+
+## Access
+
+| Endpoint | Requires |
+| --- | --- |
+| Report | `finance.view` (existing financial permission) |
+| CSV | `finance.export`; exports are audited (`finance.commerce_analytics_exported`) |
+
+- Analytics-only roles (`analytics.view` without `finance.view`, e.g. Analyst, Marketing,
+  SEO) don't see the Commerce tab, and the API refuses them.
+- The report is aggregates only: no order numbers, customer names, emails or ids.
+
+## Definitions (same as the existing finance revenue report)
+
+| Term | Meaning |
+| --- | --- |
+| Gross revenue / verified sales | Provider-verified `charge` payment transactions (written only after Paystack verification), by recorded time |
+| Refunds | Processed `refund` transactions. Net = gross − refunds, before provider fees |
+| Paid orders | Orders that reached `paid` (or were later refunded), by `paid_at`. Pending, awaiting payment, failed and cancelled/expired orders are never sales; they appear only in "Orders by status" (by creation date) |
+| Average order value | Total of paid orders ÷ number of paid orders, per currency |
+| Product revenue | Historical order-line totals (the price actually paid), never current catalogue prices |
+
+**Scope:** product purchases (`orders.kind = 'purchase'`). Membership subscription
+payments are in Membership reports.
+
+**Filters:**
+
+- **Mode:** live by default, or test. Test and live are never mixed. A separate table
+  shows both modes side by side.
+- **Currency:** each currency is reported separately; there is no conversion and no
+  combined total.
+- **Dates:** the same date presets and grouping as the Website tab.
+
+## Products
+
+The tab shows:
+
+- best sellers by units, with revenue and attributable refunds;
+- courses vs premium resources vs bundles;
+- product types;
+- categories, using each product's current category links with historical revenue;
+- published paid products with no sales in the range.
+
+Refunds are attributed to a product only when the refunded order has a single line.
+Refunds on multi-product orders are shown as "unattributed".
+
+## Conversion
+
+- **Sales per measured page view:** paid orders per 1,000 page views, and units per 100
+  product-page views per product.
+  - Computed only on days where page views were measured, and only for live payments.
+  - These are ratios of counts, not conversion rates: buyers can purchase without viewing
+    a product page, and opted-out visitors aren't measured.
+- **Visitor or session purchase conversion is unavailable**, and is always reported as
+  such. Orders are deliberately not linked to visitors (cookieless tracking, no
+  identifiers).
