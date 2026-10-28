@@ -284,12 +284,13 @@ CSV_FIELDS = ("source_path", "destination", "status_code", "is_active", "note")
 
 
 def export_csv() -> str:
-    buf = io.StringIO()
-    writer = csv.writer(buf)
+    from ..utils.csv_safe import SafeWriter
+
+    writer = SafeWriter()  # notes and destinations are staff text: no spreadsheet formulas
     writer.writerow(CSV_FIELDS)
     for r in db.session.scalars(select(Redirect).order_by(Redirect.source_path)):
         writer.writerow([r.source_path, r.destination, r.status_code, int(r.is_active), r.note])
-    return buf.getvalue()
+    return writer.value()
 
 
 def import_rows(rows: list[dict[str, Any]], actor: User, *, dry_run: bool = False) -> dict:

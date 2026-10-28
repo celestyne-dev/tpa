@@ -32,6 +32,7 @@ from ...models import (
     SubscriberTag,
 )
 from ...models.newsletter import SIGNUP_SOURCES, SUBSCRIBER_STATUSES
+from ...utils.csv_safe import safe_cell
 from ...utils.errors import ConflictError, NotFoundError, ValidationError
 from .. import audit_service
 from ..serializers import iso
@@ -700,8 +701,8 @@ def export_csv(args: dict[str, Any], actor) -> str:
             row["unsubscribed_at"] or "",
             row["created_at"] or "",
         ]
-        # Neutralise spreadsheet formulas.
-        writer.writerow(["'" + v if v[:1] in "=+-@" else v for v in map(str, values)])
+        # Neutralise spreadsheet formulas (shared rule; empty cells stay empty).
+        writer.writerow([safe_cell(v) for v in map(str, values)])
         count += 1
     audit_service.record(
         "subscribers.exported",

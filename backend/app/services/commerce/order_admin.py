@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import csv
-import io
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -28,6 +26,7 @@ from ...models import (
     Refund,
     User,
 )
+from ...utils.csv_safe import SafeWriter
 from ...utils.errors import ConflictError, NotFoundError, ValidationError
 from .. import audit_service
 from ..serializers import iso
@@ -245,8 +244,7 @@ def add_note(order: Order, note: Any, actor: User) -> Order:
 def export_orders_csv(args: dict[str, Any]) -> str:
     args = {**args, "page": 1, "page_size": 10000}
     rows, _ = list_orders(args)
-    out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeWriter()  # customer emails and titles may start with = + - @
     writer.writerow(
         [
             "number",
@@ -277,7 +275,7 @@ def export_orders_csv(args: dict[str, Any]) -> str:
                 "; ".join(i.title for i in order.items),
             ]
         )
-    return out.getvalue()
+    return writer.value()
 
 
 # ---- customers --------------------------------------------------------------------------
@@ -665,8 +663,7 @@ def revenue_report(args: dict[str, Any]) -> dict[str, Any]:
 
 def export_revenue_csv(args: dict[str, Any]) -> str:
     report = revenue_report(args)
-    out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeWriter()  # product titles are staff text: no spreadsheet formulas
     writer.writerow(
         ["mode", report["mode"], "from", report["date_from"] or "", "to", report["date_to"] or ""]
     )
@@ -689,4 +686,4 @@ def export_revenue_csv(args: dict[str, Any]) -> str:
     writer.writerow(["product", "currency", "units", "revenue"])
     for r in report["by_product"]:
         writer.writerow([r["title"], r["currency"], r["units"], r["revenue"]["amount"]])
-    return out.getvalue()
+    return writer.value()

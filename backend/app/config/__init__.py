@@ -381,6 +381,14 @@ class ProductionConfig(BaseConfig):
         secret = os.environ.get("PAYSTACK_SECRET_KEY", "")
         if secret and not secret.startswith(("sk_test_", "sk_live_")):
             missing.append("PAYSTACK_SECRET_KEY (must start with sk_test_ or sk_live_)")
+        public = os.environ.get("PAYSTACK_PUBLIC_KEY", "")
+        if public and secret and public.split("_")[:2] != ["pk", secret.split("_")[1]]:
+            missing.append("PAYSTACK_PUBLIC_KEY (must be a pk_ key of the same mode as the secret)")
+        if os.environ.get("MEMBERSHIP_BILLING_MODE", "disabled").strip().lower() not in {
+            "disabled",
+            "test",
+        }:
+            missing.append("MEMBERSHIP_BILLING_MODE (must be disabled or test)")
         api_base = os.environ.get("PAYSTACK_API_BASE", "https://api.paystack.co").rstrip("/")
         if api_base != "https://api.paystack.co":
             missing.append("PAYSTACK_API_BASE (must be https://api.paystack.co in production)")

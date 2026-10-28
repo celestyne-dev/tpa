@@ -12,35 +12,15 @@
 
 from __future__ import annotations
 
-import csv
-import io
 from typing import Any
 
 from ...auth.permissions import Permission as P
 from ...auth.rbac import effective_permissions
 from ...models import User
+from ...utils.csv_safe import SafeWriter, safe_cell  # noqa: F401  (re-exported)
 from ...utils.errors import ForbiddenError, ValidationError
 
-DANGEROUS = ("=", "+", "-", "@", "\t", "\r")
 REPORTS = ("website", "learning", "membership", "audience", "overview")
-
-
-def safe_cell(value: Any) -> Any:
-    if isinstance(value, str) and value.startswith(DANGEROUS):
-        return "'" + value
-    return value
-
-
-class SafeWriter:
-    def __init__(self) -> None:
-        self.buffer = io.StringIO()
-        self._writer = csv.writer(self.buffer)
-
-    def row(self, *cells: Any) -> None:
-        self._writer.writerow([safe_cell(c) for c in cells])
-
-    def value(self) -> str:
-        return self.buffer.getvalue()
 
 
 def _money(m: dict | None) -> str:

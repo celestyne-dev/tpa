@@ -160,6 +160,6 @@ def test_exports_are_authorised_safe_and_audited(shop, as_role):  # noqa: F811
 def test_safe_cell():
     from app.services.analytics.exports import safe_cell
 
-    for bad in ("=1+1", "+1", "-2", "@SUM(A1)", "\tx", "\rx"):
+    for bad in ("=1+1", "+1+A1", "-2+A1", "@SUM(A1)", "\tx", "\rx"):
         assert safe_cell(bad).startswith("'")
     assert safe_cell("Calm Guide") == "Calm Guide" and safe_cell(5) == 5

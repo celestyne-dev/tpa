@@ -8,8 +8,6 @@ commissions as reported/paid by networks. Nothing is converted between currencie
 
 from __future__ import annotations
 
-import csv
-import io
 from collections import defaultdict
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
@@ -156,8 +154,9 @@ def report(args: dict[str, Any]) -> dict[str, Any]:
 
 def export_csv(args: dict[str, Any], actor) -> str:
     data = report(args)
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
+    from ...utils.csv_safe import SafeWriter
+
+    writer = SafeWriter()
     columns = list(data["by_currency"][0].keys()) if data["by_currency"] else ["currency"]
     writer.writerow(columns)
     for row in data["by_currency"]:
@@ -165,7 +164,7 @@ def export_csv(args: dict[str, Any], actor) -> str:
     audit_service.record(
         "partnership_report.exported", "partnership_report", actor=actor, details=data["filters"]
     )
-    return buffer.getvalue()
+    return writer.value()
 
 
 # ---- manual finance entries ---------------------------------------------------------------
