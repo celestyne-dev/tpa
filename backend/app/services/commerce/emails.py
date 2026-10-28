@@ -142,6 +142,15 @@ def render(template: str, context: dict[str, Any]) -> tuple[str, str]:
             "Download and expire after a few minutes, so please download from your library "
             "rather than sharing links." + _signature(),
         )
+    if template == "membership_activated":
+        return (
+            f"Welcome to {context['plan_name']}",
+            f"Hello {name},\n\nYour membership is active. Your payment was verified and the "
+            f"included courses and resources are now open in your account:\n\n"
+            f"{_site()}/account/membership\n\nCurrent period ends: {context['period_end']}"
+            + ("\n\nTest mode: no real money was charged." if context.get("test") else "")
+            + _signature(),
+        )
     if template == "refund_confirmation":
         return (
             f"Refund processed for order {order.number}",
@@ -164,6 +173,7 @@ TEMPLATES = (
     "download_instructions",
     "guest_access",
     "refund_confirmation",
+    "membership_activated",
 )
 
 

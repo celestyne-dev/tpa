@@ -1506,3 +1506,76 @@ def test_batch101_membership_plans_upgrade_is_additive_and_downgrade_protects_pl
         db.session.remove()
         upgrade(directory=MIGRATIONS)
         assert set(sync_rbac().values()) == {0}
+
+
+def test_batch102_subscription_upgrade_preserves_orders_and_downgrade_protects_billing(tmp_path):
+    """Subscription tables are new; existing orders become purchases, enrolment rows are
+    kept across the constraint rebuild; downgrade refuses while subscription orders exist."""
+    import pytest
+
+    app = _app(tmp_path, "batch102.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="b8d0f6c4e215")
+        now = "2026-10-28 09:00:00"
+        cid = db.session.execute(
+            text(
+                "INSERT INTO customers (public_id, email, display_name, password_hash, status, "
+                "is_test_account, support_notes, created_at, updated_at) VALUES "
+                "('c1', 'reader@example.com', 'Reader', 'x', 'active', 0, '', :n, :n) "
+                "RETURNING id"
+            ),
+            {"n": now},
+        ).scalar_one()
+        db.session.execute(
+            text(
+                "INSERT INTO orders (number, public_id, customer_id, email, status, currency, "
+                "subtotal_minor, discount_minor, tax_minor, total_minor, refunded_minor, provider, "
+                "mode, idempotency_key, cart_hash, terms_version, needs_review, review_reason, "
+                "notes, is_guest, created_at, updated_at) VALUES ('TPA-1', 'o1', :c, "
+                "'reader@example.com', 'paid', 'USD', 1500, 0, 0, 1500, 0, 'paystack', 'test', "
+                "'k1', 'h1', 'v1', 0, '', '', 0, :n, :n)"
+            ),
+            {"c": cid, "n": now},
+        )
+        db.session.commit()
+        counts = ("customers", "orders", "products", "membership_plans", "course_enrollments")
+        before = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        db.session.remove()
+
+        upgrade(directory=MIGRATIONS, revision="c9e1a7d5f326")
+        tables = set(inspect(db.engine).get_table_names())
+        assert {
+            "membership_provider_plans",
+            "customer_subscriptions",
+            "subscription_periods",
+            "subscription_events",
+        } <= tables
+        indexes = {i["name"] for i in inspect(db.engine).get_indexes("customer_subscriptions")}
+        assert "uq_customer_subscriptions_live" in indexes
+        after = {
+            t: db.session.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in counts
+        }
+        assert after == before
+        assert db.session.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
+        assert db.session.execute(text("PRAGMA foreign_key_check")).fetchall() == []
+        assert db.session.execute(text("SELECT kind FROM orders")).scalar_one() == "purchase"
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.execute(text("UPDATE orders SET kind = 'subscription'"))
+        db.session.commit()
+        db.session.remove()
+        with pytest.raises(SystemExit):  # refuses: subscription billing records would be lost
+            downgrade(directory=MIGRATIONS, revision="b8d0f6c4e215")
+        db.session.remove()
+        db.session.execute(text("UPDATE orders SET kind = 'purchase'"))
+        db.session.commit()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="b8d0f6c4e215")
+        assert "customer_subscriptions" not in set(inspect(db.engine).get_table_names())
+        assert "kind" not in {c["name"] for c in inspect(db.engine).get_columns("orders")}
+        assert db.session.execute(text("SELECT number FROM orders")).scalar_one() == "TPA-1"
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}

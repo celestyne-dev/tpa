@@ -429,6 +429,8 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
         ),
       setAccess: (id, body) => put(`/membership-plans/${encodeURIComponent(id)}/access`, body),
       eligibleProducts: (q) => get("/membership-eligible-products", q ? { q } : undefined),
+      providerSync: (id, body) =>
+        post(`/membership-plans/${encodeURIComponent(id)}/provider-sync`, body),
     },
     // Batch 09.2: reusable question banks (answer keys only for question_banks.manage).
     questionBanks: {

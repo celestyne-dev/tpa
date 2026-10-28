@@ -60,6 +60,10 @@ export function createShopApi({ baseURL = siteConfig.apiBaseUrl, adapter } = {})
     authorizeDownload: (entitlementId, versionId) =>
       post(`/account/library/${entitlementId}/downloads`, { version_id: versionId }),
     claimFree: (productId) => post("/account/free-claims", { product_id: productId }),
+    membership: () => get("/account/membership"),
+    membershipCheckout: (body) => post("/account/membership/checkout", body),
+    verifyMembership: (subscriptionId) =>
+      post("/account/membership/verify", { subscription_id: subscriptionId }),
     checkout: (body) => post("/checkout", body),
     checkoutOrder: (id) => get(`/checkout/orders/${enc(id)}`),
     verifyOrder: (id) => post(`/checkout/orders/${enc(id)}/verify`),

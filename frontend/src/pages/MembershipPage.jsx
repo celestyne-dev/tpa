@@ -1,5 +1,8 @@
 import { BookOpen, Check, Crown, FileText, GraduationCap } from "lucide-react";
-import { Link } from "react-router";
+import { useRef, useState } from "react";
+import { Link, useNavigate } from "react-router";
+import { newKey, redirectTo } from "@/commerce/hooks";
+import { useShopApi } from "@/components/products/shopApiContext";
 import { Seo } from "@/components/seo/Seo";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -9,6 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { Section } from "@/components/ui/Section";
 import { routes } from "@/config/navigation";
+import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { useMemberships } from "@/hooks/useContent";
 
 const INTERVAL_LABEL = { month: "per month", year: "per year" };
@@ -58,6 +62,87 @@ function IncludedItem({ item }) {
   );
 }
 
+const JOIN_ERRORS = {
+  already_member: "You're already a member.",
+  price_changed: "This price has just changed. Please check the new price and try again.",
+  subscription_pending: "Your last payment is still being confirmed. Please check back shortly.",
+};
+
+/**
+ * Starts a test-mode membership checkout. The server re-checks the price, verified email
+ * and existing memberships; access is only granted after Paystack confirms the payment.
+ */
+function JoinButtons({ plan, describedBy }) {
+  const { status } = useAccountStatus();
+  const shopApi = useShopApi();
+  const navigate = useNavigate();
+  const keys = useRef({});
+  const [state, setState] = useState({ busy: null, error: "" });
+  const join = async (price) => {
+    if (status !== "signed_in") {
+      navigate(`${routes.signIn}?next=${encodeURIComponent(routes.membership)}`);
+      return;
+    }
+    // One key per price for this visit, so a double click or retry resumes the same checkout.
+    keys.current[price.id] ??= newKey();
+    setState({ busy: price.id, error: "" });
+    try {
+      const res = await shopApi.membershipCheckout({
+        price_id: price.id,
+        idempotency_key: keys.current[price.id],
+        expected_amount_minor: price.price.amount_minor,
+        currency: price.price.currency,
+        accept_terms: true,
+      });
+      const url = res.data.checkout_url;
+      if (url) redirectTo.go(url);
+      else navigate(routes.accountMembership);
+    } catch (err) {
+      const code = err?.details?.code;
+      if (code === "already_member" || code === "subscription_pending") {
+        navigate(routes.accountMembership);
+        return;
+      }
+      if (code === "price_changed") keys.current = {};
+      setState({
+        busy: null,
+        error:
+          JOIN_ERRORS[code] ??
+          err?.message ??
+          "We couldn't start the checkout. Please try again in a moment.",
+      });
+    }
+  };
+  return (
+    <div>
+      <div className="flex flex-wrap gap-3">
+        {plan.prices.map((p) => (
+          <button
+            key={p.interval}
+            type="button"
+            onClick={() => join(p)}
+            disabled={state.busy !== null}
+            aria-describedby={describedBy}
+            className="rounded-full bg-charcoal px-6 py-3 font-medium text-ivory hover:bg-charcoal/90 disabled:opacity-60"
+          >
+            {state.busy === p.id
+              ? "Starting checkout…"
+              : `Join ${p.interval === "month" ? "monthly" : "yearly"} · ${p.price.formatted}`}
+          </button>
+        ))}
+      </div>
+      {state.error && (
+        <p role="alert" className="mt-2 text-sm text-red-800">
+          {state.error}
+        </p>
+      )}
+      <p className="mt-2 text-sm text-muted">
+        By joining you agree to the terms of sale. Renews automatically until cancelled.
+      </p>
+    </div>
+  );
+}
+
 function PlanCard({ plan, billing }) {
   const saving = yearlySaving(plan.prices);
   const headingId = `plan-${plan.slug}`;
@@ -92,14 +177,18 @@ function PlanCard({ plan, billing }) {
         </ul>
 
         <div className="mt-6">
-          <button
-            type="button"
-            disabled
-            aria-describedby={`${headingId}-billing`}
-            className="w-full cursor-not-allowed rounded-full bg-charcoal/15 px-6 py-3 font-medium text-charcoal/70 sm:w-auto"
-          >
-            {billing.available ? "Join" : "Coming soon"}
-          </button>
+          {billing.available ? (
+            <JoinButtons plan={plan} describedBy={`${headingId}-billing`} />
+          ) : (
+            <button
+              type="button"
+              disabled
+              aria-describedby={`${headingId}-billing`}
+              className="w-full cursor-not-allowed rounded-full bg-charcoal/15 px-6 py-3 font-medium text-charcoal/70 sm:w-auto"
+            >
+              Coming soon
+            </button>
+          )}
           <p id={`${headingId}-billing`} className="mt-2 text-sm text-muted">
             {billing.message}
           </p>

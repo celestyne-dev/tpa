@@ -225,6 +225,8 @@ class FakePaystack:
         self.provider._request = self._request
         self.transactions = {}
         self.refunds = {}
+        self.plans = {}
+        self.subscriptions = {}
         self.fail_initialize = False
         self.fail_verify = False
         self.calls = []
@@ -254,6 +256,13 @@ class FakePaystack:
                 "paid_at": None,
                 "email": body["email"],
             }
+            if body.get("plan"):  # subscription checkout: Paystack charges the plan amount
+                plan = self.plans[body["plan"]]
+                self.transactions[ref].update(
+                    amount=plan["amount"],
+                    plan=body["plan"],
+                    customer={"customer_code": f"CUS_{abs(hash(body['email'])) % 10**8}"},
+                )
             return {
                 "authorization_url": f"https://checkout.paystack.com/{ref.lower()}",
                 "access_code": f"ac_{ref.lower()}",
@@ -266,6 +275,27 @@ class FakePaystack:
             if ref not in self.transactions:
                 raise ProviderError("Paystack: Transaction reference not found")
             return dict(self.transactions[ref])
+        if path == "/plan":
+            code = f"PLN_{self._id()}"
+            self.plans[code] = {
+                "plan_code": code,
+                "name": body["name"],
+                "amount": int(body["amount"]),
+                "currency": body["currency"],
+                "interval": body["interval"],
+                "domain": "test",
+            }
+            return dict(self.plans[code])
+        if path.startswith("/plan/"):
+            code = path.rsplit("/", 1)[1]
+            if code not in self.plans:
+                raise ProviderError("Paystack: Plan not found")
+            return dict(self.plans[code])
+        if path.startswith("/subscription/"):
+            code = path.rsplit("/", 1)[1]
+            if code not in self.subscriptions:
+                raise ProviderError("Paystack: Subscription not found")
+            return dict(self.subscriptions[code])
         if path == "/refund":
             refund = {
                 "id": self._id(),
@@ -288,6 +318,22 @@ class FakePaystack:
         if currency is not None:
             tx["currency"] = currency
         return tx
+
+    def subscribe(self, reference, *, email, domain="test"):
+        """What Paystack creates after a plan checkout's first successful charge."""
+        tx = self.transactions[reference]
+        code = f"SUB_{self._id()}"
+        self.subscriptions[code] = {
+            "id": self._id(),
+            "subscription_code": code,
+            "email_token": f"tok_{code.lower()}",
+            "status": "active",
+            "domain": domain,
+            "plan": {"plan_code": tx["plan"]},
+            "customer": {"customer_code": tx["customer"]["customer_code"], "email": email},
+            "next_payment_date": "2026-11-23T10:00:00.000Z",
+        }
+        return dict(self.subscriptions[code])
 
     def webhook(self, event, data, secret=TEST_SECRET):
         import hashlib

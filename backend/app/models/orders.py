@@ -34,6 +34,7 @@ ORDER_STATUSES = (
     "refunded",
 )
 PAYMENT_MODES = ("test", "live")
+ORDER_KINDS = ("purchase", "subscription")
 ATTEMPT_STATUSES = ("created", "initialized", "succeeded", "failed", "abandoned", "mismatch")
 TRANSACTION_KINDS = ("charge", "refund")
 EVENT_STATUSES = ("received", "processed", "ignored", "rejected", "deferred", "error")
@@ -52,6 +53,7 @@ class Order(TimestampMixin, db.Model):
     __table_args__ = (
         CheckConstraint(f"status IN {ORDER_STATUSES}", name="status_valid"),
         CheckConstraint(f"mode IN {PAYMENT_MODES}", name="mode_valid"),
+        CheckConstraint(f"kind IN {ORDER_KINDS}", name="kind_valid"),
         CheckConstraint("subtotal_minor >= 0 AND total_minor >= 0", name="amounts_non_negative"),
         CheckConstraint(
             "refunded_minor >= 0 AND refunded_minor <= total_minor", name="refund_within_total"
@@ -92,6 +94,10 @@ class Order(TimestampMixin, db.Model):
     # Guest checkout: placed without signing in. Its purchases show in an account only once
     # that account's email is confirmed; the browser that placed it holds an order token.
     is_guest: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Batch 10.2: "subscription" orders are membership payments (no downloads granted).
+    kind: Mapped[str] = mapped_column(
+        String(20), default="purchase", server_default="purchase", nullable=False
+    )
     guest_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
 
     customer = relationship("Customer", lazy="joined")

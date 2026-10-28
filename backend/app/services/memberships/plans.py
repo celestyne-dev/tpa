@@ -77,12 +77,10 @@ def _touch(plan: MembershipPlan, actor: User) -> None:
 
 
 def billing_status() -> dict[str, Any]:
-    """Paid subscriptions open in Batch 10.2; until then nothing can be bought."""
-    return {
-        "available": False,
-        "status": "coming_soon",
-        "message": "Paid memberships are coming soon. No payments are being taken yet.",
-    }
+    """Whether membership checkout is open (Batch 10.2: test mode only, see billing)."""
+    from .billing import billing_status as status
+
+    return status()
 
 
 # ---- lookups and serialisation -------------------------------------------------------------
@@ -187,7 +185,14 @@ def plan_detail(plan: MembershipPlan, actor: User) -> dict[str, Any]:
         ],
         "readiness": readiness(plan),
         "billing": billing_status(),
+        "provider_plans": _provider_plans(plan),
     }
+
+
+def _provider_plans(plan: MembershipPlan) -> list[dict[str, Any]]:
+    from .billing import provider_plans_dict
+
+    return provider_plans_dict(plan)
 
 
 def list_plans(actor: User) -> list[dict[str, Any]]:
@@ -562,7 +567,7 @@ def public_plan(plan: MembershipPlan) -> dict[str, Any]:
         "benefits": plan.benefits or [],
         "tier_rank": plan.tier_rank,
         "prices": [
-            {"interval": p.interval, "price": money(p.amount_minor, p.currency)}
+            {"id": p.public_id, "interval": p.interval, "price": money(p.amount_minor, p.currency)}
             for p in sorted(plan.active_prices, key=lambda p: INTERVALS.index(p.interval))
         ],
         "included": [

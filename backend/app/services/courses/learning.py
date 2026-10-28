@@ -162,8 +162,8 @@ def sync(customer: Customer) -> int:
     created = 0
     for course, entitlement in rows:
         source = "free" if entitlement.source == "free" else "purchase"
-        if entitlement.source == "manual":
-            source = "manual"
+        if entitlement.source in ("manual", "membership"):
+            source = entitlement.source
         enrollment, new = _create_enrollment(
             customer, course, source=source, entitlement_id=entitlement.id
         )

@@ -11,6 +11,7 @@ const tabs = [
   { to: routes.notebook, label: "Notebook" },
   { to: routes.assessmentHistory, label: "Results" },
   { to: routes.accountLibrary, label: "My library" },
+  { to: routes.accountMembership, label: "Membership" },
   { to: routes.accountOrders, label: "Orders" },
   { to: routes.accountSettings, label: "Settings" },
 ];

@@ -4,6 +4,8 @@ Uses Paystack's documented REST API:
 - POST /transaction/initialize      -> authorization_url, access_code, reference
 - GET  /transaction/verify/:ref     -> status, amount (subunit), currency, domain, id
 - POST /refund, GET /refund/:id     -> refund status
+- POST /plan, GET /plan/:code       -> recurring plans (Batch 10.2, subscriptions)
+- GET  /subscription/:code          -> subscription status, plan and customer
 - Webhooks: ``x-paystack-signature`` is the HMAC-SHA512 of the raw request body,
   keyed with the secret key.
 
@@ -29,6 +31,8 @@ from flask import current_app
 from .base import (
     CheckoutSession,
     ProviderError,
+    ProviderPlan,
+    ProviderSubscription,
     RefundResult,
     VerifiedTransaction,
     WebhookEvent,
@@ -68,6 +72,18 @@ _KEEP = (
     "deducted_amount",
     "merchant_note",
 )
+
+
+# Paystack's interval names <-> ours.
+PLAN_INTERVALS = {"month": "monthly", "year": "annually"}
+_INTERVALS_BACK = {v: k for k, v in PLAN_INTERVALS.items()}
+
+
+def _code(value: Any, key: str) -> str:
+    """A code from a field that may hold the code itself or an object containing it."""
+    if isinstance(value, dict):
+        value = value.get(key)
+    return str(value) if isinstance(value, str) else ""
 
 
 def _parse_time(value: Any) -> datetime | None:
@@ -167,6 +183,7 @@ class PaystackProvider:
         callback_url: str,
         channels: list[str],
         metadata: dict[str, Any],
+        plan: str | None = None,
     ) -> CheckoutSession:
         body: dict[str, Any] = {
             "email": email,
@@ -178,6 +195,10 @@ class PaystackProvider:
         }
         if channels:
             body["channels"] = channels
+        if plan:
+            # Paystack charges the plan's amount and creates the subscription after the
+            # first successful payment; the amount is still sent and verified afterwards.
+            body["plan"] = plan
         data = self._request("POST", "/transaction/initialize", body)
         url = data.get("authorization_url")
         local_mock = self._base.startswith("http://127.0.0.1")  # development mock only
@@ -209,6 +230,67 @@ class PaystackProvider:
             channel=str(data.get("channel") or "")[:40],
             paid_at=_parse_time(data.get("paid_at") or data.get("paidAt")),
             gateway_response=str(data.get("gateway_response") or "")[:200],
+            plan_code=(
+                _code(data.get("plan"), "plan_code") or _code(data.get("plan_object"), "plan_code")
+            )[:60],
+            customer_code=_code(data.get("customer"), "customer_code")[:60],
+        )
+
+    # ---- recurring plans and subscriptions ------------------------------------------------
+
+    def create_plan(
+        self, *, name: str, amount_minor: int, currency: str, interval: str
+    ) -> ProviderPlan:
+        if interval not in PLAN_INTERVALS:
+            raise ProviderError("Unsupported billing interval.")
+        data = self._request(
+            "POST",
+            "/plan",
+            {
+                "name": name[:100],
+                "amount": str(amount_minor),
+                "currency": currency,
+                "interval": PLAN_INTERVALS[interval],
+            },
+        )
+        return self._plan(data)
+
+    def fetch_plan(self, plan_code: str) -> ProviderPlan:
+        return self._plan(self._request("GET", f"/plan/{urllib.parse.quote(plan_code, safe='')}"))
+
+    @staticmethod
+    def _plan(data: dict[str, Any]) -> ProviderPlan:
+        try:
+            amount = int(data.get("amount"))
+        except (TypeError, ValueError):
+            raise ProviderError("Paystack returned an invalid plan amount.") from None
+        code = data.get("plan_code")
+        if not isinstance(code, str) or not code:
+            raise ProviderError("Paystack returned a plan without a code.")
+        domain = data.get("domain")
+        return ProviderPlan(
+            plan_code=code[:60],
+            amount_minor=amount,
+            currency=str(data.get("currency") or "").upper(),
+            interval=_INTERVALS_BACK.get(str(data.get("interval") or ""), ""),
+            mode=("live" if domain == "live" else "test") if domain else None,
+        )
+
+    def fetch_subscription(self, subscription_code: str) -> ProviderSubscription:
+        data = self._request(
+            "GET", f"/subscription/{urllib.parse.quote(subscription_code, safe='')}"
+        )
+        customer = data.get("customer") if isinstance(data.get("customer"), dict) else {}
+        domain = data.get("domain")
+        return ProviderSubscription(
+            subscription_code=str(data.get("subscription_code") or "")[:60],
+            status=str(data.get("status") or "").lower()[:30],
+            plan_code=_code(data.get("plan"), "plan_code")[:60],
+            customer_code=str(customer.get("customer_code") or "")[:60],
+            customer_email=str(customer.get("email") or "").strip().lower()[:254],
+            email_token=str(data.get("email_token") or "")[:100],
+            next_payment_at=_parse_time(data.get("next_payment_date")),
+            mode=("live" if domain == "live" else "test") if domain else None,
         )
 
     # ---- webhooks -----------------------------------------------------------------------
@@ -229,10 +311,22 @@ class PaystackProvider:
             if reference is None and isinstance(data.get("transaction"), dict):
                 reference = data["transaction"].get("reference")
             ident = data.get("id") or data.get("refund_reference") or reference
+        elif event_type.startswith("subscription."):
+            reference = None
+            ident = data.get("subscription_code") or data.get("id")
         else:
             reference = data.get("reference")
             ident = data.get("id") or reference
         status = str(data.get("status") or "")
+        # Codes only (never authorisation data or personal details) for subscription routing.
+        codes = {
+            "plan_code": (
+                _code(data.get("plan"), "plan_code") or _code(data.get("plan_object"), "plan_code")
+            )[:60],
+            "subscription_code": str(data.get("subscription_code") or "")[:60],
+            "customer_code": _code(data.get("customer"), "customer_code")[:60],
+        }
+        clean |= {k: v for k, v in codes.items() if v}
         return WebhookEvent(
             event_type=event_type,
             dedupe_key=f"{event_type}:{ident}:{status}"[:160],

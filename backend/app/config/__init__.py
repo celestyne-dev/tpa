@@ -215,6 +215,10 @@ class BaseConfig:
     # Development only: let any signed-in customer use test-mode checkout (otherwise only
     # accounts staff mark as test accounts). Refused in production.
     PAYMENTS_TEST_CHECKOUT_PUBLIC = _bool("PAYMENTS_TEST_CHECKOUT_PUBLIC", False)
+    # Membership subscriptions (Batch 10.2). "test" asserts that recurring USD charges were
+    # verified in the Paystack *test* dashboard; anything else keeps membership checkout
+    # closed. Live subscriptions are not supported yet and are always refused.
+    MEMBERSHIP_BILLING_MODE = os.environ.get("MEMBERSHIP_BILLING_MODE", "disabled").strip().lower()
 
     # ---- Newsletter & email marketing (The Positive Reset) ----
     # Delivery backend for newsletter mail: none | console (development) | memory (tests) |

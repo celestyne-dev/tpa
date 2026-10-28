@@ -272,6 +272,60 @@ function PricesSection({ plan, canManage, onSaved }) {
   );
 }
 
+const INTERVAL_NAME = { month: "Monthly", year: "Yearly" };
+
+/** Links each active price to a Paystack plan (test mode only) and shows what is linked. */
+function PaystackSection({ plan, canManage, onSaved }) {
+  const api = useAdminApi();
+  const notify = useNotify();
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const sync = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await api.memberships.providerSync(plan.id, { lock_version: plan.lock_version });
+      notify("Paystack test plans are in sync.");
+      onSaved(res.data);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const linked = plan.provider_plans ?? [];
+  return (
+    <section aria-labelledby="paystack-heading" className="space-y-4">
+      <h2 id="paystack-heading" className="text-lg font-medium">
+        Paystack plans (test mode)
+      </h2>
+      <p className="text-sm text-muted">
+        Each active price needs a matching Paystack plan before members can join. Syncing creates
+        missing plans in the Paystack test account and checks existing ones still match the amount,
+        currency and interval. Live plans are never created here.
+      </p>
+      <ErrorSummary error={error} title="Paystack plans weren't synced" />
+      {linked.length > 0 ? (
+        <ul aria-label="Linked Paystack plans" className="space-y-1 text-sm">
+          {linked.map((p) => (
+            <li key={`${p.price_id}-${p.mode}`}>
+              {INTERVAL_NAME[p.interval]} ({p.mode}): <code>{p.plan_code}</code>
+              {p.verified_at ? " · checked" : " · not checked"}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm">No Paystack plans are linked yet.</p>
+      )}
+      {canManage && plan.status !== "archived" && (
+        <Button size="sm" variant="outline" onClick={sync} disabled={busy}>
+          {busy ? "Syncing…" : "Sync with Paystack (test)"}
+        </Button>
+      )}
+    </section>
+  );
+}
+
 function AccessSection({ plan, canManage, onSaved }) {
   const api = useAdminApi();
   const notify = useNotify();
@@ -319,7 +373,7 @@ function AccessSection({ plan, canManage, onSaved }) {
       </h2>
       <p className="text-sm text-muted">
         Only products marked “Included in memberships” in their resource access settings can be
-        chosen. Members won&apos;t get access until subscription billing opens.
+        chosen. Members get access only after Paystack confirms their payment.
       </p>
       <ErrorSummary error={error} title="The selection wasn't saved" />
       <TextField
@@ -458,8 +512,8 @@ export function MembershipPlanEditorPage() {
           {plan.billing.message} Publishing shows the plan on{" "}
           <Link to="/membership" className="underline underline-offset-4">
             /membership
-          </Link>{" "}
-          with a “coming soon” notice.
+          </Link>
+          {plan.billing.available ? "." : " with a “coming soon” notice."}
         </p>
         {plan.readiness.length > 0 && (
           <div className="rounded-xl border border-gold-300 bg-gold-100/40 p-4 text-sm">
@@ -479,6 +533,7 @@ export function MembershipPlanEditorPage() {
       <div className="max-w-4xl space-y-10">
         <DetailsForm key={plan.lock_version} plan={plan} canManage={canManage} onSaved={setData} />
         <PricesSection plan={plan} canManage={canManage} onSaved={setData} />
+        <PaystackSection plan={plan} canManage={canManage} onSaved={setData} />
         <AccessSection
           key={`access-${plan.lock_version}`}
           plan={plan}

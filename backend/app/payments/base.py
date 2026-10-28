@@ -37,6 +37,33 @@ class VerifiedTransaction:
     channel: str = ""
     paid_at: datetime | None = None
     gateway_response: str = ""
+    # Subscription checkouts (Batch 10.2): the plan the charge was for and the provider's
+    # customer record. Empty for one-time payments.
+    plan_code: str = ""
+    customer_code: str = ""
+
+
+@dataclass(frozen=True)
+class ProviderPlan:
+    """A recurring plan as the provider reports it (fetched server-to-server)."""
+
+    plan_code: str
+    amount_minor: int
+    currency: str
+    interval: str  # month | year (normalised)
+    mode: str | None  # test | live, when the provider says
+
+
+@dataclass(frozen=True)
+class ProviderSubscription:
+    subscription_code: str
+    status: str
+    plan_code: str
+    customer_code: str
+    customer_email: str
+    email_token: str
+    next_payment_at: datetime | None
+    mode: str | None
 
 
 @dataclass(frozen=True)

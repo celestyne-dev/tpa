@@ -16,7 +16,7 @@ import { usePermissions } from "../../hooks/usePermissions";
 
 const priceText = (price) => price?.price.formatted ?? "—";
 
-/** Membership plans (tiers): content, prices and included products. No billing yet. */
+/** Membership plans (tiers): content, prices and included products. */
 export function MembershipPlansPage() {
   const api = useAdminApi();
   const notify = useNotify();
@@ -73,8 +73,9 @@ export function MembershipPlansPage() {
         }
       />
       <p role="note" className="mb-4 rounded-xl bg-cream p-3 text-sm">
-        Subscription billing isn&apos;t open yet: the membership page shows plans and prices with a
-        “coming soon” notice, and no one can be charged or become a member.
+        Joining is only possible in Paystack test mode once billing is enabled and each plan is
+        synced with Paystack; otherwise the membership page shows a “coming soon” notice. Members
+        get access only after Paystack confirms their first payment.
       </p>
       {error ? (
         <ErrorState title="We couldn't load the membership plans" onRetry={reload} />

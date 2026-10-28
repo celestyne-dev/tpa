@@ -75,6 +75,7 @@ export function makePlan(overrides = {}) {
     included: [{ ...ELIGIBLE[0], problem: null }],
     readiness: [],
     billing: BILLING,
+    provider_plans: [],
     ...overrides,
   };
 }
@@ -161,6 +162,100 @@ export function createMembershipAdminFake() {
         });
       }),
       eligibleProducts: vi.fn(() => ok(ELIGIBLE)),
+      providerSync: vi.fn((_id, body) => {
+        const conflict = locked(body);
+        if (conflict) return conflict;
+        return bump({
+          provider_plans: Object.values(plan.prices).map((p) => ({
+            price_id: p.id,
+            interval: p.interval,
+            mode: "test",
+            plan_code: `PLN_${p.interval}`,
+            verified_at: NOW,
+          })),
+        });
+      }),
     },
+  };
+}
+
+export const OPEN_BILLING = {
+  available: true,
+  status: "test",
+  message: "Test mode: memberships use Paystack test payments; no real money is taken.",
+};
+
+/** Public plans with test-mode billing open (prices carry ids for checkout). */
+export function openMembershipContentApi() {
+  const api = membershipContentApi();
+  return {
+    getMemberships: vi.fn(async () => {
+      const { data } = await api.getMemberships();
+      return {
+        data: {
+          billing: OPEN_BILLING,
+          plans: data.plans.map((p) => ({
+            ...p,
+            prices: p.prices.map((x) => ({ ...x, id: `price-${x.interval}` })),
+          })),
+        },
+      };
+    }),
+  };
+}
+
+const SUB = {
+  id: "sub1",
+  status: "pending",
+  test_mode: true,
+  plan: { name: "Positive Circle", slug: "positive-circle" },
+  interval: "month",
+  price: usd(1000),
+  current_period_start: null,
+  current_period_end: null,
+  access_until: null,
+  activated_at: null,
+  created_at: NOW,
+  checkout_url: "https://checkout.paystack.com/test-sub1",
+  receipt_order: null,
+};
+
+export const ACTIVE_SUB = {
+  ...SUB,
+  status: "active",
+  current_period_start: NOW,
+  current_period_end: "2026-11-28T10:00:00.000Z",
+  access_until: "2026-11-28T10:00:00.000Z",
+  activated_at: NOW,
+  checkout_url: null,
+  receipt_order: "o1",
+};
+
+/** Customer membership endpoints. `paidAfter` verify calls report the payment as confirmed. */
+export function membershipShopApi({ subscription = SUB, paidAfter = 1 } = {}) {
+  let current = subscription;
+  let verifies = 0;
+  const view = () => ({
+    subscription: current,
+    included: current?.status === "active" ? [ELIGIBLE[0]] : [],
+    events: current
+      ? [
+          { type: "checkout_started", created_at: NOW },
+          ...(current.status === "active" ? [{ type: "activated", created_at: NOW }] : []),
+        ]
+      : [],
+    history: [],
+    billing: OPEN_BILLING,
+  });
+  return {
+    membership: vi.fn(() => ok(view())),
+    membershipCheckout: vi.fn(() =>
+      ok({ subscription: SUB, checkout_url: SUB.checkout_url, resumed: false }),
+    ),
+    verifyMembership: vi.fn(() => {
+      verifies += 1;
+      if (current && verifies >= paidAfter) current = ACTIVE_SUB;
+      return ok({ outcome: current?.status === "active" ? "paid" : "pending", ...view() });
+    }),
   };
 }

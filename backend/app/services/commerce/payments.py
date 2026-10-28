@@ -115,6 +115,10 @@ def apply_verified(
         problems.append(f"{tx.mode} payment for a {order.mode} order")
     if not tx.provider_id:
         problems.append("missing provider transaction id")
+    if order.kind == "subscription":
+        from ..memberships.billing import charge_problems
+
+        problems += charge_problems(order, tx)
     if problems:
         return _mismatch(order, attempt, "; ".join(problems), source)
 
@@ -153,12 +157,19 @@ def apply_verified(
         _note_extra_payment(order, attempt, tx)
         return "already_paid"
     db.session.refresh(order)
-    granted = ent_service.grant_for_order(order)
-    from ..courses.learning import sync_for_order
+    if order.kind == "subscription":
+        # Membership: activation and membership-source entitlements (Batch 10.2).
+        from ..memberships.billing import activate_from_order
 
-    sync_for_order(order)  # verified registered buyers start learning at once
+        granted = [None] * activate_from_order(order, tx, source)
+        owned_before = []
+    else:
+        granted = ent_service.grant_for_order(order)
+        from ..courses.learning import sync_for_order
+
+        sync_for_order(order)  # verified registered buyers start learning at once
+        owned_before = _owned_elsewhere(order)
     receipt = _issue_receipt(order, tx)
-    owned_before = _owned_elsewhere(order)
     if previous_status == "cancelled":
         order.needs_review = True
         order.review_reason = "Paid after the order had expired or been cancelled."
@@ -310,6 +321,20 @@ def _send_paid_emails(order: Order, receipt: Receipt, tx: VerifiedTransaction) -
     }
     emails.send("order_confirmation", order.email, ctx, customer=customer, order=order)
     emails.send("payment_received", order.email, ctx, customer=customer, order=order)
+    if order.kind == "subscription":
+        from ..memberships.billing import activation_email_context
+
+        welcome = activation_email_context(order)
+        if welcome is not None:
+            emails.send(
+                "membership_activated",
+                order.email,
+                {"name": customer.display_name, **welcome},
+                customer=customer,
+                order=order,
+            )
+        db.session.commit()
+        return
     products = [i.title for i in order.items]
     emails.send(
         "download_instructions",
@@ -429,6 +454,10 @@ def process_event(record: PaymentEvent) -> dict[str, Any]:
             status, result = _process_charge(record)
         elif record.event_type.startswith("refund."):
             status, result = _process_refund_event(record)
+        elif record.event_type == "subscription.create":
+            from ..memberships.billing import process_subscription_created
+
+            status, result = process_subscription_created(record)
         else:
             status, result = "ignored", "Event type not used by this application."
     except ProviderError as exc:

@@ -1,5 +1,9 @@
 """Membership plans, prices and included products (Batch 10.1).
 
+Batch 10.2 adds the provider plan for each price (``membership_provider_plans``), customer
+subscriptions, their billing periods and an append-only event history. A subscription
+becomes ``active`` only after its first payment is verified with the provider.
+
 A plan is a membership tier (``tier_rank`` orders tiers for future upgrades and
 downgrades). Its prices are append-only: a price row is never edited, so a price a
 customer has seen (and, from Batch 10.2, subscribed at) never changes; a new price
@@ -32,6 +36,11 @@ from .types import JSONType, UTCDateTime, utcnow
 PLAN_STATUSES = ("draft", "published", "archived")
 PRICE_INTERVALS = ("month", "year")
 PRICE_STATUSES = ("active", "retired")
+SUBSCRIPTION_STATUSES = ("pending", "active", "past_due", "grace", "incomplete", "ended")
+# A customer has at most one subscription in these states (partial unique index).
+LIVE_SUBSCRIPTION_STATUSES = ("pending", "active", "past_due", "grace")
+PERIOD_STATUSES = ("pending", "paid", "failed", "refunded", "void")
+EVENT_SOURCES = ("customer", "webhook", "verification", "admin", "job", "system")
 
 
 class MembershipPlan(TimestampMixin, db.Model):
@@ -61,6 +70,11 @@ class MembershipPlan(TimestampMixin, db.Model):
     )
     updated_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Batch 10.2: hidden backing product (type "membership") so subscription payments use
+    # the existing orders, receipts and refunds. Never sold through the cart.
+    product_id: Mapped[int | None] = mapped_column(
+        ForeignKey("products.id", ondelete="RESTRICT"), nullable=True
     )
 
     prices: Mapped[list[MembershipPlanPrice]] = relationship(
@@ -135,3 +149,152 @@ class MembershipPlanAccess(db.Model):
 
     plan: Mapped[MembershipPlan] = relationship(back_populates="access")
     product: Mapped[Any] = relationship("Product")
+
+
+class MembershipProviderPlan(db.Model):
+    """The provider's recurring plan for one immutable price, per mode (test/live)."""
+
+    __tablename__ = "membership_provider_plans"
+    __table_args__ = (
+        CheckConstraint("mode IN ('test', 'live')", name="mode_valid"),
+        UniqueConstraint("provider", "mode", "price_id", name="uq_membership_provider_plans_price"),
+        UniqueConstraint("provider", "plan_code", name="uq_membership_provider_plans_code"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    price_id: Mapped[int] = mapped_column(
+        ForeignKey("membership_plan_prices.id", ondelete="RESTRICT"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(30), nullable=False)
+    mode: Mapped[str] = mapped_column(String(10), nullable=False)
+    plan_code: Mapped[str] = mapped_column(String(60), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+    price: Mapped[MembershipPlanPrice] = relationship()
+
+
+class CustomerSubscription(db.Model):
+    """One customer's membership subscription. ``pending`` until the first payment is
+    verified; ``incomplete`` when that checkout never completed."""
+
+    __tablename__ = "customer_subscriptions"
+    __table_args__ = (
+        CheckConstraint(f"status IN {SUBSCRIPTION_STATUSES}", name="status_valid"),
+        CheckConstraint("mode IN ('test', 'live')", name="mode_valid"),
+        CheckConstraint("amount_minor > 0", name="amount_positive"),
+        UniqueConstraint("customer_id", "idempotency_key", name="uq_customer_subscriptions_key"),
+        # Duplicate prevention: one live subscription per customer.
+        Index(
+            "uq_customer_subscriptions_live",
+            "customer_id",
+            unique=True,
+            postgresql_where=text(f"status IN {LIVE_SUBSCRIPTION_STATUSES}"),
+            sqlite_where=text(f"status IN {LIVE_SUBSCRIPTION_STATUSES}"),
+        ),
+        Index("ix_customer_subscriptions_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id", ondelete="RESTRICT"), index=True, nullable=False
+    )
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("membership_plans.id", ondelete="RESTRICT"), nullable=False
+    )
+    price_id: Mapped[int] = mapped_column(
+        ForeignKey("membership_plan_prices.id", ondelete="RESTRICT"), nullable=False
+    )
+    provider_plan_id: Mapped[int] = mapped_column(
+        ForeignKey("membership_provider_plans.id", ondelete="RESTRICT"), nullable=False
+    )
+    # The order of the first payment (existing orders/receipts/refunds infrastructure).
+    order_id: Mapped[int | None] = mapped_column(
+        ForeignKey("orders.id", ondelete="RESTRICT"), unique=True, nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    provider: Mapped[str] = mapped_column(String(30), nullable=False)
+    mode: Mapped[str] = mapped_column(String(10), nullable=False)
+    # Price snapshot at checkout (the price row is immutable too).
+    interval: Mapped[str] = mapped_column(String(10), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # Provider identifiers only: never card or authorisation details.
+    provider_customer_code: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    provider_subscription_code: Mapped[str | None] = mapped_column(
+        String(60), unique=True, nullable=True
+    )
+    # Paystack's token for managing the subscription by email (cancellation, Batch 10.3).
+    provider_email_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    current_period_start: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    current_period_end: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    access_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    end_reason: Mapped[str] = mapped_column(String(60), default="", nullable=False)
+    lock_version: Mapped[int] = mapped_column(default=1, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    plan: Mapped[MembershipPlan] = relationship()
+    price: Mapped[MembershipPlanPrice] = relationship()
+    provider_plan: Mapped[MembershipProviderPlan] = relationship()
+    periods: Mapped[list[SubscriptionPeriod]] = relationship(
+        back_populates="subscription", order_by="SubscriptionPeriod.sequence"
+    )
+
+
+class SubscriptionPeriod(db.Model):
+    __tablename__ = "subscription_periods"
+    __table_args__ = (
+        CheckConstraint(f"status IN {PERIOD_STATUSES}", name="status_valid"),
+        UniqueConstraint("subscription_id", "sequence", name="uq_subscription_periods_sequence"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subscription_id: Mapped[int] = mapped_column(
+        ForeignKey("customer_subscriptions.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    period_start: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    period_end: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    order_id: Mapped[int | None] = mapped_column(
+        ForeignKey("orders.id", ondelete="RESTRICT"), nullable=True
+    )
+    provider_invoice_code: Mapped[str | None] = mapped_column(
+        String(60), unique=True, nullable=True
+    )
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+    subscription: Mapped[CustomerSubscription] = relationship(back_populates="periods")
+
+
+class SubscriptionEvent(db.Model):
+    """Append-only history of a subscription (shown to staff and the member)."""
+
+    __tablename__ = "subscription_events"
+    __table_args__ = (
+        CheckConstraint(f"source IN {EVENT_SOURCES}", name="source_valid"),
+        Index("ix_subscription_events_subscription", "subscription_id", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subscription_id: Mapped[int] = mapped_column(
+        ForeignKey("customer_subscriptions.id", ondelete="CASCADE"), nullable=False
+    )
+    type: Mapped[str] = mapped_column(String(40), nullable=False)
+    from_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    to_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    payment_event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("payment_events.id", ondelete="SET NULL"), nullable=True
+    )
+    details: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)

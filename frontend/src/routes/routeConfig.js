@@ -99,6 +99,7 @@ export const routeTable = [
     [routes.accountLibrary, commerce.AccountLibraryRoute],
     [routes.accountOrders, commerce.AccountOrdersRoute],
     [routes.accountSettings, commerce.AccountSettingsRoute],
+    [routes.accountMembership, commerce.AccountMembershipRoute],
     [routes.signIn, commerce.SignInRoute],
     [routes.register, commerce.RegisterRoute],
     [routes.verifyEmail, commerce.VerifyEmailRoute],

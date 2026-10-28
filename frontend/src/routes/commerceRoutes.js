@@ -26,3 +26,4 @@ export const LearnAssessmentRoute = lazyPage("LearnAssessmentPage");
 export const CertificateRoute = lazyPage("CertificatePage");
 export const LearnAssignmentRoute = lazyPage("LearnAssignmentPage");
 export const AssessmentHistoryRoute = lazyPage("AssessmentHistoryPage");
+export const AccountMembershipRoute = lazyPage("AccountMembershipPage");

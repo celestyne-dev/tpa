@@ -391,8 +391,14 @@ def _resume(order: Order, cart_hash: str) -> tuple[Order, str | None]:
     return order, None
 
 
-def start_payment(order: Order) -> str:
-    """Create a payment attempt and the provider's hosted checkout session."""
+def start_payment(
+    order: Order, *, plan_code: str | None = None, return_url: str | None = None
+) -> str:
+    """Create a payment attempt and the provider's hosted checkout session.
+
+    Membership subscriptions (Batch 10.2) pass the provider ``plan_code`` (the provider
+    then creates the subscription after the first successful payment) and their own
+    ``return_url``."""
     if order.status not in ("awaiting_payment", "failed"):
         raise ConflictError("This order can no longer be paid.")
     if order.expires_at and order.expires_at <= _now():
@@ -414,7 +420,7 @@ def start_payment(order: Order) -> str:
     db.session.commit()
     site = current_app.config["SITE_URL"]
     # Guest orders come back to the same page, which then uses the browser's order token.
-    back = f"{site}/checkout/complete?order={order.public_id}"
+    back = return_url or f"{site}/checkout/complete?order={order.public_id}"
     if order.is_guest:
         back += "&guest=1"
     try:
@@ -429,6 +435,7 @@ def start_payment(order: Order) -> str:
                 "order_number": order.number,
                 "cancel_action": f"{back}&cancelled=1",
             },
+            **({"plan": plan_code} if plan_code else {}),
         )
     except ProviderError as exc:
         attempt.status = "failed"

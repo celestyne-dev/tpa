@@ -1,13 +1,35 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { plannedModules } from "@/admin/navigation";
+import { redirectTo } from "@/commerce/hooks";
 import { ApiError } from "@/services/apiClient";
 import { createFakeAdminApi } from "@/test/adminFake";
-import { BILLING, membershipContentApi } from "@/test/membershipFake";
-import { createFakeApi, preloadAdminApp, renderApp } from "@/test/utils";
+import { createFakeShopApi, customerProfile } from "@/test/commerceFake";
+import {
+  ACTIVE_SUB,
+  BILLING,
+  membershipContentApi,
+  membershipShopApi,
+  openMembershipContentApi,
+} from "@/test/membershipFake";
+import { createFakeApi, preloadAdminApp, preloadCommerce, renderApp } from "@/test/utils";
 
 beforeAll(preloadAdminApp);
+beforeAll(preloadCommerce);
+
+const CSRF = "tpa_customer_csrf";
+const signIn = () => {
+  document.cookie = `${CSRF}=test-token; path=/`;
+};
+afterEach(() => {
+  document.cookie = `${CSRF}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  vi.restoreAllMocks();
+});
+const member = (options) => ({
+  ...createFakeShopApi({ customer: customerProfile() }),
+  ...membershipShopApi(options),
+});
 
 const EDITOR = "/admin/membership-plans/plan1";
 
@@ -29,7 +51,7 @@ describe("membership plans admin", () => {
       EDITOR,
     );
     expect(within(table).getByText("USD 9.99")).toBeInTheDocument();
-    expect(screen.getByText(/Subscription billing isn't open yet/)).toBeInTheDocument();
+    expect(screen.getByText(/only possible in Paystack test mode/)).toBeInTheDocument();
   });
 
   it("hides the section from roles without memberships.view and blocks the route", async () => {
@@ -129,6 +151,19 @@ describe("membership plans admin", () => {
     expect(await screen.findByText("Plan published.")).toBeInTheDocument();
   });
 
+  it("syncs prices with Paystack test plans using the lock version", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp(EDITOR);
+    const section = await screen.findByRole("region", { name: "Paystack plans (test mode)" });
+    expect(within(section).getByText("No Paystack plans are linked yet.")).toBeInTheDocument();
+    await user.click(within(section).getByRole("button", { name: "Sync with Paystack (test)" }));
+    await waitFor(() =>
+      expect(adminApi.memberships.providerSync).toHaveBeenCalledWith("plan1", { lock_version: 3 }),
+    );
+    const linked = await within(section).findByRole("list", { name: "Linked Paystack plans" });
+    expect(within(linked).getByText("PLN_month")).toBeInTheDocument();
+  });
+
   it("shows status errors from the server", async () => {
     const user = userEvent.setup();
     const adminApi = createFakeAdminApi();
@@ -155,6 +190,7 @@ describe("membership plans admin", () => {
     expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Set price" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Save included items/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sync with Paystack (test)" })).toBeNull();
   });
 
   it("lets product managers edit but not publish", async () => {
@@ -205,5 +241,101 @@ describe("public membership page", () => {
       }),
     });
     expect(await screen.findByText("We couldn't load the membership plans")).toBeVisible();
+  });
+});
+
+describe("joining in test mode", () => {
+  it("sends signed-out visitors to log in first", async () => {
+    const user = userEvent.setup();
+    renderApp("/membership", { api: createFakeApi(openMembershipContentApi()) });
+    await user.click(await screen.findByRole("button", { name: "Join monthly · USD 10.00" }));
+    expect(await screen.findByRole("heading", { level: 1, name: /log in/i })).toBeVisible();
+  });
+
+  it("starts checkout with the server-checked price and redirects to Paystack", async () => {
+    const user = userEvent.setup();
+    const go = vi.spyOn(redirectTo, "go").mockImplementation(() => {});
+    signIn();
+    const shopApi = member();
+    renderApp("/membership", { api: createFakeApi(openMembershipContentApi()), shopApi });
+    expect(screen.queryByText("Joining opens soon")).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Join yearly · USD 100.00" }));
+    await waitFor(() => expect(go).toHaveBeenCalledWith("https://checkout.paystack.com/test-sub1"));
+    const body = shopApi.membershipCheckout.mock.calls[0][0];
+    expect(body).toMatchObject({
+      price_id: "price-year",
+      expected_amount_minor: 10000,
+      currency: "USD",
+      accept_terms: true,
+    });
+    expect(body.idempotency_key).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("explains a price change from the server", async () => {
+    const user = userEvent.setup();
+    signIn();
+    const shopApi = member();
+    shopApi.membershipCheckout.mockImplementationOnce(() =>
+      Promise.reject(
+        new ApiError({
+          status: 409,
+          code: "conflict",
+          message: "The price changed.",
+          details: { code: "price_changed" },
+        }),
+      ),
+    );
+    renderApp("/membership", { api: createFakeApi(openMembershipContentApi()), shopApi });
+    await user.click(await screen.findByRole("button", { name: "Join monthly · USD 10.00" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("This price has just changed");
+  });
+});
+
+describe("account membership page", () => {
+  it("never treats the Paystack return as payment: it verifies with the server", async () => {
+    signIn();
+    const shopApi = member({ paidAfter: 1 });
+    renderApp("/account/membership?subscription=sub1", { shopApi });
+    expect(
+      await screen.findByText("Payment confirmed. Welcome to the membership!"),
+    ).toBeInTheDocument();
+    expect(shopApi.verifyMembership).toHaveBeenCalledWith("sub1");
+    expect(await screen.findByText("Active")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Calm Guide" })).toBeInTheDocument();
+    expect(screen.getByText(/Membership activated/)).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: "Account" });
+    expect(within(nav).getByRole("link", { name: "Membership" })).toHaveAttribute(
+      "href",
+      "/account/membership",
+    );
+  });
+
+  it("shows a pending membership with no access and a way back to payment", async () => {
+    signIn();
+    renderApp("/account/membership", { shopApi: member() });
+    expect(await screen.findByText("Waiting for payment confirmation")).toBeInTheDocument();
+    expect(screen.getByText(/You won't get access before then/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continue to payment" })).toHaveAttribute(
+      "href",
+      "https://checkout.paystack.com/test-sub1",
+    );
+    expect(screen.queryByRole("region", { name: "Included with your membership" })).toBeNull();
+  });
+
+  it("invites non-members to see the plans", async () => {
+    signIn();
+    renderApp("/account/membership", { shopApi: member({ subscription: null }) });
+    expect(await screen.findByText("You're not a member yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "See membership plans" })).toHaveAttribute(
+      "href",
+      "/membership",
+    );
+  });
+
+  it("shows the current period for active members", async () => {
+    signIn();
+    renderApp("/account/membership", { shopApi: member({ subscription: ACTIVE_SUB }) });
+    expect(await screen.findByText(/Current period:/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View your receipt in Orders" })).toBeInTheDocument();
   });
 });

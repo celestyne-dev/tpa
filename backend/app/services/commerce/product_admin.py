@@ -237,7 +237,12 @@ def sales_summary(product: Product) -> dict[str, Any]:
 
 
 def list_products(args: dict[str, Any]) -> list[dict[str, Any]]:
-    stmt = select(Product).order_by(Product.updated_at.desc())
+    # Membership backing products (Batch 10.2) are managed through membership plans.
+    stmt = (
+        select(Product)
+        .where(Product.product_type != "membership")
+        .order_by(Product.updated_at.desc())
+    )
     if args.get("status"):
         stmt = stmt.where(Product.status == args["status"])
     else:

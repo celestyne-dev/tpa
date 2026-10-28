@@ -13,7 +13,7 @@ from flask_restful import Resource
 from ...auth.decorators import require_permission
 from ...auth.permissions import Permission as P
 from ...extensions import db
-from ...services.memberships import plans
+from ...services.memberships import billing, plans
 from ...utils.errors import ValidationError
 from ...utils.responses import success
 
@@ -90,6 +90,14 @@ class MembershipPlanAccessResource(Resource):
         return success(_detail(plan))
 
 
+class MembershipPlanProviderSyncResource(Resource):
+    @VIEW
+    def post(self, plan_id: str):
+        plan = billing.sync_provider_plans(plans.get_plan(plan_id), _body(), current_user)
+        db.session.commit()
+        return success(_detail(plan))
+
+
 class MembershipEligibleProductsResource(Resource):
     @VIEW
     def get(self):
@@ -108,4 +116,8 @@ MEMBERSHIP_ADMIN_ROUTES = [
         "/admin/membership-plans/<string:plan_id>/prices/<string:price_id>/remove",
     ),
     (MembershipPlanAccessResource, "/admin/membership-plans/<string:plan_id>/access"),
+    (
+        MembershipPlanProviderSyncResource,
+        "/admin/membership-plans/<string:plan_id>/provider-sync",
+    ),
 ]

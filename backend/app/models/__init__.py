@@ -77,7 +77,15 @@ from .customer import (
     Entitlement,
     EntitlementEvent,
 )
-from .memberships import MembershipPlan, MembershipPlanAccess, MembershipPlanPrice
+from .memberships import (
+    CustomerSubscription,
+    MembershipPlan,
+    MembershipPlanAccess,
+    MembershipPlanPrice,
+    MembershipProviderPlan,
+    SubscriptionEvent,
+    SubscriptionPeriod,
+)
 from .newsletter import (
     Campaign,
     EmailAutomation,
@@ -208,6 +216,10 @@ __all__ = [
     "MembershipPlan",
     "MembershipPlanAccess",
     "MembershipPlanPrice",
+    "MembershipProviderPlan",
+    "CustomerSubscription",
+    "SubscriptionPeriod",
+    "SubscriptionEvent",
     "product_categories",
     "product_related",
     "product_tags",
