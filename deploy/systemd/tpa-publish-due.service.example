@@ -1,5 +1,6 @@
 # /etc/systemd/system/tpa-publish-due.service  (optional, example)
-# Only needed if the worker runs with --no-scheduler. The command is idempotent and
+# Only needed if the worker runs with --no-scheduler. Do NOT enable it alongside the
+# default worker: tpa-publish-worker already runs the same scheduler every 5 seconds. The command is idempotent and
 # locked, so overlapping runs cannot publish an article twice.
 [Unit]
 Description=Think Positive Always: publish due scheduled articles
@@ -13,3 +14,5 @@ WorkingDirectory=/var/www/tpa/backend
 EnvironmentFile=/var/www/tpa/backend/.env
 Environment=FLASK_CONFIG=production
 ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi content publish-due
+NoNewPrivileges=true
+PrivateTmp=true

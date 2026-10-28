@@ -486,6 +486,32 @@ def storage_cleanup_temp():
     click.echo(f"Removed {cleanup_temp()} stale temporary file(s).")
 
 
+deploy_cli = AppGroup("deploy", help="Deployment checks (no changes are made).")
+
+
+@deploy_cli.command("check")
+@click.option("--json", "as_json", is_flag=True, help="Print the results as JSON.")
+@click.option("--no-database", is_flag=True, help="Skip the database connection and revision.")
+def deploy_check(as_json: bool, no_database: bool):
+    """Check production settings before (re)starting services. Never prints secrets.
+
+    Exit code: 0 ok, 1 warnings, 2 errors.
+    """
+    import json
+
+    from .services.deploy_check import run_checks, summary
+
+    results = run_checks(database=not no_database)
+    status = summary(results)
+    if as_json:
+        click.echo(json.dumps({"status": status, "results": results}, indent=2))
+    else:
+        for r in results:
+            click.echo(f"[{r['level']:7}] {r['check']}: {r['message']}")
+        click.echo(f"status: {status}")
+    sys.exit({"ok": 0, "warning": 1, "error": 2}[status])
+
+
 def register_cli(app: Flask) -> None:
     for group in (
         admin_cli,
@@ -500,5 +526,6 @@ def register_cli(app: Flask) -> None:
         analytics_cli,
         newsletter_cli,
         storage_cli,
+        deploy_cli,
     ):
         app.cli.add_command(group)

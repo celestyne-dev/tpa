@@ -13,3 +13,5 @@ WorkingDirectory=/var/www/tpa/backend
 EnvironmentFile=/var/www/tpa/backend/.env
 Environment=FLASK_CONFIG=production
 ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi analytics maintain
+NoNewPrivileges=true
+PrivateTmp=true

@@ -32,7 +32,10 @@ nightly) creates `BACKUP_DIR/<UTC time>/` with `db.dump`, `media.tar`, `resource
    ok or failed. `/admin/storage` shows it and warns when the last backup failed or is
    older than `BACKUP_MAX_AGE_HOURS` (36 by default); `flask storage check` does the same.
 
-A lock prevents overlapping runs. Everything is created with owner-only permissions
+The database password is passed to `pg_dump`, `psql` and `pg_restore` through
+`PGPASSWORD` (`deploy/backup/tpa-pg-env.sh`), never as part of a command-line URL,
+because other local users can read command lines with `ps`. The same applies to the
+restore script's `--database`. A lock prevents overlapping runs. Everything is created with owner-only permissions
 (`umask 077`; the backup folder is `0700`). Backups and secrets are never committed to
 Git.
 

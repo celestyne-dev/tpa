@@ -80,6 +80,11 @@ class BaseConfig:
     # ---- Rate limiting (Flask-Limiter) ----
     # Use a shared store (e.g. redis://127.0.0.1:6379/0) when running several Gunicorn workers.
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    # Namespaces the counters in a shared Redis database.
+    RATELIMIT_KEY_PREFIX = os.environ.get("RATELIMIT_KEY_PREFIX", "tpa")
+    # If Redis is unreachable, count per worker in memory instead of failing requests
+    # (limits stay on, just less strict, until Redis is back).
+    RATELIMIT_IN_MEMORY_FALLBACK_ENABLED = _bool("RATELIMIT_IN_MEMORY_FALLBACK_ENABLED", True)
     RATELIMIT_HEADERS_ENABLED = True
     RATELIMIT_ENABLED = True
     RATELIMIT_LOGIN = os.environ.get("RATELIMIT_LOGIN", "5 per minute;20 per hour")

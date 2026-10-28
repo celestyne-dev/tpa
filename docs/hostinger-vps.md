@@ -192,17 +192,21 @@ Copy the examples from `deploy/systemd/` to `/etc/systemd/system/` (dropping
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now tpa-api tpa-publish-worker tpa-email-worker
-sudo systemctl enable --now tpa-publish-due.timer tpa-media-prune.timer \
+sudo systemctl enable --now tpa-media-prune.timer \
   tpa-storage-maintenance.timer tpa-backup.timer tpa-membership-reconcile.timer \
   tpa-analytics-maintain.timer
 ```
+
+`tpa-publish-due.timer` is **not** enabled: the publishing worker already runs the same
+scheduler every 5 seconds (due articles, pages and courses, visibility windows, expiry of
+unpaid orders). Use the timer only if you start the worker with `--no-scheduler`.
 
 | Unit                            | Purpose                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `tpa-api`                       | Gunicorn (3 workers, 300 s timeout for large uploads), only writes to `/var/lib/tpa` and the instance folder  |
 | `tpa-publish-worker`            | builds and switches prerendered releases                                                                      |
 | `tpa-email-worker`              | sends queued email                                                                                            |
-| `tpa-publish-due.timer`         | scheduled publishing                                                                                          |
+| `tpa-publish-due.timer`         | optional: scheduled publishing when the worker runs with `--no-scheduler` (otherwise the worker does it)     |
 | `tpa-media-prune.timer`         | removes replaced image versions after their retention period                                                  |
 | `tpa-storage-maintenance.timer` | hourly: removes abandoned temporary uploads, runs `flask storage check` (fails the unit on critical problems) |
 | `tpa-backup.timer`              | nightly backup (`docs/backups.md`)                                                                            |
@@ -227,6 +231,8 @@ Set `VITE_ALLOW_INDEXING=true` only for the launch build, once the domain is ver
 
 ```bash
 sudo cp /var/www/tpa/deploy/nginx/tpa.conf.example /etc/nginx/sites-available/tpa
+sudo cp /var/www/tpa/deploy/nginx/tpa-security-headers.conf.example \
+  /etc/nginx/snippets/tpa-security-headers.conf          # required (included by tpa.conf)
 sudo ln -s /etc/nginx/sites-available/tpa /etc/nginx/sites-enabled/tpa
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo install -d /var/www/letsencrypt
@@ -236,7 +242,8 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 Certbot installs a renewal timer; add `--deploy-hook "systemctl reload nginx"` to the
-renewal config. The example config (validated with `nginx -t` on Nginx 1.24, Ubuntu
+renewal config. `docs/operations.md` §6 has the step-by-step first certificate, renewal,
+HSTS and header/cookie checks. The example config (validated with `nginx -t` on Nginx 1.24, Ubuntu
 24.04's version):
 
 - redirects HTTP to HTTPS, serves HTTP/2, TLS 1.2/1.3 (HSTS line ready to enable);
