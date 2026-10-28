@@ -431,6 +431,20 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       eligibleProducts: (q) => get("/membership-eligible-products", q ? { q } : undefined),
       providerSync: (id, body) =>
         post(`/membership-plans/${encodeURIComponent(id)}/provider-sync`, body),
+      overview: () => get("/membership-overview"),
+      inclusion: (productId) => get(`/membership-inclusion/${encodeURIComponent(productId)}`),
+      subscriptions: (params) => get("/membership-subscriptions", params),
+      subscription: (id) => get(`/membership-subscriptions/${encodeURIComponent(id)}`),
+      reconcile: (id, body) =>
+        post(`/membership-subscriptions/${encodeURIComponent(id)}/reconcile`, body),
+      cancelSubscription: (id, body) =>
+        post(`/membership-subscriptions/${encodeURIComponent(id)}/cancel`, body),
+      extendGrace: (id, body) =>
+        post(`/membership-subscriptions/${encodeURIComponent(id)}/extend-grace`, body),
+      grants: (params) => get("/membership-grants", params),
+      createGrant: (body) => post("/membership-grants", body),
+      revokeGrant: (id, body) => post(`/membership-grants/${encodeURIComponent(id)}/revoke`, body),
+      reports: (params) => get("/membership-reports", params),
     },
     // Batch 09.2: reusable question banks (answer keys only for question_banks.manage).
     questionBanks: {

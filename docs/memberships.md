@@ -1,4 +1,4 @@
-# Memberships (Batch 10.1: plans; 10.2: test-mode checkout; 10.3: lifecycle — see below)
+# Memberships (Batch 10.1 plans; 10.2 checkout; 10.3 lifecycle; 10.4 operations — see below)
 
 Batch 10.1 adds CMS-controlled membership plans. **Billing is not open:** there is no
 checkout, no subscription and no entitlement grant. The public page shows plans with a
@@ -286,3 +286,137 @@ fake. Check each against the test dashboard before relying on it:
 
 Live billing stays disabled: `MEMBERSHIP_BILLING_MODE` only accepts `test`, and any
 live-mode charge is a mismatch.
+
+# Batch 10.4: administration, reporting and compliance
+
+## Migration `e8c4a2d6b917` (revises `d4a2f7c9e815`)
+
+- New table `membership_grants` (complimentary memberships).
+- New permissions `memberships.manage_subscriptions` and `memberships.view_reports`,
+  granted with the established RBAC pattern (`BATCH_104_GRANTS`).
+- The downgrade refuses while complimentary grants exist.
+
+| Role | Gains |
+| --- | --- |
+| administrator | both |
+| customer_support | `manage_subscriptions` (no refunds: `refunds.issue` is still required) |
+| finance_manager | `view_reports` |
+| analyst | `view_reports` |
+
+## Permissions model
+
+| Action | Requires (checked server-side in the services) |
+| --- | --- |
+| Subscriber list and detail, complimentary list | `memberships.manage_subscriptions`, or `memberships.view` + `customers.view` (read-only) |
+| Reconcile, cancel, extend grace, grant/revoke complimentary | `memberships.manage_subscriptions` |
+| Reports | `memberships.view_reports` |
+| Refunds | unchanged: `refunds.issue` on the order screen |
+| Plan editing / publishing | unchanged: `memberships.manage` / `memberships.publish` |
+| Inclusion note on product/course editors | `products.view`, `courses.view` or `memberships.view` |
+
+No admin endpoint can mark a payment or a billing period as paid. Paid periods only come
+from Paystack-verified payments. Public APIs return plans only, never subscribers or
+money.
+
+## Admin API (all under `/api/v1/admin`)
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/membership-overview` | Billing availability, grace days, counts (no secrets) |
+| GET | `/membership-subscriptions` | Query: `q`, `status`, `interval`, `plan`, `flag` (`payment_problem`, `cancelling`, `renewing_soon`, `unlinked`), `page`, `page_size` |
+| GET | `/membership-subscriptions/<id>` | Customer, plan, periods, orders/receipts/refunds, timeline, upcoming dates, complimentary grants, allowed actions. The Paystack email token is never returned |
+| POST | `/membership-subscriptions/<id>/reconcile` | `lock_version`. Same rules as `flask memberships reconcile` (never extends paid access); verifies a pending first payment; reports Paystack's status |
+| POST | `/membership-subscriptions/<id>/cancel` | `lock_version`, `reason`, optional `immediate`. Uses the customer's provider-safe path: Paystack first, else 502 with nothing changed |
+| POST | `/membership-subscriptions/<id>/extend-grace` | `lock_version`, `days` (1–14), `reason`. Only `past_due`/`grace`; never beyond period end + 30 days |
+| GET / POST | `/membership-grants` | List (`q`, `status`). Create: `customer_id` (public id), `plan_id`, `expires_at` (≤ 366 days), `reason`, `idempotency_key` |
+| POST | `/membership-grants/<id>/revoke` | `reason`; idempotent |
+| GET | `/membership-reports` | `date_from`, `date_to` (YYYY-MM-DD, ≤ 2 years; default last 30 days) |
+| GET | `/membership-inclusion/<product_id>` | Plans including a product |
+
+Every action is validated, audited (`membership.reconciled`, `.cancelled_by_staff`,
+`.grace_extended`, `.complimentary_granted`, `.complimentary_revoked`) and recorded in the
+subscription timeline. Subscription actions need the current `lock_version`, so a double
+submit can't apply twice.
+
+## Complimentary memberships
+
+- Access starts immediately and lasts until the chosen expiry. It comes from membership
+  entitlements with reference `grant-<id>` that carry that expiry, so it ends on time
+  without any job.
+- One active grant per customer per plan. A repeated request with the same key returns
+  the same grant.
+- Grants are never counted as paid subscribers or revenue.
+- Members see complimentary access on their membership page, without staff names or
+  notes.
+- The included products are a snapshot taken when the grant is made. Products added to
+  the plan later are not added to existing grants.
+
+## Reports
+
+All figures come from real records:
+
+| Figure | Source |
+| --- | --- |
+| Paid subscribers | Subscriptions activated by a verified payment (`active`, `past_due`, `grace`), split monthly/yearly |
+| New subscriptions | `activated_at` in the range |
+| Renewals | Paid renewal periods, by the order's `paid_at` |
+| Cancellations | Cancellations requested in the range |
+| Ended | Memberships ended in the range, by reason |
+| Revenue | `payment_transactions` (kind `charge`), written only after Paystack verification, on subscription orders |
+| Refunds | Processed refund transactions on subscription orders |
+
+Money is grouped by mode and currency, never converted, and test mode is labelled.
+Pending checkouts are never revenue.
+
+The monthly trend shows active-at-start, new, renewals, ended and churn. Churn is
+"Not enough data" when no membership was active at the start of the month.
+
+Access figures count membership entitlements by product type, complimentary
+entitlements, and course enrolments made through memberships.
+
+This is not the Batch 11 analytics platform.
+
+## Customer data and compliance
+
+- **Export:** `POST /api/v1/account/export` now includes `memberships`: subscriptions,
+  billing periods, history and complimentary access. The Paystack email token is never
+  included.
+- **Deletion** (customer self-service, or staff anonymisation via `customers.anonymise`):
+  1. Every live membership is disabled at Paystack first. If that fails, deletion is
+     refused (409 `membership_cancellation_failed`) and nothing changes.
+  2. A live membership not yet linked to Paystack blocks deletion (409
+     `membership_not_linked`).
+  3. Then the membership ends (`account_deleted`) and membership entitlements are
+     revoked. Complimentary grants are revoked and the email token is erased.
+- **Retained** (accounting duty): subscriptions, billing periods, amounts, orders,
+  receipts, refunds and the event history. Orders keep the billing email they had, as
+  before (existing commerce retention policy). The customer profile is anonymised.
+- **Billing history:** customers see it on `/account/membership`. Other accounts get 404
+  for anyone else's subscription id.
+
+## CMS integration
+
+- Plans, benefits, prices, included courses and resources, and publish/archive status are
+  managed as before (Batch 10.1).
+- The plans list shows a billing panel: whether checkout is open, the grace period
+  (`MEMBERSHIP_GRACE_DAYS`, set in the environment), member counts, and links to
+  Subscribers, Complimentary and Reports.
+- Resource access settings and the course editor show which plans include the product,
+  without changing those editors otherwise.
+- **No page-builder membership section was added.** Sections are prerendered with
+  content resolved at publish time, so a plans section would show stale prices and
+  checkout availability between publishes. The live `/membership` page remains the
+  single place where plans are rendered.
+
+## Deployment and staging checklist
+
+1. `flask db upgrade` (adds `e8c4a2d6b917`), then `flask rbac sync` (no-op if the
+   migration ran).
+2. Keep `MEMBERSHIP_BILLING_MODE=test` (or `disabled`). Live billing stays unsupported.
+3. Enable `tpa-membership-reconcile.timer` (Batch 10.3).
+4. On staging with a Paystack **test** merchant, verify the items listed under "Not
+   confirmed without a real Paystack test merchant" (Batch 10.3), plus:
+   - admin cancel or reconcile against a real test subscription;
+   - account deletion with a live test subscription.
+
+   None of the Paystack behaviours have been verified against a real account yet.

@@ -310,3 +310,46 @@ class SubscriptionEvent(db.Model):
     )
     details: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+
+GRANT_STATUSES = ("active", "revoked")
+
+
+class MembershipGrant(db.Model):
+    """A complimentary membership (Batch 10.4): staff-granted access to a plan's included
+    products until ``expires_at``. Never a payment, never counted as paid revenue or as a
+    paid subscriber. Access comes from membership entitlements with reference
+    ``grant-<id>`` that expire with the grant."""
+
+    __tablename__ = "membership_grants"
+    __table_args__ = (
+        CheckConstraint(f"status IN {GRANT_STATUSES}", name="status_valid"),
+        CheckConstraint("expires_at > starts_at", name="period_valid"),
+        UniqueConstraint("customer_id", "idempotency_key", name="uq_membership_grants_key"),
+        Index("ix_membership_grants_customer", "customer_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(24), unique=True, nullable=False)
+    customer_id: Mapped[int] = mapped_column(
+        ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False
+    )
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("membership_plans.id", ondelete="RESTRICT"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    granted_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    revoked_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    revoke_reason: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+
+    plan: Mapped[MembershipPlan] = relationship()

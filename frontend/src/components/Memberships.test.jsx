@@ -392,3 +392,99 @@ describe("account membership page", () => {
     expect(screen.getByRole("link", { name: "View your receipt in Orders" })).toBeInTheDocument();
   });
 });
+
+describe("membership operations admin", () => {
+  it("lists subscribers with filters and links to the detail page", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp("/admin/membership-subscriptions");
+    const table = await screen.findByRole("table", { name: "Subscribers" });
+    expect(within(table).getByRole("link", { name: "member@example.com" })).toHaveAttribute(
+      "href",
+      "/admin/membership-subscriptions/sub1",
+    );
+    const nav = screen.getAllByRole("navigation", { name: "Admin" })[0];
+    expect(within(nav).getByRole("link", { name: "Membership subscribers" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Membership reports" })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Show"), "payment_problem");
+    await waitFor(() =>
+      expect(adminApi.memberships.subscriptions).toHaveBeenLastCalledWith({
+        flag: "payment_problem",
+        page: 1,
+      }),
+    );
+  });
+
+  it("cancels with a reason and the lock version, and reconciles with Paystack", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp("/admin/membership-subscriptions/sub1");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "member@example.com" }),
+    ).toBeVisible();
+    expect(screen.getByText("R-1001", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(/Refunds need the refund permission/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Reconcile with Paystack" }));
+    await waitFor(() =>
+      expect(adminApi.memberships.reconcile).toHaveBeenCalledWith("sub1", { lock_version: 4 }),
+    );
+    expect(await screen.findByText(/No changes were needed/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancel membership" }));
+    const dialog = await screen.findByRole("dialog", { name: "Cancel membership" });
+    const submit = within(dialog).getByRole("button", { name: "Cancel membership" });
+    expect(submit).toBeDisabled();
+    await user.type(within(dialog).getByLabelText(/Reason/), "Asked by phone");
+    await user.click(submit);
+    await waitFor(() =>
+      expect(adminApi.memberships.cancelSubscription).toHaveBeenCalledWith("sub1", {
+        lock_version: 5,
+        reason: "Asked by phone",
+        immediate: false,
+      }),
+    );
+  });
+
+  it("keeps view-only and unrelated roles away from subscriber actions", async () => {
+    renderApp("/admin/membership-reports", {
+      adminApi: createFakeAdminApi({ role: "product_manager" }),
+    });
+    expect(await screen.findByText("You don't have access to this area")).toBeVisible();
+    const nav = screen.getAllByRole("navigation", { name: "Admin" })[0];
+    expect(within(nav).queryByRole("link", { name: "Membership subscribers" })).toBeNull();
+    expect(within(nav).queryByRole("link", { name: "Membership reports" })).toBeNull();
+  });
+
+  it("shows reports from verified records with honest empty trends", async () => {
+    renderApp("/admin/membership-reports", {
+      adminApi: createFakeAdminApi({ role: "finance_manager" }),
+    });
+    expect(await screen.findByText("Paid subscribers")).toBeInTheDocument();
+    expect(screen.getByText("2 monthly · 1 yearly")).toBeInTheDocument();
+    expect(screen.getByText("USD 29.97")).toBeInTheDocument();
+    expect(screen.getByText("USD 26.97")).toBeInTheDocument();
+    expect(screen.getAllByText("test mode").length).toBeGreaterThan(0);
+    expect(screen.getByText("Not enough data")).toBeInTheDocument();
+  });
+
+  it("grants and revokes complimentary memberships with reasons", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "prompt").mockReturnValue("Ended early");
+    const { adminApi } = renderApp("/admin/membership-grants");
+    const table = await screen.findByRole("table", { name: "Complimentary memberships" });
+    expect(within(table).getByText("Podcast guest")).toBeInTheDocument();
+    await user.click(within(table).getByRole("button", { name: "Revoke" }));
+    await waitFor(() =>
+      expect(adminApi.memberships.revokeGrant).toHaveBeenCalledWith("g1", {
+        reason: "Ended early",
+      }),
+    );
+  });
+
+  it("shows billing status, grace period and links on the plans page", async () => {
+    renderApp("/admin/membership-plans");
+    const billing = await screen.findByRole("region", { name: "Membership billing" });
+    expect(within(billing).getByText("3 days")).toBeInTheDocument();
+    expect(within(billing).getByRole("link", { name: "Subscribers" })).toBeInTheDocument();
+    expect(within(billing).getByRole("link", { name: "Reports" })).toBeInTheDocument();
+  });
+});

@@ -808,9 +808,16 @@ def customer_view(customer: Customer) -> dict[str, Any]:
         "included": included,
         "events": events,
         "periods": periods,
+        "complimentary": _complimentary(customer),
         "history": [subscription_dict(s) for s in rows if s is not current][:20],
         "billing": billing_status(customer),
     }
+
+
+def _complimentary(customer: Customer) -> list[dict[str, Any]]:
+    from .admin import customer_grants_view
+
+    return customer_grants_view(customer)
 
 
 def _expired_unpaid(sub: CustomerSubscription) -> bool:

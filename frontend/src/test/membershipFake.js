@@ -2,7 +2,13 @@ import { vi } from "vitest";
 import { ApiError } from "@/services/apiClient";
 
 /** Batch 10.1 permissions (mirrors backend/app/auth/permissions.py). */
-export const MEMBERSHIP_PERMS = ["memberships.view", "memberships.manage", "memberships.publish"];
+export const MEMBERSHIP_PERMS = [
+  "memberships.view",
+  "memberships.manage",
+  "memberships.publish",
+  "memberships.manage_subscriptions",
+  "memberships.view_reports",
+];
 
 const NOW = "2026-10-28T10:00:00.000Z";
 const ok = (data) => Promise.resolve({ data });
@@ -107,6 +113,204 @@ export function membershipContentApi(data = null) {
 }
 
 /** Admin API: plans with lock_version checks, like the backend. */
+export const ADMIN_SUB = {
+  id: "sub1",
+  status: "active",
+  test_mode: true,
+  customer: {
+    id: 7,
+    public_id: "cus1",
+    email: "member@example.com",
+    name: "Mia",
+    status: "active",
+  },
+  plan: { id: "plan1", name: "Positive Circle" },
+  interval: "month",
+  price: usd(999),
+  current_period_start: NOW,
+  current_period_end: "2026-11-28T10:00:00.000Z",
+  access_until: "2026-11-28T10:00:00.000Z",
+  cancel_at_period_end: false,
+  past_due_since: null,
+  activated_at: NOW,
+  ended_at: null,
+  end_reason: null,
+  created_at: NOW,
+  next: { type: "renewal", at: "2026-11-28T10:00:00.000Z" },
+};
+
+export const REPORT = {
+  range: { from: "2026-10-01", to: "2026-10-31" },
+  generated_at: NOW,
+  has_data: true,
+  current: {
+    paid_subscribers: 3,
+    active: 2,
+    past_due: 1,
+    grace: 0,
+    pending_checkout: 1,
+    cancelling: 1,
+    monthly: 2,
+    yearly: 1,
+    complimentary: 1,
+  },
+  period: {
+    new_subscriptions: 2,
+    renewals: 1,
+    cancellations_requested: 1,
+    ended: { payment_failed: 1 },
+    abandoned_checkouts: 0,
+  },
+  revenue: [{ mode: "test", count: 3, amount: usd(2997) }],
+  refunds: [{ mode: "test", count: 1, amount: usd(300) }],
+  net_revenue: [{ mode: "test", amount: usd(2697) }],
+  trend: [
+    { month: "2026-10", active_at_start: 0, new: 2, renewals: 1, ended: 1, churn_rate: null },
+  ],
+  access: {
+    entitlements: 4,
+    members_with_access: 3,
+    complimentary_entitlements: 1,
+    by_product_type: [{ type: "guide", count: 4 }],
+    course_enrollments: 2,
+  },
+  notes: ["Revenue counts only payments verified with Paystack; pending checkouts are excluded."],
+};
+
+function subscriptionAdminFake() {
+  let sub = {
+    ...ADMIN_SUB,
+    lock_version: 4,
+    provider: { name: "paystack", mode: "test", linked: true, subscription_code: "SUB_1" },
+    cancel_requested_at: null,
+    last_reconciled_at: null,
+    grace: { days: 3, max_extension_until: "2026-12-28T10:00:00.000Z" },
+    periods: [
+      {
+        sequence: 1,
+        status: "paid",
+        period_start: NOW,
+        period_end: "2026-11-28T10:00:00.000Z",
+        amount: usd(999),
+        order_number: "TPA-1001",
+      },
+    ],
+    orders: [
+      {
+        id: 11,
+        number: "TPA-1001",
+        status: "paid",
+        total: usd(999),
+        refunded: usd(0),
+        paid_at: NOW,
+        needs_review: false,
+        review_reason: null,
+        receipt_number: "R-1001",
+        refunds: [],
+      },
+    ],
+    events: [
+      {
+        id: 2,
+        type: "activated",
+        from_status: "pending",
+        to_status: "active",
+        source: "webhook",
+        details: {},
+        created_at: NOW,
+      },
+      {
+        id: 1,
+        type: "checkout_started",
+        from_status: null,
+        to_status: "pending",
+        source: "customer",
+        details: {},
+        created_at: NOW,
+      },
+    ],
+    grants: [],
+    can: { manage: true, cancel: true, extend_grace: false, reconcile: true, refund: false },
+  };
+  const locked = (body) =>
+    body.lock_version !== sub.lock_version
+      ? fail(409, "conflict", "This membership changed since you opened it.", {
+          code: "edit_conflict",
+        })
+      : null;
+  return {
+    overview: vi.fn(() =>
+      ok({
+        billing: BILLING,
+        billing_mode: "disabled",
+        grace_days: 3,
+        max_grace_extension_days: 30,
+        live_billing: false,
+        provider_mode: "test",
+        counts: { active: 2, past_due: 1, grace: 0, pending: 1 },
+        period_count: 3,
+      }),
+    ),
+    inclusion: vi.fn(() => ok([{ id: "plan1", name: "Positive Circle", status: "published" }])),
+    subscriptions: vi.fn(() => Promise.resolve({ data: [ADMIN_SUB], meta: { total: 1 } })),
+    subscription: vi.fn(() => ok(sub)),
+    reconcile: vi.fn((_id, body) => {
+      const conflict = locked(body);
+      if (conflict) return conflict;
+      sub = { ...sub, lock_version: sub.lock_version + 1, last_reconciled_at: NOW };
+      return ok({
+        subscription: sub,
+        result: {
+          changes: {},
+          provider: { status: "active", next_payment_at: sub.current_period_end },
+        },
+      });
+    }),
+    cancelSubscription: vi.fn((_id, body) => {
+      const conflict = locked(body);
+      if (conflict) return conflict;
+      if (!body.reason || body.reason.trim().length < 3)
+        return fail(400, "validation_error", "Some fields need attention.", {
+          reason: ["Give a reason (3–500 characters)."],
+        });
+      sub = {
+        ...sub,
+        lock_version: sub.lock_version + 1,
+        cancel_at_period_end: true,
+        next: { type: "cancellation", at: sub.access_until },
+        can: { ...sub.can, cancel: !body.immediate },
+        ...(body.immediate ? { status: "ended" } : {}),
+      };
+      return ok({ subscription: sub });
+    }),
+    extendGrace: vi.fn(() =>
+      fail(409, "conflict", "Only memberships with a failed renewal.", { code: "not_past_due" }),
+    ),
+    grants: vi.fn(() =>
+      Promise.resolve({
+        data: [
+          {
+            id: "g1",
+            status: "active",
+            customer: { public_id: "cus2", email: "guest@example.com" },
+            plan: { id: "plan1", name: "Positive Circle" },
+            starts_at: NOW,
+            expires_at: "2026-12-01T00:00:00.000Z",
+            reason: "Podcast guest",
+            granted_by: "Ada Admin",
+            revoked_by: null,
+            revoke_reason: null,
+          },
+        ],
+        meta: { total: 1 },
+      }),
+    ),
+    createGrant: vi.fn(() => ok({ id: "g2" })),
+    revokeGrant: vi.fn(() => ok({ id: "g1", status: "revoked" })),
+    reports: vi.fn(() => ok(REPORT)),
+  };
+}
+
 export function createMembershipAdminFake() {
   let plan = makePlan();
   const bump = (patch) => {
@@ -162,6 +366,7 @@ export function createMembershipAdminFake() {
         });
       }),
       eligibleProducts: vi.fn(() => ok(ELIGIBLE)),
+      ...subscriptionAdminFake(),
       providerSync: vi.fn((_id, body) => {
         const conflict = locked(body);
         if (conflict) return conflict;

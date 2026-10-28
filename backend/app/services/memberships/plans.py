@@ -595,3 +595,14 @@ def published_plan(slug: str) -> dict[str, Any]:
     if plan is None:
         raise NotFoundError("Membership plan not found.")
     return {"plan": public_plan(plan), "billing": billing_status()}
+
+
+def plans_including(product_id: int) -> list[dict[str, Any]]:
+    """Plans that include a product (shown on product and course editors, Batch 10.4)."""
+    rows = db.session.scalars(
+        select(MembershipPlan)
+        .join(MembershipPlanAccess, MembershipPlanAccess.plan_id == MembershipPlan.id)
+        .where(MembershipPlanAccess.product_id == product_id)
+        .order_by(MembershipPlan.tier_rank, MembershipPlan.name)
+    )
+    return [{"id": p.public_id, "name": p.name, "status": p.status} for p in rows]

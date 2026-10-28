@@ -127,6 +127,7 @@ export const ROLE_PERMS = {
   ],
   analyst: [
     "dashboard.view",
+    "memberships.view_reports",
     "analytics.view",
     "articles.view",
     "media.view",
@@ -206,6 +207,7 @@ export const ROLE_PERMS = {
   customer_support: [
     "dashboard.view",
     "memberships.view",
+    "memberships.manage_subscriptions",
     "products.view",
     "orders.view",
     "customers.view",
@@ -222,6 +224,7 @@ export const ROLE_PERMS = {
     "payments.view_events",
     "finance.view",
     "finance.export",
+    "memberships.view_reports",
     ...PARTNERSHIP_ROLES.finance_manager.filter((p) => p !== "dashboard.view"),
   ],
   website_manager: [

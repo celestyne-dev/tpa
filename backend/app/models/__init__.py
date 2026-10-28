@@ -79,6 +79,7 @@ from .customer import (
 )
 from .memberships import (
     CustomerSubscription,
+    MembershipGrant,
     MembershipPlan,
     MembershipPlanAccess,
     MembershipPlanPrice,
@@ -213,6 +214,7 @@ __all__ = [
     "ProductPrice",
     "ProductRevision",
     "QuestionBank",
+    "MembershipGrant",
     "MembershipPlan",
     "MembershipPlanAccess",
     "MembershipPlanPrice",

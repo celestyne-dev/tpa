@@ -98,6 +98,18 @@ export const adminSections = [
         permission: "memberships.view",
       },
       {
+        label: "Membership subscribers",
+        to: "/admin/membership-subscriptions",
+        icon: Users,
+        permission: "memberships.manage_subscriptions",
+      },
+      {
+        label: "Membership reports",
+        to: "/admin/membership-reports",
+        icon: BarChart3,
+        permission: "memberships.view_reports",
+      },
+      {
         label: "Assignment reviews",
         to: "/admin/assignment-reviews",
         icon: ClipboardCheck,

@@ -116,6 +116,8 @@ class Permission(StrEnum):
     MEMBERSHIPS_MANAGE = "memberships.manage"
     MEMBERSHIPS_VIEW = "memberships.view"
     MEMBERSHIPS_PUBLISH = "memberships.publish"
+    MEMBERSHIPS_MANAGE_SUBSCRIPTIONS = "memberships.manage_subscriptions"
+    MEMBERSHIPS_VIEW_REPORTS = "memberships.view_reports"
     FINANCE_VIEW = "finance.view"
     FINANCE_EXPORT = "finance.export"
     FINANCE_MANAGE = "finance.manage"
@@ -815,6 +817,22 @@ CATALOGUE: list[PermissionDef] = [
         "memberships",
         description="Publish, unpublish and archive plans shown on the membership page.",
     ),
+    # Batch 10.4: subscription administration and reporting (appended).
+    _d(
+        P.MEMBERSHIPS_MANAGE_SUBSCRIPTIONS,
+        "Manage member subscriptions",
+        "Courses & memberships",
+        "memberships",
+        description="View subscribers, reconcile with Paystack, cancel, extend grace periods "
+        "and grant complimentary memberships. Refunds still need the refund permission.",
+    ),
+    _d(
+        P.MEMBERSHIPS_VIEW_REPORTS,
+        "View membership reports",
+        "Courses & memberships",
+        "memberships",
+        description="Subscriber counts, renewals, churn and verified membership revenue.",
+    ),
 ]
 
 CATALOGUE_BY_KEY: dict[str, PermissionDef] = {d.key.value: d for d in CATALOGUE}
@@ -1341,6 +1359,15 @@ BATCH_10_GRANTS: dict[str, frozenset[str]] = {
 }
 
 
+MEMBERSHIP_OPERATIONS = _set(P.MEMBERSHIPS_MANAGE_SUBSCRIPTIONS, P.MEMBERSHIPS_VIEW_REPORTS)
+BATCH_104_GRANTS: dict[str, frozenset[str]] = {
+    "administrator": MEMBERSHIP_OPERATIONS,
+    "customer_support": _set(P.MEMBERSHIPS_MANAGE_SUBSCRIPTIONS),
+    "finance_manager": _set(P.MEMBERSHIPS_VIEW_REPORTS),
+    "analyst": _set(P.MEMBERSHIPS_VIEW_REPORTS),
+}
+
+
 def _with_batch_03(spec: RoleSpec) -> RoleSpec:
     extra = (
         BATCH_03_GRANTS.get(spec.key, frozenset())
@@ -1354,6 +1381,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_092_GRANTS.get(spec.key, frozenset())
         | BATCH_092_BANK_GRANTS.get(spec.key, frozenset())
         | BATCH_10_GRANTS.get(spec.key, frozenset())
+        | BATCH_104_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

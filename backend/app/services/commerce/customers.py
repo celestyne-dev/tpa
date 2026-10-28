@@ -377,7 +377,14 @@ def export_data(customer: Customer, password: str) -> dict[str, Any]:
         "learning": _learning_export(customer),
         "study": _study_export(customer),
         "assignments": _assignments_export(customer),
+        "memberships": _membership_export(customer),
     }
+
+
+def _membership_export(customer: Customer) -> dict[str, Any]:
+    from ..memberships.compliance import export
+
+    return export(customer)
 
 
 def _assignments_export(customer: Customer) -> list[dict[str, Any]]:
@@ -445,6 +452,11 @@ def _restore_guest(customer: Customer) -> None:
 
 
 def anonymise(customer: Customer, actor) -> None:
+    # Memberships first: billing must be stopped at Paystack (or deletion refused) before
+    # anything is anonymised. Billing records themselves are retained.
+    from ..memberships.compliance import prepare_deletion
+
+    prepare_deletion(customer, actor)
     original_id = customer.id
     customer.deletion_requested_at = customer.deletion_requested_at or _now()
     customer.email = f"deleted-{customer.public_id}@deleted.invalid"

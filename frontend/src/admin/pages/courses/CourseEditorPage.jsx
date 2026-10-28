@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate, useParams } from "react-router";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { cn, formatDateTime } from "@/utils/format";
+import { MembershipInclusion } from "../../components/products/MembershipInclusion";
 import { useAdminApi } from "../../adminApiContext";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { BlockEditor } from "../../components/BlockEditor";
@@ -303,6 +304,7 @@ function DetailsForm({ course, options, onSaved }) {
               })),
             ]}
           />
+          {course.product_id && <MembershipInclusion productId={course.product_id} />}
           {form.access_type === "free" && (
             <TextField
               label="Access period (days)"

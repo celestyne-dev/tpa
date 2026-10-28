@@ -584,22 +584,40 @@ def cancel(customer: Customer, data: Any) -> dict[str, Any]:
     """Cancel at the end of the paid period. Paystack is told first: if it can't confirm,
     nothing changes locally (otherwise the member could be charged after cancelling)."""
     sub = _owned(customer, (data or {}).get("subscription_id") if isinstance(data, dict) else None)
-    if sub.status not in RENEWABLE:
-        raise ConflictError("This membership can't be cancelled.", details={"code": "not_active"})
-    if sub.cancel_at_period_end:
-        return billing.customer_view(customer)
-    _require_linked(sub)
-    try:
-        get_provider(sub.provider).disable_subscription(
-            sub.provider_subscription_code, sub.provider_email_token
-        )
-    except ProviderError:
-        raise ProviderActionFailed() from None
-    sub = _lock(sub)
-    if not sub.cancel_at_period_end and sub.status in RENEWABLE:
-        _schedule_cancellation(sub, "customer", requested_here=True)
+    cancel_subscription(sub, "customer")
     db.session.commit()
     return billing.customer_view(customer)
+
+
+def cancel_subscription(
+    sub: CustomerSubscription, source: str, *, immediate: bool = False, reason: str = ""
+) -> CustomerSubscription:
+    """The provider-safe cancellation shared by customers and staff (Batch 10.4).
+
+    Paystack must confirm first. ``immediate`` (staff only) ends access now instead of at
+    the end of the paid period; refunds stay a separate, permission-checked action."""
+    if sub.status not in RENEWABLE:
+        raise ConflictError("This membership can't be cancelled.", details={"code": "not_active"})
+    if sub.cancel_at_period_end and not immediate:
+        return sub
+    if not sub.cancel_at_period_end:
+        _require_linked(sub)
+        try:
+            get_provider(sub.provider).disable_subscription(
+                sub.provider_subscription_code, sub.provider_email_token
+            )
+        except ProviderError:
+            raise ProviderActionFailed() from None
+    sub = _lock(sub)
+    if sub.status not in RENEWABLE:
+        return sub
+    if not sub.cancel_at_period_end:
+        _schedule_cancellation(sub, source, requested_here=True)
+    if immediate and sub.status in RENEWABLE:
+        _end(sub, "cancelled", source)
+        if reason:
+            billing._event(sub, "ended_by_staff", source, details={"reason": reason[:300]})
+    return sub
 
 
 def resume(customer: Customer, data: Any) -> dict[str, Any]:

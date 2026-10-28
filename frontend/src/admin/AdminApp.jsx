@@ -59,7 +59,11 @@ import { CoursePreviewPage } from "./pages/courses/CoursePreviewPage";
 import { CoursesPage } from "./pages/courses/CoursesPage";
 import { GradingDashboardPage } from "./pages/grading/GradingDashboardPage";
 import { MembershipPlanEditorPage } from "./pages/memberships/MembershipPlanEditorPage";
+import { MembershipGrantsPage } from "./pages/memberships/MembershipGrantsPage";
 import { MembershipPlansPage } from "./pages/memberships/MembershipPlansPage";
+import { MembershipReportsPage } from "./pages/memberships/MembershipReportsPage";
+import { MembershipSubscriptionDetailPage } from "./pages/memberships/MembershipSubscriptionDetailPage";
+import { MembershipSubscriptionsPage } from "./pages/memberships/MembershipSubscriptionsPage";
 import { SubmissionReviewPage } from "./pages/grading/SubmissionReviewPage";
 import { QuestionBankPage } from "./pages/questionBanks/QuestionBankPage";
 import { QuestionBanksPage } from "./pages/questionBanks/QuestionBanksPage";
@@ -77,6 +81,7 @@ import {
   TAXONOMY_READ,
 } from "./permissions";
 
+const SUBSCRIBER_READ = ["memberships.manage_subscriptions", "memberships.view"];
 /** `rule` is one permission key or a list of alternatives (any one suffices). */
 const guarded = (rule, element) =>
   Array.isArray(rule) ? (
@@ -156,6 +161,23 @@ export default function AdminApp() {
           <Route
             path="membership-plans/:planId"
             element={guarded("memberships.view", <MembershipPlanEditorPage />)}
+          />
+          {/* Server-side checks decide; read-only access also needs customers.view. */}
+          <Route
+            path="membership-subscriptions"
+            element={guarded(SUBSCRIBER_READ, <MembershipSubscriptionsPage />)}
+          />
+          <Route
+            path="membership-subscriptions/:subscriptionId"
+            element={guarded(SUBSCRIBER_READ, <MembershipSubscriptionDetailPage />)}
+          />
+          <Route
+            path="membership-grants"
+            element={guarded(SUBSCRIBER_READ, <MembershipGrantsPage />)}
+          />
+          <Route
+            path="membership-reports"
+            element={guarded("memberships.view_reports", <MembershipReportsPage />)}
           />
           <Route
             path="question-banks"

@@ -1631,3 +1631,46 @@ def test_batch103_lifecycle_upgrade_is_additive_and_downgrade_protects_state(tmp
         db.session.remove()
         with pytest.raises(SystemExit):
             downgrade(directory=MIGRATIONS, revision="c9e1a7d5f326")
+
+
+def test_batch104_operations_upgrade_adds_grants_and_permissions(tmp_path):
+    import pytest
+
+    app = _app(tmp_path, "batch104.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="d4a2f7c9e815")
+        before = db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one()
+        db.session.remove()
+        upgrade(directory=MIGRATIONS, revision="e8c4a2d6b917")
+        assert "membership_grants" in set(inspect(db.engine).get_table_names())
+        keys = set(
+            db.session.execute(
+                text("SELECT key FROM permissions WHERE key LIKE 'memberships.%'")
+            ).scalars()
+        )
+        assert {"memberships.manage_subscriptions", "memberships.view_reports"} <= keys
+        after = db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one()
+        assert after == before + 2
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="d4a2f7c9e815")
+        assert "membership_grants" not in set(inspect(db.engine).get_table_names())
+        assert db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one() == before
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.execute(text("PRAGMA foreign_keys=OFF"))
+        db.session.execute(
+            text(
+                "INSERT INTO membership_grants (public_id, customer_id, plan_id, status, "
+                "starts_at, expires_at, reason, idempotency_key, revoke_reason, created_at) "
+                "VALUES ('g1', 1, 1, 'active', '2026-10-28', '2026-11-28', 'x', 'k', '', "
+                "'2026-10-28')"
+            )
+        )
+        db.session.commit()
+        db.session.remove()
+        with pytest.raises(SystemExit):
+            downgrade(directory=MIGRATIONS, revision="d4a2f7c9e815")

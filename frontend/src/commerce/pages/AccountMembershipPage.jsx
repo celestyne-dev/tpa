@@ -424,6 +424,22 @@ function MembershipContent() {
           action={<ButtonLink to={routes.membership}>See membership plans</ButtonLink>}
         />
       )}
+      {data.complimentary?.some((g) => g.status === "active") && (
+        <section aria-labelledby="comp-heading" className="rounded-2xl bg-white p-5">
+          <h2 id="comp-heading" className="text-lg font-medium">
+            Complimentary membership
+          </h2>
+          <ul className="mt-2 text-sm">
+            {data.complimentary
+              .filter((g) => g.status === "active")
+              .map((g) => (
+                <li key={`${g.plan}-${g.expires_at}`}>
+                  {g.plan}: included courses and resources until {formatDate(g.expires_at)}
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
       <p className="text-sm text-muted">
         Courses and resources you buy separately stay yours, whatever happens to your membership.
       </p>

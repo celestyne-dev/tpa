@@ -39,7 +39,7 @@ describe("premium resources admin", () => {
     await user.click(await screen.findByRole("tab", { name: "Access & related" }));
     await user.type(screen.getByLabelText(/Access period/), "365");
     await user.type(screen.getByLabelText(/Downloads per buyer/), "5");
-    await user.click(screen.getByLabelText(/future membership/));
+    await user.click(screen.getByLabelText(/included in membership plans/));
     await user.click(screen.getByRole("button", { name: "Save access rules" }));
     await waitFor(() =>
       expect(adminApi.products.update).toHaveBeenCalledWith(1, {

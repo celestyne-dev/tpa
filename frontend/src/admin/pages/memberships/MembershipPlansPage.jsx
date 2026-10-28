@@ -24,6 +24,8 @@ export function MembershipPlansPage() {
   const { can } = usePermissions();
   const canManage = can("memberships.manage");
   const { data, error, loading, reload } = useAdminQuery(() => api.memberships.list(), []);
+  const overview = useAdminQuery(() => api.memberships.overview(), []);
+  const canSeeSubscribers = can("memberships.manage_subscriptions") || can("customers.view");
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [createError, setCreateError] = useState(null);
@@ -77,6 +79,42 @@ export function MembershipPlansPage() {
         synced with Paystack; otherwise the membership page shows a “coming soon” notice. Members
         get access only after Paystack confirms their first payment.
       </p>
+      {overview.data && (
+        <section
+          aria-label="Membership billing"
+          className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-charcoal/10 bg-white p-3 text-sm"
+        >
+          <span>
+            Checkout:{" "}
+            <strong>{overview.data.billing.available ? "open (test mode)" : "closed"}</strong>
+          </span>
+          <span>
+            Grace period: <strong>{overview.data.grace_days} days</strong>{" "}
+            <span className="text-muted">(MEMBERSHIP_GRACE_DAYS)</span>
+          </span>
+          <span>
+            Members: <strong>{overview.data.counts.active}</strong> active ·{" "}
+            {overview.data.counts.past_due + overview.data.counts.grace} with payment problems
+          </span>
+          <span className="flex gap-3">
+            {canSeeSubscribers && (
+              <Link to="/admin/membership-subscriptions" className="underline underline-offset-4">
+                Subscribers
+              </Link>
+            )}
+            {canSeeSubscribers && (
+              <Link to="/admin/membership-grants" className="underline underline-offset-4">
+                Complimentary
+              </Link>
+            )}
+            {can("memberships.view_reports") && (
+              <Link to="/admin/membership-reports" className="underline underline-offset-4">
+                Reports
+              </Link>
+            )}
+          </span>
+        </section>
+      )}
       {error ? (
         <ErrorState title="We couldn't load the membership plans" onRetry={reload} />
       ) : (

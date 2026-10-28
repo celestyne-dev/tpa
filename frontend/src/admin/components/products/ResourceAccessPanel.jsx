@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAdminApi } from "../../adminApiContext";
 import { fieldError } from "../fieldError";
+import { MembershipInclusion } from "./MembershipInclusion";
 import { CheckboxField, SelectField, TextField } from "../Fields";
 import { useNotify } from "../notifyContext";
 
@@ -91,13 +92,13 @@ export function ResourceAccessPanel({ product, canEdit, onChanged }) {
         />
         <div className="sm:col-span-2">
           <CheckboxField
-            label="Can be included in a future membership"
+            label="Can be included in membership plans"
             checked={form.membership_eligible}
             onChange={(e) => setForm({ ...form, membership_eligible: e.target.checked })}
           />
-          <p className="mt-1 pl-7 text-xs text-muted">
-            Memberships aren't available yet; this only prepares the resource for them.
-          </p>
+          <div className="mt-1 pl-7">
+            <MembershipInclusion productId={product.id} />
+          </div>
         </div>
       </fieldset>
       {canEdit ? (
