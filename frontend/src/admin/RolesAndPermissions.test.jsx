@@ -135,8 +135,12 @@ describe("assigning multiple roles", () => {
     const editorCount = ROLE_PERMS.editor.length;
     expect(preview).toHaveTextContent(`Effective permissions: ${editorCount}`);
     await user.click(within(dialog).getByRole("checkbox", { name: /Analyst/ }));
-    // Analyst adds analytics.view and courses.view_reports (the rest overlap with Editor's).
-    expect(preview).toHaveTextContent(`Effective permissions: ${editorCount + 2}`);
+    // Analyst adds only the permissions Editor lacks (memberships.view_reports since Batch
+    // 10.4); the preview counts the union, never duplicates.
+    const added = ROLE_PERMS.analyst.filter((p) => !ROLE_PERMS.editor.includes(p)).sort();
+    expect(added).toEqual(["analytics.view", "courses.view_reports", "memberships.view_reports"]);
+    expect(preview).toHaveTextContent(`Effective permissions: ${editorCount + added.length}`);
+    for (const key of added) expect(preview).toHaveTextContent(key);
     await user.click(within(dialog).getByRole("checkbox", { name: /Super Admin/ }));
     expect(preview).toHaveTextContent("all permissions (Super Admin)");
     // Inactive roles cannot be newly assigned, so they are not offered.

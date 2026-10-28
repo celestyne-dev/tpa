@@ -22,9 +22,14 @@ describe("Batch 09.2 navigation and permissions", () => {
       "/admin/assignment-reviews",
     );
     expect(within(nav).getByRole("link", { name: "Question banks" })).toBeInTheDocument();
-    // Analytics stays planned (never a link); memberships became a section in Batch 10.1.
-    expect(plannedModules.map((m) => m.label)).toEqual(["Analytics"]);
-    expect(within(nav).queryByRole("link", { name: /Analytics/ })).toBeNull();
+    // Memberships became a section in Batch 10.1 and Analytics in Batch 11.1 (guarded by
+    // ANALYTICS_ACCESS; roles without it are covered in Analytics.test.jsx). Nothing is
+    // planned any more.
+    expect(plannedModules).toEqual([]);
+    expect(within(nav).getByRole("link", { name: "Analytics" })).toHaveAttribute(
+      "href",
+      "/admin/analytics",
+    );
   });
 
   it("hides the new areas from roles without the permissions", async () => {
