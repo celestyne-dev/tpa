@@ -23,9 +23,13 @@ def _sqlite_foreign_keys(dbapi_connection, _record):
         cursor.close()
 
 
-def create_app(config_name: str | None = None, overrides: dict | None = None) -> Flask:
+def create_app(
+    config_name: str | None = None, overrides: dict | None = None, *, validate: bool = True
+) -> Flask:
+    """``validate=False`` is only for ``flask deploy check`` (app/preflight.py), which
+    reports the same problems as errors instead of refusing to start."""
     config = get_config(config_name)
-    if hasattr(config, "validate"):
+    if validate and hasattr(config, "validate"):
         config.validate()
 
     app = Flask(__name__, instance_path=str(INSTANCE_DIR))

@@ -245,7 +245,20 @@ def run_checks(*, database: bool = True) -> list[dict[str, str]]:
         if cfg.get("ENV_NAME") == "production"
         else _result("environment", ERROR, "Set FLASK_CONFIG=production.")
     ]
+    # Start-up problems found by app/preflight.py (the app would refuse to start).
+    results += list(cfg.get("DEPLOY_STARTUP_RESULTS") or [])
     results += _secrets(cfg)
+    if cfg.get("DEPLOY_APP_UNAVAILABLE"):
+        # Extensions didn't initialise: report the settings, skip live connections.
+        results.append(
+            _result(
+                "live_checks",
+                ERROR,
+                "Database, Redis and admin payment settings weren't checked: the "
+                "application can't start (see startup).",
+            )
+        )
+        return results + _urls(cfg) + _cookies(cfg) + _services(cfg)
     if database:
         results += _database(cfg)
     results += _rate_limits(cfg) + _urls(cfg) + _cookies(cfg) + _payments(cfg)

@@ -370,6 +370,14 @@ class ProductionConfig(BaseConfig):
 
     @classmethod
     def validate(cls) -> None:
+        missing = cls.problems()
+        if missing:
+            raise RuntimeError(f"Missing required production settings: {', '.join(missing)}")
+
+    @classmethod
+    def problems(cls) -> list[str]:
+        """Settings production start-up refuses (names and rules only, never values).
+        ``validate`` raises on any of them; ``flask deploy check`` reports them."""
         missing = []
         if not os.environ.get("SECRET_KEY"):
             missing.append("SECRET_KEY")
@@ -402,8 +410,7 @@ class ProductionConfig(BaseConfig):
         if _bool("PAYMENTS_TEST_CHECKOUT_PUBLIC"):
             missing.append("PAYMENTS_TEST_CHECKOUT_PUBLIC (development only)")
         missing.extend(storage_layout_problems(cls))
-        if missing:
-            raise RuntimeError(f"Missing required production settings: {', '.join(missing)}")
+        return missing
 
 
 def _inside(child: str, parent: str) -> bool:

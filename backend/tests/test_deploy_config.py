@@ -439,20 +439,55 @@ def test_staging_template_is_safe_and_has_no_secrets():
     assert set(env) - documented == set()  # no settings the app doesn't know
 
 
-def _deploy_check(env: dict[str, str]) -> subprocess.CompletedProcess:
-    base = {"PATH": os.environ["PATH"], "HOME": os.environ.get("HOME", "/tmp")}
+def _run_backend(args: list[str], env: dict[str, str]) -> subprocess.CompletedProcess:
+    # Only the given settings: FLASK_SKIP_DOTENV keeps a developer's backend/.env out.
+    base = {
+        "PATH": os.environ["PATH"],
+        "HOME": os.environ.get("HOME", "/tmp"),
+        "FLASK_SKIP_DOTENV": "1",
+    }
     return subprocess.run(
-        [sys.executable, "-m", "flask", "--app", "wsgi", "deploy", "check", "--no-database", "--json"],
-        cwd=ROOT / "backend", env=base | env, capture_output=True, text=True, timeout=120,
+        [sys.executable, *args], cwd=ROOT / "backend", env=base | env,
+        capture_output=True, text=True, timeout=120,
     )  # fmt: skip
 
 
-def test_filled_in_staging_template_passes_the_deploy_check_without_leaking_secrets(tmp_path):
-    secret, jwt_secret, smtp_password = (f"s3cr3t-{n}-" + "x7Kq9Lm2" * 6 for n in "abc")
-    env = _env(STAGING_ENV) | {
-        "SECRET_KEY": secret,
-        "JWT_SECRET_KEY": jwt_secret,
-        "MAIL_SMTP_PASSWORD": smtp_password,
+def _deploy_check(env: dict[str, str]) -> subprocess.CompletedProcess:
+    args = ["-m", "flask", "--app", "wsgi", "deploy", "check", "--no-database", "--json"]
+    return _run_backend(args, env)
+
+
+def _deploy_report(env: dict[str, str]) -> tuple[subprocess.CompletedProcess, dict]:
+    """Run the check and parse its JSON, failing with the exit code and output if it
+    printed none (instead of an unexplained JSONDecodeError)."""
+    res = _deploy_check(env)
+    try:
+        report = json.loads(res.stdout)
+    except json.JSONDecodeError:
+        report = None
+    if not isinstance(report, dict):
+        pytest.fail(
+            f"`flask deploy check --json` printed no JSON report (exit {res.returncode}).\n"
+            f"--- stdout ---\n{res.stdout[-2000:] or '(empty)'}\n"
+            f"--- stderr ---\n{res.stderr[-4000:] or '(empty)'}",
+            pytrace=False,
+        )
+    return res, report
+
+
+def _errors(report: dict) -> set[str]:
+    return {r["check"] for r in report["results"] if r["level"] == "error"}
+
+
+SECRET, JWT_SECRET, SMTP_PASSWORD = (f"s3cr3t-{n}-" + "x7Kq9Lm2" * 6 for n in "abc")
+SECRET_VALUES = (SECRET, JWT_SECRET, SMTP_PASSWORD, "db-password-123", "a" * 40)
+
+
+def _filled_in_staging_env(tmp_path: Path) -> dict[str, str]:
+    return _env(STAGING_ENV) | {
+        "SECRET_KEY": SECRET,
+        "JWT_SECRET_KEY": JWT_SECRET,
+        "MAIL_SMTP_PASSWORD": SMTP_PASSWORD,
         "MAIL_SMTP_HOST": "smtp.example.net",
         "DATABASE_URL": "postgresql+psycopg://tpa:db-password-123@127.0.0.1:1/tpa",
         "PAYSTACK_SECRET_KEY": "sk_test_" + "a" * 40,
@@ -465,13 +500,64 @@ def test_filled_in_staging_template_passes_the_deploy_check_without_leaking_secr
         "PUBLISH_CURRENT_LINK": str(tmp_path / "site" / "current"),
         "RATELIMIT_STORAGE_URI": "redis://127.0.0.1:1/0",  # nothing listens: unreachable
     }
-    res = _deploy_check(env)
-    report = json.loads(res.stdout)
-    errors = {r["check"] for r in report["results"] if r["level"] == "error"}
-    assert errors == {"RATELIMIT_STORAGE_URI"}, report  # only Redis is missing here
-    assert res.returncode == 2
-    for value in (secret, jwt_secret, smtp_password, "db-password-123", "a" * 40):
+
+
+def _assert_no_secrets(res: subprocess.CompletedProcess, *extra: str) -> None:
+    for value in (*SECRET_VALUES, *extra):
         assert value not in res.stdout + res.stderr
+
+
+def test_filled_in_staging_template_passes_the_deploy_check_without_leaking_secrets(tmp_path):
+    res, report = _deploy_report(_filled_in_staging_env(tmp_path))
+    assert _errors(report) == {"RATELIMIT_STORAGE_URI"}, report  # only Redis is missing here
+    assert res.returncode == 2
+    _assert_no_secrets(res)
+
+
+def test_deploy_check_reports_settings_that_production_refuses_to_start_with(tmp_path):
+    """Problems ProductionConfig.validate() refuses used to abort the CLI before the check
+    ran (empty stdout, exit 1 = "warnings"). They are now errors in the JSON report."""
+    env = _filled_in_staging_env(tmp_path) | {
+        "NEWSLETTER_MAIL_BACKEND": "console",
+        "PAYSTACK_API_BASE": "https://paystack.example.net",
+    }
+    res, report = _deploy_report(env)
+    assert {"NEWSLETTER_MAIL_BACKEND", "PAYSTACK_API_BASE"} <= _errors(report), report
+    assert report["status"] == "error" and res.returncode == 2
+    _assert_no_secrets(res)
+
+
+def test_deploy_check_reports_an_application_that_cannot_initialise(tmp_path):
+    """An extension that fails during create_app (here: an unknown rate-limit storage, as
+    with a Redis URI and no redis client) is reported as JSON, with credentials removed."""
+    env = _filled_in_staging_env(tmp_path) | {
+        "RATELIMIT_STORAGE_URI": "nosuchstore://ratelimit:store-pass-987@127.0.0.1:1/0"
+    }
+    res, report = _deploy_report(env)
+    startup = [r for r in report["results"] if r["check"] == "startup"]
+    assert startup and startup[0]["level"] == "error", report
+    assert "ConfigurationError" in startup[0]["message"]
+    assert "live_checks" in _errors(report)
+    assert report["status"] == "error" and res.returncode == 2
+    _assert_no_secrets(res, "store-pass-987")
+
+
+def test_production_start_up_still_refuses_invalid_settings(tmp_path):
+    """Only `deploy check` reports instead of refusing: importing wsgi (what Gunicorn
+    does) still fails on the same settings."""
+    env = _filled_in_staging_env(tmp_path) | {"NEWSLETTER_MAIL_BACKEND": "console"}
+    res = _run_backend(["-c", "import wsgi"], env)
+    assert res.returncode != 0
+    assert "Missing required production settings: NEWSLETTER_MAIL_BACKEND" in res.stderr
+
+
+def test_only_the_deploy_check_command_uses_the_preflight_app():
+    from app.preflight import is_deploy_check
+
+    assert is_deploy_check(["flask", "--app", "wsgi", "deploy", "check", "--json"])
+    assert not is_deploy_check(["gunicorn", "--workers", "3", "wsgi:app"])
+    assert not is_deploy_check(["flask", "--app", "wsgi", "db", "upgrade"])
+    assert not is_deploy_check(["flask", "--app", "wsgi", "deploy"])
 
 
 def test_deploy_check_flags_unsafe_production_settings(tmp_path):
@@ -491,8 +577,8 @@ def test_deploy_check_flags_unsafe_production_settings(tmp_path):
         "PUBLISH_RELEASES_DIR": str(tmp_path / "releases"),
         "PUBLISH_CURRENT_LINK": str(tmp_path / "current"),
     }
-    report = json.loads(_deploy_check(env).stdout)
-    errors = {r["check"] for r in report["results"] if r["level"] == "error"}
+    _, report = _deploy_report(env)
+    errors = _errors(report)
     assert {
         "secrets_distinct",
         "TRUST_PROXY",
