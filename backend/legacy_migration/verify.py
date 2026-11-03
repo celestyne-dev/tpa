@@ -82,7 +82,7 @@ def compare(
             "tested_url": _on(new_base, legacy_path),
         }
         problems: list[str] = []
-        if action == "REVIEW" or action not in ("KEEP", "REDIRECT_301", "RETIRE_410"):
+        if action == "REVIEW" or action not in ("KEEP", "REDIRECT_301", "RETIRE_410", "ALLOW_404"):
             high = row.get("priority") == "high"
             out["result"] = "fail" if (high and strict_unresolved) else "unresolved"
             out["problems"] = "unresolved" + (":high_priority" if high else "")
@@ -132,6 +132,9 @@ def compare(
                 problems.append("404_not_410")
             elif res.status != 410:
                 problems.append(f"expected_410_got:{res.status}")
+        elif action == "ALLOW_404" and (res.redirect_count or res.status not in (404, 410)):
+            # A genuine 404: never a 200 page, app shell or redirect to the homepage.
+            problems.append(f"expected_404_got:{res.status}")
         out["problems"] = ";".join(problems)
         if "result" not in out:
             soft = problems == ["not_approved"]
@@ -189,6 +192,8 @@ def sitemap_check(
             problems.append("legacy_redirect_source")
         if actions.get(key) == "RETIRE_410":
             problems.append("retired_path")
+        if actions.get(key) == "ALLOW_404":
+            problems.append("allowed_404_path")
         out = {"loc": loc, "path": key}
         if check_pages:
             res = fetcher.get(_on(fetch_base, path_of(loc)) if fetch_base else loc)

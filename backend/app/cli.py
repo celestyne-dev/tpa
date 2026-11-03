@@ -12,6 +12,7 @@ flask --app wsgi media prune
 
 from __future__ import annotations
 
+import re
 import sys
 
 import click
@@ -635,6 +636,83 @@ def legacy_import_redirects(mapping_csv: str, apply_changes: bool, actor_email: 
     click.echo(f"{mode}: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
     if failed:
         raise click.ClickException(f"{len(failed)} redirect(s) failed validation; nothing written.")
+
+
+_LINK_FIELDS = ("href", "url", "button_href", "link", "path", "cta_href")
+_TEXT_LINKS = re.compile(r"""\]\(((?:https?://|/)[^)\s]*)\)|href=["']([^"']+)["']""")
+
+
+def _links_in(value, found: list[str]) -> list[str]:
+    """Every link in CMS JSON: link fields, Markdown links and HTML hrefs in text."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in _LINK_FIELDS and isinstance(item, str) and item.strip():
+                found.append(item.strip())
+            else:
+                _links_in(item, found)
+    elif isinstance(value, list):
+        for item in value:
+            _links_in(item, found)
+    elif isinstance(value, str) and ("](" in value or "href=" in value):
+        found += [a or b for a, b in _TEXT_LINKS.findall(value)]
+    return found
+
+
+@legacy_cli.command("check-links")
+@click.argument("cleanup_csv", type=click.Path(exists=True, dir_okay=False))
+@click.option("--legacy-host", multiple=True, default=("thinkpositivealways.com",))
+def legacy_check_links(cleanup_csv: str, legacy_host: tuple[str, ...]):
+    """Report navigation and internal links that point at legacy URLs (read-only).
+
+    A link is reported when its path is in the cleanup decisions with any outcome other
+    than KEEP_200 (redirected, retired, left to 404 or unresolved). Exit code 1 if any.
+    """
+    from urllib.parse import urlsplit
+
+    from legacy_migration.core import path_key, read_csv, same_site
+
+    from .cms.defaults import DEFAULT_MENUS
+    from .models import Article, Page, Topic
+    from .services.article_service import published_filter
+    from .services.navigation_service import menu_tree
+
+    decisions = {}
+    for row in read_csv(cleanup_csv):
+        key = row.get("path_key") or path_key(row.get("legacy_path", ""))
+        outcome = row.get("effective_class") or row.get("action", "")
+        if key and outcome not in ("KEEP_200", "KEEP"):
+            decisions.setdefault(key, (outcome, row.get("effective_target", "")))
+    hosts = [urlsplit(current_app.config.get("SITE_URL", "")).netloc, *legacy_host]
+    sources: list[tuple[str, object]] = [
+        (f"menu:{key}", menu_tree(key, visible_only=False)) for key in DEFAULT_MENUS
+    ]
+    sources += [
+        (f"article:{a.slug}", a.body)
+        for a in db.session.scalars(select(Article).where(published_filter()))
+    ]
+    sources += [
+        (f"page:{p.published_path}", p.published_snapshot)
+        for p in db.session.scalars(select(Page).where(Page.status == "published"))
+    ]
+    sources += [(f"topic:{t.slug}", t.intro) for t in db.session.scalars(select(Topic))]
+    findings = []
+    for where, content in sources:
+        for href in _links_in(content, []):
+            parts = urlsplit(href)
+            if parts.scheme and not (parts.scheme in ("http", "https") and same_site(href, hosts)):
+                continue  # external, mailto: ...
+            if not parts.scheme and not href.startswith("/"):
+                continue
+            key = path_key(parts.path or "/")
+            if key in decisions:
+                outcome, target = decisions[key]
+                fix = f" -> link to {target}" if target else " -> remove the link"
+                findings.append(f"{where}: {href} is {outcome}{fix}")
+    for line in dict.fromkeys(findings):
+        click.echo(line)
+    click.echo(f"{len(set(findings))} link(s) to legacy URLs.")
+    if findings:
+        sys.exit(1)
 
 
 def register_cli(app: Flask) -> None:

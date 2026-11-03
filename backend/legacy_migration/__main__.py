@@ -126,6 +126,59 @@ def cmd_reconcile(a) -> int:
     return 1 if a.gate and not report["production_ready"] else 0
 
 
+def cmd_cleanup(a) -> int:
+    from . import cleanup
+
+    base = a.base_url.rstrip("/")
+    files = [("", f) for f in a.coverage] + [(label, f) for label, f in a.coverage_report]
+    coverage, counts = cleanup.load_coverage(files, base)
+    if a.expect_urls is not None and counts["distinct_urls"] != a.expect_urls:
+        print(f"Expected {a.expect_urls} distinct URLs, found {counts['distinct_urls']}.",
+              file=sys.stderr)  # fmt: skip
+        return 1
+    routes = set()
+    for path in a.routes:
+        routes |= {line.strip() for line in Path(path).read_text().splitlines()
+                   if line.strip().startswith("/")}  # fmt: skip
+    ctx = cleanup.Context(
+        [r for path in a.export for r in read_csv(path)],
+        inventory_rows=[r for path in a.inventory for r in read_csv(path)],
+        new_site_paths=set(mapping.NewSite.load(a.new_site).paths) if a.new_site else set(),
+        taxonomy=rewrite.load_taxonomy(a.taxonomy),
+        extra_routes=routes,
+        base_url=base,
+    )
+    result = cleanup.cleanup(coverage, ctx, previous=read_csv(a.previous) if a.previous else None)
+    summary = cleanup.write(a.out, result, ctx, counts)
+    print(cleanup.markdown(summary))
+    if a.expect_published is not None and len(ctx.plan) != a.expect_published:
+        print(f"Expected {a.expect_published} published articles, found {len(ctx.plan)}.",
+              file=sys.stderr)  # fmt: skip
+        return 1
+    return 1 if summary["errors"] or (a.gate and not summary["ready_for_staging"]) else 0
+
+
+def cmd_verify_status(a) -> int:
+    from . import status_check
+
+    rows = [r for path in a.urls for r in read_csv(path)]
+    summary = status_check.run(
+        rows,
+        a.base,
+        a.out,
+        expect=a.expect,
+        timeout=a.timeout,
+        delay=a.delay,
+        max_seconds=a.max_seconds,
+        limit=a.limit,
+        progress_every=a.progress_every,
+        recheck_failed=a.recheck_failed,
+        site_hosts=a.site_host,
+    )
+    print(json.dumps(summary, indent=2))
+    return 1 if summary["fail"] or summary["error"] else 0
+
+
 def cmd_validate_rewrite(a) -> int:
     problems = rewrite.validate_plan(read_csv(a.worklist))
     for p in problems:
@@ -270,6 +323,42 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--gate", action="store_true", help="exit 1 unless production-ready")
     s.add_argument("--out", required=True)
     s.set_defaults(func=cmd_reconcile)
+
+    s = sub.add_parser("cleanup", help="historical Search Console URLs -> cleanup decisions")
+    s.add_argument("--coverage", action="append", default=[], help="coverage export (csv/zip/dir)")
+    s.add_argument(
+        "--coverage-report", nargs=2, action="append", default=[], metavar=("REPORT", "FILE"),
+        help="coverage export with its report name, e.g. 'Not found (404)' file.csv",
+    )  # fmt: skip
+    s.add_argument("--export", action="append", default=[], help="legacy CMS export CSV")
+    s.add_argument("--inventory", action="append", default=[], help="inventory.csv, latest first")
+    s.add_argument("--new-site", help="CSV from `flask legacy export-cms`")
+    s.add_argument("--routes", action="append", default=[], help="extra approved new-site paths")
+    s.add_argument("--taxonomy", help="approved taxonomy decisions (CSV)")
+    s.add_argument("--previous", help="edited cleanup-decisions.csv (decisions are kept)")
+    s.add_argument("--base-url", default="https://thinkpositivealways.com")
+    s.add_argument("--expect-urls", type=int, help="fail unless this many distinct URLs")
+    s.add_argument("--expect-published", type=int)
+    s.add_argument("--gate", action="store_true", help="exit 1 unless ready for staging")
+    s.add_argument("--out", required=True)
+    s.set_defaults(func=cmd_cleanup)
+
+    s = sub.add_parser("verify-status", help="read-only, resumable HTTP status checks")
+    s.add_argument("urls", nargs="+", help="cleanup-decisions.csv (or any CSV with a url column)")
+    s.add_argument(
+        "--base", required=True, help="site to request, e.g. https://staging.example.com"
+    )
+    s.add_argument("--site-host", action="append", default=["thinkpositivealways.com"],
+                   help="host(s) of the historical URLs, tested by path on --base")  # fmt: skip
+    s.add_argument("--expect", action="store_true", help="check each URL against its decision")
+    s.add_argument("--timeout", type=float, default=10.0, help="seconds per request")
+    s.add_argument("--delay", type=float, default=0.5, help="seconds between requests")
+    s.add_argument("--max-seconds", type=float, default=0, help="stop (resumable) after this")
+    s.add_argument("--limit", type=int, default=0, help="check at most this many now")
+    s.add_argument("--progress-every", type=int, default=25)
+    s.add_argument("--recheck-failed", action="store_true")
+    s.add_argument("--out", required=True, help="results CSV (appended; resumes)")
+    s.set_defaults(func=cmd_verify_status)
 
     s = sub.add_parser("validate-rewrite", help="check an edited rewrite-worklist.csv")
     s.add_argument("worklist")

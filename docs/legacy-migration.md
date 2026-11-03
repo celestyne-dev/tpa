@@ -301,6 +301,191 @@ This is `rewrite-worklist.csv` (all published articles) with these extra columns
 - `UNRESOLVED`: blocking issues remain
 - `NOT_SELECTED`
 
+## Historical URL cleanup (Search Console coverage history)
+
+The historical audit holds 865 distinct URLs from ten coverage-report exports. They come
+from earlier versions of the website: forums, an old shop, abandoned categories, filters
+and previous article routes. `cleanup` imports and deduplicates them, reconciles each one
+against the CMS export and the new site's routes, and proposes one class per URL:
+
+| Class | Outcome on the new site | Needs approval |
+|---|---|---|
+| `KEEP_200` | A live page (or a published article's preserved path) | no |
+| `REDIRECT_301` | One direct 301 to an approved, live, relevant page | yes |
+| `RETIRE_410` | Explicitly gone: an exact Nginx rule | yes |
+| `ALLOW_404` | Nothing to do: the site answers a genuine 404 | no |
+| `REVIEW` | Undecided, or a proposed 301/410 still awaiting approval | – |
+
+```bash
+python -m legacy_migration cleanup \
+  --coverage-report "Not found (404)" gsc/history/not-found.csv \
+  --coverage-report "Crawled - currently not indexed" gsc/history/crawled.csv \
+  --coverage gsc/history/page-with-redirect.zip    # issue name read from Metadata.csv
+  ... (all ten exports) ... \
+  --export legacy-articles-db.csv --inventory migration/inventory-2026-11-10/inventory.csv \
+  --new-site migration/new-site.csv --taxonomy taxonomy-decisions.csv \
+  --expect-urls 865 --expect-published 45 --out migration/cleanup
+
+# Editors set decision / target / approved / approved_by / notes, then re-run:
+python -m legacy_migration cleanup ... --previous migration/cleanup/cleanup-decisions.csv \
+  --out migration/cleanup
+python -m legacy_migration cleanup ... --gate     # exit 1 until nothing is unresolved
+```
+
+**Import and deduplication.** Each export can be a `.csv`, a `.zip` or a folder. The
+summary reports the raw rows, distinct URLs, distinct paths and query-string variants:
+- `http`/`https` and `www`/apex spellings of one URL count once
+- a URL listed in several reports keeps all their names (`reports`) and statuses
+- the latest `last_crawled` is kept
+
+**Protection** (validation errors, never warnings):
+- **Published articles** (all 45 are rewrite candidates):
+  - A preserved canonical path is `KEEP_200` only.
+  - A moved one is `REDIRECT_301` straight to its new `/articles/<slug>` path only.
+  - A historical URL with exactly a published article's slug is never retired or left to
+    404.
+
+  A Search Console status (even "Not found (404)") never overrides this.
+- **Drafts** (44) are never `KEEP_200`: they are never published. Their URLs default to
+  `ALLOW_404`.
+- **Essential routes of the new site** are `KEEP_200` only: the homepage, `/articles`,
+  `/topics`, `/shop`, the static pages, sign-in pages, `/sitemap.xml` and every live
+  path from `flask legacy export-cms`. A test keeps this list in sync with
+  `seo_service.STATIC_PATHS` and the frontend routes.
+- **Application areas** never get a redirect or a 410 rule: `/api`, `/media`, `/assets`,
+  `/admin`, `/learn`, `/certificates`, `/cart`, `/checkout`, `/account`, `/purchases`.
+
+**Families** (`family`): `current_article`, `draft`, `previous_article_route`
+(`/article/<id>`, `/YYYY/MM/<slug>`, `/blog/<slug>`), `forum`, `shop_account`,
+`category`, `filter`, `page`, `home`, `app_shell`, `api`, `asset`, `probe` (e.g.
+`/wp-login.php`), `search_feed` and `unknown`.
+
+What the tool proposes for each family:
+- **Forums** and **old shop paths** not in the new shop: `RETIRE_410`.
+- **Previous article routes of published articles:** `REDIRECT_301` to the article's new
+  path. Routes of drafts or of unknown records: `ALLOW_404`.
+- **Categories:** follow only approved taxonomy decisions (REPLACE → 301 to the live
+  topic, RETIRE → 410). Otherwise `REVIEW`.
+- **Unknown URLs:** `ALLOW_404` only when Search Console already reports them gone and
+  nothing in the CMS matches. Otherwise `REVIEW`. Not being indexed is never a reason to
+  retire.
+
+**Query strings.** Nginx rules and CMS redirects match the *path*, so every query-string
+variant follows its path:
+- A filter or tracking variant of a live page is `KEEP_200` (the page is canonical
+  without the query).
+- A variant can't be given a different 301/410 than its path (`variant_conflict`).
+- A path known only through its query variants (e.g. `/forums?page=2`) gets one rule for
+  the path itself.
+
+**Redirects** are direct. Validation rejects:
+- a target that isn't a live path (or a published article's new path)
+- the homepage (`homepage_redirect`)
+- itself
+- a target that is itself redirected, retired or left to 404 (`redirect_chain`)
+- for a published article, any target other than its new path
+
+**Nothing is applied.** A 301 or 410 takes effect (`effective_class`) only with
+`decision`, `approved=yes` and `approved_by`. The outputs are previews:
+- **`approved-redirects.csv`:** approved, error-free 301s in the mapping format, for
+  `flask legacy import-redirects` (a dry run unless `--apply`; run on staging).
+- **`tpa-legacy-gone.conf`:** approved 410s only. Each is an exact rule,
+  `location = /path { return 410; }`, plus the trailing-slash form; a rule covers every
+  query string. There are no prefix or regex rules, and the file has a header with a
+  checksum. It is verified after generation: exact rules only, approved paths only,
+  nothing protected, live, homepage or in an application area. If any 410 decision has
+  an error, the file is **not written** and the summary says why. Install it on staging
+  only:
+  - copy it to `/etc/nginx/snippets/tpa-legacy-gone.conf`
+  - enable the commented include in `deploy/nginx/tpa.conf.example`
+  - run `nginx -t`
+- **`cleanup-mapping.csv`:** the same decisions in mapping format, for `compare` and
+  `sitemap-check`. Both now understand `ALLOW_404`: `compare` expects a genuine 404, and
+  `sitemap-check` reports such a path in the sitemap.
+
+**Genuine 404s on the new site.** Unknown paths never get a successful React homepage:
+- **Public paths:** Nginx serves prerendered files (`/x/index.html`), then asks Flask
+  `/_redirect/x` for a CMS redirect. Otherwise it serves the prerendered `404.html` with
+  **status 404**. The build fails unless the not-found route renders with status 404, and
+  `npm run serve:dist` behaves the same way.
+- **Customer area:** only its prerendered shells answer 200. Any other
+  `/account/...`, `/cart/...`, `/checkout/...` or `/purchases/...` path is now a real 404
+  (before this batch it served `404.html` with status 200).
+- **`/admin`, `/learn`, `/certificates`:** these answer with their own `noindex` app
+  shell, never the homepage.
+
+`tests/test_deploy_config.py` checks all of this statically, and against a real Nginx
+when one is installed (including a generated 410 snippet).
+
+**Sitemap, navigation and links:**
+- **Sitemap.** The sitemap already excludes drafts, `noindex` pages, canonicalised pages
+  and paths with an active redirect. `sitemap-check` verifies it against
+  `cleanup-mapping.csv` over HTTP.
+- **Links.** `flask --app wsgi legacy check-links migration/cleanup/cleanup-decisions.csv`
+  (read-only) lists every link to a legacy URL whose outcome isn't `KEEP_200`, with the
+  fix (link to the 301 target, or remove the link). It checks navigation menus,
+  published articles and pages (link fields, Markdown and HTML links, relative or on the
+  site's domain) and topic intros. It exits 1 while any remain.
+
+### Read-only HTTP status verification
+
+```bash
+# What the current site answers today (record only):
+python -m legacy_migration verify-status migration/cleanup/cleanup-decisions.csv \
+  --base https://thinkpositivealways.com --out migration/status-legacy.csv --max-seconds 1800
+# Staging against the approved decisions:
+python -m legacy_migration verify-status migration/cleanup/cleanup-decisions.csv \
+  --base https://staging.example.com --expect --out migration/status-staging.csv
+```
+
+How it behaves:
+- **Read-only:** GET only, on `--base` only. Historical URLs on `--site-host` (default
+  `thinkpositivealways.com`) are requested by path and query; other hosts are skipped.
+- **Bounded:** each request has a timeout (`--timeout`, default 10s) and at most 10
+  redirect hops, with a pause between requests (`--delay`). A run can be capped with
+  `--max-seconds` or `--limit`.
+- **Progress:** printed every `--progress-every` URLs, as `[n/total] pass= fail= …`.
+- **Resumable:** each result is appended and flushed immediately, so a stopped run
+  continues where it left off (`--recheck-failed` retries failures).
+- **Soft-404 detection:** a random probe path is requested first. A page identical to
+  the probe's answer is flagged `matches_unknown_url_response` (soft 404 or app shell).
+
+With `--expect`, each URL is checked against its decision:
+- `KEEP_200`: 200, no redirect, not the unknown-URL response
+- `REDIRECT_301`: one 301/308 straight to the target, which answers 200
+- `RETIRE_410`: 410
+- `ALLOW_404`: 404 (or 410), never 200
+
+Result columns: `url`, `tested_url`, `expected`, `expected_target`, `status`, `location`,
+`redirect_hops`, `final_status`, `final_url`, `matches_unknown_url_response`,
+`elapsed_ms`, `error`, `result` (`pass`, `fail`, `error`, `info`, `skipped`), `problem`,
+`checked_at`.
+
+### `cleanup-decisions.csv`
+
+| Column | Meaning |
+|---|---|
+| `url` / `path` / `path_key` / `query` / `variants` | Normalised URL, its path and query, the matching key, and how many spellings and variants share the path |
+| `reports` / `index_statuses` / `last_crawled` | Every coverage report that listed it, normalised statuses, latest crawl (evidence only) |
+| `family` | See above |
+| `cms_id` / `cms_status` | Linked legacy record (`published` / `draft`) |
+| `protected` | Why the URL is protected (published article, draft, essential route) |
+| `new_site_live` | The path is live (or planned for a published article) on the new site |
+| `proposed_class` / `proposed_target` / `reason` | The tool's proposal |
+| `decision` / `target` / `approved` / `approved_by` / `notes` | The editor's decision |
+| `effective_class` / `effective_target` | What will actually happen (301/410 only when approved) |
+| `problems` | Validation codes for this URL |
+
+Other outputs:
+- **`cleanup-problems.csv`:** `severity`, `code`, `path_key`, `url`, `message`.
+- **`cleanup-summary.md`/`.json`:**
+  - the import counts
+  - URLs preserved (200), redirected (301), retired (410), left as 404 and unresolved
+  - how many are awaiting approval
+  - families, errors and warnings
+  - the snippet's state (`verified` / `refused`)
+  - `ready_for_staging`: no errors, a verified snippet and nothing unresolved
+
 ## Mapping rules
 
 | Action | Meaning | Applied by |
