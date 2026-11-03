@@ -133,6 +133,174 @@ python -m legacy_migration report migration/map/url-mapping.csv \
 
 Then repeat `compare` against production straight after the DNS switch.
 
+## Search Console reconciliation and selective migration
+
+Not everything from the old site moves to the relaunched site. `reconcile` combines:
+- the legacy CMS export
+- the inventory runs
+- Google Search Console exports
+
+It records **every** URL and gives each one an editorial decision. Only the published
+articles an editor selects get rewritten, and production migration stays blocked while
+any selected article has an unresolved canonical or content decision.
+
+```bash
+python -m legacy_migration reconcile \
+  --export legacy-articles-db.csv \
+  --inventory migration/inventory-2026-11-10/inventory.csv \
+  --inventory migration/inventory-2026-11-03/inventory.csv \
+  --gsc gsc/performance-pages.zip --gsc gsc/top-linked-pages.csv \
+  --gsc gsc/url-inspection.csv \
+  --gsc-index "Crawled - currently not indexed" gsc/crawled-not-indexed.csv \
+  --gsc-index "Discovered - currently not indexed" gsc/discovered-not-indexed.csv \
+  --gsc-index "Not found (404)" gsc/not-found.csv \
+  --gsc-index "Indexed" gsc/indexed.csv \
+  --taxonomy taxonomy-decisions.csv --new-site migration/new-site.csv \
+  --expect-published 45 --out migration/reconcile
+
+# Editors fill the decision columns, then re-run with their files; decisions are kept:
+python -m legacy_migration reconcile ... \
+  --previous-master migration/reconcile/master-url-inventory.csv \
+  --previous-register migration/reconcile/rewrite-register.csv --out migration/reconcile
+
+# Production gate: exits 1 while anything blocking remains.
+python -m legacy_migration reconcile ... --gate --out migration/reconcile
+```
+
+**Search Console inputs.** Each `--gsc` / `--gsc-index` file can be a `.csv`, the
+downloaded `.zip` or an unzipped folder. From a zip or folder, `Table.csv` is read and
+the issue name is taken from `Metadata.csv`.
+- **Performance → Pages:** clicks, impressions, CTR, position.
+- **Links → Top linked pages:** backlinks.
+- **Pages report drill-downs** (`URL`, `Last crawled`): one file per issue, named with
+  `--gsc-index`.
+- **URL Inspection results:** `Google-selected canonical` / `User-declared canonical`.
+
+Index statuses are normalised to one of:
+- `INDEXED`
+- `CRAWLED_NOT_INDEXED`, `DISCOVERED_NOT_INDEXED`
+- `NOT_FOUND_404`, `SOFT_404`
+- `PAGE_WITH_REDIRECT`, `REDIRECT_ERROR`
+- `ALTERNATE_CANONICAL`, `GOOGLE_CHOSE_DIFFERENT_CANONICAL`, `DUPLICATE_NO_CANONICAL`
+- `NOINDEX`, `BLOCKED_ROBOTS`, `BLOCKED_ACCESS`
+- `SERVER_ERROR`, `OTHER`
+
+Only `INDEXED` means indexed: "Crawled – currently not indexed" is **not**. Index status
+and last-crawled date are **evidence fields only**. When a URL appears in several
+reports, the most recent crawl wins.
+
+**Rules the tool enforces:**
+- **It only suggests.** Each URL gets a `suggested_decision` hint from the evidence, but
+  it never selects an article, never suggests `RETIRE_410`, and never treats "not
+  indexed" as a reason to drop a page.
+- **Drafts are excluded by rule.** Their URLs get `EXCLUDE_DRAFT` automatically. Giving a
+  draft `REWRITE`, `EXPERT_REVIEW` or `PRESERVE_PAGE` is a blocking error. A draft URL
+  with search history can still get a 301 or 410 decision for the URL itself.
+- **Legacy categories and sections are registered, not recreated.** Only an approved
+  `REPLACE` taxonomy decision suggests a 301 to the new topic, and an editor must
+  still approve it. Article slugs and canonical paths never depend on taxonomy.
+- **A 301 needs an approved, relevant destination:** `destination`, `approved=yes` and
+  `decided_by`. Validation rejects:
+  - the homepage (except for homepage aliases)
+  - itself, or a chain to another redirect or to a retired URL
+  - for a selected article, any path other than its new path
+  - with `--new-site`, a path that isn't live
+- **A 410 needs `approved=yes`, `decided_by` and a justification** in `decision_notes`.
+  Not being indexed alone is not a reason.
+- **History is kept.** URLs from the previous master that are no longer discovered stay,
+  with `still_present=no` and their decisions.
+
+**Editorial decisions** (`editorial_decision`):
+
+| Decision | Meaning |
+|---|---|
+| `REWRITE` | Selected published article: rewrite from scratch at its preserved path |
+| `EXPERT_REVIEW` | Selected published article on a specialist topic: rewrite with a qualified reviewer |
+| `PRESERVE_PAGE` | Keep a non-article page at the same path on the new site (not for articles) |
+| `REDIRECT_301` | One permanent redirect to an approved, relevant destination |
+| `RETIRE_410` | Gone for good, approved and justified |
+| `EXCLUDE_DRAFT` | Draft: never rewritten, published or imported (automatic) |
+| `REVIEW` | Undecided |
+
+A published article's decision is made once, in `rewrite-register.csv`. Its
+established URL in the master inventory shows that decision
+(`decision_source=rewrite-register`). Every other URL is decided in
+`master-url-inventory.csv`.
+
+**What blocks production** (`readiness-report.md`, `readiness-issues.csv`):
+- **Every published article** must have a decision (`article_undecided`).
+- **A selected article** (`REWRITE` / `EXPERT_REVIEW`) is blocked by:
+  - `canonical_unresolved`: no or ambiguous established URL
+  - `canonical_conflict` and `canonical_unverified`, unless `canonical_confirmed_by` is
+    filled in after checking URL Inspection
+  - `new_path_missing`
+  - `expert_review_pending`: specialist topics need `suitability_decided_by`
+  - `suitability_excluded`
+  - `content_not_ready`: `rewrite_status` must be `READY` or `PUBLISHED_NEW`
+  - the rewrite-plan errors
+- **Any invalid decision anywhere,** and any undecided URL of a selected article.
+
+Other undecided URLs (old pages, categories, system URLs) are listed as warnings.
+
+### `master-url-inventory.csv`
+
+| Column | Meaning |
+|---|---|
+| `url_key` / `url` / `variants` | Matching key (path for the legacy site), representative URL, all spellings seen |
+| `url_type` | `article` (linked to a CMS record), `category`, `section`, `page`, `home`, `media`, `system`, … |
+| `sources` | `cms`, `inventory`, `gsc` (all that found it) |
+| `still_present` / `first_recorded` / `last_seen` | History: `no` = only in an earlier run |
+| `cms_id` / `cms_status` / `cms_link` | Linked legacy record, its status, and how: `export`, `page_canonical`, `found_by_slug`, `slug` or `id` (exact matches only) |
+| `title` | From the CMS or the page |
+| `live_status` / `live_class` / `live_canonical` / `redirects_to` | From the inventory |
+| `gsc_index_status` / `gsc_index_reason` / `gsc_last_crawled` | Index evidence (normalised status, the report's wording, last crawl) |
+| `gsc_clicks` / `gsc_impressions` / `gsc_ctr` / `gsc_position` / `gsc_backlinks` | Performance and links |
+| `gsc_google_canonical` / `gsc_user_canonical` | From URL Inspection |
+| `suitability_flags` | Specialist topics of the linked article |
+| `suggested_decision` / `suggested_destination` / `suggestion_reason` | Tool hint (never applied by itself) |
+| `editorial_decision` / `destination` / `approved` / `decided_by` / `decision_notes` | The decision (editor, register or rule) |
+| `decision_source` | `rewrite-register`, `editor` or `rule` |
+| `readiness` | Issue codes for this URL |
+
+### `rewrite-register.csv`
+
+This is `rewrite-worklist.csv` (all published articles) with these extra columns:
+
+| Column | Meaning |
+|---|---|
+| `selected` | `yes` when the decision is `REWRITE` or `EXPERT_REVIEW` |
+| `editorial_decision` / `destination` / `approved` / `decided_by` / `decision_notes` | The article's decision |
+| `canonical_verification` | `VERIFIED` (live page or URL Inspection confirms it), `UNVERIFIED`, `CONFLICT`, `AMBIGUOUS` or `MISSING` |
+| `canonical_confirmed_by` | Who confirmed the canonical manually (URL Inspection), when not `VERIFIED` |
+| `gsc_index_status` / `gsc_last_crawled` / `gsc_clicks` / `gsc_impressions` / `gsc_backlinks` | Evidence for the established URL |
+| `suggested_decision` / `suggestion_reason` | `REWRITE` or `EXPERT_REVIEW` with search value, otherwise `REVIEW` |
+| `blocking_issues` | What stops production for this article |
+
+### `draft-exclusion-register.csv`
+
+`legacy_id`, `title`, `original_slug`, `status`, `legacy_category`, `legacy_section`,
+`known_urls`, `gsc_clicks`, `gsc_impressions`, `editorial_decision` (always
+`EXCLUDE_DRAFT`), `note`.
+
+### `taxonomy-register.csv`
+
+`legacy_type` (`category` / `section`), `legacy_slug`, `legacy_name`,
+`published_articles`, `draft_articles`, `legacy_urls`, `gsc_clicks`, `gsc_impressions`,
+`register_decision` (`REPLACE`, `RETIRE` or `REVIEW`), `new_section`, `approved`, `note`,
+`url_decisions` (the master decisions of its URLs).
+
+### `canonical-preservation-report.csv`
+
+`legacy_id`, `title`, `selected`, `editorial_decision`, `original_url`,
+`established_canonical`, `canonical_source`, `canonical_verification`,
+`canonical_confirmed_by`, `gsc_index_status`, `proposed_new_path`,
+`canonical_preserved`, `redirect_from` (old paths that need a 301 to the new path),
+`outcome`:
+- `PRESERVED`: same path
+- `REDIRECTED`: kept slug, with one 301
+- `UNRESOLVED`: blocking issues remain
+- `NOT_SELECTED`
+
 ## Mapping rules
 
 | Action | Meaning | Applied by |
@@ -201,9 +369,13 @@ All CSVs are UTF-8 with a header row. Cells that would start a spreadsheet formu
     constructed.
   - `excerpt` is read only to flag specialist topics. It isn't copied anywhere.
 - **Taxonomy decisions** (`--taxonomy`, written by editors): `legacy_category`,
-  `legacy_section`, `legacy_path`, `new_section`, `approved`, `note`. One row per legacy
-  category, section or category URL. Only rows with `approved=yes` and a `new_section`
-  (the new topic slug) are used. Leave `new_section` empty for "not decided yet".
+  `legacy_section`, `legacy_path`, `decision`, `new_section`, `approved`, `note`. One row
+  per legacy category, section or category URL, with `decision`:
+  - `REPLACE`: give the new topic slug in `new_section`
+  - `RETIRE`: leave `new_section` blank
+  
+  A blank `decision` with a `new_section` means REPLACE. Only rows with `approved=yes`
+  are used; leave the row out for "not decided yet".
 - **Article API** (`--articles-api`): a JSON list, or `{data: [...]}`, `{articles: [...]}`
   or `{items: [...]}`, with the same field names.
 - **New site** (`flask legacy export-cms`): `path`, `kind`, `slug`, `title`, `status`,

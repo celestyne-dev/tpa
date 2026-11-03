@@ -50,7 +50,8 @@ DRAFT_FIELDS = (
     "legacy_section", "note",
 )  # fmt: skip
 TAXONOMY_FIELDS = (
-    "legacy_category", "legacy_section", "legacy_path", "new_section", "approved", "note",
+    "legacy_category", "legacy_section", "legacy_path", "decision", "new_section", "approved",
+    "note",
 )  # fmt: skip
 REWRITE_STATUSES = (
     "NOT_STARTED", "ASSIGNED", "DRAFTING", "EXPERT_REVIEW", "READY", "PUBLISHED_NEW",
@@ -117,10 +118,21 @@ class Taxonomy:
         self.by_category: dict[str, str] = {}
         self.by_section: dict[str, str] = {}
         self.by_path: dict[str, str] = {}
+        # Approved register decisions, keyed ("category"|"section", slug) -> row.
+        self.decisions: dict[tuple[str, str], dict] = {}
         for row in rows or []:
             new = _norm(row.get("new_section", ""))
-            if not new or not truthy(row.get("approved")):
-                continue  # undecided or unapproved: never a proposal
+            decision = (row.get("decision") or ("REPLACE" if new else "")).strip().upper()
+            if truthy(row.get("approved")) and decision in ("REPLACE", "RETIRE"):
+                for kind in ("category", "section"):
+                    if row.get(f"legacy_{kind}"):
+                        self.decisions[(kind, _norm(row[f"legacy_{kind}"]))] = {
+                            "decision": decision,
+                            "new_section": new if decision == "REPLACE" else "",
+                            "note": row.get("note", ""),
+                        }
+            if not new or decision == "RETIRE" or not truthy(row.get("approved")):
+                continue  # undecided, retired or unapproved: never a proposal
             if row.get("legacy_category"):
                 self.by_category[_norm(row["legacy_category"])] = new
             if row.get("legacy_section"):
@@ -130,6 +142,9 @@ class Taxonomy:
 
     def section_for(self, category: str, section: str) -> str:
         return self.by_category.get(_norm(category)) or self.by_section.get(_norm(section)) or ""
+
+    def decision_for(self, kind: str, slug: str) -> dict:
+        return self.decisions.get((kind, _norm(slug)), {})
 
     def topic_path_for(self, legacy_path: str) -> str:
         key = path_key(legacy_path)

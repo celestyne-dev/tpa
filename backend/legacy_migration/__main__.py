@@ -100,6 +100,32 @@ def cmd_rewrite_plan(a) -> int:
     return 1 if failed or errors else 0
 
 
+def cmd_reconcile(a) -> int:
+    from . import gsc, reconcile
+
+    base = a.base_url.rstrip("/")
+    evidence = gsc.load(a.gsc, [(label, path) for label, path in a.gsc_index], base_url=base)
+    new_site = set(mapping.NewSite.load(a.new_site).paths) if a.new_site else None
+    result = reconcile.reconcile(
+        [r for path in a.export for r in read_csv(path)],
+        inventory_rows=[r for path in a.inventory for r in read_csv(path)],
+        gsc=evidence,
+        taxonomy=rewrite.load_taxonomy(a.taxonomy),
+        previous_master=read_csv(a.previous_master) if a.previous_master else None,
+        previous_register=read_csv(a.previous_register) if a.previous_register else None,
+        new_site_paths=new_site,
+        base_url=base,
+    )
+    reconcile.write(a.out, result)
+    report = result["readiness"]
+    print(reconcile.markdown({**report, "issues": []}))
+    if a.expect_published is not None and report["published_articles"] != a.expect_published:
+        print(f"Expected {a.expect_published} published articles, found "
+              f"{report['published_articles']}.", file=sys.stderr)  # fmt: skip
+        return 1
+    return 1 if a.gate and not report["production_ready"] else 0
+
+
 def cmd_validate_rewrite(a) -> int:
     problems = rewrite.validate_plan(read_csv(a.worklist))
     for p in problems:
@@ -224,6 +250,26 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--expect-draft", type=int, help="fail unless this many drafts")
     s.add_argument("--out", required=True)
     s.set_defaults(func=cmd_rewrite_plan)
+
+    s = sub.add_parser(
+        "reconcile", help="CMS export + inventory + Search Console -> decisions and readiness"
+    )
+    s.add_argument("--export", action="append", required=True, help="legacy CMS export CSV")
+    s.add_argument("--inventory", action="append", default=[], help="inventory.csv, latest first")
+    s.add_argument("--gsc", action="append", default=[], help="Search Console CSV/zip/folder")
+    s.add_argument(
+        "--gsc-index", nargs=2, action="append", default=[], metavar=("ISSUE", "FILE"),
+        help='Pages report drill-down, e.g. "Crawled - currently not indexed" file.csv',
+    )  # fmt: skip
+    s.add_argument("--taxonomy", help="approved taxonomy decisions (CSV)")
+    s.add_argument("--previous-master", help="edited master-url-inventory.csv (decisions kept)")
+    s.add_argument("--previous-register", help="edited rewrite-register.csv (decisions kept)")
+    s.add_argument("--new-site", help="CSV from `flask legacy export-cms`")
+    s.add_argument("--base-url", default="https://thinkpositivealways.com")
+    s.add_argument("--expect-published", type=int)
+    s.add_argument("--gate", action="store_true", help="exit 1 unless production-ready")
+    s.add_argument("--out", required=True)
+    s.set_defaults(func=cmd_reconcile)
 
     s = sub.add_parser("validate-rewrite", help="check an edited rewrite-worklist.csv")
     s.add_argument("worklist")
