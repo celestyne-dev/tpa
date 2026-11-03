@@ -227,6 +227,11 @@ class FakePaystack:
         self.refunds = {}
         self.plans = {}
         self.subscriptions = {}
+        # The fake's fixed timeline (tests can move it, e.g. to a month or year end):
+        # first charge, the next payment Paystack reports, and the renewal charge.
+        self.first_paid_at = "2026-10-23T10:00:00.000Z"
+        self.next_payment_date = "2026-11-23T10:00:00.000Z"
+        self.renewal_paid_at = "2026-11-23T10:00:00.000Z"
         self.fail_initialize = False
         self.fail_verify = False
         self.fail_disable = False
@@ -332,7 +337,7 @@ class FakePaystack:
 
     def pay(self, reference, *, status="success", amount=None, currency=None, domain="test"):
         tx = self.transactions[reference]
-        tx.update(status=status, domain=domain, paid_at="2026-10-23T10:00:00.000Z")
+        tx.update(status=status, domain=domain, paid_at=self.first_paid_at)
         if amount is not None:
             tx["amount"] = amount
         if currency is not None:
@@ -351,7 +356,7 @@ class FakePaystack:
             "domain": domain,
             "plan": {"plan_code": tx["plan"]},
             "customer": {"customer_code": tx["customer"]["customer_code"], "email": email},
-            "next_payment_date": "2026-11-23T10:00:00.000Z",
+            "next_payment_date": self.next_payment_date,
         }
         return dict(self.subscriptions[code])
 
@@ -368,7 +373,7 @@ class FakePaystack:
             "status": status,
             "domain": domain,
             "channel": "card",
-            "paid_at": "2026-11-23T10:00:00.000Z",
+            "paid_at": self.renewal_paid_at,
             "plan": plan["plan_code"],
             "customer": {"customer_code": sub["customer"]["customer_code"]},
         }

@@ -4,13 +4,15 @@ and the overview issues far fewer queries than computing every full report twice
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
+import pytest
 from sqlalchemy import event, select
 
 from app.extensions import db
 from app.models import Campaign, Customer, Product, Subscriber, User
 
+from .membership_clock import RENEWAL, clock  # noqa: F401
 from .test_analytics import _seed_views
 from .test_commerce_analytics import _order, shop  # noqa: F401
 from .test_commerce_checkout import _send_webhook
@@ -128,12 +130,28 @@ def test_learning_overview_matches_learning_report(lms, as_role):  # noqa: F811
     assert now["period"]["new_enrollments"] or before["period"]["new_enrollments"]
 
 
-def test_membership_overview_matches_membership_report(club, client, as_role, seeded):  # noqa: F811
+@pytest.mark.parametrize(
+    "window_end",
+    # Both current ranges start on 24 Oct 2026: the fake's first payment (23 Oct) falls in
+    # the previous range and its renewal (23 Nov) in the current one. One range ends on
+    # the last day of the year, the other crosses into the next.
+    [date(2026, 12, 31), date(2027, 1, 2)],
+)
+def test_membership_overview_matches_membership_report(
+    clock,  # noqa: F811
+    club,  # noqa: F811
+    client,
+    as_role,
+    seeded,
+    window_end,
+):
     m = _activate(club, client)
+    clock.set(RENEWAL)
     tx = m["paystack"].charge_renewal(m["code"])
-    _send_webhook(client, m["paystack"], "charge.success", tx)  # renewal dated in the future
+    _send_webhook(client, m["paystack"], "charge.success", tx)
     finance = as_role("finance_manager")
-    cur, prev = _windows(TODAY + timedelta(days=60), 61)
+    cur, prev = _windows(window_end, (window_end - date(2026, 10, 24)).days + 1)
+    assert cur["date_from"] == "2026-10-24" and prev["date_to"] == "2026-10-23"
     ov = _get(finance, "overview", cur)["sections"]["membership"]
     now, before = _get(finance, "membership", cur), _get(finance, "membership", prev)
     for key in ("new_subscriptions", "renewals"):
@@ -150,6 +168,7 @@ def test_membership_overview_matches_membership_report(club, client, as_role, se
         ), key
     assert [r["value"] for r in ov["mrr_estimate"]] == [r["mrr"] for r in now["recurring_estimate"]]
     assert now["period"]["renewals"] == 1
+    assert (before["period"]["new_subscriptions"], now["period"]["new_subscriptions"]) == (1, 0)
 
 
 def _subscriber(email, status, *, created, confirmed=None, unsubscribed=None):

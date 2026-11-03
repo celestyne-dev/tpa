@@ -11,6 +11,7 @@ from app.extensions import db
 from app.models import AuditLog, CustomerSubscription, Entitlement, MembershipGrant, Order
 
 from .conftest import PASSWORD, register_customer
+from .membership_clock import RENEWAL, Clock, clock  # noqa: F401
 from .test_commerce_checkout import _key, _send_webhook
 from .test_membership_checkout import ACCOUNT, _join, _reference, club  # noqa: F401
 from .test_membership_lifecycle import _activate, _at, _ents, _sub
@@ -23,42 +24,6 @@ REPORTS = "/api/v1/admin/membership-reports"
 @pytest.fixture()
 def member(club, client):  # noqa: F811
     return _activate(club, client)
-
-
-# The Paystack mock's fixed timeline: first charge 23 Oct 2026, renewal 23 Nov 2026.
-FIRST_PAYMENT = datetime(2026, 10, 23, 10, 5, tzinfo=UTC)
-RENEWAL = datetime(2026, 11, 23, 10, 5, tzinfo=UTC)
-CLOCK_MODULES = (
-    "app.services.memberships.admin",
-    "app.services.memberships.billing",
-    "app.services.memberships.compliance",
-    "app.services.memberships.lifecycle",
-    "app.services.memberships.plans",
-    "app.services.memberships.reports",
-    "app.services.commerce.checkout",
-    "app.services.commerce.customers",
-    "app.services.commerce.entitlements",
-    "app.services.commerce.payments",
-)
-
-
-class _Clock:
-    """Controlled time for the membership and payment services (tests only)."""
-
-    def __init__(self, monkeypatch, when):
-        import importlib
-
-        self.now = when
-        for name in CLOCK_MODULES:
-            monkeypatch.setattr(importlib.import_module(name), "_now", lambda: self.now)
-
-    def set(self, when):
-        self.now = when
-
-
-@pytest.fixture()
-def clock(monkeypatch):
-    return _Clock(monkeypatch, FIRST_PAYMENT)
 
 
 @pytest.fixture()
@@ -255,17 +220,17 @@ def test_complimentary_membership_grant_expiry_and_revoke(club, as_role, seeded)
 
 
 def test_reports_count_only_verified_money(timed_member, as_role, seeded):
-    member, clock = timed_member, timed_member["clock"]
+    member, timer = timed_member, timed_member["clock"]
     admin = as_role("administrator")
     paystack = member["paystack"]
     # A renewal, a refund and an unpaid checkout by someone else.
-    clock.set(RENEWAL)
+    timer.set(RENEWAL)
     tx = paystack.charge_renewal(member["code"])
     _send_webhook(member["client"], paystack, "charge.success", tx)
     _join(member, shopper=register_customer(seeded, "pending@example.com"))
     with member["app"].app_context():
         oid = db.session.scalar(select(CustomerSubscription.order_id))
-    clock.set(RENEWAL + timedelta(days=1))
+    timer.set(RENEWAL + timedelta(days=1))
     finance = as_role("finance_manager")
     refund = finance.post(
         f"/api/v1/admin/orders/{oid}/refunds",
@@ -322,9 +287,9 @@ def test_report_trend_buckets_months_across_boundaries(
     activated,
     months,
 ):
-    clock = _Clock(monkeypatch, activated)
+    timer = Clock(monkeypatch, activated)
     _activate(club, client)
-    clock.set(activated + timedelta(days=40))
+    timer.set(activated + timedelta(days=40))
     first, second = months
     year, month = map(int, first.split("-"))
     date_from = f"{year:04d}-{month:02d}-01"
