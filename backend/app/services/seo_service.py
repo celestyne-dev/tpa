@@ -621,6 +621,10 @@ def sitemap_entries() -> list[dict[str, Any]]:
 
     settings = get_values()
     excluded = set((settings.get("seo.sitemap_exclude") or "").splitlines())
+    # A path with an active redirect (e.g. a migrated legacy URL) is never canonical.
+    excluded |= set(
+        db.session.scalars(select(Redirect.source_path).where(Redirect.is_active.is_(True)))
+    )
     live = {
         p.published_path: p
         for p in db.session.scalars(

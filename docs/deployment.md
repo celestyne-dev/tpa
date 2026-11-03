@@ -359,4 +359,8 @@ sudo nginx -t && sudo systemctl reload nginx
 # TLS: sudo certbot --nginx -d example.com -d www.example.com
 ```
 
+Before replacing the current website, follow [legacy-migration.md](legacy-migration.md):
+inventory every legacy URL, approve the URL mapping, and run the prelaunch comparison
+and sitemap check against staging.
+
 Nginx serves the current release (`/var/www/tpa-site/current`), serves `/media/` from `MEDIA_ROOT/public` with immutable caching, sends paths without a static file to Flask `/_redirect/…` for CMS redirects (real 301/302/307/308 responses, otherwise the prerendered 404 page), gzips text, raises the upload body limit for `/api/v1/admin/media` and for product file uploads, serves paid downloads only through the internal `/_protected_downloads/` location, marks `/cart`, `/checkout` and `/account` as `no-store`/`noindex`, serves the admin shell for `/admin/*` with `no-store` and `noindex`, returns `404.html` with HTTP 404 for unknown URLs, applies legacy 301 redirects, caches `/assets/` immutably, and proxies `/api/` to Gunicorn.

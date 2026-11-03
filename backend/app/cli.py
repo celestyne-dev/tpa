@@ -512,6 +512,131 @@ def deploy_check(as_json: bool, no_database: bool):
     sys.exit({"ok": 0, "warning": 1, "error": 2}[status])
 
 
+legacy_cli = AppGroup("legacy", help="Legacy website SEO migration (Batch 12.4A).")
+
+
+class _Undo(Exception):
+    """Rolls a validation savepoint back."""
+
+
+EXPORT_FIELDS = (
+    "path", "kind", "slug", "title", "status", "indexable", "author", "published_at",
+    "source", "original_url", "original_slug",
+)  # fmt: skip
+
+
+@legacy_cli.command("export-cms")
+@click.option("--out", required=True, type=click.Path(dir_okay=False), help="CSV to write.")
+def legacy_export_cms(out: str):
+    """Write the new site's live public URLs (read-only) for `python -m legacy_migration map`."""
+    from legacy_migration.core import path_key, write_csv
+
+    from .models import Article
+    from .services.article_service import published_filter
+    from .services.seo_service import article_path, sitemap_entries
+
+    rows: dict[str, dict] = {}
+    for entry in sitemap_entries():
+        key = path_key(entry["path"])
+        rows[key] = {"path": key, "kind": entry["type"], "status": "live", "indexable": "yes"}
+    for article in db.session.scalars(select(Article).where(published_filter())):
+        key = article_path(article.slug)
+        row = rows.setdefault(key, {"path": key, "status": "live", "indexable": "no"})
+        row.update(
+            kind="article",
+            slug=article.slug,
+            title=article.title,
+            author=article.author.display_name if article.author else "",
+            published_at=(article.first_published_at or article.published_at).isoformat(),
+            source=article.source,
+            original_url=article.original_url or "",
+            original_slug=article.original_slug or "",
+        )
+    for row in rows.values():
+        if row.get("kind") == "topic":
+            row["slug"] = row["path"].rsplit("/", 1)[-1]
+    count = write_csv(out, EXPORT_FIELDS, sorted(rows.values(), key=lambda r: r["path"]))
+    click.echo(f"Wrote {count} live public URL(s) to {out}.")
+
+
+@legacy_cli.command("import-redirects")
+@click.argument("mapping_csv", type=click.Path(exists=True, dir_okay=False))
+@click.option("--apply", "apply_changes", is_flag=True, help="Write (default: dry run).")
+@click.option("--actor-email", default="", help="Administrator recorded in the audit log.")
+def legacy_import_redirects(mapping_csv: str, apply_changes: bool, actor_email: str):
+    """Create CMS 301 redirects for approved REDIRECT_301 rows.
+
+    Never overwrites: a path that already has a redirect, or is a live article or page on
+    the new site, is skipped. The mapping must validate without errors first.
+    """
+    from legacy_migration.core import path_key, read_csv, truthy
+    from legacy_migration.mapping import validate
+
+    from .models import Redirect
+    from .services import redirect_service
+    from .services.seo_service import sitemap_entries
+    from .utils.errors import ConflictError, ValidationError
+
+    rows = read_csv(mapping_csv)
+    errors = [p for p in validate([dict(r) for r in rows]) if p["severity"] == "error"]
+    if errors:
+        for p in errors[:20]:
+            click.echo(f"error {p['code']}: {p['legacy_path']} {p['message']}", err=True)
+        raise click.ClickException(f"The mapping has {len(errors)} error(s); nothing imported.")
+    actor = None
+    if actor_email:
+        actor = db.session.scalar(select(User).where(User.email == actor_email.lower()))
+        if actor is None:
+            raise click.ClickException(f"No user {actor_email}.")
+    existing = set(db.session.scalars(select(Redirect.source_path)))
+    live = {path_key(e["path"]) for e in sitemap_entries()}
+    counts = {"created": 0, "skipped_existing": 0, "skipped_live_page": 0, "not_approved": 0}
+    failed, pending = [], []
+    for row in rows:
+        if (row.get("action") or "").upper() != "REDIRECT_301":
+            continue
+        if not truthy(row.get("approved")):
+            counts["not_approved"] += 1
+            continue
+        source = path_key(row["legacy_path"])
+        if source in existing:
+            counts["skipped_existing"] += 1
+            continue
+        if source in live:
+            counts["skipped_live_page"] += 1
+            continue
+        data = {
+            "source_path": source,
+            "destination": path_key(row["target_path"]),
+            "status_code": 301,
+            "note": f"Legacy migration: {row.get('reason', '')}"[:300],
+        }
+        # Pass 1: validate inside a savepoint that is always rolled back (nothing kept).
+        try:
+            with db.session.begin_nested():
+                redirect_service.create_redirect(data, actor, origin="import")
+                raise _Undo
+        except _Undo:
+            existing.add(source)
+            pending.append(data)
+            counts["created"] += 1
+        except (ValidationError, ConflictError) as exc:
+            detail = getattr(exc, "details", None) or {}
+            failed.append((source, "; ".join(m for v in detail.values() for m in v) or str(exc)))
+    db.session.rollback()
+    if apply_changes and not failed:
+        # Pass 2: every row validated, so write them all in one transaction.
+        for data in pending:
+            redirect_service.create_redirect(data, actor, origin="import")
+        db.session.commit()
+    for source, message in failed:
+        click.echo(f"failed {source}: {message}", err=True)
+    mode = "Applied" if apply_changes and not failed else "Dry run (nothing written)"
+    click.echo(f"{mode}: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
+    if failed:
+        raise click.ClickException(f"{len(failed)} redirect(s) failed validation; nothing written.")
+
+
 def register_cli(app: Flask) -> None:
     for group in (
         admin_cli,
@@ -527,5 +652,6 @@ def register_cli(app: Flask) -> None:
         newsletter_cli,
         storage_cli,
         deploy_cli,
+        legacy_cli,
     ):
         app.cli.add_command(group)
