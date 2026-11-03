@@ -1,18 +1,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 import { cn } from "@/utils/format";
-
-/** Page numbers to show: first, last, the current page and its neighbours, with gaps. */
-export function pageWindow(page, totalPages) {
-  const pages = new Set([1, totalPages, page - 1, page, page + 1]);
-  const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
-  const out = [];
-  sorted.forEach((p, i) => {
-    if (i > 0 && p - sorted[i - 1] > 1) out.push(null);
-    out.push(p);
-  });
-  return out;
-}
+import { pageWindow } from "@/utils/pagination";
 
 const linkStyles =
   "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-700";

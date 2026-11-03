@@ -49,37 +49,40 @@ export function SearchPage() {
   const q = (searchParams.get("q") ?? "").slice(0, MAX_QUERY);
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const [draft, setDraft] = useState(q);
-  const [state, setState] = useState({ status: "idle", results: [], terms: [], pagination: null });
+  const [draftFor, setDraftFor] = useState(q);
+  // Results are tagged with the query they answer; anything else is still loading.
+  const [answer, setAnswer] = useState(null);
   const typing = useRef(null);
+  const key = `${page}:${q}`;
 
-  // Keep the box in step with the address (back/forward, links).
-  useEffect(() => setDraft(q), [q]);
+  // Keep the box in step with the address (back/forward, links): adjusted while rendering.
+  if (q !== draftFor) {
+    setDraftFor(q);
+    setDraft(q);
+  }
 
   useEffect(() => {
-    if (!q.trim()) {
-      setState({ status: "idle", results: [], terms: [], pagination: null });
-      return undefined;
-    }
+    if (!q.trim()) return undefined;
     let cancelled = false;
-    setState((s) => ({ ...s, status: "loading" }));
     dispatch(runSearch({ q, page }))
       .unwrap()
       .then((data) => {
-        if (!cancelled)
-          setState({
-            status: "done",
-            results: data.results,
-            terms: data.terms,
-            pagination: data.pagination,
-          });
+        if (!cancelled) setAnswer({ key, status: "done", ...data });
       })
       .catch(() => {
-        if (!cancelled) setState({ status: "error", results: [], terms: [], pagination: null });
+        if (!cancelled) setAnswer({ key, status: "error" });
       });
     return () => {
       cancelled = true;
     };
-  }, [dispatch, q, page]);
+  }, [dispatch, q, page, key]);
+
+  const idle = { status: "idle", results: [], terms: [], pagination: null };
+  const state = !q.trim()
+    ? idle
+    : answer?.key === key
+      ? { ...idle, ...answer }
+      : { ...idle, status: "loading" };
 
   const onChange = (event) => {
     const value = event.target.value.slice(0, MAX_QUERY);

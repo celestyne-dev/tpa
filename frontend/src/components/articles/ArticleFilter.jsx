@@ -12,7 +12,7 @@ import { cn } from "@/utils/format";
 import { ArticleGrid } from "./ArticleGrid";
 
 /** URL of an archive page: /articles/page/N, or ?topic=&page= while a topic is chosen. */
-export function archiveHref(topic, page) {
+function archiveHref(topic, page) {
   if (!topic) return routes.articlesPage(page);
   const params = new URLSearchParams({ topic });
   if (page > 1) params.set("page", String(page));

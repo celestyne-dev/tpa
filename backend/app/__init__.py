@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import re
+import secrets
 
 from flask import Flask
 from sqlalchemy import event
@@ -75,8 +77,22 @@ def create_app(
         _register_media_route(app)
     _register_redirect_fallback(app)
 
+    @app.before_request
+    def request_id():
+        # One id per request, in the response header and in error logs, so a visitor's
+        # report ("it failed at 10:42") can be matched to the server log. Nginx may pass its
+        # own ($request_id); anything else is replaced.
+        from flask import g, request
+
+        incoming = request.headers.get("X-Request-ID", "")
+        g.request_id = incoming if _REQUEST_ID.fullmatch(incoming) else secrets.token_hex(8)
+
     @app.after_request
     def security_headers(response):
+        from flask import g
+
+        if "request_id" in g:
+            response.headers["X-Request-ID"] = g.request_id
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("X-Frame-Options", "DENY")
@@ -86,6 +102,9 @@ def create_app(
         logging.basicConfig(level=logging.INFO)
 
     return app
+
+
+_REQUEST_ID = re.compile(r"[A-Za-z0-9-]{8,64}")
 
 
 def _register_media_route(app: Flask) -> None:

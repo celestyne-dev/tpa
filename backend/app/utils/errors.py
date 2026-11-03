@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import HTTPException
 
@@ -105,5 +105,13 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(Exception)
     def handle_unexpected(err: Exception):
         db.session.rollback()
-        logger.exception("Unhandled API error", exc_info=err)
+        from flask import g
+
+        logger.exception(
+            "Unhandled API error (request %s %s, id %s)",
+            request.method,
+            request.path,
+            g.get("request_id", "-"),
+            exc_info=err,
+        )
         return jsonify(error_body("internal_error", "An unexpected error occurred.")), 500

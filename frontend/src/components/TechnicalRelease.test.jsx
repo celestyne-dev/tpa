@@ -3,11 +3,12 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { ArticleBody } from "@/components/articles/ArticleBody";
 import { ArticleMeta } from "@/components/articles/ArticleMeta";
-import { Pagination, pageWindow } from "@/components/ui/Pagination";
+import { Pagination } from "@/components/ui/Pagination";
 import { render as prerender } from "@/entry-server";
 import * as fx from "@/test/fixtures";
 import { createFakeApi, renderApp } from "@/test/utils";
 import { isSafeInlineHref, parseInlineLinks } from "@/utils/inlineLinks";
+import { pageWindow } from "@/utils/pagination";
 import {
   articleJsonLd,
   authorPageJsonLd,

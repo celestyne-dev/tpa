@@ -380,3 +380,15 @@ def test_csp_reports_are_logged_without_visitor_details(client, caplog):
     assert client.post("/api/v1/csp-report", json=reporting).status_code == 204
     assert client.post("/api/v1/csp-report", data=b"not json").status_code == 204
     assert client.post("/api/v1/csp-report", data=b"x" * 20000).status_code == 204
+
+
+def test_every_response_carries_a_request_id(client):
+    first = client.get("/api/v1/health").headers["X-Request-ID"]
+    second = client.get("/api/v1/health").headers["X-Request-ID"]
+    assert len(first) == 16 and first != second
+    # A well-formed id from Nginx is kept; anything else is replaced.
+    kept = client.get("/api/v1/health", headers={"X-Request-ID": "abcd1234-nginx"})
+    assert kept.headers["X-Request-ID"] == "abcd1234-nginx"
+    for bad in ("short", "<script>alert(1)</script>", "a" * 65, "id with spaces 123"):
+        res = client.get("/api/v1/health", headers={"X-Request-ID": bad})
+        assert res.headers["X-Request-ID"] != bad

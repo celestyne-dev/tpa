@@ -1,5 +1,5 @@
 import { ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { Button } from "@/components/ui/Button";
 import { loadSession } from "@/store/slices/authSlice";
@@ -46,12 +46,16 @@ export function MfaSettings() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setStatus((await api.auth.mfaStatus()).data);
-  }, [api]);
   useEffect(() => {
-    load().catch(setError);
-  }, [load]);
+    let alive = true;
+    api.auth.mfaStatus().then(
+      (res) => alive && setStatus(res.data),
+      (err) => alive && setError(err),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api]);
 
   const run = async (fn, message) => {
     setBusy(true);
