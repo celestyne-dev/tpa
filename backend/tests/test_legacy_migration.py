@@ -17,8 +17,15 @@ from sqlalchemy import select
 from app.extensions import db
 from app.models import Article, Redirect
 from app.services.seo_service import sitemap_entries
-from legacy_migration import inventory, mapping, report, verify
-from legacy_migration.core import classify_path, path_key, read_csv, write_csv
+from legacy_migration import inventory, mapping, report, rewrite, verify
+from legacy_migration.core import (
+    classify_path,
+    path_key,
+    path_of,
+    publication_status,
+    read_csv,
+    write_csv,
+)
 from legacy_migration.fetch import Fetcher
 
 # ---- a tiny fake website -------------------------------------------------------------
@@ -137,7 +144,11 @@ LEGACY_ROUTES = {
         {"id": 7, "slug": "kept-article", "title": "Kept article", "author": "Jane Writer", "status": "published"},
         {"id": 9, "slug": "lost-article", "title": "Lost article", "author": {"name": "Sam"}, "status": "published"},
         {"id": 11, "slug": "draft-article", "title": "Draft", "status": "draft"},
+        {"id": 12, "slug": "no-status-article", "title": "No status"},
+        {"id": 13, "slug": "draft-visible", "title": "Draft online", "status": "Draft",
+         "url": "/articles/draft-visible"},
     ]})),
+    "/articles/draft-visible": ok(article("Draft online", "/articles/draft-visible")),
 }  # fmt: skip
 
 
@@ -260,6 +271,14 @@ def test_article_records_find_missing_articles_without_inventing_urls(legacy_sit
     assert lost["matched_url"] == "" and lost["no_public_url"] == "yes"
     assert lost["author"] == "Sam"
     assert records["draft-article"]["no_public_url"] == ""  # unpublished: not expected online
+    assert records["draft-article"]["publication_status"] == "draft"
+    # No explicit status: never assumed published, so never reported missing.
+    unknown = records["no-status-article"]
+    assert unknown["publication_status"] == "unknown" and unknown["no_public_url"] == ""
+    # A draft that is publicly reachable is flagged, but not as a missing published article.
+    visible = rows["/articles/draft-visible"]["issues"].split(";")
+    assert "draft_record_is_public" in visible and "missing_from_archive" not in visible
+    assert records["draft-visible"]["missing_from_archive"] == ""
     assert not any("lost-article" in path for path in rows)  # no URL was constructed for it
     assert summary["articles_without_public_url"] == 1
 
@@ -351,7 +370,9 @@ def test_mapping_keeps_existing_urls_and_redirects_only_to_matching_pages(tmp_pa
         "/articles/renamed-new",
         "cms_original_url",
     )
-    assert redirect("/lifestyle") == ("REDIRECT_301", "/topics/lifestyle", "slug")
+    # A new topic with the same slug is not enough: legacy taxonomy is never reused
+    # automatically (see test_category_urls_move_only_by_approved_taxonomy_decision).
+    assert redirect("/lifestyle") == ("REVIEW", "", "")
     assert redirect("/about-us") == ("REDIRECT_301", "/about", "rule")
     assert redirect("/old-post")[:2] == ("REDIRECT_301", "/articles/moved-article")
     assert redirect("/article/7")[:2] == ("REDIRECT_301", "/articles/kept-article")
@@ -423,39 +444,43 @@ def test_approved_overrides_win_and_unapproved_ones_are_ignored(tmp_path):
     assert rows["/other-page"]["action"] == "REVIEW"
 
 
-def test_content_worklist_keeps_slug_author_and_dates(tmp_path):
+def test_content_worklist_rewrites_published_articles_and_skips_drafts(tmp_path):
     inv = inv_file(tmp_path, "run1", [
         {"path": "/articles/long-read", "kind": "article", "word_count": "900", "author": "Jane",
          "published_time": "2024-02-02", "title": "Long read"},
-        {"path": "/articles/short-note", "kind": "article", "word_count": "120", "author": "Jane",
-         "published_time": "2024-02-03"},
+        {"path": "/articles/short-note", "kind": "article", "word_count": "120"},
+        {"path": "/articles/draft-leak", "kind": "article"},
         {"path": "/uploads/photo.jpg", "kind": "media"},
         {"path": "/articles/spa-only", "kind": "article", "page_class": "shell_only"},
     ])  # fmt: skip
     articles = [
-        {
-            "slug": "lost-article",
-            "title": "Lost",
-            "author": "Sam",
-            "no_public_url": "yes",
-            "source": "api",
-        }
-    ]
+        {"slug": "lost-article", "title": "Lost", "author": "Sam", "no_public_url": "yes",
+         "status": "published", "source": "api"},
+        {"slug": "lost-draft", "title": "Draft", "no_public_url": "yes", "status": "draft"},
+        {"slug": "lost-unknown", "title": "?", "no_public_url": "yes", "status": ""},
+        {"slug": "draft-leak", "status": "draft",
+         "matched_url": "https://old.example.com/articles/draft-leak"},
+    ]  # fmt: skip
     rows, _, mapper = map_rows(tmp_path, [inv], articles=articles)
     work = {w["keep_slug"] or w["legacy_url"]: w for w in mapper.worklist(list(rows.values()))}
-    assert work["long-read"]["content_action"] == "IMPORT"
+    # Legacy text is never copied: published articles are rewritten from scratch.
+    assert {work[s]["content_action"] for s in ("long-read", "short-note", "spa-only")} == {
+        "REWRITE"
+    }
     assert work["long-read"]["new_path"] == "/articles/long-read"
     assert (work["long-read"]["author"], work["long-read"]["published_time"]) == (
         "Jane",
         "2024-02-02",
     )
-    assert work["short-note"]["content_action"] == "REWRITE_REVIEW"
-    assert work["spa-only"]["content_action"] == "IMPORT_FROM_EXPORT"
     assert work["https://old.example.com/uploads/photo.jpg"]["content_action"] == "IMPORT_MEDIA"
     lost = work["lost-article"]
     assert (
         lost["content_action"] == "FIND_URL" and lost["legacy_url"] == "" and lost["new_path"] == ""
     )
+    # A draft (or a record without an explicit status) is never a missing published article.
+    assert "lost-draft" not in work and "lost-unknown" not in work
+    assert rows["/articles/draft-leak"]["content_action"] == "DRAFT_NO_ACTION"
+    assert "draft-leak" not in work
 
 
 # ---- validation and redirect rules -----------------------------------------------------
@@ -663,6 +688,264 @@ def test_command_line_end_to_end(legacy_site, tmp_path):
     assert rows["/about-us"]["target_path"] == "/about"
 
 
+# ---- rewrite plan: status filtering, canonical preservation, taxonomy, suitability -------
+
+LEGACY = "https://thinkpositivealways.com"
+
+
+def export_row(id_, slug, status="published", **extra):
+    return {"id": str(id_), "slug": slug, "title": extra.pop("title", f"Title {id_}"),
+            "status": status, "author": "Jane", "published_at": f"2025-01-0{id_ % 9 + 1}",
+            "category": extra.pop("category", "lifestyle"), **extra}  # fmt: skip
+
+
+def plan_for(exports, **kwargs):
+    kwargs.setdefault("base_url", LEGACY)
+    return rewrite.build_plan(exports, **kwargs)
+
+
+@pytest.mark.parametrize(
+    ("row", "expected"),
+    [
+        ({"status": "Published"}, "published"),
+        ({"status": "publish"}, "published"),
+        ({"status": "draft"}, "draft"),
+        ({"status": "PENDING"}, "draft"),
+        ({"status": ""}, "unknown"),
+        ({}, "unknown"),
+        ({"status": "weird"}, "unknown"),
+        ({"status": "scheduled"}, "scheduled"),
+        ({"is_published": "1"}, "published"),
+        ({"is_published": "false"}, "draft"),
+    ],
+)
+def test_publication_status_is_explicit(row, expected):
+    assert publication_status(row) == expected
+
+
+def test_rewrite_plan_contains_published_articles_only(tmp_path):
+    exports = [export_row(i, f"published-{i}") for i in range(1, 46)]
+    exports += [export_row(100 + i, f"draft-{i}", "draft") for i in range(1, 45)]
+    exports += [export_row(200, "no-status", ""), export_row(201, "archived", "archived")]
+    plan = plan_for(exports)
+    assert plan["summary"]["published"] == 45 and plan["summary"]["draft"] == 44
+    assert plan["summary"]["other_status"] == 2 and plan["summary"]["records"] == 91
+    assert {r["original_slug"] for r in plan["rewrite"]} == {f"published-{i}" for i in range(1, 46)}
+    assert not any(r["original_slug"].startswith("draft-") for r in plan["rewrite"])
+    assert all(d["note"].startswith("Draft: not rewritten") for d in plan["drafts"])
+    assert {r["original_slug"] for r in plan["other_status"]} == {"no-status", "archived"}
+    # The editorial plan copies no legacy text and starts every article as NOT_STARTED.
+    assert set(rewrite.REWRITE_FIELDS).isdisjoint({"body", "content", "excerpt"})
+    assert {r["rewrite_status"] for r in plan["rewrite"]} == {"NOT_STARTED"}
+    problems = rewrite.validate_plan([{**plan["rewrite"][0], "publication_status": "draft"}])
+    assert "not_published" in {p["code"] for p in problems}
+
+
+def test_rewrite_plan_cli_checks_the_expected_counts(tmp_path):
+    from legacy_migration.__main__ import main
+
+    export = tmp_path / "export.csv"
+    rows = [export_row(1, "a", url=f"{LEGACY}/articles/a"), export_row(2, "b", "draft")]
+    write_csv(
+        export, ("id", "slug", "title", "status", "author", "published_at", "category", "url"), rows
+    )
+    args = [
+        "rewrite-plan",
+        "--export",
+        str(export),
+        "--base-url",
+        LEGACY,
+        "--out",
+        str(tmp_path / "plan"),
+    ]
+    assert main([*args, "--expect-published", "1", "--expect-draft", "1"]) == 0
+    assert main([*args, "--expect-published", "45", "--expect-draft", "44"]) == 1
+    produced = {p.name for p in (tmp_path / "plan").iterdir()}
+    assert {"rewrite-worklist.csv", "draft-articles.csv", "other-status-articles.csv",
+            "rewrite-problems.csv", "rewrite-summary.json"} <= produced  # fmt: skip
+    assert [r["original_slug"] for r in read_csv(tmp_path / "plan" / "rewrite-worklist.csv")] == [
+        "a"
+    ]
+    assert [r["original_slug"] for r in read_csv(tmp_path / "plan" / "draft-articles.csv")] == ["b"]
+
+
+def inventory_rows(*rows):
+    return [{"page_class": "ok", "kind": "article", **r, "path": path_of(r["url"])} for r in rows]
+
+
+def test_canonical_paths_are_preserved_and_never_derived_from_titles():
+    exports = [
+        export_row(
+            1, "kept", url=f"{LEGACY}/articles/kept", canonical_url=f"{LEGACY}/articles/kept"
+        ),
+        export_row(2, "root-article", url=f"{LEGACY}/root-article"),
+        export_row(3, "old-slug", url=f"{LEGACY}/old-slug"),
+        export_row(4, "in-inventory"),
+        export_row(5, "shell-page"),
+        export_row(6, "twice"),
+        export_row(7, "", title="Ten Ways To Smile"),
+        export_row(8, "not-online", title="Not Online"),
+        export_row(9, "Bad_Slug", url=f"{LEGACY}/Bad_Slug"),
+    ]
+    inventory = inventory_rows(
+        {"url": f"{LEGACY}/old-slug", "canonical": f"{LEGACY}/articles/established-slug"},
+        {"url": f"{LEGACY}/articles/in-inventory/", "canonical": f"{LEGACY}/articles/in-inventory"},
+        {
+            "url": f"{LEGACY}/articles/shell-page",
+            "page_class": "shell_only",
+            "canonical": f"{LEGACY}/",
+        },
+        {"url": f"{LEGACY}/twice"},
+        {"url": f"{LEGACY}/articles/twice"},
+    )
+    rows = {r["legacy_id"]: r for r in plan_for(exports, inventory_rows=inventory)["rewrite"]}
+
+    def got(i):
+        r = rows[str(i)]
+        return r["proposed_new_path"], r["canonical_preserved"], r["url_status"]
+
+    assert got(1) == ("/articles/kept", "yes", "EXPORT_ONLY")
+    assert rows["1"]["canonical_source"] == "export"
+    assert got(2) == ("/articles/root-article", "no", "EXPORT_ONLY")  # keeps its slug + one 301
+    assert "301" in rows["2"]["url_note"]
+    # The page's own canonical is the established URL, not the URL in the export.
+    assert got(3) == ("/articles/established-slug", "yes", "CONFIRMED")
+    assert rows["3"]["original_canonical_url"] == f"{LEGACY}/articles/established-slug"
+    assert got(4) == ("/articles/in-inventory", "yes", "FOUND_BY_SLUG")
+    # An app-shell canonical (pointing at the homepage) is not trusted.
+    assert got(5) == ("/articles/shell-page", "yes", "FOUND_BY_SLUG")
+    assert rows["5"]["canonical_source"] == "unverified_app_shell"
+    assert got(6) == ("", "", "AMBIGUOUS") and "/articles/twice" in rows["6"]["url_candidates"]
+    # No slug or URL: nothing is derived from the title.
+    assert got(7) == ("", "", "FIND_URL") and "ten-ways" not in str(rows["7"])
+    assert got(8) == ("", "", "FIND_URL")
+    assert got(9) == ("", "no", "EXPORT_ONLY")  # not a valid new-CMS slug: needs a decision
+    edited = {**rows["4"], "proposed_new_path": "/articles/in-inventory-new"}
+    assert "slug_changed" in {p["code"] for p in rewrite.validate_plan([edited])}
+    dupe = {**rows["3"], "legacy_id": "33"}
+    assert "duplicate_new_path" in {p["code"] for p in rewrite.validate_plan([rows["3"], dupe])}
+
+
+TAXONOMY_A = [
+    {"legacy_category": "Lifestyle", "new_section": "everyday-wellbeing", "approved": "yes"},
+    {"legacy_category": "quotes", "new_section": "affirmations", "approved": ""},  # not approved
+]
+TAXONOMY_B = [
+    {"legacy_category": "lifestyle", "new_section": "personal-growth", "approved": "yes"},
+    {"legacy_path": "/lifestyle/", "new_section": "personal-growth", "approved": "yes"},
+]
+
+
+def test_sections_come_only_from_editorial_taxonomy_decisions():
+    exports = [export_row(1, "a", url=f"{LEGACY}/articles/a"),
+               export_row(2, "b", url=f"{LEGACY}/b", category="quotes")]  # fmt: skip
+    none = {r["legacy_id"]: r for r in plan_for(exports)["rewrite"]}
+    assert none["1"]["proposed_section"] == "" and none["1"]["section_status"] == "NEEDS_DECISION"
+    assert none["1"]["legacy_category"] == "lifestyle"  # kept for reference only
+    a = {
+        r["legacy_id"]: r
+        for r in plan_for(exports, taxonomy=rewrite.Taxonomy(TAXONOMY_A))["rewrite"]
+    }
+    assert (a["1"]["proposed_section"], a["1"]["section_status"]) == (
+        "everyday-wellbeing",
+        "DECIDED",
+    )
+    assert a["2"]["proposed_section"] == ""  # unapproved decision ignored
+    b = {
+        r["legacy_id"]: r
+        for r in plan_for(exports, taxonomy=rewrite.Taxonomy(TAXONOMY_B))["rewrite"]
+    }
+    assert b["1"]["proposed_section"] == "personal-growth"
+    # Restructuring the taxonomy never changes a URL.
+    for key in (
+        "proposed_new_path",
+        "canonical_preserved",
+        "original_url",
+        "original_canonical_url",
+    ):
+        assert (
+            [none[i][key] for i in "12"] == [a[i][key] for i in "12"] == [b[i][key] for i in "12"]
+        )
+
+
+def test_category_urls_move_only_by_approved_taxonomy_decision(tmp_path):
+    inv = inv_file(tmp_path, "run1", [
+        {"path": "/lifestyle/", "kind": "category"},
+        {"path": "/articles/kept-article", "kind": "article"},
+        {"path": "/lifestyle/moved-piece", "kind": "article"},
+    ])  # fmt: skip
+    site_rows = [*SITE_ROWS,
+                 {"path": "/topics/personal-growth", "kind": "topic", "slug": "personal-growth", "status": "live"},
+                 {"path": "/articles/moved-piece", "kind": "article", "slug": "moved-piece", "status": "live"}]  # fmt: skip
+    results = {}
+    for name, taxonomy in (("none", None), ("a", TAXONOMY_A), ("b", TAXONOMY_B)):
+        rows, _, _ = map_rows(tmp_path, [inv], site_rows=site_rows,
+                              taxonomy=rewrite.Taxonomy(taxonomy) if taxonomy else None)  # fmt: skip
+        results[name] = rows
+    assert results["none"]["/lifestyle"]["action"] == "REVIEW"  # same-slug topic not reused
+    assert results["a"]["/lifestyle"]["action"] == "REVIEW"  # decided target not live
+    assert (results["b"]["/lifestyle"]["action"], results["b"]["/lifestyle"]["target_path"],
+            results["b"]["/lifestyle"]["confidence"]) == ("REDIRECT_301", "/topics/personal-growth", "taxonomy")  # fmt: skip
+    # Article mappings are independent of any category change.
+    for path in ("/articles/kept-article", "/lifestyle/moved-piece"):
+        decided = {(r[path]["action"], r[path]["target_path"]) for r in results.values()}
+        assert len(decided) == 1, path
+    assert results["none"]["/lifestyle/moved-piece"]["target_path"] == "/articles/moved-piece"
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        (
+            "How therapy helped my anxiety disorder",
+            {"mental_health:anxiety disorder", "mental_health:therapy"},
+        ),
+        (
+            "Supplements that cure insomnia",
+            {"medical:supplement", "medical:cure", "medical:insomnia"},
+        ),
+        ("What to do before a divorce", {"legal:divorce"}),
+        ("Pay off debt and start investing", {"financial:debt", "financial:investing"}),
+        ("A taxi ride, a lawn and an investigation", set()),
+        ("50 kindness quotes to brighten your day", set()),
+    ],
+)
+def test_specialist_topics_are_flagged_for_expert_review(title, expected):
+    assert set(rewrite.suitability_flags(title)) == expected
+
+
+def test_flagged_articles_need_a_recorded_expert_decision(tmp_path):
+    exports = [export_row(1, "coping-with-depression", url=f"{LEGACY}/articles/coping-with-depression",
+                          title="Coping with depression"),
+               export_row(2, "morning-gratitude", url=f"{LEGACY}/articles/morning-gratitude",
+                          title="Morning gratitude")]  # fmt: skip
+    rows = {r["legacy_id"]: r for r in plan_for(exports)["rewrite"]}
+    assert rows["1"]["editorial_suitability"] == "EXPERT_REVIEW"
+    assert "mental_health:depress" in rows["1"]["suitability_flags"]
+    assert rows["2"]["editorial_suitability"] == "GENERAL" and rows["2"]["suitability_flags"] == ""
+    codes_ = lambda r: {p["code"] for p in rewrite.validate_plan([r])}  # noqa: E731
+    assert "specialist_topic_unreviewed" in codes_(
+        {**rows["1"], "editorial_suitability": "GENERAL"}
+    )
+    assert "expert_review_pending" in codes_({**rows["1"], "rewrite_status": "READY"})
+    reviewed = {**rows["1"], "rewrite_status": "READY", "suitability_decided_by": "Dr A. Reviewer"}
+    assert not {"expert_review_pending", "specialist_topic_unreviewed"} & codes_(reviewed)
+    assert "invalid_rewrite_status" in codes_({**rows["2"], "rewrite_status": "COPIED"})
+
+
+def test_rerunning_the_plan_keeps_editor_decisions():
+    exports = [export_row(1, "a", url=f"{LEGACY}/articles/a", title="Debt-free living")]
+    first = plan_for(exports)["rewrite"][0]
+    edited = {**first, "proposed_section": "money-mindset", "section_status": "EDITOR",
+              "editorial_suitability": "EXCLUDE", "suitability_decided_by": "Editor",
+              "rewrite_status": "ASSIGNED", "rewrite_owner": "Writer", "editor_notes": "Rework angle",
+              "proposed_new_path": "/articles/tampered"}  # fmt: skip
+    again = plan_for(exports, previous=[edited])["rewrite"][0]
+    for field in rewrite.EDITOR_FIELDS:
+        assert again[field] == edited[field], field
+    assert again["proposed_new_path"] == "/articles/a"  # URLs are recomputed, not carried over
+
+
 # ---- new CMS: export, redirect import, sitemap ---------------------------------------------
 
 
@@ -751,5 +1034,14 @@ def test_sitemap_never_lists_an_active_redirect_source(seeded):
 
 def test_mapping_documentation_lists_every_column():
     doc = (Path(__file__).resolve().parents[2] / "docs" / "legacy-migration.md").read_text()
-    for field in (*mapping.MAPPING_FIELDS, *inventory.INVENTORY_FIELDS, *mapping.WORKLIST_FIELDS):
+    for field in (
+        *mapping.MAPPING_FIELDS,
+        *inventory.INVENTORY_FIELDS,
+        *mapping.WORKLIST_FIELDS,
+        *rewrite.REWRITE_FIELDS,
+        *rewrite.DRAFT_FIELDS,
+        *rewrite.TAXONOMY_FIELDS,
+        *rewrite.REWRITE_STATUSES,
+        *rewrite.SUITABILITY,
+    ):
         assert f"`{field}`" in doc, field

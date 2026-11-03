@@ -179,6 +179,38 @@ def truthy(value) -> bool:
     return str(value or "").strip().lower() in {"1", "yes", "y", "true", "approved", "x"}
 
 
+PUBLISHED_VALUES = {"published", "publish", "live", "public", "active"}
+DRAFT_VALUES = {"draft", "drafts", "pending", "review", "in_review", "unpublished", "private"}
+
+
+def publication_status(row: dict) -> str:
+    """``published``, ``draft``, ``scheduled``, ``archived`` or ``unknown``.
+
+    Only an explicit status counts: a blank or unrecognised value is ``unknown`` and is
+    never treated as a published article (nor as a missing one).
+    """
+    for key in ("publication_status", "status", "state", "post_status"):
+        value = str(row.get(key) or "").strip().lower().replace("-", "_").replace(" ", "_")
+        if not value:
+            continue
+        if value in PUBLISHED_VALUES:
+            return "published"
+        if value in DRAFT_VALUES:
+            return "draft"
+        if value in ("scheduled", "future"):
+            return "scheduled"
+        if value in ("archived", "trash", "deleted", "retired"):
+            return "archived"
+        return "unknown"
+    for key in ("is_published", "published"):
+        value = str(row.get(key) or "").strip().lower()
+        if value in ("1", "true", "yes", "t"):
+            return "published"
+        if value in ("0", "false", "no", "f"):
+            return "draft"
+    return "unknown"
+
+
 def chunks(items: list, size: int) -> Iterator[list]:
     for i in range(0, len(items), size):
         yield items[i : i + size]

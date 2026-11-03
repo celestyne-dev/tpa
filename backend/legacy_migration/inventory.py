@@ -32,6 +32,7 @@ from .core import (
     last_segment,
     path_key,
     path_of,
+    publication_status,
     read_csv,
     same_site,
     write_csv,
@@ -58,8 +59,9 @@ INVENTORY_FIELDS = (
 LINK_FIELDS = ("source_url", "target_url", "anchor", "target_final_status", "broken")
 ARTICLE_FIELDS = (
     "source", "id", "slug", "title", "author", "published_at", "modified_at", "status",
-    "category", "section", "url", "matched_url", "match", "in_sitemap", "in_archive",
-    "missing_from_archive", "no_public_url",
+    "publication_status", "category", "section", "url", "canonical_url", "excerpt",
+    "matched_url", "match", "in_sitemap", "in_archive", "missing_from_archive",
+    "no_public_url",
 )  # fmt: skip
 
 URL_COLUMNS = (
@@ -393,7 +395,8 @@ class Inventory:
                         matched, how = url, "id"
                         break
             row = rows.get(matched, {})
-            published = record["status"] in ("", "published", "publish", "live")
+            # Drafts (and unknown statuses) are never "missing" published articles.
+            published = record["publication_status"] == "published"
             record.update(
                 matched_url=matched,
                 match=how,
@@ -406,6 +409,10 @@ class Inventory:
                 row["kind"] = "article"
                 if published and not row.get("in_archive"):
                     row["_issues"].append("missing_from_archive")
+                if record["publication_status"] == "draft":
+                    row["_issues"] = [i for i in row["_issues"] if i != "missing_from_archive"]
+                    if row.get("page_class") == "ok":
+                        row["_issues"].append("draft_record_is_public")
                 if not row.get("author") and record["author"]:
                     row["author"] = record["author"]
                 if not row.get("published_time") and record["published_at"]:
@@ -540,10 +547,13 @@ def _article(row: dict, source: str) -> dict:
         "author": pick("author", "author_name", "writer", "user"),
         "published_at": pick("published_at", "publishedAt", "date", "date_published"),
         "modified_at": pick("updated_at", "updatedAt", "modified", "date_modified"),
-        "status": pick("status").lower(),
+        "status": pick("status", "publication_status", "state").lower(),
+        "publication_status": publication_status(row),
         "category": pick("category", "category_name", "category_slug"),
         "section": pick("section", "section_name", "section_slug"),
         "url": pick("url", "permalink", "link", "canonical_url", "original_url"),
+        "canonical_url": pick("canonical_url", "canonical"),
+        "excerpt": pick("excerpt", "summary", "meta_description")[:500],
     }
 
 

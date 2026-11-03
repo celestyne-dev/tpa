@@ -5,11 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from . import inventory as inv
-from . import mapping, report, verify
+from . import mapping, report, rewrite, verify
 from .core import read_csv, write_csv
 from .fetch import Fetcher
 
@@ -52,6 +53,7 @@ def cmd_map(a) -> int:
         aliases=mapping.load_aliases(a.aliases),
         retire_min_observations=a.retire_min_observations,
         retire_min_days=a.retire_min_days,
+        taxonomy=rewrite.load_taxonomy(a.taxonomy),
     )
     rows, excluded = mapper.rows()
     out = Path(a.out)
@@ -71,6 +73,40 @@ def cmd_map(a) -> int:
     (out / "migration-report.md").write_text(report.markdown(rep), encoding="utf-8")
     print(report.markdown(rep))
     return 0
+
+
+def cmd_rewrite_plan(a) -> int:
+    exports = [r for path in a.export for r in read_csv(path)]
+    plan = rewrite.build_plan(
+        exports,
+        inventory_rows=read_csv(a.inventory) if a.inventory else None,
+        taxonomy=rewrite.load_taxonomy(a.taxonomy),
+        previous=read_csv(a.previous) if a.previous else None,
+        base_url=a.base_url,
+    )
+    out = Path(a.out)
+    rewrite.write(out, plan)
+    problems = rewrite.validate_plan(plan["rewrite"])
+    write_csv(out / "rewrite-problems.csv", ("legacy_id", "severity", "code", "message"), problems)
+    summary = {**plan["summary"], "problems": dict(Counter(p["code"] for p in problems))}
+    (out / "rewrite-summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    print(json.dumps(summary, indent=2))
+    failed = False
+    for label, expected in (("published", a.expect_published), ("draft", a.expect_draft)):
+        if expected is not None and summary[label] != expected:
+            print(f"Expected {expected} {label} records, found {summary[label]}.", file=sys.stderr)
+            failed = True
+    errors = sum(1 for p in problems if p["severity"] == "error")
+    return 1 if failed or errors else 0
+
+
+def cmd_validate_rewrite(a) -> int:
+    problems = rewrite.validate_plan(read_csv(a.worklist))
+    for p in problems:
+        print(f"{p['severity']:7} {p['code']:28} {p['legacy_id']}  {p['message']}")
+    errors = sum(1 for p in problems if p["severity"] == "error")
+    print(f"{errors} error(s), {len(problems) - errors} warning(s)")
+    return 1 if errors else 0
 
 
 def cmd_validate(a) -> int:
@@ -176,6 +212,23 @@ def parser() -> argparse.ArgumentParser:
     net(s)
     s.set_defaults(func=cmd_inventory)
 
+    s = sub.add_parser("rewrite-plan", help="published-only rewrite worklist from the CMS export")
+    s.add_argument("--export", action="append", required=True, help="legacy CMS export CSV")
+    s.add_argument("--inventory", help="inventory.csv (URL and canonical evidence)")
+    s.add_argument("--taxonomy", help="approved editorial taxonomy decisions (CSV)")
+    s.add_argument("--previous", help="earlier rewrite-worklist.csv (editor fields are kept)")
+    s.add_argument(
+        "--base-url", default="", help="legacy origin, e.g. https://thinkpositivealways.com"
+    )
+    s.add_argument("--expect-published", type=int, help="fail unless this many published")
+    s.add_argument("--expect-draft", type=int, help="fail unless this many drafts")
+    s.add_argument("--out", required=True)
+    s.set_defaults(func=cmd_rewrite_plan)
+
+    s = sub.add_parser("validate-rewrite", help="check an edited rewrite-worklist.csv")
+    s.add_argument("worklist")
+    s.set_defaults(func=cmd_validate_rewrite)
+
     s = sub.add_parser("map", help="propose the legacy-to-new URL mapping")
     s.add_argument(
         "--inventory",
@@ -189,6 +242,7 @@ def parser() -> argparse.ArgumentParser:
         "--overrides", action="append", default=[], help="reviewed mapping (approved rows win)"
     )
     s.add_argument("--aliases", help="CSV legacy_path,target_path of renamed pages")
+    s.add_argument("--taxonomy", help="approved editorial taxonomy decisions (CSV)")
     s.add_argument("--retire-min-observations", type=int, default=mapping.RETIRE_MIN_OBSERVATIONS)
     s.add_argument("--retire-min-days", type=int, default=mapping.RETIRE_MIN_DAYS)
     s.add_argument("--out", required=True)

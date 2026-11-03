@@ -5,9 +5,37 @@ Protects every public URL, article, backlink and search signal of the current
 stays untouched until the comparison below passes: every tool here only **reads** it
 (HTTP GET, robots.txt respected, one request per second by default).
 
-Nothing in this workflow deploys, changes DNS, deletes content or overwrites CMS records.
-The only write is `flask legacy import-redirects --apply`, which creates CMS redirects
-for approved rows and never replaces an existing redirect, article or page.
+Nothing in this workflow deploys, changes DNS, deletes content or modifies either CMS.
+The only write is `flask legacy import-redirects --apply`, which creates redirects in the
+**new** CMS for approved rows and never replaces an existing redirect, article or page.
+
+## Editorial decisions (revised 2026-11-03)
+
+The legacy CMS holds 89 article records: 45 Published and 44 Draft.
+
+1. **Only the 45 published articles are rewrite candidates.** The 44 drafts are listed in
+   `draft-articles.csv` and are never rewritten, published or imported. A draft is never
+   reported as a missing published article. A record without an explicit status counts
+   as `unknown`: it goes to `other-status-articles.csv` and isn't assumed published.
+2. **Published articles are rewritten from scratch later,** with original content. No
+   step copies legacy body text, and the rewrite plan has no content column.
+3. **Exact URLs only.** Each published article's public URL and canonical URL come from
+   the export, the page itself or the inventory. Slugs are never derived from titles.
+4. **Established canonical paths are preserved where the new site supports them.**
+   - A canonical of the form `/articles/<slug>` stays exactly the same.
+   - Any other path (for example root-level `/<slug>`) keeps its own slug at
+     `/articles/<slug>` and gets one 301, because the new site serves articles only
+     under `/articles/`.
+5. **The legacy taxonomy is not reused automatically.** New sections come only from
+   approved editorial decisions in `taxonomy-decisions.csv`. Category URLs redirect only
+   by such a decision. Article URLs never depend on a category or section, so
+   restructuring the taxonomy can't change them.
+6. **Specialist topics need an expert or exclusion.** Medical, mental-health, legal and
+   financial topics are flagged `EXPERT_REVIEW`. The site doesn't give independent
+   regulated professional advice: such articles need a qualified reviewer (recorded in
+   `suitability_decided_by`) or are excluded.
+7. **The live website stays untouched** until the new articles, canonical URLs and
+   redirects pass the prelaunch checks.
 
 ## What we know so far (2026-11-03)
 
@@ -47,27 +75,38 @@ python -m legacy_migration inventory \
   --articles-api https://thinkpositivealways.com/api/public/articles?limit=1000 \
   --out migration/inventory-2026-11-03
 
-# 2. Export the new CMS's live URLs (read-only; on staging).
+# 2. Rewrite plan: published articles only, with exact URLs, section and suitability.
+#    Re-run with --previous after editing: editor columns are kept, URLs recomputed.
+python -m legacy_migration rewrite-plan \
+  --export legacy-articles-db.csv \
+  --inventory migration/inventory-2026-11-03/inventory.csv \
+  --taxonomy taxonomy-decisions.csv --base-url https://thinkpositivealways.com \
+  --expect-published 45 --expect-draft 44 --out migration/rewrite
+python -m legacy_migration validate-rewrite migration/rewrite/rewrite-worklist.csv
+
+# 3. Export the new CMS's live URLs (read-only; on staging).
 flask --app wsgi legacy export-cms --out migration/new-site.csv
 
-# 3. Propose the mapping, the content worklist and the report.
+# 4. Propose the URL mapping, the content worklist and the report.
 python -m legacy_migration map \
   --inventory migration/inventory-2026-11-10/inventory.csv \
   --inventory migration/inventory-2026-11-03/inventory.csv \
   --articles migration/inventory-2026-11-10/legacy-articles.csv \
+  --taxonomy taxonomy-decisions.csv \
   --new-site migration/new-site.csv --out migration/map
 
-# 4. Review migration/map/url-mapping.csv: set approved=yes, approved_by and note; edit
-#    action/target_path where needed. Re-run step 3 with --overrides <reviewed file>
-#    after importing content: approved decisions are kept, the rest is re-proposed.
+# 5. Review migration/map/url-mapping.csv: set approved=yes, approved_by and note; edit
+#    action/target_path where needed. Re-run step 4 with --overrides <reviewed file>
+#    once rewritten articles are in the CMS: approved decisions are kept.
 python -m legacy_migration validate migration/map/url-mapping.csv --new-site migration/new-site.csv
 
-# 5. Import content in the CMS keeping slugs (content-worklist.csv), then apply redirects.
+# 6. Publish the rewritten articles at proposed_new_path (setting original_url and
+#    original_slug), then apply redirects.
 flask --app wsgi legacy import-redirects migration/map/url-mapping.csv           # dry run
 flask --app wsgi legacy import-redirects migration/map/url-mapping.csv --apply --actor-email you@example.com
 python -m legacy_migration gone-conf migration/map/url-mapping.csv --out tpa-legacy-gone.conf
 
-# 6. Prelaunch: every legacy URL against staging, then the new sitemap.
+# 7. Prelaunch: every legacy URL against staging, then the new sitemap.
 python -m legacy_migration compare migration/map/url-mapping.csv \
   --new-base https://staging.example.com --canonical-base https://thinkpositivealways.com \
   --out migration/compare.csv
@@ -85,6 +124,8 @@ python -m legacy_migration report migration/map/url-mapping.csv \
 `REVIEW` counts as a failure unless you pass `--allow-unresolved`.
 
 **Launch readiness:**
+- `validate-rewrite` reports no errors, and every rewritten article is live at its
+  `proposed_new_path`.
 - `validate` reports no errors.
 - `compare` has no `fail` results.
 - `sitemap-check` has no `fail` results.
@@ -99,24 +140,26 @@ Then repeat `compare` against production straight after the DNS switch.
 | `KEEP` | The same path is live on the new site (a trailing slash doesn't matter) | nothing to do |
 | `REDIRECT_301` | One permanent redirect straight to the final new page | `flask legacy import-redirects` |
 | `RETIRE_410` | Gone for good | Nginx snippet from `gone-conf` |
-| `REVIEW` | Needs a person: import content, choose a target, or confirm it's gone | – |
+| `REVIEW` | Needs a person: rewrite content, choose a target, or confirm it's gone | – |
 
 Proposals come in this order (the first match wins):
 1. An approved override.
 2. The same path exists on the new site.
 3. The legacy redirect's final destination (chains are flattened).
 4. A CMS article's `original_url` or `original_slug`.
-5. An identical article or topic slug.
-6. An alias rule (`/about-us` → `/about`, `/terms-of-service` → `/terms`), only when
-   the target is live.
+5. An identical article slug. Article URLs never depend on a category or section.
+6. For category and section URLs, an approved taxonomy decision (`--taxonomy`). A new
+   topic that merely has the same slug isn't enough. After that, an alias rule
+   (`/about-us` → `/about`, `/terms-of-service` → `/terms`). Both apply only when the
+   target is live.
 7. `RETIRE_410`, only when the URL was gone (404/410) in at least 2 inventories at least
    7 days apart, and has no Search Console clicks or impressions, no backlinks, no
    internal links, no sitemap entry and no article evidence.
 8. Everything else → `REVIEW`.
 
 **Safeguards:**
-- **Slugs are never generated.** There's no case folding or fuzzy matching. An article
-  missing from the CMS is imported with its legacy slug (worklist `keep_slug`), so
+- **Slugs are never generated.** There's no case folding or fuzzy matching. A rewritten
+  article is published with its established slug (rewrite plan `proposed_new_path`), so
   `/articles/<slug>` stays identical (`KEEP`). A root-level article such as
   `/50-kindness-quotes-to-brighten-your-day` keeps its slug and gets one 301 to
   `/articles/<same-slug>`, because the new site serves articles only under `/articles/`.
@@ -148,10 +191,19 @@ All CSVs are UTF-8 with a header row. Cells that would start a spreadsheet formu
   - `source`
   
   A plain text file with one URL per line also works.
-- **Legacy article export** (`--articles-csv`): `id`, `slug`, `title`, `author`,
-  `published_at`, `updated_at`, `status`, `category`, `section`, `url`. Only `slug` or
-  `id` is required. `url` is used only if the database stores it; URLs are never
-  constructed.
+- **Legacy CMS export** (`rewrite-plan --export`, `inventory --articles-csv`): `id`,
+  `slug`, `title`, `author`, `published_at`, `updated_at`, `status`, `category`,
+  `section`, `url`, `canonical_url`, `excerpt`.
+  - **Status is required.** `status` (or `publication_status` / `state`, or a boolean
+    `is_published`) is normalised to `published`, `draft`, `scheduled`, `archived` or
+    `unknown`. Only an explicit published value counts as published.
+  - `url` and `canonical_url` are used only if the database stores them; URLs are never
+    constructed.
+  - `excerpt` is read only to flag specialist topics. It isn't copied anywhere.
+- **Taxonomy decisions** (`--taxonomy`, written by editors): `legacy_category`,
+  `legacy_section`, `legacy_path`, `new_section`, `approved`, `note`. One row per legacy
+  category, section or category URL. Only rows with `approved=yes` and a `new_section`
+  (the new topic slug) are used. Leave `new_section` empty for "not decided yet".
 - **Article API** (`--articles-api`): a JSON list, or `{data: [...]}`, `{articles: [...]}`
   or `{items: [...]}`, with the same field names.
 - **New site** (`flask legacy export-cms`): `path`, `kind`, `slug`, `title`, `status`,
@@ -182,13 +234,14 @@ All CSVs are UTF-8 with a header row. Cells that would start a spreadsheet formu
 | `word_count` | Visible words in the HTML |
 | `og_image` | Social image |
 | `seed_clicks` / `seed_impressions` / `seed_backlinks` | From seed files (Search Console) |
-| `issues` | `;`-separated: `broken_links:N`, `linked_but_broken`, `redirect_chain`, `redirect_loop`, `redirect_offsite`, `temporary_redirect`, `missing_canonical`, `canonical_elsewhere`, `canonical_not_ok`, `multiple_canonicals`, `noindex`, `accidental_noindex`, `sitemap_lists_non_indexable`, `missing_from_archive`, `missing_title`, `missing_description`, `soft_404`, `shell_only`, `server_error`, `error` |
+| `issues` | `;`-separated: `broken_links:N`, `linked_but_broken`, `redirect_chain`, `redirect_loop`, `redirect_offsite`, `temporary_redirect`, `missing_canonical`, `canonical_elsewhere`, `canonical_not_ok`, `multiple_canonicals`, `noindex`, `accidental_noindex`, `sitemap_lists_non_indexable`, `missing_from_archive` (published records only), `draft_record_is_public`, `missing_title`, `missing_description`, `soft_404`, `shell_only`, `server_error`, `error` |
 | `error` | Network error, robots.txt exclusion or why it wasn't checked |
 
 The inventory step also writes:
 - `links.csv`: `source_url`, `target_url`, `anchor`, `target_final_status`, `broken`
-- `legacy-articles.csv`: the article records with `matched_url`, `match` (`url`, `slug`
-  or `id`), `in_sitemap`, `in_archive`, `missing_from_archive` and `no_public_url`
+- `legacy-articles.csv`: the article records with `publication_status`, `matched_url`,
+  `match` (`url`, `slug` or `id`), `in_sitemap`, `in_archive`, `missing_from_archive` and
+  `no_public_url` (the last two only ever set for published records)
 - `run.json`: the probe result, counts and notes
 
 ### `url-mapping.csv` (the file you review)
@@ -207,30 +260,82 @@ The inventory step also writes:
 | `priority` | `high` (articles, categories, home, sitemap, clicks or backlinks) or `normal` |
 | `action` | `KEEP`, `REDIRECT_301`, `RETIRE_410` or `REVIEW` |
 | `target_path` | New-site path for `KEEP` / `REDIRECT_301` |
-| `confidence` | `exact`, `cms_original_url`, `cms_original_slug`, `slug`, `rule`, `observed_gone` or `manual` |
+| `confidence` | `exact`, `cms_original_url`, `cms_original_slug`, `slug` (articles only), `taxonomy`, `rule`, `observed_gone` or `manual` |
 | `reason` | Why this was proposed |
-| `content_action` | `NONE`, `IMPORT`, `REWRITE_REVIEW`, `IMPORT_FROM_EXPORT`, `IMPORT_MEDIA`, `CREATE_OR_REDIRECT` or `REVIEW` |
+| `content_action` | `NONE`, `REWRITE` (published article: rewrite from scratch), `DRAFT_NO_ACTION`, `IMPORT_MEDIA`, `CREATE_OR_REDIRECT` or `REVIEW` |
 | `approved` / `approved_by` / `note` | Your decision (`yes` to apply) |
 
 The map step also writes `mapping-problems.csv` (validation results), `excluded-urls.csv`
 (system URLs such as `/login` or `/admin`), and `migration-report.md` / `.json`.
 
-### `content-worklist.csv` (content to import or rewrite)
+### `rewrite-worklist.csv` (published articles only; the editorial plan)
+
+`rewrite-plan` writes this file plus:
+- `draft-articles.csv`: drafts, listed for the record only (`legacy_id`, `title`,
+  `original_slug`, `status`, `publication_status`, `legacy_category`, `legacy_section`,
+  `note`)
+- `other-status-articles.csv`: blank, unknown, scheduled or archived records, to check
+- `rewrite-problems.csv`
+- `rewrite-summary.json`: counts by status, URL evidence, suitability and section
+
+With `--expect-published 45 --expect-draft 44` the step fails if the export doesn't
+match those counts.
+
+| Column | Meaning |
+|---|---|
+| `legacy_id` / `title` / `author` | From the export (author for attribution) |
+| `original_published_at` / `original_modified_at` | Publication metadata to carry over where appropriate |
+| `legacy_category` / `legacy_section` | For reference only; never copied as the new section |
+| `original_slug` | Slug as stored in the legacy CMS (never derived from the title) |
+| `original_url` | Exact public URL: the export's `url`, or the live page whose path ends with exactly `original_slug` |
+| `original_canonical_url` / `canonical_source` | Established canonical: `export`, `page` (the page's own canonical tag), or `unverified_app_shell` (the app shell's canonical isn't trusted) |
+| `url_status` | `CONFIRMED` (export URL seen live), `EXPORT_ONLY` (export URL, not yet seen), `FOUND_BY_SLUG`, `AMBIGUOUS` (several live URLs end with the slug: see `url_candidates`), `FIND_URL` (none: look it up, never guess) |
+| `url_candidates` | Competing URLs when `AMBIGUOUS` |
+| `proposed_new_path` | `/articles/<slug>` with the slug of the established canonical (or public) URL. Empty when no URL is known or the slug isn't valid in the new CMS |
+| `canonical_preserved` | `yes`: the canonical path stays identical. `no`: the new path differs and the old path needs one 301 |
+| `url_note` | Explanation |
+| `proposed_section` / `section_status` | New section from an approved taxonomy decision (`DECIDED`), an editor's choice (`EDITOR`), or `NEEDS_DECISION` |
+| `suitability_flags` | Specialist terms found (`medical:…`, `mental_health:…`, `legal:…`, `financial:…`); hints, not decisions |
+| `editorial_suitability` | `GENERAL`, `EXPERT_REVIEW` (default when flagged) or `EXCLUDE` |
+| `suitability_decided_by` | Qualified reviewer or editor who decided. It's required before a flagged article is `READY`, or before it's marked `GENERAL` |
+| `rewrite_status` | `NOT_STARTED`, `ASSIGNED`, `DRAFTING`, `EXPERT_REVIEW`, `READY`, `PUBLISHED_NEW` or `EXCLUDED` |
+| `rewrite_owner` / `editor_notes` | Editorial tracking |
+
+**Re-running the plan.** Editors may change `proposed_section`, `section_status`,
+`editorial_suitability`, `suitability_decided_by`, `rewrite_status`, `rewrite_owner` and
+`editor_notes`. Re-running with `--previous` keeps those columns and recomputes the URL
+columns from the evidence.
+
+**Validation** (`validate-rewrite`) rejects:
+- a non-published row
+- a duplicate id or duplicate new path
+- a path that isn't `/articles/<valid-slug>`
+- a slug that differs from the established URL's slug
+- an invalid status
+- a flagged article marked `GENERAL` without a named reviewer
+- a flagged article marked `READY` before its expert review is recorded
+
+When publishing a rewritten article in the new CMS:
+- Create a new article at `proposed_new_path`. Never edit an existing article to "make
+  it match".
+- Set `source=migrated`, `original_url` (the established URL) and `original_slug`, so the
+  URL mapping redirects the old path automatically.
+- Keep the original topic and author attribution. Set `first_published_at` to the
+  original date where appropriate.
+- Write new, original content: legacy text is not copied, and specialist claims are
+  either reviewed by a qualified expert or removed.
+
+### `content-worklist.csv` (URL-driven content list from `map`)
 
 | Column | Meaning |
 |---|---|
 | `priority` | As in the mapping |
-| `content_action` | `IMPORT` (copy, keep facts), `REWRITE_REVIEW` (thin, under 300 words, or missing author or date: check before publishing), `IMPORT_FROM_EXPORT` (app-shell page: take the text from the database export), `IMPORT_MEDIA`, `FIND_URL` (published article whose URL wasn't found: look it up, never guess), `CREATE_OR_REDIRECT`, `REVIEW` |
+| `content_action` | `REWRITE` (live article without a new page: plan it in the rewrite worklist), `IMPORT_MEDIA` (image or file to review for reuse), `FIND_URL` (published record with no public URL found: look it up, never guess), `CREATE_OR_REDIRECT`, `REVIEW`. Drafts never appear here |
 | `legacy_url` | Legacy URL (empty for `FIND_URL`) |
-| `keep_slug` | Slug to use in the CMS, unchanged |
+| `keep_slug` | The established slug, unchanged |
 | `new_path` | Where it will live (`/articles/<keep_slug>`) |
-| `title` / `author` / `published_time` / `modified_time` / `category` | Preserve these: set the CMS author, `published_at` and `first_published_at` to the original dates and `source=migrated`, `original_url`, `original_slug` |
+| `title` / `author` / `published_time` / `modified_time` / `category` | Attribution and publication metadata for reference |
 | `word_count` / `legacy_class` / `source` / `notes` | Context for the editor |
-
-When importing into the new CMS:
-- Create new articles only. Never edit an existing article to "make it match".
-- Keep the original topic and facts, and record the original author and publication
-  date.
 
 ### Prelaunch outputs
 
@@ -258,11 +363,13 @@ errors. Install it on the new server as
    - Links → Top linked pages (external), exported
    - Pages (indexing report): "Indexed" and "Not found (404)" lists
    - Sitemaps: the submitted sitemap URLs and when they were last read
-2. **The current production database export.** In the old `TPA-backend` schema:
+2. **The current production CMS export, with publication status** (all 89 records:
+   drafts are needed to separate them, not to use them). In the old `TPA-backend`
+   schema, adjust to the deployed schema if it differs:
 
    ```sql
    SELECT a.id, a.slug, a.title, u.name AS author, a.published_at, a.status,
-          c.slug AS category, s.slug AS section
+          a.excerpt, c.slug AS category, s.slug AS section
    FROM articles a
    LEFT JOIN users u ON u.id = a.user_id
    LEFT JOIN categories c ON c.id = a.category_id
@@ -270,14 +377,18 @@ errors. Install it on the new server as
    ORDER BY a.id;
    ```
 
-   Export the result as CSV for `--articles-csv`, and keep a full backup of the database
-   and the uploaded media.
-3. **From the current VPS:**
+   If the deployed CMS stores a canonical or full URL per article, add it as
+   `canonical_url` / `url`. Export the result as CSV for `rewrite-plan --export` and
+   `inventory --articles-csv`, and keep a full backup of the database and the uploaded
+   media. It's a read-only query: the live CMS is not modified.
+3. **Editorial taxonomy decisions** (`taxonomy-decisions.csv`): the new section for each
+   legacy category or section, approved by an editor.
+4. **From the current VPS:**
    - the Nginx (or other web server) site configuration, for any existing redirects
      and rewrite rules
    - 90 days of access logs, for URLs that real visitors and bots request
    - the deployed frontend's route table or build, which shows how root-level article
      URLs like `/50-kindness-quotes-to-brighten-your-day` are served
    - the live `sitemap.xml` and `robots.txt` (the inventory fetches these itself)
-4. **Any earlier sitemaps, Wayback Machine URL lists or old analytics exports,** passed
+5. **Any earlier sitemaps, Wayback Machine URL lists or old analytics exports,** passed
    as extra `--seeds`.

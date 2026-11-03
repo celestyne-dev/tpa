@@ -5,8 +5,11 @@ Rules, in order (the first that applies wins):
  2. The same path exists on the new site                      -> KEEP
  3. The legacy URL already redirected to a page we can place   -> REDIRECT_301 (flattened)
  4. A CMS record names this URL or slug as its original        -> REDIRECT_301
- 5. A new article / topic has the same slug (never invented)   -> REDIRECT_301
- 6. An alias rule (e.g. /about-us -> /about) with a live target -> REDIRECT_301
+ 5. A new article has the same slug (never invented)           -> REDIRECT_301
+    (article URLs never depend on categories or sections)
+ 6. An approved taxonomy decision for a category URL, or an
+    alias rule (e.g. /about-us -> /about), with a live target  -> REDIRECT_301
+    (legacy categories are never matched to new topics automatically)
  7. Gone (404/410) in >= 2 inventories >= 7 days apart, no
     traffic, backlinks or article evidence                     -> RETIRE_410
  8. Everything else                                            -> REVIEW (with the reason)
@@ -31,6 +34,7 @@ from .core import (
     last_segment,
     path_key,
     path_of,
+    publication_status,
     read_csv,
     truthy,
     write_csv,
@@ -59,7 +63,6 @@ DEFAULT_ALIASES = {
 }
 RETIRE_MIN_OBSERVATIONS = 2
 RETIRE_MIN_DAYS = 7
-THIN_WORDS = 300
 SAFE_PATH = re.compile(r"^/[A-Za-z0-9/_\-.~%]*$")
 
 
@@ -180,9 +183,11 @@ class Mapper:
         aliases: dict[str, str] | None = None,
         retire_min_observations: int = RETIRE_MIN_OBSERVATIONS,
         retire_min_days: int = RETIRE_MIN_DAYS,
+        taxonomy=None,
     ):
         self.entries = entries
         self.site = site
+        self.taxonomy = taxonomy  # rewrite.Taxonomy: approved editorial decisions only
         self.articles = articles or []
         self.aliases = {path_key(k): path_key(v) for k, v in (aliases or DEFAULT_ALIASES).items()}
         self.min_obs = retire_min_observations
@@ -192,6 +197,11 @@ class Mapper:
         }
         self.article_paths = {
             path_key(path_of(a["matched_url"])) for a in self.articles if a.get("matched_url")
+        }
+        self.record_status = {
+            path_key(path_of(a["matched_url"])): publication_status(a)
+            for a in self.articles
+            if a.get("matched_url")
         }
         self.overrides = {}
         for row in overrides or []:
@@ -224,11 +234,15 @@ class Mapper:
                 "REDIRECT_301", site.article_slugs[slug], "slug",
                 f"New article with the same slug '{slug}'.",
             )  # fmt: skip
-        if kind in ("category", "page") and slug in site.topic_slugs:
-            return Decision(
-                "REDIRECT_301", site.topic_slugs[slug], "slug",
-                f"New topic with the same slug '{slug}'.",
-            )  # fmt: skip
+        # Legacy taxonomy is never reused automatically: a category/section URL moves
+        # only by an approved editorial taxonomy decision (--taxonomy).
+        if kind in ("category", "page") and self.taxonomy is not None:
+            topic = self.taxonomy.topic_path_for(key)
+            if topic and topic in site.paths:
+                return Decision(
+                    "REDIRECT_301", topic, "taxonomy",
+                    f"Approved taxonomy decision: {key} -> {topic}.",
+                )  # fmt: skip
         alias = self.aliases.get(key)
         if alias and alias in site.paths:
             return Decision("REDIRECT_301", alias, "rule", f"Renamed page ({key} -> {alias}).")
@@ -314,15 +328,14 @@ class Mapper:
             return "NONE"
         if kind == "media":
             return "IMPORT_MEDIA"
-        if row.get("page_class") == "shell_only":
-            return "IMPORT_FROM_EXPORT"
-        if row.get("page_class") != "ok":
-            return "REVIEW"
         if kind == "article":
-            thin = as_int(row.get("word_count")) < THIN_WORDS
-            if thin or not row.get("author") or not row.get("published_time"):
-                return "REWRITE_REVIEW"
-            return "IMPORT"
+            # Published articles are rewritten from scratch (rewrite-plan); legacy text is
+            # never copied. A draft record is neither rewritten nor imported.
+            if self.record_status.get(entry.key) == "draft":
+                return "DRAFT_NO_ACTION"
+            return "REWRITE" if row.get("page_class") in ("ok", "shell_only") else "REVIEW"
+        if row.get("page_class") not in ("ok", "shell_only"):
+            return "REVIEW"
         return "CREATE_OR_REDIRECT"
 
     def priority(self, entry: Entry) -> str:
@@ -383,7 +396,7 @@ class Mapper:
                 records[path_key(path_of(a["matched_url"]))] = a
         out = []
         for m in mapping:
-            if m["content_action"] in ("NONE", ""):
+            if m["content_action"] in ("NONE", "", "DRAFT_NO_ACTION"):
                 continue
             entry = self.entries[m["legacy_path"]]
             record = records.get(m["legacy_path"], {})
@@ -411,7 +424,7 @@ class Mapper:
                 }
             )
         for a in self.articles:  # published records with no URL found: never invent one
-            if truthy(a.get("no_public_url")):
+            if truthy(a.get("no_public_url")) and publication_status(a) == "published":
                 out.append(
                     {
                         "priority": "high",
