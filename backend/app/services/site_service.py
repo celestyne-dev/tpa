@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import select
 
 from ..cms.routing import OVERRIDABLE_PATHS
-from ..cms.settings_registry import SOCIAL_PLATFORMS
+from ..cms.settings_registry import AI_TRAINING_CRAWLERS, SOCIAL_PLATFORMS, training_crawler_key
 from ..extensions import db
 from ..models import MediaAsset, Page
 from ..utils.validation import is_https_url
@@ -41,6 +41,20 @@ def overridden_builtin_paths() -> list[str]:
         )
     )
     return sorted(live)
+
+
+def _policy_page(path: str | None) -> dict[str, str] | None:
+    """A trust page (editorial / corrections policy) only while it is a published CMS page:
+    nothing is linked or claimed until the policy itself exists."""
+    if not path or not path.startswith("/"):
+        return None
+    page = db.session.scalar(
+        select(Page).where(Page.status == "published", Page.published_path == path)
+    )
+    if page is None:
+        return None
+    snap = (page.published_snapshot or {}).get("page") or {}
+    return {"path": path, "title": snap.get("title") or page.title}
 
 
 def get_site_settings() -> dict[str, Any]:
@@ -84,6 +98,16 @@ def get_site_settings() -> dict[str, Any]:
             "organization_logo": _media_image(v["seo.organization_logo_media_id"]),
             "allow_indexing": v["seo.allow_indexing"] is not False,
             "canonical_site_url": v["seo.canonical_site_url"] or None,
+            # robots.txt: training crawlers not approved in Admin › Settings › Technical.
+            "blocked_training_crawlers": [
+                token
+                for token, _who, _what in AI_TRAINING_CRAWLERS
+                if v.get(training_crawler_key(token)) is not True
+            ],
+        },
+        "trust": {
+            "editorial_policy": _policy_page(v["trust.editorial_policy_path"]),
+            "corrections_policy": _policy_page(v["trust.corrections_policy_path"]),
         },
         "header": {
             "cta": {"label": v["header.cta_label"], "href": v["header.cta_url"]}

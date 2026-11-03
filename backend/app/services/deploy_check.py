@@ -238,6 +238,82 @@ def _services(cfg) -> list[dict[str, str]]:
     return out
 
 
+# Production and staging share one VPS: each must use its own database, Redis key prefix,
+# storage and publishing folders and API port. A value naming the other tier is refused.
+TIERS = ("production", "staging")
+TIER_PORTS = {"production": 8101, "staging": 8100}
+ISOLATED_SETTINGS = (
+    "RATELIMIT_KEY_PREFIX",
+    "SITE_URL",
+    "MEDIA_ROOT",
+    "PRODUCT_FILES_ROOT",
+    "UPLOAD_TEMP_ROOT",
+    "PUBLISH_RELEASES_DIR",
+    "PUBLISH_CURRENT_LINK",
+    "FRONTEND_BUILD_MANIFEST",
+    "FRONTEND_DIR",
+    "PUBLISH_API_URL",
+    "BACKUP_STATUS_FILE",
+)
+
+
+def _names_tier(value: str, tier: str) -> bool:
+    """True when ``value`` names ``tier`` as a word (tpa_staging, staging.example.com,
+    /var/www/tpa-production-site), not as part of another word."""
+    import re
+
+    words = {"production": r"prod(uction)?", "staging": r"stag(ing|e)"}[tier]
+    return re.search(rf"(?<![a-z0-9]){words}(?![a-z0-9])", value.lower()) is not None
+
+
+def _isolation(cfg) -> list[dict[str, str]]:
+    tier = str(cfg.get("TPA_ENVIRONMENT") or "")
+    if tier not in TIERS:
+        return [
+            _result(
+                "TPA_ENVIRONMENT",
+                WARNING,
+                "Set TPA_ENVIRONMENT=production or staging so this check can confirm the "
+                "deployment doesn't use the other environment's database, Redis prefix, "
+                "folders or port.",
+            )
+        ]
+    other = TIERS[1 - TIERS.index(tier)]
+    out = [_result("TPA_ENVIRONMENT", OK, tier)]
+    crossed = []
+    database = urlsplit(str(cfg.get("SQLALCHEMY_DATABASE_URI") or "")).path.lstrip("/")
+    if database and _names_tier(database, other):
+        crossed.append(f"DATABASE_URL (database {database})")
+    for name in ISOLATED_SETTINGS:
+        value = str(cfg.get(name) or "")
+        if value and _names_tier(value, other):
+            crossed.append(name)
+    port = urlsplit(str(cfg.get("PUBLISH_API_URL") or "")).port
+    if port == TIER_PORTS[other]:
+        crossed.append(f"PUBLISH_API_URL (port {port} is the {other} API)")
+    if crossed:
+        out.append(
+            _result(
+                "isolation",
+                ERROR,
+                f"This {tier} configuration points at {other}: {', '.join(crossed)}.",
+            )
+        )
+    else:
+        out.append(_result("isolation", OK, f"no {other} database, prefix, folder or port."))
+    prefix = str(cfg.get("RATELIMIT_KEY_PREFIX") or "")
+    if not _names_tier(prefix, tier):
+        out.append(
+            _result(
+                "RATELIMIT_KEY_PREFIX",
+                WARNING,
+                f"Use a {tier}-specific prefix (e.g. tpa-{tier}) when both tiers share Redis, "
+                "so one tier's rate limits never block the other.",
+            )
+        )
+    return out
+
+
 def run_checks(*, database: bool = True) -> list[dict[str, str]]:
     cfg = current_app.config
     results = [
@@ -247,6 +323,7 @@ def run_checks(*, database: bool = True) -> list[dict[str, str]]:
     ]
     # Start-up problems found by app/preflight.py (the app would refuse to start).
     results += list(cfg.get("DEPLOY_STARTUP_RESULTS") or [])
+    results += _isolation(cfg)
     results += _secrets(cfg)
     if cfg.get("DEPLOY_APP_UNAVAILABLE"):
         # Extensions didn't initialise: report the settings, skip live connections.

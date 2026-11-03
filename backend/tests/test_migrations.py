@@ -252,8 +252,11 @@ def test_batch03_upgrade_preserves_content_and_adds_permissions(tmp_path):
         # it (raiseload fails loudly instead of querying). The backref exists once mappers
         # are configured.
         configure_mappers()
+        # articles.content_modified_at arrives later (technical release): don't select it.
         article = db.session.scalar(
-            db.select(Article).where(Article.slug == "kept").options(raiseload(Article.sponsorship))
+            db.select(Article)
+            .where(Article.slug == "kept")
+            .options(raiseload(Article.sponsorship), defer(Article.content_modified_at))
         )
         assert article.lock_version == 1 and article.pending_changes is None
         assert article.featured_image_id == media_id

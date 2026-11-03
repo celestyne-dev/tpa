@@ -46,6 +46,8 @@ class TopicSchema(Schema):
 class AuthorSchema(Schema):
     slug = fields.String()
     name = fields.String()
+    # True when /authors/<slug> exists (absent otherwise).
+    has_page = fields.Boolean()
 
 
 class AuthorProfileSchema(AuthorSchema):
@@ -65,6 +67,7 @@ class ArticleSummarySchema(Schema):
     author = fields.Nested(AuthorSchema)
     published_at = fields.String()
     updated_at = fields.String(allow_none=True)
+    content_modified_at = fields.String(allow_none=True)
     featured = fields.Boolean()
     reading_time_minutes = fields.Integer()
     image = fields.Nested(ImageSchema)

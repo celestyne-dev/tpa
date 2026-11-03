@@ -25,6 +25,25 @@ SOCIAL_PLATFORMS = {
 }
 
 
+# AI model-training crawlers: blocked in robots.txt unless approved one by one here.
+# (token, who, what it's used for). AI *search* crawlers (OAI-SearchBot, ChatGPT-User,
+# Claude-SearchBot, Claude-User, PerplexityBot, Perplexity-User) and search engines are
+# never listed: they follow the normal rules and stay allowed.
+AI_TRAINING_CRAWLERS = (
+    ("GPTBot", "OpenAI", "training OpenAI models"),
+    ("ClaudeBot", "Anthropic", "training Anthropic models"),
+    ("Google-Extended", "Google", "training Gemini and grounding Gemini answers"),
+    ("Applebot-Extended", "Apple", "training Apple's AI models"),
+    ("CCBot", "Common Crawl", "public web datasets used to train AI models"),
+    ("Meta-ExternalAgent", "Meta", "training Meta's AI models"),
+    ("Bytespider", "ByteDance", "training ByteDance's AI models"),
+)
+
+
+def training_crawler_key(token: str) -> str:
+    return f"seo.allow_ai_training.{token.lower()}"
+
+
 @dataclass(frozen=True)
 class SettingDef:
     key: str
@@ -405,6 +424,38 @@ SETTINGS += [
         _const(""),
         200,
         "e.g. https://thinkpositivealways.com. Leave empty to use the deployment's SITE_URL.",
+    ),
+    SettingDef(
+        "trust.editorial_policy_path",
+        "Editorial policy page",
+        "Trust",
+        "path_or_https",
+        _const("/editorial-policy"),
+        200,
+        "Site path of your published editorial policy page (create it under Pages). Linked "
+        "in the footer and in Organization structured data only while that page is published.",
+    ),
+    SettingDef(
+        "trust.corrections_policy_path",
+        "Corrections policy page",
+        "Trust",
+        "path_or_https",
+        _const("/corrections-policy"),
+        200,
+        "Site path of your published corrections policy page. Linked in the footer and in "
+        "structured data only while that page is published.",
+    ),
+    *(
+        SettingDef(
+            training_crawler_key(token),
+            f"Allow {token} ({who}) to use the site for AI training",
+            "Technical",
+            "boolean",
+            _const(False),
+            help=f"Off: robots.txt blocks {token} ({what}). Search engines and AI search "
+            "crawlers are not affected. Takes effect at the next publish.",
+        )
+        for token, who, what in AI_TRAINING_CRAWLERS
     ),
 ]
 

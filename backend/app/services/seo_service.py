@@ -705,10 +705,21 @@ def sitemap_entries() -> list[dict[str, Any]]:
                 "path": article_path(article.slug),
                 "priority": 0.8,
                 "changefreq": "monthly",
-                "lastmod": iso(max(article.updated_at, article.published_at)),
+                # Publication, or the last material update (not every database save).
+                "lastmod": iso(
+                    max(article.content_modified_at or article.published_at, article.published_at)
+                ),
                 "images": _image_entries(article),
             }
         )
+    from .article_service import authors_with_pages
+
+    for author, _count in authors_with_pages():
+        path = f"/authors/{author.slug}"
+        if path not in excluded:
+            entries.append(
+                {"type": "author", "path": path, "priority": 0.4, "changefreq": "monthly"}
+            )
     entries.extend(_shop_entries(excluded))
     entries.extend(_course_entries(excluded))
     return entries

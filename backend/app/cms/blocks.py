@@ -5,6 +5,10 @@ accepted. Unknown block types and unknown fields are rejected. Media are
 referenced by id (resolved to optimised images when the article is served),
 videos by provider + id (never by embed code), and links must be internal
 paths or https URLs.
+
+Paragraphs, list items, callouts and table cells may contain inline links written as
+``[label](href)``. They are parsed (never rendered as HTML) and each href must be a site
+path, an https URL or a mailto: address; anything else is rejected.
 """
 
 from __future__ import annotations
@@ -40,6 +44,7 @@ _TEXT_FIELDS: dict[str, dict[str, tuple[bool, int]]] = {
     "related": {"title": (False, 120)},
     "resource": {"title": (True, 120), "description": (False, 400), "label": (False, 60)},
     "table": {"caption": (False, 200)},
+    "sources": {"title": (False, 120)},
 }
 _EXTRA_FIELDS = {
     "heading": {"level"},
@@ -53,7 +58,14 @@ _EXTRA_FIELDS = {
     "related": {"article_ids"},
     "resource": {"href", "kind", "media_id"},
     "table": {"rows", "header_row"},
+    "sources": {"items"},
 }
+# Text fields that may contain inline [label](href) links.
+INLINE_LINK_BLOCKS = ("paragraph", "callout", "list", "table")
+INLINE_LINK = re.compile(r"\[([^\[\]\n]{1,200})\]\(([^()\s]{1,500})\)")
+_MAILTO = re.compile(r"^mailto:[^@\s/?#]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$")
+MAX_SOURCES = 30
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 BLOCK_TYPES = tuple(_TEXT_FIELDS)
 
 _INTERNAL_PATH = re.compile(
@@ -82,6 +94,39 @@ def _text(value: Any, label: str, max_len: int, errors: list[str], required: boo
 
 def safe_href(value: Any) -> bool:
     return isinstance(value, str) and (bool(_INTERNAL_PATH.match(value)) or is_https_url(value))
+
+
+def safe_inline_href(value: str) -> bool:
+    """Inline links: site paths, https URLs and mailto: addresses only."""
+    return safe_href(value) or bool(_MAILTO.match(value))
+
+
+def inline_links(text: str) -> list[tuple[str, str]]:
+    """(label, href) pairs written as [label](href) in a text field."""
+    return INLINE_LINK.findall(text or "")
+
+
+def strip_inline_links(text: str) -> str:
+    """The text as read: [label](href) becomes label."""
+    return INLINE_LINK.sub(lambda m: m.group(1), text or "")
+
+
+_LINK_SCHEME = re.compile(r"\]\(\s*([A-Za-z][A-Za-z0-9+.-]*):")
+
+
+def _check_inline_links(value: str | None, label: str, errors: list[str]) -> None:
+    # Any link-like text with another scheme (javascript:, data:, http:) is refused, even
+    # when it isn't well-formed enough to become a link.
+    for scheme in _LINK_SCHEME.findall(value or ""):
+        if scheme.lower() not in ("https", "mailto"):
+            errors.append(f"{label}: links can't use {scheme.lower()}: addresses.")
+            return
+    for text, href in inline_links(value or ""):
+        if not safe_inline_href(href):
+            errors.append(
+                f'{label}: the link "{text}" must point to a site path (/topics/confidence), '
+                "an https:// address or a mailto: address."
+            )
 
 
 def _href(value: Any, label: str, errors: list[str]) -> str | None:
@@ -152,6 +197,40 @@ def _validate_extras(kind: str, block: dict[str, Any], out: dict[str, Any], erro
         if not isinstance(ordered, bool):
             errors.append("Ordered must be true or false.")
         out["ordered"] = bool(ordered)
+        for i, item in enumerate(out["items"]):
+            _check_inline_links(item, f"Item {i + 1}", errors)
+    elif kind == "sources":
+        items = block.get("items")
+        if not isinstance(items, list) or not 1 <= len(items) <= MAX_SOURCES:
+            errors.append(f"Sources need between 1 and {MAX_SOURCES} entries.")
+            items = items if isinstance(items, list) else []
+        clean_sources = []
+        allowed = {"title", "url", "publisher", "accessed"}
+        for i, item in enumerate(items[:MAX_SOURCES]):
+            label = f"Source {i + 1}"
+            if not isinstance(item, dict) or set(item) - allowed:
+                errors.append(f"{label} is invalid.")
+                continue
+            entry: dict[str, Any] = {}
+            title = _text(item.get("title"), f"{label} title", 300, errors, True)
+            if title is not None:
+                entry["title"] = title
+            url = str(item.get("url") or "").strip()
+            if not is_https_url(url) or len(url) > 500:
+                errors.append(f"{label} needs an https:// address.")
+            else:
+                entry["url"] = url
+            publisher = _text(item.get("publisher"), f"{label} publisher", 120, errors, False)
+            if publisher is not None:
+                entry["publisher"] = publisher
+            accessed = item.get("accessed")
+            if accessed not in (None, ""):
+                if not isinstance(accessed, str) or not _ISO_DATE.match(accessed):
+                    errors.append(f"{label} accessed date must be YYYY-MM-DD.")
+                else:
+                    entry["accessed"] = accessed
+            clean_sources.append(entry)
+        out["items"] = clean_sources
     elif kind == "callout":
         tone = block.get("tone", "info")
         if tone not in CALLOUT_TONES:
@@ -249,6 +328,9 @@ def _validate_extras(kind: str, block: dict[str, Any], out: dict[str, Any], erro
                 cells.append(value or "")
             clean_rows.append(cells)
         out["rows"] = clean_rows
+        for r, row in enumerate(clean_rows):
+            for c, cell in enumerate(row):
+                _check_inline_links(cell, f"Cell {r + 1}.{c + 1}", errors)
         header = block.get("header_row", True)
         if not isinstance(header, bool):
             errors.append("Header row must be true or false.")
@@ -279,6 +361,8 @@ def validate_blocks(blocks: Any) -> list[dict[str, Any]]:
             value = _text(block.get(field), label, max_len, errors, required)
             if value is not None:
                 out[field] = value
+                if field == "text" and kind in INLINE_LINK_BLOCKS:
+                    _check_inline_links(value, label, errors)
         _validate_extras(kind, block, out, errors)
         if errors:
             problems[str(index)] = errors
@@ -310,11 +394,13 @@ def blocks_word_count(blocks: list[dict[str, Any]]) -> int:
     for block in blocks:
         kind = block.get("type")
         if kind == "list":
-            words += sum(len(i.split()) for i in block.get("items", []))
+            words += sum(len(strip_inline_links(i).split()) for i in block.get("items", []))
         elif kind == "table":
-            words += sum(len(c.split()) for row in block.get("rows", []) for c in row)
+            words += sum(
+                len(strip_inline_links(c).split()) for row in block.get("rows", []) for c in row
+            )
         elif kind in ("paragraph", "heading", "quote", "pullquote", "callout"):
-            words += len(str(block.get("text", "")).split())
+            words += len(strip_inline_links(str(block.get("text", ""))).split())
             if kind == "callout":
                 words += len(str(block.get("title", "")).split())
     return words
@@ -324,6 +410,18 @@ def heading_outline(blocks: list[dict[str, Any]]) -> list[tuple[int, str]]:
     return [(b.get("level", 2), b.get("text", "")) for b in blocks if b.get("type") == "heading"]
 
 
+def block_texts(block: dict[str, Any]) -> list[str]:
+    """Every text in a block that may hold inline links."""
+    kind = block.get("type")
+    if kind == "list":
+        return [str(i) for i in block.get("items", [])]
+    if kind == "table":
+        return [str(c) for row in block.get("rows", []) for c in row]
+    if kind in INLINE_LINK_BLOCKS:
+        return [str(block.get("text", ""))]
+    return []
+
+
 def internal_links(blocks: list[dict[str, Any]]) -> list[str]:
     hrefs = []
     for block in blocks or []:
@@ -331,4 +429,21 @@ def internal_links(blocks: list[dict[str, Any]]) -> list[str]:
             value = block.get(field)
             if isinstance(value, str) and value.startswith("/"):
                 hrefs.append(value)
+        for text in block_texts(block):
+            hrefs += [href for _label, href in inline_links(text) if href.startswith("/")]
     return hrefs
+
+
+def plain_text(blocks: list[dict[str, Any]]) -> str:
+    """The readable text of a body (search, feeds): no link syntax, no structure."""
+    parts: list[str] = []
+    for block in blocks or []:
+        kind = block.get("type")
+        for field in ("title", "text", "caption", "cite", "description"):
+            if isinstance(block.get(field), str):
+                parts.append(strip_inline_links(block[field]))
+        if kind in ("list", "table"):
+            parts += [strip_inline_links(t) for t in block_texts(block)]
+        if kind == "sources":
+            parts += [i.get("title", "") for i in block.get("items", [])]
+    return " ".join(p for p in parts if p)

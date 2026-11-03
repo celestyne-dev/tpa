@@ -297,6 +297,9 @@ class Article(TimestampMixin, db.Model):
     )
     # Set the first time the article goes live; once set, the slug is locked.
     first_published_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Set only when an editor publishes a change marked as a material update: the public
+    # "Last updated" date and dateModified. Never set automatically; NULL = not updated.
+    content_modified_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     # SEO
     seo_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     meta_description: Mapped[str | None] = mapped_column(String(320), nullable=True)

@@ -79,8 +79,9 @@ DEFAULT_MENUS["legal"] = {
     "name": "Footer legal links",
     "allows_groups": False,
     "help": "Shown in the bottom bar of the footer.",
-    # A discreet way in for staff; the public header's Log in button is for customers.
-    "items": [{"label": "Staff login", "url": "/admin/login"}],
+    # Empty by default: staff sign in at /admin/login, which needn't be advertised on every
+    # public page. Existing menus are unchanged; a link can still be added here.
+    "items": [],
 }
 
 

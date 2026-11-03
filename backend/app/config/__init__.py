@@ -56,6 +56,11 @@ class BaseConfig:
     PROPAGATE_EXCEPTIONS = False
     CORS_ORIGINS = _list("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
     TRUST_PROXY = _bool("TRUST_PROXY")
+    # Which deployment this is (production | staging). Both run FLASK_CONFIG=production;
+    # this names the tier so `flask deploy check` can refuse cross-environment settings.
+    TPA_ENVIRONMENT = (os.environ.get("TPA_ENVIRONMENT") or "").strip().lower()
+    # The deployed code's commit (set by the deploy procedure); shown by /api/v1/health.
+    RELEASE_ID = (os.environ.get("TPA_RELEASE") or "").strip()[:40] or "unknown"
 
     # ---- Authentication (Flask-JWT-Extended, HttpOnly cookies) ----
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or "dev-insecure-jwt-secret-change-me"

@@ -3,7 +3,13 @@
 from flask import Blueprint
 from flask_restful import Api
 
-from .articles import ArticleDetailResource, ArticleListResource
+from .articles import (
+    ArticleDetailResource,
+    ArticleListResource,
+    AuthorDetailResource,
+    AuthorListResource,
+    SearchResource,
+)
 from .health import HealthResource, ReadinessResource
 from .pages import PageListPublicResource, PageResolveResource
 from .products import ProductListResource
@@ -28,6 +34,9 @@ api.add_resource(TopicListResource, "/topics")
 api.add_resource(TopicDetailResource, "/topics/<string:slug>")
 api.add_resource(ArticleListResource, "/articles")
 api.add_resource(ArticleDetailResource, "/articles/<string:slug>")
+api.add_resource(AuthorListResource, "/authors")
+api.add_resource(AuthorDetailResource, "/authors/<string:slug>")
+api.add_resource(SearchResource, "/search")
 api.add_resource(ProductListResource, "/products")
 api.add_resource(SitemapResource, "/sitemap")
 api.add_resource(PageListPublicResource, "/pages")

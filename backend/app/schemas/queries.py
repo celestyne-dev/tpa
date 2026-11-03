@@ -27,6 +27,21 @@ class ArticleListQuerySchema(Schema):
     page_size = fields.Integer(load_default=12, validate=validate.Range(min=1, max=50))
 
 
+class PageQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    page = fields.Integer(load_default=1, validate=validate.Range(min=1, max=10_000))
+
+
+class SearchQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    q = fields.String(load_default="", validate=validate.Length(max=100))
+    page = fields.Integer(load_default=1, validate=validate.Range(min=1, max=100))
+
+
 def is_valid_slug(value: str) -> bool:
     return len(value) <= 120 and re.fullmatch(SLUG_PATTERN, value) is not None
 

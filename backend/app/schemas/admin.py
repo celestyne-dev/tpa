@@ -155,10 +155,16 @@ class ArticleSaveSchema(ArticleWriteSchema):
     lock_version = fields.Integer(allow_none=True, validate=validate.Range(min=1))
     mode = fields.String(load_default="save", validate=validate.OneOf(["save", "autosave"]))
     change_summary = Text(200, allow_none=True)
+    # Published articles: show a new "Last updated" date (a material change only).
+    material_update = fields.Boolean(load_default=False)
 
 
 class LockSchema(StrictSchema):
     lock_version = fields.Integer(allow_none=True, load_default=None)
+
+
+class PublishChangesSchema(LockSchema):
+    material_update = fields.Boolean(load_default=False)
 
 
 class RevisionCompareSchema(Schema):

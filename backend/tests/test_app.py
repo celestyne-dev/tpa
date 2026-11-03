@@ -12,7 +12,28 @@ def test_health(client):
         "service": "tpa-api",
         "version": "v1",
         "environment": "testing",
+        "tier": "unset",
+        "release": "unknown",
     }
+
+
+def test_health_names_the_tier_and_release_without_details(monkeypatch):
+    monkeypatch.setenv("TPA_ENVIRONMENT", "Staging")
+    monkeypatch.setenv("TPA_RELEASE", "f64aefa")
+    import importlib
+
+    import app.config as config
+
+    importlib.reload(config)
+    try:
+        app = create_app("testing")
+        data = app.test_client().get("/api/v1/health").get_json()["data"]
+        assert (data["tier"], data["release"]) == ("staging", "f64aefa")
+        assert set(data) == {"status", "service", "version", "environment", "tier", "release"}
+    finally:
+        monkeypatch.delenv("TPA_ENVIRONMENT")
+        monkeypatch.delenv("TPA_RELEASE")
+        importlib.reload(config)
 
 
 def test_security_headers(client):

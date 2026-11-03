@@ -110,8 +110,21 @@ def expand_body(body: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def author_has_page(author: Author | None) -> bool:
+    """Author pages exist only for active authors marked as real people with a bio
+    (editorial bylines stay attributed to the organisation)."""
+    return bool(
+        author and author.status == "active" and author.is_person and (author.bio or "").strip()
+    )
+
+
 def author_ref(author: Author | None) -> dict[str, Any] | None:
-    return {"slug": author.slug, "name": author.display_name} if author else None
+    if author is None:
+        return None
+    ref = {"slug": author.slug, "name": author.display_name}
+    if author_has_page(author):
+        ref["has_page"] = True
+    return ref
 
 
 def topic_ref(topic: Topic | None) -> dict[str, Any] | None:
@@ -134,6 +147,8 @@ def public_article(article: Article, *, include_body: bool = True) -> dict[str, 
         "author": author_ref(article.author) or {"slug": "tpa", "name": "Think Positive Always"},
         "published_at": iso(article.published_at),
         "updated_at": iso(article.updated_at),
+        # The public "Last updated" date: set only for material updates (else null).
+        "content_modified_at": iso(article.content_modified_at),
         "featured": article.featured,
         "reading_time_minutes": reading_time(article.body or []),
         "image": image,
@@ -193,6 +208,7 @@ def _author_profile(author: Author | None) -> dict[str, Any] | None:
         "bio": author.bio,
         "image": portrait,
         "is_person": author.is_person,
+        "has_page": author_has_page(author),
     }
 
 

@@ -172,9 +172,9 @@ def test_recovery_never_reveals_staff_accounts(seeded):
         assert client.post(path, json={"email": "staff.only@example.org"}).status_code in (404, 405)
 
 
-def test_staff_login_link_is_a_default_footer_link_without_warnings(seeded, client):
+def test_staff_login_is_not_advertised_by_default_but_can_be_linked(seeded, client):
     legal = client.get("/api/v1/site").get_json()["data"]["navigation"]["legal"]
-    assert {"label": "Staff login", "url": "/admin/login"}.items() <= legal[0].items()
+    assert all(item.get("url") != "/admin/login" for item in legal)
     with seeded.app_context():
         items = [{"link_type": "internal", "url": u} for u in ("/admin/login", "/login")]
         assert navigation_service.link_warnings(items) == []

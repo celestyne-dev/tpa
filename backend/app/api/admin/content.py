@@ -11,6 +11,7 @@ from ...schemas.admin import (
     ArticleWriteSchema,
     AuthorWriteSchema,
     LockSchema,
+    PublishChangesSchema,
     PublishSchema,
     ReassignSchema,
     RevisionCompareSchema,
@@ -64,6 +65,7 @@ class ArticleResource(Resource):
         mode = data.pop("mode", "save")
         lock_version = data.pop("lock_version", None)
         summary = data.pop("change_summary", None)
+        material = data.pop("material_update", False)
         result = article_admin.update_article(
             article,
             data,
@@ -71,6 +73,7 @@ class ArticleResource(Resource):
             mode=mode,
             lock_version=lock_version,
             summary=summary,
+            material_update=material,
         )
         db.session.commit()
         return success(article_admin.admin_detail(article, current_user), {"save_result": result})
@@ -120,8 +123,12 @@ class ArticlePublishChangesResource(Resource):
     @require_permission(P.ARTICLES_PUBLISH)
     def post(self, article_id: int):
         article = article_admin.get_article_for(article_id, current_user)
+        body = load_body(PublishChangesSchema())
         article_admin.publish_changes(
-            article, current_user, load_body(LockSchema())["lock_version"]
+            article,
+            current_user,
+            body["lock_version"],
+            material_update=body["material_update"],
         )
         db.session.commit()
         return success(article_admin.admin_detail(article, current_user))

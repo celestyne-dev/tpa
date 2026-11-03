@@ -699,3 +699,114 @@ def test_backup_scripts_move_the_database_password_out_of_the_url():
     for script in ("tpa-backup.sh", "tpa-restore.sh"):
         text = (ROOT / "deploy" / "backup" / script).read_text()
         assert "tpa-pg-env.sh" in text and "pg_url_to_env" in text, script
+
+
+# ---- production / staging isolation --------------------------------------------------------
+
+PRODUCTION_ENV = ROOT / "deploy" / "env" / "production.env.example"
+
+
+def _filled_in_production_env(tmp_path: Path) -> dict[str, str]:
+    staging = _filled_in_staging_env(tmp_path)
+    secrets = {k: staging[k] for k in ("SECRET_KEY", "JWT_SECRET_KEY", "MAIL_SMTP_PASSWORD")}
+    return (
+        _env(PRODUCTION_ENV)
+        | secrets
+        | {
+            "MAIL_SMTP_HOST": "smtp.example.net",
+            "DATABASE_URL": "postgresql+psycopg://tpa_production:db-password-123@127.0.0.1:1/tpa_production",
+            "PAYSTACK_SECRET_KEY": "sk_test_" + "a" * 40,
+            "PAYSTACK_PUBLIC_KEY": "pk_test_" + "b" * 40,
+            "MEDIA_ROOT": str(tmp_path / "tpa-production" / "media"),
+            "PRODUCT_FILES_ROOT": str(tmp_path / "tpa-production" / "private"),
+            "UPLOAD_TEMP_ROOT": str(tmp_path / "tpa-production" / "uploads"),
+            "PUBLISH_RELEASES_DIR": str(tmp_path / "tpa-production-site" / "releases"),
+            "PUBLISH_CURRENT_LINK": str(tmp_path / "tpa-production-site" / "current"),
+            "RATELIMIT_STORAGE_URI": "redis://127.0.0.1:1/0",
+        }
+    )
+
+
+def _check(report: dict, name: str) -> dict:
+    return next(r for r in report["results"] if r["check"] == name)
+
+
+def test_production_template_is_safe_and_names_its_tier():
+    env = _env(PRODUCTION_ENV)
+    assert env["TPA_ENVIRONMENT"] == "production" and env["FLASK_CONFIG"] == "production"
+    for key in ("SECRET_KEY", "JWT_SECRET_KEY", "MAIL_SMTP_PASSWORD"):
+        assert env[key] == "CHANGE-ME", key
+    assert env["PAYMENTS_LIVE_ALLOWED"] == "false" and env["NEWSLETTER_LIVE_ALLOWED"] == "false"
+    assert env["PUBLISH_API_URL"] == "http://127.0.0.1:8101/api/v1"
+    assert env["DATABASE_URL"].endswith("/tpa_production")
+    from app.services.deploy_check import _names_tier
+
+    assert not [k for k, v in env.items() if _names_tier(v, "staging")]  # no staging values
+    documented = set(re.findall(r"^#?\s?([A-Z0-9_]+)=", ENV_EXAMPLE.read_text(), re.M))
+    assert set(env) - documented == set()
+    assert _env(STAGING_ENV)["TPA_ENVIRONMENT"] == "staging"
+
+
+def test_filled_in_production_template_passes_isolation(tmp_path):
+    res, report = _deploy_report(_filled_in_production_env(tmp_path))
+    assert _check(report, "TPA_ENVIRONMENT")["level"] == "ok"
+    assert _check(report, "isolation")["level"] == "ok", report
+    assert _errors(report) == {"RATELIMIT_STORAGE_URI"}, report  # only Redis is missing here
+    _assert_no_secrets(res)
+
+
+@pytest.mark.parametrize(
+    ("tier", "change", "named"),
+    [
+        (
+            "production",
+            {"DATABASE_URL": "postgresql+psycopg://u:db-password-123@127.0.0.1:1/tpa_staging"},
+            "DATABASE_URL (database tpa_staging)",
+        ),
+        ("production", {"RATELIMIT_KEY_PREFIX": "tpa-staging"}, "RATELIMIT_KEY_PREFIX"),
+        (
+            "production",
+            {"PUBLISH_API_URL": "http://127.0.0.1:8100/api/v1"},
+            "port 8100 is the staging API",
+        ),
+        (
+            "production",
+            {"PUBLISH_CURRENT_LINK": "/var/www/tpa-staging-site/current"},
+            "PUBLISH_CURRENT_LINK",
+        ),
+        (
+            "staging",
+            {"DATABASE_URL": "postgresql+psycopg://u:db-password-123@127.0.0.1:1/tpa_production"},
+            "database tpa_production",
+        ),
+        (
+            "staging",
+            {"PUBLISH_API_URL": "http://127.0.0.1:8101/api/v1"},
+            "port 8101 is the production API",
+        ),
+        ("staging", {"SITE_URL": "https://prod.example.com"}, "SITE_URL"),
+    ],
+)
+def test_deploy_check_refuses_settings_from_the_other_tier(tmp_path, tier, change, named):
+    base = (
+        _filled_in_production_env(tmp_path)
+        if tier == "production"
+        else _filled_in_staging_env(tmp_path)
+    )
+    res, report = _deploy_report(base | change)
+    isolation = _check(report, "isolation")
+    assert isolation["level"] == "error" and named in isolation["message"], isolation
+    assert report["status"] == "error" and res.returncode == 2
+    _assert_no_secrets(res, "db-password-123")
+
+
+def test_deploy_check_asks_for_the_tier_and_ignores_lookalike_words(tmp_path):
+    env = _filled_in_staging_env(tmp_path)
+    env.pop("TPA_ENVIRONMENT")
+    _, report = _deploy_report(env)
+    assert _check(report, "TPA_ENVIRONMENT")["level"] == "warning"
+    from app.services.deploy_check import _names_tier
+
+    assert _names_tier("tpa_staging", "staging") and _names_tier("/srv/prod/site", "production")
+    assert not _names_tier("/var/lib/tpa/stagecoach", "staging")
+    assert not _names_tier("https://products.example.com", "production")

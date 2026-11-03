@@ -16,6 +16,9 @@ class HealthResource(Resource):
                 "service": "tpa-api",
                 "version": "v1",
                 "environment": current_app.config.get("ENV_NAME", "unknown"),
+                # Which deployment answered and which code it runs (no hosts or paths).
+                "tier": current_app.config.get("TPA_ENVIRONMENT") or "unset",
+                "release": current_app.config.get("RELEASE_ID", "unknown"),
             }
         )
 

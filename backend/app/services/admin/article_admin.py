@@ -153,6 +153,7 @@ def admin_detail(a: Article, user: User | None = None) -> dict[str, Any]:
         "featured_image": media_dict(featured),
         "social_image": media_dict(social),
         "first_published_at": iso(a.first_published_at),
+        "content_modified_at": iso(a.content_modified_at),
         "slug_locked": a.first_published_at is not None and not (can or {}).get("edit_slug"),
         "created_at": iso(a.created_at),
         "lock_version": a.lock_version,
@@ -386,6 +387,7 @@ def update_article(
     mode: str = "save",
     lock_version: int | None = None,
     summary: str | None = None,
+    material_update: bool = False,
 ) -> str:
     """Save edits. Returns "saved" (applied) or "pending" (kept for a publisher).
 
@@ -428,6 +430,8 @@ def update_article(
     article.lock_version += 1
     db.session.flush()
     changes = audit_service.changed_fields(before, _snapshot(article))
+    if changes and mode != "autosave":
+        _mark_material_update(article, material_update)
     if changes:
         _reset_review_if_needed(article, actor)
         text = summary or revisions.summarise(before_working, revisions.working_values(article))
@@ -473,7 +477,20 @@ def _save_pending(article, data, actor, mode, summary, before_working) -> str:
     return "pending" if merged else "saved"
 
 
-def publish_changes(article: Article, actor: User, lock_version: int | None = None) -> Article:
+def _mark_material_update(article: Article, material: bool) -> None:
+    """A published article's "Last updated" date moves only when the editor says the
+    change is material (not for typo fixes, SEO fields or re-saves)."""
+    if material and is_public(article):
+        article.content_modified_at = _now()
+
+
+def publish_changes(
+    article: Article,
+    actor: User,
+    lock_version: int | None = None,
+    *,
+    material_update: bool = False,
+) -> Article:
     require_capability(article, actor, "publish_changes")
     _check_lock(article, lock_version)
     pending = dict(article.pending_changes or {})
@@ -490,6 +507,8 @@ def publish_changes(article: Article, actor: User, lock_version: int | None = No
         raise ValidationError("The changes leave the article incomplete.", details=problems)
     article.updated_by_id = actor.id
     article.lock_version += 1
+    if pending:
+        _mark_material_update(article, material_update)
     db.session.flush()
     revisions.record(
         article,
@@ -505,7 +524,7 @@ def publish_changes(article: Article, actor: User, lock_version: int | None = No
         "article",
         article.id,
         actor=actor,
-        details={"fields": sorted(pending)},
+        details={"fields": sorted(pending), "material_update": bool(material_update)},
     )
     record_public_change("article", article.id, "published_article_updated", actor)
     return article
