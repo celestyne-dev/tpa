@@ -25,6 +25,48 @@ def member(club, client):  # noqa: F811
     return _activate(club, client)
 
 
+# The Paystack mock's fixed timeline: first charge 23 Oct 2026, renewal 23 Nov 2026.
+FIRST_PAYMENT = datetime(2026, 10, 23, 10, 5, tzinfo=UTC)
+RENEWAL = datetime(2026, 11, 23, 10, 5, tzinfo=UTC)
+CLOCK_MODULES = (
+    "app.services.memberships.admin",
+    "app.services.memberships.billing",
+    "app.services.memberships.compliance",
+    "app.services.memberships.lifecycle",
+    "app.services.memberships.plans",
+    "app.services.memberships.reports",
+    "app.services.commerce.checkout",
+    "app.services.commerce.customers",
+    "app.services.commerce.entitlements",
+    "app.services.commerce.payments",
+)
+
+
+class _Clock:
+    """Controlled time for the membership and payment services (tests only)."""
+
+    def __init__(self, monkeypatch, when):
+        import importlib
+
+        self.now = when
+        for name in CLOCK_MODULES:
+            monkeypatch.setattr(importlib.import_module(name), "_now", lambda: self.now)
+
+    def set(self, when):
+        self.now = when
+
+
+@pytest.fixture()
+def clock(monkeypatch):
+    return _Clock(monkeypatch, FIRST_PAYMENT)
+
+
+@pytest.fixture()
+def timed_member(clock, club, client):  # noqa: F811
+    """A member activated at the mock's first-payment time, whatever today's date is."""
+    return _activate(club, client) | {"clock": clock}
+
+
 def _audits(app, action):
     with app.app_context():
         return db.session.scalars(select(AuditLog).where(AuditLog.action == action)).all()
@@ -89,7 +131,10 @@ def test_list_filters_and_detail(member, as_role, seeded):
     }
 
 
-def test_reconcile_cancel_and_audit_with_lock_versions(member, as_role):
+def test_reconcile_cancel_and_audit_with_lock_versions(timed_member, as_role):
+    # On the mock's timeline (inside the paid period): after it, reconcile would rightly
+    # find the membership lapsed, so the real date must not decide this test.
+    member = timed_member
     admin = as_role("administrator")
     sub_id, paystack = member["sub_id"], member["paystack"]
     detail = _detail(admin, sub_id)
@@ -209,15 +254,18 @@ def test_complimentary_membership_grant_expiry_and_revoke(club, as_role, seeded)
     assert admin.get(GRANTS, query_string={"status": "revoked"}).get_json()["meta"]["total"] == 1
 
 
-def test_reports_count_only_verified_money(member, as_role, seeded):
+def test_reports_count_only_verified_money(timed_member, as_role, seeded):
+    member, clock = timed_member, timed_member["clock"]
     admin = as_role("administrator")
     paystack = member["paystack"]
     # A renewal, a refund and an unpaid checkout by someone else.
+    clock.set(RENEWAL)
     tx = paystack.charge_renewal(member["code"])
     _send_webhook(member["client"], paystack, "charge.success", tx)
     _join(member, shopper=register_customer(seeded, "pending@example.com"))
     with member["app"].app_context():
         oid = db.session.scalar(select(CustomerSubscription.order_id))
+    clock.set(RENEWAL + timedelta(days=1))
     finance = as_role("finance_manager")
     refund = finance.post(
         f"/api/v1/admin/orders/{oid}/refunds",
@@ -253,6 +301,57 @@ def test_reports_count_only_verified_money(member, as_role, seeded):
     ).get_json()["data"]
     assert empty["revenue"] == [] and empty["period"]["new_subscriptions"] == 0
     assert admin.get(REPORTS, query_string={"date_from": "bad"}).status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("activated", "months"),
+    [
+        # Last minutes of the year (UTC) -> counted in December; January starts with a base.
+        (datetime(2026, 12, 31, 23, 30, tzinfo=UTC), ("2026-12", "2027-01")),
+        # Month end into a leap-year February.
+        (datetime(2028, 1, 31, 23, 59, tzinfo=UTC), ("2028-01", "2028-02")),
+        # Start of a month: not counted in the previous one.
+        (datetime(2027, 3, 1, 0, 0, tzinfo=UTC), ("2027-03", "2027-04")),
+    ],
+)
+def test_report_trend_buckets_months_across_boundaries(
+    monkeypatch,
+    club,  # noqa: F811
+    client,
+    as_role,
+    activated,
+    months,
+):
+    clock = _Clock(monkeypatch, activated)
+    _activate(club, client)
+    clock.set(activated + timedelta(days=40))
+    first, second = months
+    year, month = map(int, first.split("-"))
+    date_from = f"{year:04d}-{month:02d}-01"
+    data = (
+        as_role("administrator")
+        .get(REPORTS, query_string={"date_from": date_from, "date_to": f"{second}-28"})
+        .get_json()["data"]
+    )
+    trend = {m["month"]: m for m in data["trend"]}
+    assert list(trend) == [first, second]
+    assert trend[first]["new"] == 1 and trend[first]["active_at_start"] == 0
+    assert trend[second]["new"] == 0 and trend[second]["active_at_start"] == 1
+    assert data["period"]["new_subscriptions"] == 1
+
+
+def test_report_months_helper_handles_year_ends_and_caps_the_range():
+    from datetime import date
+
+    from app.services.memberships.reports import _months
+
+    labels = [label for _, _, label in _months(date(2026, 11, 15), date(2027, 2, 3))]
+    assert labels == ["2026-11", "2026-12", "2027-01", "2027-02"]
+    dec = _months(date(2026, 12, 1), date(2026, 12, 31))
+    assert [(a.isoformat(), b.isoformat()) for a, b, _ in dec] == [
+        ("2026-12-01T00:00:00+00:00", "2027-01-01T00:00:00+00:00")
+    ]
+    assert len(_months(date(2020, 1, 1), date(2030, 1, 1))) == 25  # bounded
 
 
 def test_export_and_deletion_stop_billing_safely(member, seeded):
