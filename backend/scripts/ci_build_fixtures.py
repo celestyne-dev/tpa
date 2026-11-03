@@ -58,7 +58,9 @@ def main() -> int:
                             {"type": "paragraph", "text": "Fixture text with a [link](/articles)."},
                             {
                                 "type": "sources",
-                                "items": [{"title": "Fixture source", "url": "https://example.org/"}],
+                                "items": [
+                                    {"title": "Fixture source", "url": "https://example.org/"}
+                                ],
                             },
                         ]
                     ),
