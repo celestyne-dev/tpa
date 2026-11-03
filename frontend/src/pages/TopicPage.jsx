@@ -10,20 +10,27 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { Pagination } from "@/components/ui/Pagination";
 import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
-import { topicArticlesQuery } from "@/data/queries";
+import { pageParam, topicArticlesQuery } from "@/data/queries";
 import { useArticles, useTopic, useTopics } from "@/hooks/useContent";
 import { breadcrumbJsonLd } from "@/utils/structuredData";
 import { NotFoundPage } from "./NotFoundPage";
 
 export function TopicPage() {
-  const { slug } = useParams();
+  const { slug, page: pageSegment } = useParams();
+  const page = pageParam(pageSegment);
   const topicState = useTopic(slug);
-  const articlesState = useArticles(topicArticlesQuery(slug));
+  const articlesState = useArticles(topicArticlesQuery(slug, page ?? 1));
   const { data: allTopics } = useTopics();
+  const pagination = articlesState.pagination;
 
-  if (topicState.isNotFound) return <NotFoundPage />;
+  if (topicState.isNotFound || page === null) return <NotFoundPage />;
+  // /topics/<slug>/page/N exists only for real pages.
+  if (pageSegment !== undefined && pagination && page > pagination.total_pages) {
+    return <NotFoundPage />;
+  }
   if (topicState.isError)
     return (
       <Container className="py-20">
@@ -52,9 +59,9 @@ export function TopicPage() {
   return (
     <>
       <Seo
-        title={topic.seo?.title ?? `${topic.name} Articles & Resources`}
+        title={`${topic.seo?.title ?? `${topic.name} Articles & Resources`}${page > 1 ? ` (Page ${page})` : ""}`}
         description={topic.seo?.description ?? topic.description}
-        path={routes.topic(topic.slug)}
+        path={routes.topicPage(topic.slug, page)}
         jsonLd={breadcrumbJsonLd(crumbs)}
       />
       <PageHeader eyebrow="Topic" title={topic.name} description={topic.intro} breadcrumbs={crumbs}>
@@ -73,7 +80,17 @@ export function TopicPage() {
           )}
           {articlesState.data &&
             (articles.length > 0 ? (
-              <ArticleGrid articles={articles} />
+              <>
+                <ArticleGrid articles={articles} />
+                {pagination && (
+                  <Pagination
+                    page={pagination.page}
+                    totalPages={pagination.total_pages}
+                    hrefFor={(p) => routes.topicPage(topic.slug, p)}
+                    label={`${topic.name} article pages`}
+                  />
+                )}
+              </>
             ) : (
               <EmptyState
                 icon={PenLine}

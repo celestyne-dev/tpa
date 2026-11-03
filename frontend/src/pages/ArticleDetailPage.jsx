@@ -57,7 +57,8 @@ export function ArticleDetailPage() {
         type="article"
         article={{
           publishedTime: article.published_at,
-          modifiedTime: article.updated_at,
+          // Only a material update moves the modified time (never an ordinary save).
+          modifiedTime: article.content_modified_at ?? undefined,
           section: topic?.name,
           authors: [article.author.name],
           tags: article.tags,
@@ -89,9 +90,23 @@ export function ArticleDetailPage() {
               </p>
             )}
             <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-charcoal/10 pt-6">
-              <p className="text-sm font-medium text-charcoal">By {article.author.name}</p>
+              <p className="text-sm font-medium text-charcoal">
+                By{" "}
+                {article.author.has_page ? (
+                  <Link
+                    to={routes.author(article.author.slug)}
+                    rel="author"
+                    className="underline-offset-4 hover:text-sage-700 hover:underline"
+                  >
+                    {article.author.name}
+                  </Link>
+                ) : (
+                  article.author.name
+                )}
+              </p>
               <ArticleMeta
                 publishedAt={article.published_at}
+                updatedAt={article.content_modified_at}
                 readingTimeMinutes={article.reading_time_minutes}
               />
             </div>

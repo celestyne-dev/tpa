@@ -4,6 +4,8 @@ import {
   ARTICLE_LIST_QUERY,
   FEATURED_QUERY,
   LATEST_QUERY,
+  articleListQuery,
+  pageParam,
   topicArticlesQuery,
 } from "@/data/queries";
 import { AboutPage } from "@/pages/AboutPage";
@@ -11,6 +13,7 @@ import { AdvertisePage } from "@/pages/AdvertisePage";
 import { AffiliateDisclosurePage } from "@/pages/AffiliateDisclosurePage";
 import { ArticleDetailPage } from "@/pages/ArticleDetailPage";
 import { ArticlesPage } from "@/pages/ArticlesPage";
+import { AuthorPage } from "@/pages/AuthorPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { CourseDetailPage } from "@/pages/CourseDetailPage";
 import { CoursesPage } from "@/pages/CoursesPage";
@@ -24,6 +27,7 @@ import { PrivacyPolicyPage } from "@/pages/PrivacyPolicyPage";
 import { CollectionPage } from "@/pages/CollectionPage";
 import { ProductPage } from "@/pages/ProductPage";
 import { ResourceLibraryPage } from "@/pages/ResourceLibraryPage";
+import { SearchPage } from "@/pages/SearchPage";
 import { ShopPage } from "@/pages/ShopPage";
 import { TermsPage } from "@/pages/TermsPage";
 import { TopicPage } from "@/pages/TopicPage";
@@ -31,6 +35,7 @@ import { withCmsOverride } from "@/routes/cmsOverride";
 import { LegacyAuthRedirect } from "@/routes/LegacyAuthRedirect";
 import * as commerce from "@/routes/commerceRoutes";
 import { fetchArticle, fetchArticles } from "@/store/slices/articlesSlice";
+import { fetchAuthor } from "@/store/slices/authorsSlice";
 import { fetchCourse, fetchCourses } from "@/store/slices/coursesSlice";
 import { fetchMediaKit } from "@/store/slices/mediaKitSlice";
 import { fetchMemberships } from "@/store/slices/membershipsSlice";
@@ -57,6 +62,16 @@ export const routeTable = [
     load: () => [fetchTopics(), fetchArticles(FEATURED_QUERY), fetchArticles(ARTICLE_LIST_QUERY)],
   },
   {
+    // Archive pages 2..N: real, prerendered URLs (page 1 is /articles).
+    path: "/articles/page/:page",
+    Component: ArticlesPage,
+    load: ({ page }) => [
+      fetchTopics(),
+      fetchArticles(FEATURED_QUERY),
+      fetchArticles(articleListQuery(pageParam(page) ?? 1)),
+    ],
+  },
+  {
     path: "/articles/:slug",
     Component: ArticleDetailPage,
     load: ({ slug }) => [fetchArticle({ slug })],
@@ -70,6 +85,27 @@ export const routeTable = [
       fetchArticles(topicArticlesQuery(slug)),
     ],
   },
+  {
+    path: "/topics/:slug/page/:page",
+    Component: TopicPage,
+    load: ({ slug, page }) => [
+      fetchTopic({ slug }),
+      fetchTopics(),
+      fetchArticles(topicArticlesQuery(slug, pageParam(page) ?? 1)),
+    ],
+  },
+  {
+    path: "/authors/:slug",
+    Component: AuthorPage,
+    load: ({ slug }) => [fetchAuthor({ slug, page: 1 })],
+  },
+  {
+    path: "/authors/:slug/page/:page",
+    Component: AuthorPage,
+    load: ({ slug, page }) => [fetchAuthor({ slug, page: pageParam(page) ?? 1 })],
+  },
+  // Site search: a noindex shell; results load in the browser.
+  { path: routes.search, Component: SearchPage },
   { path: routes.shop, Component: ShopPage, load: () => [fetchProducts()] },
   { path: routes.resources, Component: ResourceLibraryPage, load: () => [fetchProducts()] },
   { path: routes.courses, Component: CoursesPage, load: () => [fetchCourses()] },

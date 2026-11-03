@@ -14,7 +14,7 @@ const REFRESH_URL = "/auth/refresh";
 const LOGOUT_URL = "/auth/logout";
 // These endpoints authenticate with the refresh cookie, so they send its CSRF value.
 const REFRESH_CSRF_URLS = new Set([REFRESH_URL, LOGOUT_URL]);
-const NO_RETRY = new Set(["/auth/login", LOGOUT_URL, REFRESH_URL]);
+const NO_RETRY = new Set(["/auth/login", "/auth/mfa/verify", LOGOUT_URL, REFRESH_URL]);
 // Token-link endpoints (invitation activation, password reset) never use the session.
 const isTokenFlow = (url = "") =>
   url.startsWith("/auth/invitation/") || url.startsWith("/auth/password-reset/");
@@ -112,6 +112,13 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       login: (credentials) => post("/auth/login", credentials),
       logout: () => post(LOGOUT_URL),
       changePassword: (body) => post("/auth/change-password", body),
+      // Two-step sign-in: the second login step, then enrolment and management.
+      verifyMfa: (body) => post("/auth/mfa/verify", body),
+      mfaStatus: () => get("/auth/mfa"),
+      mfaSetup: () => post("/auth/mfa/setup"),
+      mfaEnable: (code) => post("/auth/mfa/enable", { code }),
+      mfaDisable: (body) => post("/auth/mfa/disable", body),
+      mfaRecoveryCodes: (body) => post("/auth/mfa/recovery-codes", body),
       verifyInvitation: (token) => post("/auth/invitation/verify", { token }),
       acceptInvitation: (body) => post("/auth/invitation/accept", body),
       verifyPasswordReset: (token) => post("/auth/password-reset/verify", { token }),
@@ -138,8 +145,11 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       restore: (id) => post(`/articles/${id}/restore`),
       submit: (id) => post(`/articles/${id}/submit`),
       approve: (id) => post(`/articles/${id}/approve`),
-      publishChanges: (id, lockVersion) =>
-        post(`/articles/${id}/publish-changes`, { lock_version: lockVersion ?? null }),
+      publishChanges: (id, lockVersion, materialUpdate = false) =>
+        post(`/articles/${id}/publish-changes`, {
+          lock_version: lockVersion ?? null,
+          ...(materialUpdate && { material_update: true }),
+        }),
       discardChanges: (id) => post(`/articles/${id}/discard-changes`),
       revisions: (id) => get(`/articles/${id}/revisions`),
       revision: (id, revisionId) => get(`/articles/${id}/revisions/${revisionId}`),

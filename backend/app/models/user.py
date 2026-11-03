@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -17,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
 from .base import TimestampMixin
-from .types import JSONType, UTCDateTime, utcnow
+from .types import JSONType, NullableJSONType, UTCDateTime, utcnow
 
 USER_STATUSES = ("active", "disabled")
 ROLE_KINDS = ("system", "template", "custom")
@@ -120,6 +121,25 @@ class User(TimestampMixin, db.Model):
     last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     # Incremented to invalidate every outstanding access token (password change, disable).
     session_version: Mapped[int] = mapped_column(default=1, nullable=False)
+    # Two-step sign-in (TOTP, app/auth/mfa.py). Only random salts are stored: the
+    # authenticator secret is derived from them with the server key, so the database alone
+    # can't produce codes. Recovery codes are stored as hashes; used ones are removed.
+    # Loaded together on first use (sign-in, account security), not with every user row.
+    mfa_salt: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, deferred=True, deferred_group="mfa"
+    )
+    mfa_pending_salt: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, deferred=True, deferred_group="mfa"
+    )
+    mfa_enabled_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime, nullable=True, deferred=True, deferred_group="mfa"
+    )
+    mfa_last_step: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, deferred=True, deferred_group="mfa"
+    )
+    mfa_recovery_codes: Mapped[list[str] | None] = mapped_column(
+        NullableJSONType, nullable=True, deferred=True, deferred_group="mfa"
+    )
 
     role_links: Mapped[list[UserRole]] = relationship(
         foreign_keys=[UserRole.user_id], cascade="all, delete-orphan", lazy="selectin"

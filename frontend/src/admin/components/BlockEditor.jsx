@@ -199,6 +199,79 @@ function TableEditor({ block, set, n }) {
 }
 
 const LINK_HINT = "A site path such as /topics/confidence, or a full https:// address.";
+const INLINE_LINK_HINT =
+  "To add a link, write [link text](/topics/confidence) or [link text](https://example.org/page).";
+
+/** Cited sources: title and https address, with an optional publisher and access date. */
+function SourcesEditor({ block, set, n, error }) {
+  const items = block.items ?? [];
+  const update = (i, patch) =>
+    set({ items: items.map((item, j) => (j === i ? { ...item, ...patch } : item)) });
+  return (
+    <div className="space-y-3">
+      <TextField
+        label={`Sources ${n} heading (optional)`}
+        hint="Shown above the list; defaults to “Sources”."
+        value={block.title ?? ""}
+        onChange={(e) => set({ title: e.target.value })}
+      />
+      {items.map((item, i) => (
+        <fieldset key={i} className="grid gap-2 rounded-lg bg-cream/50 p-3 sm:grid-cols-2">
+          <legend className="sr-only">Source {i + 1}</legend>
+          <TextField
+            label={`Source ${i + 1} title`}
+            value={item.title ?? ""}
+            onChange={(e) => update(i, { title: e.target.value })}
+          />
+          <TextField
+            label="Address"
+            hint="A full https:// address."
+            value={item.url ?? ""}
+            onChange={(e) => update(i, { url: e.target.value })}
+          />
+          <TextField
+            label="Publisher (optional)"
+            value={item.publisher ?? ""}
+            onChange={(e) => update(i, { publisher: e.target.value })}
+          />
+          <div className="flex items-end gap-2">
+            <TextField
+              className="flex-1"
+              type="date"
+              label="Accessed (optional)"
+              value={item.accessed ?? ""}
+              onChange={(e) => update(i, { accessed: e.target.value })}
+            />
+            <button
+              type="button"
+              aria-label={`Remove source ${i + 1}`}
+              disabled={items.length === 1}
+              onClick={() => set({ items: items.filter((_, j) => j !== i) })}
+              className="mb-1 rounded p-2 text-muted hover:bg-red-50 hover:text-red-800 disabled:opacity-40"
+            >
+              <Trash2 aria-hidden className="size-4" />
+            </button>
+          </div>
+        </fieldset>
+      ))}
+      <button
+        type="button"
+        onClick={() =>
+          set({ items: [...items, { title: "", url: "", publisher: "", accessed: "" }] })
+        }
+        className="inline-flex items-center gap-1 text-sm text-sage-800 underline underline-offset-4"
+      >
+        <Plus aria-hidden className="size-4" />
+        Add a source
+      </button>
+      {error && (
+        <p role="alert" className="text-sm text-red-800">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function BlockFields({ block, index, onChange, errors, files }) {
   const n = index + 1;
@@ -211,6 +284,7 @@ function BlockFields({ block, index, onChange, errors, files }) {
       return (
         <TextAreaField
           label={`Paragraph ${n} text`}
+          hint={INLINE_LINK_HINT}
           rows={4}
           value={block.text}
           error={error}
@@ -241,7 +315,7 @@ function BlockFields({ block, index, onChange, errors, files }) {
       return (
         <TextAreaField
           label={`List ${n} items`}
-          hint="One item per line."
+          hint={`One item per line. ${INLINE_LINK_HINT}`}
           rows={4}
           error={error}
           value={block.items.join("\n")}
@@ -287,6 +361,7 @@ function BlockFields({ block, index, onChange, errors, files }) {
           <TextAreaField
             className="sm:col-span-2"
             label="Callout text"
+            hint={INLINE_LINK_HINT}
             value={block.text}
             error={error}
             onChange={(e) => set({ text: e.target.value })}
@@ -501,6 +576,8 @@ function BlockFields({ block, index, onChange, errors, files }) {
           )}
         </>
       );
+    case "sources":
+      return <SourcesEditor block={block} set={set} n={n} error={error} />;
     default:
       return <p className="text-sm text-red-800">Unsupported block type.</p>;
   }

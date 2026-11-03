@@ -39,7 +39,24 @@ def user_payload(user: User) -> dict:
         "last_login_at": iso(user.last_login_at),
         "email_verified_at": iso(user.email_verified_at),
         "created_at": iso(user.created_at),
+        "mfa_enabled": bool(user.mfa_salt),
+        "mfa_required": mfa_required(),
     }
+
+
+def mfa_required() -> bool:
+    """Admin setting: every administrator must use two-step sign-in (read once per request)."""
+    from flask import g, has_request_context
+
+    from ...models import SiteSetting
+
+    if has_request_context() and "tpa_mfa_required" in g:
+        return g.tpa_mfa_required
+    stored = db.session.get(SiteSetting, "security.require_admin_mfa")
+    required = stored is not None and stored.value is True
+    if has_request_context():
+        g.tpa_mfa_required = required
+    return required
 
 
 def change_password(user: User, current: str, new: str) -> None:

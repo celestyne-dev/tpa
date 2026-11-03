@@ -30,6 +30,7 @@ from app.extensions import db, limiter
 ROOT = Path(__file__).resolve().parents[2]
 NGINX = ROOT / "deploy" / "nginx" / "tpa.conf.example"
 HEADERS_SNIPPET = ROOT / "deploy" / "nginx" / "tpa-security-headers.conf.example"
+HTTP_SNIPPET = ROOT / "deploy" / "nginx" / "tpa-http.conf.example"
 SYSTEMD = ROOT / "deploy" / "systemd"
 ENV_EXAMPLE = ROOT / "backend" / ".env.example"
 STAGING_ENV = ROOT / "deploy" / "env" / "staging.env.example"
@@ -241,6 +242,10 @@ def _nginx_conf(tmp: Path, http_port: int, https_port: int, upstream_port: int) 
     (site / "admin" / "index.html").write_text("admin shell")
     (site / "account").mkdir()
     (site / "account" / "index.html").write_text("account shell")
+    for page in ("articles", "articles/page/2", "search", "about"):
+        (site / page).mkdir(parents=True)
+        (site / page / "index.html").write_text(f"<h1>{page}</h1>")
+    (site / "feed.xml").write_text('<?xml version="1.0"?><rss version="2.0"></rss>')
     (site / ".env").write_text("SECRET=never")
     (media / "public" / "a.webp").write_bytes(b"img")
     (media / "private").mkdir()
@@ -280,11 +285,13 @@ def _nginx_conf(tmp: Path, http_port: int, https_port: int, upstream_port: int) 
     temp = " ".join(
         f"{k}_temp_path {tmp}/logs;" for k in ("client_body", "proxy", "fastcgi", "uwsgi", "scgi")
     )
+    shutil.copy(HTTP_SNIPPET, tmp / "tpa-http.conf")  # /etc/nginx/conf.d/ on the server
     conf = tmp / "nginx.conf"
     conf.write_text(
         ("user root;\n" if os.geteuid() == 0 else "")
         + f"pid {tmp}/nginx.pid;\nerror_log {tmp}/logs/error.log;\nevents {{}}\n"
-        f"http {{ include /etc/nginx/mime.types; access_log off; {temp} include {tmp}/tpa.conf; }}\n"
+        f"http {{ include /etc/nginx/mime.types; access_log off; {temp} "
+        f"include {tmp}/tpa-http.conf; include {tmp}/tpa.conf; }}\n"
     )
     return conf
 
@@ -386,6 +393,60 @@ def test_live_nginx_headers_proxy_trust_and_private_files(live_nginx):
     conn.request("GET", "/", headers={"Host": "evil.example"})
     with pytest.raises((http.client.RemoteDisconnected, ConnectionResetError)):
         conn.getresponse()  # 444: connection closed without a response
+
+
+@needs_nginx
+def test_live_nginx_one_url_per_page_search_feed_and_csp(live_nginx):
+    port = live_nginx["https"]
+
+    def location(path):
+        """Status and redirect target (path and query; the test port is in the host)."""
+        from urllib.parse import urlsplit
+
+        status, headers, _ = _https(port, path)
+        target = urlsplit(headers.get("location") or "")
+        return status, target.path + (f"?{target.query}" if target.query else "")
+
+    # Trailing slash and index.html: one canonical URL (no slash) for prerendered pages.
+    assert location("/articles/") == (301, "/articles")
+    assert location("/articles/index.html") == (301, "/articles")
+    assert location("/articles/page/2/?ref=x") == (301, "/articles/page/2?ref=x")
+    assert location("/index.html") == (301, "/")
+    assert _https(port, "/articles")[0] == 200 and _https(port, "/")[0] == 200
+    # Page 1 of a listing is the listing itself.
+    assert location("/articles/page/1") == (301, "/articles")
+    assert location("/topics/calm/page/1/") == (301, "/topics/calm")
+    # Paths that aren't pages still reach Flask (CMS redirects, then a genuine 404) in one hop.
+    _Upstream.seen.clear()
+    assert _https(port, "/old-category/")[0] == 404
+    assert _Upstream.seen[-1]["path"] == "/_redirect/old-category/"
+    # Approved legacy 410 rules still win, with or without the slash.
+    assert _https(port, "/forums/topic/12/")[0] == 410
+    # The API and admin are never rewritten.
+    assert _https(port, "/api/v1/site/")[0] == 200
+    assert _https(port, "/admin/users/")[0] == 200
+
+    status, headers, _ = _https(port, "/search?q=calm")
+    assert status == 200 and headers["x-robots-tag"] == "noindex, follow"
+    status, headers, body = _https(port, "/feed.xml")
+    assert status == 200 and headers["content-type"].startswith("application/rss+xml")
+    for path in ("/", "/search", "/feed.xml", "/admin/users"):
+        csp = _https(port, path)[1]["content-security-policy-report-only"]
+        assert "script-src 'self';" in csp and "report-uri /api/v1/csp-report" in csp, path
+        assert "'unsafe-eval'" not in csp and "script-src 'self' 'unsafe-inline'" not in csp
+
+
+def test_csp_allows_only_this_site_and_the_video_embeds():
+    snippet = HEADERS_SNIPPET.read_text()
+    [policy] = re.findall(r'Content-Security-Policy-Report-Only "([^"]+)"', snippet)
+    directives = dict(d.strip().split(" ", 1) for d in policy.split(";") if d.strip())
+    assert directives["script-src"] == "'self'"
+    assert directives["object-src"] == "'none'" and directives["base-uri"] == "'self'"
+    assert directives["frame-src"] == (
+        "'self' https://www.youtube-nocookie.com https://player.vimeo.com"
+    )
+    # HSTS stays off until the HTTPS audit (tpa-baseline.sh) covers every hostname.
+    assert not re.search(r"^\s*add_header Strict-Transport-Security", snippet, re.M)
 
 
 # ---- systemd ------------------------------------------------------------------------------

@@ -7,6 +7,16 @@ add_header X-Content-Type-Options nosniff always;
 add_header Referrer-Policy strict-origin-when-cross-origin always;
 add_header X-Frame-Options SAMEORIGIN always;
 add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
-# Enable only after HTTPS works on every hostname (browsers remember it for a year;
-# see docs/operations.md, "TLS certificates"). Add "; preload" only deliberately.
-# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+# Content-Security-Policy, in report-only mode first: browsers report what the policy
+# would block (to /api/v1/csp-report, logged by the API) without blocking anything.
+# Scripts come only from this site (the page state is inert JSON, not inline script);
+# inline style attributes stay allowed; videos embed only from YouTube (nocookie) and
+# Vimeo. After a clean staging review, rename the header to Content-Security-Policy
+# (keep the report-uri) - see docs/security-hardening.md.
+add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; media-src 'self' https:; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; report-uri /api/v1/csp-report" always;
+
+# HSTS: only after deploy/verify/tpa-baseline.sh shows a valid certificate and an
+# HTTP->HTTPS redirect for every TPA hostname. Start on this server block (apex + www)
+# with a short max-age, then raise it. includeSubDomains covers EVERY subdomain
+# (staging included) and "; preload" is close to permanent: add either only deliberately.
+# add_header Strict-Transport-Security "max-age=300" always;

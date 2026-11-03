@@ -80,6 +80,12 @@ from .analytics import PUBLIC_ANALYTICS_ROUTES  # noqa: E402
 for resource, path in PUBLIC_ANALYTICS_ROUTES:
     api.add_resource(resource, path, endpoint=f"analytics_{resource.__name__.lower()}")
 
+# ---- Content-Security-Policy reports (technical release) -------------------------
+from .security import PUBLIC_SECURITY_ROUTES  # noqa: E402
+
+for resource, path in PUBLIC_SECURITY_ROUTES:
+    api.add_resource(resource, path, endpoint=f"security_{resource.__name__.lower()}")
+
 # ---- Admin API ------------------------------------------------------------------
 from flask import request  # noqa: E402
 
@@ -101,6 +107,29 @@ def _admin_origin_guard():
         return
     if request.path.startswith("/api/v1/admin") or request.path.startswith(PRIVATE_PREFIXES):
         check_origin()
+
+
+@api_v1.before_request
+def _admin_mfa_guard():
+    """With "Require two-step sign-in" on, an administrator who hasn't set it up can only
+    use the sign-in and account security endpoints until they do."""
+    if not request.path.startswith("/api/v1/admin/") or request.path.startswith(
+        "/api/v1/admin/auth/"
+    ):
+        return
+    from flask_jwt_extended import current_user, verify_jwt_in_request
+
+    from ..services.admin.auth_service import mfa_required
+    from ..utils.errors import MfaEnrollmentRequiredError
+
+    if not mfa_required():
+        return
+    try:
+        verify_jwt_in_request(optional=True)
+    except Exception:  # invalid or expired tokens are answered by the resource itself
+        return
+    if current_user and not current_user.mfa_salt:
+        raise MfaEnrollmentRequiredError()
 
 
 @api_v1.after_request

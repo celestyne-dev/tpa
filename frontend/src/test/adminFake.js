@@ -669,6 +669,9 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     auth: {
       me: vi.fn(() => (user ? ok({ user }) : unauthorized())),
       login: vi.fn(({ email, password }) => {
+        if (password === "Correct-Horse-Battery-9" && email === "mfa@example.org") {
+          return ok({ mfa_required: true, mfa_token: "challenge-token" });
+        }
         if (password === "Correct-Horse-Battery-9") {
           user = { ...adminUser("editor"), email };
           return ok({ user });
@@ -686,6 +689,44 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
         return ok({ logged_out: true });
       }),
       changePassword: vi.fn(() => ok({ user })),
+      // Two-step sign-in: "mfa@example.org" is enrolled (code 123456 signs in).
+      verifyMfa: vi.fn(({ code }) => {
+        if (code === "123456") {
+          user = { ...adminUser("editor"), email: "mfa@example.org", mfa_enabled: true };
+          return ok({ user });
+        }
+        return Promise.reject(
+          new ApiError({
+            status: 401,
+            code: "authentication_failed",
+            message: "That code isn't valid. Check your authenticator app.",
+          }),
+        );
+      }),
+      mfaStatus: vi.fn(() =>
+        ok({ enabled: false, enabled_at: null, recovery_codes_left: 0, required: false }),
+      ),
+      mfaSetup: vi.fn(() =>
+        ok({
+          setup_key: "ABCD EFGH IJKL MNOP QRST UVWX YZ23 4567",
+          otpauth_uri: "otpauth://totp/TPA:editor%40example.org?secret=ABCD",
+          account: "editor@example.org",
+          issuer: "TPA",
+        }),
+      ),
+      mfaEnable: vi.fn(() =>
+        ok({
+          enabled: true,
+          enabled_at: "2026-11-03T10:00:00.000Z",
+          recovery_codes_left: 10,
+          required: false,
+          recovery_codes: Array.from({ length: 10 }, (_v, i) => `abcde-fgh${i}k`),
+        }),
+      ),
+      mfaDisable: vi.fn(() =>
+        ok({ enabled: false, enabled_at: null, recovery_codes_left: 0, required: false }),
+      ),
+      mfaRecoveryCodes: vi.fn(() => ok({ enabled: true, recovery_codes: ["new01-codes"] })),
       verifyInvitation: vi.fn((token) =>
         token === VALID_TOKEN
           ? ok({

@@ -21,12 +21,17 @@ export function SessionLoading() {
 }
 
 export function RequireAuth({ children }) {
-  const { status } = useSelector(selectAuth);
+  const { status, user } = useSelector(selectAuth);
   const location = useLocation();
   if (status === "idle" || status === "loading") return <SessionLoading />;
   if (status !== "authenticated") {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/admin/login?next=${next}`} replace />;
+  }
+  // "Require two-step sign-in" is on and this account hasn't set it up: only the account
+  // page (where it is set up) is available; the API refuses everything else anyway.
+  if (user?.mfa_required && !user?.mfa_enabled && location.pathname !== "/admin/account") {
+    return <Navigate to="/admin/account" replace />;
   }
   return children;
 }

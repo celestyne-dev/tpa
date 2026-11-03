@@ -7,6 +7,7 @@ the admin API in a throwaway database); no real article is read or changed.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -349,3 +350,33 @@ def test_policy_pages_are_linked_only_while_published(seeded, client):
         "path": "/editorial-policy",
         "title": "How we write and check",
     }
+
+
+# ---- Content-Security-Policy reports ------------------------------------------------------
+
+
+def test_csp_reports_are_logged_without_visitor_details(client, caplog):
+    report = {
+        "csp-report": {
+            "document-uri": "https://example.com/articles/calm?email=a@b.example#x",
+            "violated-directive": "script-src-elem",
+            "effective-directive": "script-src-elem",
+            "blocked-uri": "https://tracker.example/x.js?id=secret",
+        }
+    }
+    with caplog.at_level("WARNING"):
+        res = client.post(
+            "/api/v1/csp-report",
+            data=json.dumps(report),
+            headers={"Content-Type": "application/csp-report"},
+        )
+    assert res.status_code == 204 and res.data == b""
+    [line] = [r.getMessage() for r in caplog.records if "CSP report" in r.getMessage()]
+    assert line == "CSP report: script-src-elem blocked https://tracker.example on /articles/calm"
+    assert "secret" not in caplog.text and "a@b.example" not in caplog.text
+    # Reporting API bodies, junk and oversized bodies are all accepted quietly.
+    reporting = [{"type": "csp-violation", "body": {"effectiveDirective": "img-src",
+                  "blockedURL": "data", "documentURL": "https://example.com/"}}]  # fmt: skip
+    assert client.post("/api/v1/csp-report", json=reporting).status_code == 204
+    assert client.post("/api/v1/csp-report", data=b"not json").status_code == 204
+    assert client.post("/api/v1/csp-report", data=b"x" * 20000).status_code == 204

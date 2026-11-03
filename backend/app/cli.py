@@ -55,6 +55,35 @@ def sync_roles_command():
     click.echo(f"Roles ready ({created} created).")
 
 
+@admin_cli.command("reset-mfa")
+@click.argument("email")
+@click.option("--yes", is_flag=True, help="Don't ask for confirmation.")
+def reset_mfa(email: str, yes: bool):
+    """Turn off two-step sign-in for one administrator (lost phone and recovery codes).
+
+    Run on the server by someone with shell access; signs the person out everywhere and
+    is recorded in the audit log. They set it up again after signing in.
+    """
+    from .auth.session import revoke_all_sessions
+    from .services import audit_service
+
+    user = db.session.scalar(select(User).where(User.email == email.strip().lower()))
+    if user is None:
+        raise click.ClickException("No administrator with that email.")
+    if not user.mfa_salt and not user.mfa_pending_salt:
+        click.echo("Two-step sign-in is not on for this account; nothing changed.")
+        return
+    if not yes:
+        click.confirm(f"Turn off two-step sign-in for {user.email}?", abort=True)
+    user.mfa_salt = user.mfa_pending_salt = user.mfa_enabled_at = None
+    user.mfa_last_step = None
+    user.mfa_recovery_codes = None
+    revoke_all_sessions(user)
+    audit_service.record("auth.mfa_reset", "user", user.id, details={"by": "server command"})
+    db.session.commit()
+    click.echo(f"Two-step sign-in turned off for {user.email}; all sessions signed out.")
+
+
 @admin_cli.command("create-superadmin")
 @click.option("--email", required=True, help="Email address used to sign in.")
 @click.option("--name", "display_name", required=True, help="Display name.")

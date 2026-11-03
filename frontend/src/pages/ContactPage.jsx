@@ -9,6 +9,7 @@ import { Section } from "@/components/ui/Section";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
 import { useSite } from "@/hooks/useContent";
+import { webPageJsonLd } from "@/utils/structuredData";
 
 export function ContactPage() {
   const { data: site, isLoading } = useSite();
@@ -23,6 +24,7 @@ export function ContactPage() {
         title="Contact Think Positive Always"
         description="Find the best way to get in touch with Think Positive Always for general questions, partnerships, and collaborations."
         path={routes.contact}
+        jsonLd={webPageJsonLd({ title: "Contact Think Positive Always", path: routes.contact })}
       />
       <PageHeader
         eyebrow="Contact"

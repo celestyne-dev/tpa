@@ -426,6 +426,16 @@ SETTINGS += [
         "e.g. https://thinkpositivealways.com. Leave empty to use the deployment's SITE_URL.",
     ),
     SettingDef(
+        "security.require_admin_mfa",
+        "Require two-step sign-in for every administrator",
+        "Technical",
+        "boolean",
+        _const(False),
+        help="When on, administrators without two-step sign-in can only open their "
+        "account's security page until they set it up. Enrol yourself first.",
+        public=False,
+    ),
+    SettingDef(
         "trust.editorial_policy_path",
         "Editorial policy page",
         "Trust",

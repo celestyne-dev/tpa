@@ -10,6 +10,10 @@
 #   which returns a real 301/302/307/308 or 404 (then the prerendered 404 page).
 #   No Nginx reload is needed when redirects change.
 
+# Requires /etc/nginx/conf.d/tpa-http.conf (deploy/nginx/tpa-http.conf.example): http-level
+# definitions shared by every TPA site on the server, installed once (`nginx -t` reports an
+# unknown "tpa_slashless" variable if it is missing).
+
 upstream tpa_api {
     server 127.0.0.1:8000;
     keepalive 16;
@@ -214,9 +218,37 @@ server {
         try_files $uri /admin/index.html;
     }
 
+    # Page 1 of a listing is the listing itself (one URL per page).
+    location ~ ^/(articles|topics/[a-z0-9-]+|authors/[a-z0-9-]+)/page/1/?$ {
+        return 301 /$1$is_args$args;
+    }
+
+    # Site search: a noindex shell; results load in the browser.
+    location = /search {
+        include /etc/nginx/snippets/tpa-security-headers.conf;
+        add_header X-Robots-Tag "noindex, follow" always;
+        add_header Cache-Control "public, max-age=300, must-revalidate";
+        try_files /search/index.html =404;
+    }
+
+    # RSS feed of article summaries.
+    location = /feed.xml {
+        types { }
+        default_type application/rss+xml;
+        include /etc/nginx/snippets/tpa-security-headers.conf;
+        add_header Cache-Control "public, max-age=300, must-revalidate";
+        try_files /feed.xml =404;
+    }
+
     # Prerendered pages: /articles/slug -> /articles/slug/index.html. HTML revalidates
     # quickly so removed articles disappear soon after a rebuild.
     location / {
+        # One URL per page: the canonical form has no trailing slash, so /x/ and
+        # /x/index.html redirect to /x when /x is a prerendered page. Anything else (legacy
+        # 410 rules, CMS redirects, unknown paths) is left to the rules below.
+        # (Only `return` inside these ifs: other directives there would disable try_files.)
+        if ($request_uri ~ "^/index\.html(\?.*)?$") { return 301 /$is_args$args; }
+        if (-f $document_root$tpa_slashless/index.html) { return 301 $tpa_slashless$is_args$args; }
         try_files $uri $uri/index.html @tpa_fallback;
         include /etc/nginx/snippets/tpa-security-headers.conf;
         add_header Cache-Control "public, max-age=300, must-revalidate";

@@ -1,15 +1,19 @@
-import { ShoppingBag } from "lucide-react";
+import { Search, ShoppingBag } from "lucide-react";
 import { Link } from "react-router";
 import { routes } from "@/config/navigation";
 import { useCart } from "@/hooks/useShop";
 import { AccountMenu } from "./AccountMenu";
 import { HeaderIconLabel, headerIconClass } from "./HeaderIconLabel";
 
-/** Account and cart shortcuts. The count appears after hydration (the cart lives in the browser). */
+/** Search, account and cart shortcuts. The count appears after hydration (the cart lives in the browser). */
 export function HeaderShopLinks() {
   const count = useCart().length;
   return (
     <>
+      <Link to={routes.search} className={headerIconClass} aria-label="Search articles">
+        <Search aria-hidden className="size-5" />
+        <HeaderIconLabel>Search</HeaderIconLabel>
+      </Link>
       <AccountMenu />
       <Link
         to={routes.cart}

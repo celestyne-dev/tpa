@@ -1,21 +1,36 @@
-import { ArrowLeft, ArrowRight, SearchX } from "lucide-react";
-import { useSearchParams } from "react-router";
+import { SearchX } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { Pagination } from "@/components/ui/Pagination";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
+import { PAGE_SIZE } from "@/data/queries";
 import { useArticles } from "@/hooks/useContent";
 import { cn } from "@/utils/format";
 import { ArticleGrid } from "./ArticleGrid";
 
-const PAGE_SIZE = 12;
+/** URL of an archive page: /articles/page/N, or ?topic=&page= while a topic is chosen. */
+export function archiveHref(topic, page) {
+  if (!topic) return routes.articlesPage(page);
+  const params = new URLSearchParams({ topic });
+  if (page > 1) params.set("page", String(page));
+  return `${routes.articles}?${params}`;
+}
 
-/** Topic filter + paginated grid. Filter state lives in the URL (?topic=&page=). */
-export function ArticleFilter({ topics }) {
-  const [searchParams, setSearchParams] = useSearchParams();
+/**
+ * Topic filter + paginated grid. Pages are real links (/articles/page/N, prerendered), so
+ * every article is reachable without JavaScript; the topic chips filter in place
+ * (?topic=), whose canonical pages are the topic pages themselves.
+ */
+export function ArticleFilter({ topics, page: routePage = 1 }) {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const active = searchParams.get("topic") || null;
-  const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  // Old ?page=N links keep working; /articles/page/N is the canonical form.
+  const queryPage = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const page = active || routePage === 1 ? queryPage : routePage;
   const {
     data: articles,
     pagination,
@@ -31,10 +46,7 @@ export function ArticleFilter({ topics }) {
   const activeTopic = topics.find((t) => t.slug === active);
 
   const update = (next) => {
-    const params = new URLSearchParams();
-    if (next.topic) params.set("topic", next.topic);
-    if (next.page && next.page > 1) params.set("page", String(next.page));
-    setSearchParams(params, { preventScrollReset: true });
+    navigate(archiveHref(next.topic ?? null, next.page ?? 1), { preventScrollReset: true });
   };
 
   const chip = (slug, label) => {
@@ -96,28 +108,13 @@ export function ArticleFilter({ topics }) {
             : `Showing all ${total} articles`)}
       </p>
       <div className="mt-8">{content}</div>
-      {pagination && pagination.total_pages > 1 && (
-        <nav aria-label="Pagination" className="mt-12 flex items-center justify-between gap-4">
-          <Button
-            variant="outline"
-            disabled={!pagination.has_prev}
-            onClick={() => update({ topic: active, page: page - 1 })}
-          >
-            <ArrowLeft aria-hidden />
-            Newer
-          </Button>
-          <span className="text-sm text-muted">
-            Page {pagination.page} of {pagination.total_pages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={!pagination.has_next}
-            onClick={() => update({ topic: active, page: page + 1 })}
-          >
-            Older
-            <ArrowRight aria-hidden />
-          </Button>
-        </nav>
+      {pagination && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.total_pages}
+          hrefFor={(p) => archiveHref(active, p)}
+          label={activeTopic ? `${activeTopic.name} article pages` : "Article pages"}
+        />
       )}
     </div>
   );

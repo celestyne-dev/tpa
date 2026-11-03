@@ -4,19 +4,35 @@ import { absoluteUrl } from "./format";
 
 const url = (path) => absoluteUrl(path, siteConfig.url);
 
-/** Organization entity from CMS settings (name, logo, social profiles). */
+/** Stable identifiers: every page's entities point at the same Organization and WebSite. */
+export const organizationId = () => `${siteConfig.url}/#organization`;
+export const websiteId = () => `${siteConfig.url}/#website`;
+const personId = (slug) => `${url(routes.author(slug))}#person`;
+
+/** Schema.org types for pages that have a more specific one. */
+const PAGE_TYPES = { [routes.about]: "AboutPage", [routes.contact]: "ContactPage" };
+
+/**
+ * Organization entity from CMS settings (name, logo, social profiles). Editorial and
+ * corrections policies are referenced only while those pages are published.
+ */
 export function organizationJsonLd(site) {
   const socialLinks = site?.social_links ?? [];
   const logo = site?.seo?.organization_logo?.src ?? site?.branding?.logo?.src;
+  const editorial = site?.trust?.editorial_policy?.path;
+  const corrections = site?.trust?.corrections_policy?.path;
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": organizationId(),
     name: site?.name ?? siteConfig.name,
     alternateName: site?.short_name ?? siteConfig.shortName,
     url: siteConfig.url,
     description: site?.description ?? siteConfig.description,
     ...(logo && { logo: url(logo) }),
     ...(socialLinks.length > 0 && { sameAs: socialLinks.map((s) => s.url) }),
+    ...(editorial && { publishingPrinciples: url(editorial) }),
+    ...(corrections && { correctionsPolicy: url(corrections) }),
   };
 }
 
@@ -24,9 +40,11 @@ export function websiteJsonLd(site) {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": websiteId(),
     name: site?.name ?? siteConfig.name,
     url: siteConfig.url,
     inLanguage: siteConfig.language,
+    publisher: { "@id": organizationId() },
   };
 }
 
@@ -42,14 +60,16 @@ export function siteJsonLd(site) {
 export function webPageJsonLd(page) {
   return {
     "@context": "https://schema.org",
-    "@type": "WebPage",
+    "@type": PAGE_TYPES[page.path] ?? "WebPage",
+    "@id": url(page.path),
     name: page.seo?.title || page.title,
     url: url(page.path),
     ...(page.seo?.description && { description: page.seo.description }),
     ...(page.published_at && { datePublished: page.published_at }),
     ...(page.updated_at && { dateModified: page.updated_at }),
     inLanguage: siteConfig.language,
-    isPartOf: { "@type": "WebSite", url: siteConfig.url },
+    isPartOf: { "@type": "WebSite", "@id": websiteId(), url: siteConfig.url },
+    ...(PAGE_TYPES[page.path] && { about: { "@id": organizationId() } }),
   };
 }
 
@@ -69,27 +89,81 @@ function authorEntity(article) {
   if (profile?.is_person) {
     return {
       "@type": "Person",
+      ...(profile.has_page && {
+        "@id": personId(profile.slug),
+        url: url(routes.author(profile.slug)),
+      }),
       name: profile.name,
       ...(profile.bio && { description: profile.bio }),
       ...(profile.image?.src && { image: url(profile.image.src) }),
     };
   }
-  return { "@type": "Organization", name: article.author.name, url: siteConfig.url };
+  return {
+    "@type": "Organization",
+    "@id": organizationId(),
+    name: article.author.name,
+    url: siteConfig.url,
+  };
+}
+
+/** The works an article cites in its Sources blocks. */
+function citations(article) {
+  return (article.body ?? [])
+    .filter((block) => block.type === "sources")
+    .flatMap((block) => block.items ?? [])
+    .map((item) => ({
+      "@type": "CreativeWork",
+      name: item.title,
+      url: item.url,
+      ...(item.publisher && { publisher: { "@type": "Organization", name: item.publisher } }),
+    }));
+}
+
+/** An author's page: the Person and the page about them. */
+export function authorPageJsonLd(author) {
+  const pageUrl = url(routes.author(author.slug));
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": pageUrl,
+    url: pageUrl,
+    name: author.name,
+    isPartOf: { "@id": websiteId() },
+    mainEntity: {
+      "@type": "Person",
+      "@id": personId(author.slug),
+      name: author.name,
+      url: pageUrl,
+      ...(author.bio && { description: author.bio }),
+      ...(author.image?.src && { image: url(author.image.src) }),
+      worksFor: { "@id": organizationId() },
+    },
+  };
 }
 
 export function articleJsonLd(article) {
   const images = [article.seo?.og_image, article.image].filter((i) => i?.src);
+  const cited = citations(article);
   return {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
+    "@id": `${url(routes.article(article.slug))}#article`,
     headline: article.title,
     description: article.seo?.description ?? article.excerpt,
     image: images.map(imageObject),
     datePublished: article.published_at,
-    dateModified: article.updated_at ?? article.published_at,
+    // A material update (set by an editor), never an ordinary database save.
+    dateModified: article.content_modified_at ?? article.published_at,
     author: authorEntity(article),
-    publisher: { "@type": "Organization", name: siteConfig.name, url: siteConfig.url },
+    publisher: {
+      "@type": "Organization",
+      "@id": organizationId(),
+      name: siteConfig.name,
+      url: siteConfig.url,
+    },
+    isPartOf: { "@id": websiteId() },
     mainEntityOfPage: { "@type": "WebPage", "@id": url(routes.article(article.slug)) },
+    ...(cited.length > 0 && { citation: cited }),
     ...(article.topic && { articleSection: article.topic.name }),
     ...(article.tags?.length && { keywords: article.tags.join(", ") }),
     inLanguage: siteConfig.language,

@@ -6,14 +6,71 @@ import { LogoMark } from "@/components/layout/Logo";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/Notice";
-import { login, selectAuth } from "@/store/slices/authSlice";
+import { login, mfaCancelled, selectAuth, verifyMfa } from "@/store/slices/authSlice";
 import { TextField } from "../components/Fields";
 import { SessionLoading } from "../components/Guards";
 import { safeNextPath } from "../components/safeNextPath";
 
+/** Second step for accounts with two-step sign-in: the authenticator code. */
+function CodeStep({ token, error }) {
+  const dispatch = useDispatch();
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const onSubmit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    await dispatch(verifyMfa({ token, code }));
+    setSubmitting(false);
+    setCode("");
+  };
+  const message =
+    error?.status === 429
+      ? "Too many attempts. Please wait a few minutes and try again."
+      : error?.status === 401
+        ? error.message || "That code isn't valid."
+        : error
+          ? "We couldn't check the code right now. Please try again."
+          : null;
+  return (
+    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      <p className="text-sm text-muted">
+        Enter the six-digit code from your authenticator app. Lost your phone? Enter one of your
+        recovery codes instead.
+      </p>
+      <TextField
+        label="Verification code"
+        name="code"
+        inputMode="text"
+        autoComplete="one-time-code"
+        autoFocus
+        required
+        maxLength={20}
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+      />
+      {message && (
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">
+          {message}
+        </p>
+      )}
+      <Button type="submit" className="w-full" disabled={submitting || code.trim().length < 6}>
+        <LockKeyhole aria-hidden />
+        {submitting ? "Checking…" : "Verify and sign in"}
+      </Button>
+      <button
+        type="button"
+        onClick={() => dispatch(mfaCancelled())}
+        className="w-full text-sm text-sage-800 underline underline-offset-4"
+      >
+        Start again
+      </button>
+    </form>
+  );
+}
+
 export function LoginPage() {
   const dispatch = useDispatch();
-  const { status, error, sessionExpired } = useSelector(selectAuth);
+  const { status, error, sessionExpired, mfaToken } = useSelector(selectAuth);
   const [params] = useSearchParams();
   const next = safeNextPath(params.get("next"));
   const [form, setForm] = useState({ email: "", password: "" });
@@ -55,6 +112,9 @@ export function LoginPage() {
             <Notice title="Your session has ended">Please sign in again to continue.</Notice>
           </div>
         )}
+        {mfaToken ? (
+          <CodeStep token={mfaToken} error={error} />
+        ) : (
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <TextField
             label="Email"
@@ -88,6 +148,7 @@ export function LoginPage() {
             {submitting ? "Signing in…" : "Sign in"}
           </Button>
         </form>
+        )}
         <details className="mt-5 text-sm">
           <summary className="cursor-pointer text-sage-800 underline underline-offset-4">
             Forgot your password?

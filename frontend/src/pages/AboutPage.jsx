@@ -12,6 +12,7 @@ import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { aboutValues } from "@/data/marketing";
 import { useSite, useTopics } from "@/hooks/useContent";
+import { webPageJsonLd } from "@/utils/structuredData";
 
 const DEFAULT_MISSION =
   "Helping people develop a healthier mindset, navigate life's challenges, build confidence, and move forward through encouragement, thoughtful content, and useful personal development tools.";
@@ -25,6 +26,7 @@ export function AboutPage() {
         title="About Think Positive Always"
         description="Think Positive Always offers practical inspiration for a stronger mindset, more confidence, and intentional personal growth. Learn what we stand for and who we serve."
         path={routes.about}
+        jsonLd={webPageJsonLd({ title: "About Think Positive Always", path: routes.about })}
       />
       <PageHeader
         eyebrow="About us"

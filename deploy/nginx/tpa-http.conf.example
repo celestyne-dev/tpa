@@ -1,0 +1,12 @@
+# /etc/nginx/conf.d/tpa-http.conf  (example)
+#
+# http-level definitions shared by the TPA sites (staging and production): install ONCE
+# (a second copy would define the same variable twice), then `nginx -t`.
+#
+# $tpa_slashless: for /x/ and /x/index.html, the canonical /x (no trailing slash); for every
+# other path a placeholder that never exists. "location /" in tpa.conf redirects to it
+# only when /x is a prerendered page, so legacy rules and CMS redirects are unaffected.
+map $uri $tpa_slashless {
+    default "/__tpa_none__";
+    "~^(/.+?)/(index\.html)?$" $1;
+}

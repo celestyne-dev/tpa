@@ -1,0 +1,21 @@
+# Secret scanning (CI "security" job). Default rules, plus an allowlist for the
+# deliberately fake credentials used by tests and the CHANGE-ME env templates.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and templates (no real secrets)"
+paths = [
+  '''backend/tests/''',
+  '''frontend/src/test/''',
+  '''frontend/src/.*\.test\.jsx?$''',
+  '''backend/scripts/paystack_mock\.py$''',
+  '''deploy/env/.*\.env\.example$''',
+  '''backend/\.env\.example$''',
+  '''frontend/package-lock\.json$''',
+]
+regexes = [
+  '''CHANGE-ME''',
+  '''sk_test_''',
+  '''pk_test_''',
+]

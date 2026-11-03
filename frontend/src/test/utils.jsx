@@ -88,6 +88,21 @@ export function createFakeApi(overrides = {}) {
       return fx.cmsPages[path] ? { data: fx.cmsPages[path] } : notFound("Page not found.");
     }),
     getMediaKit: vi.fn(async () => notFound("The media kit has not been published yet.")),
+    getAuthors: vi.fn(async () => ({ data: [] })),
+    getAuthor: vi.fn(async () => notFound("Author not found.")),
+    search: vi.fn(async ({ q, page = 1 } = {}) => {
+      const terms = String(q ?? "")
+        .toLowerCase()
+        .split(/\W+/)
+        .filter((t) => t.length > 1);
+      const found = terms.length
+        ? fx.articles.filter((a) =>
+            terms.every((t) => `${a.title} ${a.excerpt}`.toLowerCase().includes(t)),
+          )
+        : [];
+      const { data, meta } = paginate(found, { page, page_size: 10 });
+      return { data: { query: q, terms, results: data }, meta };
+    }),
     getPages: vi.fn(async () => ({
       data: Object.values(fx.cmsPages).map((p) => ({ path: p.path, title: p.title })),
     })),

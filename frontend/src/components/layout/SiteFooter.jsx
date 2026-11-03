@@ -61,6 +61,12 @@ export function SiteFooter({ site }) {
   const socialLinks = settings.show_social === false ? [] : (site?.social_links ?? []);
   const name = site?.name ?? siteConfig.name;
   const promo = settings.promo;
+  // Editorial and corrections policies, only while those pages are published.
+  const legalHrefs = new Set(legal.map((item) => item.href));
+  const trustLinks = [site?.trust?.editorial_policy, site?.trust?.corrections_policy]
+    .filter((page) => page?.path && !legalHrefs.has(page.path))
+    .map((page) => ({ label: page.title, href: page.path }));
+  const bottomLinks = [...legal, ...trustLinks];
   return (
     <footer className="bg-charcoal text-sand">
       <Container size="wide" className="py-16 sm:py-20">
@@ -142,9 +148,9 @@ export function SiteFooter({ site }) {
         <div className="mt-14 flex flex-col gap-6 border-t border-ivory/10 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
             <Copyright template={settings.copyright} name={name} year={year} />
-            {legal.length > 0 && (
+            {bottomLinks.length > 0 && (
               <ul aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2">
-                {legal.map((item) => (
+                {bottomLinks.map((item) => (
                   <li key={`${item.href}-${item.label}`}>
                     <FooterLink item={item} />
                   </li>

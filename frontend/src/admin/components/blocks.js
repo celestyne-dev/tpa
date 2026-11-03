@@ -1,3 +1,5 @@
+import { stripInlineLinks } from "@/utils/inlineLinks";
+
 export const BLOCK_TEMPLATES = {
   paragraph: { label: "Paragraph", make: () => ({ type: "paragraph", text: "" }) },
   heading: { label: "Heading", make: () => ({ type: "heading", text: "", level: 2 }) },
@@ -54,6 +56,14 @@ export const BLOCK_TEMPLATES = {
     }),
   },
   divider: { label: "Divider", make: () => ({ type: "divider" }) },
+  sources: {
+    label: "Sources",
+    make: () => ({
+      type: "sources",
+      title: "",
+      items: [{ title: "", url: "", publisher: "", accessed: "" }],
+    }),
+  },
   // Lesson-only blocks (text-based courses). Hidden from editors that don't allow them.
   key_points: {
     label: "Key points",
@@ -175,6 +185,15 @@ export function cleanBlocks(blocks) {
       out.items = out.items
         .filter((i) => i.label?.trim() || i.href?.trim())
         .map(({ label, href, note }) => ({ label, href, ...(note?.trim() && { note }) }));
+    if (out.type === "sources")
+      out.items = out.items
+        .filter((i) => i.title?.trim() || i.url?.trim())
+        .map(({ title, url, publisher, accessed }) => ({
+          title: (title ?? "").trim(),
+          url: (url ?? "").trim(),
+          ...(publisher?.trim() && { publisher: publisher.trim() }),
+          ...(accessed && { accessed }),
+        }));
     if (out.type === "gallery")
       out.items = out.items.map(({ media_id, caption, alt }) => ({
         media_id,
@@ -188,7 +207,9 @@ export function cleanBlocks(blocks) {
 /** Word count and reading time computed like the API (225 words per minute). */
 export function countWords(blocks) {
   let words = 0;
-  const count = (text) => (text ? String(text).trim().split(/\s+/).filter(Boolean).length : 0);
+  // [label](href) links count as their label, like the API.
+  const count = (text) =>
+    text ? stripInlineLinks(text).trim().split(/\s+/).filter(Boolean).length : 0;
   for (const block of blocks) {
     if (block.type === "list") block.items.forEach((i) => (words += count(i)));
     else if (block.type === "table") block.rows.flat().forEach((c) => (words += count(c)));

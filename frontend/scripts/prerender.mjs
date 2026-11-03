@@ -10,16 +10,25 @@
  *    Published CMS pages (GET /api/v1/pages) are rendered the same way.
  * 4. Writes dist/404.html, dist/admin/index.html (client-only admin shell),
  *    dist/sitemap.xml (from GET /api/v1/sitemap: only published, indexable,
- *    self-canonical URLs, with image entries), dist/robots.txt,
- *    dist/redirects.json and dist/prerender-manifest.json.
+ *    self-canonical URLs, with image entries), dist/robots.txt (AI training
+ *    crawlers blocked unless approved), dist/feed.xml (RSS: article summaries),
+ *    dist/redirects.json and dist/prerender-manifest.json (with the release id).
+ * 5. Archive, topic and author listings get one prerendered page per page of
+ *    articles (/articles/page/2, ...), linked with plain <a href> pagination.
+ *
+ * The page state is embedded as inert JSON (<script type="application/json">), never as
+ * executable inline script, so the site works under a strict Content-Security-Policy.
  *
  * Drafts and private previews are never fetched: the public API only returns
  * published content.
  */
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadEnv } from "vite";
+import { buildFeed } from "./lib/feed.mjs";
+import { buildRobots } from "./lib/robots.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distDir = path.join(root, "dist");
@@ -55,6 +64,22 @@ async function checkApi() {
       `the Flask API is not reachable at ${apiUrl} (${error.message}).\n` +
         "  Start it first (see README: 'Production build') or set PRERENDER_API_URL.",
     );
+  }
+}
+
+/** The commit being built: TPA_RELEASE (set by CI/deploy), else git, else "unknown". */
+function releaseId() {
+  const fromEnv = (env.TPA_RELEASE || "").trim();
+  if (fromEnv) return fromEnv.slice(0, 40).replace(/[^A-Za-z0-9._-]/g, "");
+  try {
+    return execFileSync("git", ["rev-parse", "--short=12", "HEAD"], {
+      cwd: root,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return "unknown";
   }
 }
 
@@ -101,8 +126,30 @@ function buildManifest(site, base) {
   };
 }
 
+/**
+ * Build-wide head tags: the release id (so "which build is live?" is answerable from any
+ * page), the RSS feed, and preloads for the two primary font files.
+ */
+async function applyBuildHead(template, release) {
+  const assets = await readdir(path.join(distDir, "assets")).catch(() => []);
+  const fonts = ["inter-latin-wght-normal-", "fraunces-latin-opsz-normal-"]
+    .map((prefix) => assets.find((f) => f.startsWith(prefix) && f.endsWith(".woff2")))
+    .filter(Boolean);
+  const tags = [
+    `<meta name="tpa-build" content="${attr(release)}" />`,
+    `<link rel="alternate" type="application/rss+xml" title="${attr(siteConfig.name)}" href="/feed.xml" />`,
+    ...fonts.map(
+      (f) => `<link rel="preload" href="/assets/${attr(f)}" as="font" type="font/woff2" crossorigin />`,
+    ),
+  ].join("\n    ");
+  return template.replace("<!--app-head-->", `${tags}\n    <!--app-head-->`);
+}
+
 function injectTemplate(template, { head, html, state }) {
-  const stateScript = state ? `<script>window.__TPA_STATE__=${safeJson(state)}</script>` : "";
+  // Inert JSON (not executable): read by entry-client.jsx, allowed by a strict CSP.
+  const stateScript = state
+    ? `<script type="application/json" id="tpa-state">${safeJson(state)}</script>`
+    : "";
   return template
     .replace("<!--app-head-->", head)
     .replace(
@@ -145,21 +192,17 @@ function buildSitemap(entries) {
   );
 }
 
-function buildRobots() {
-  if (!siteConfig.allowIndexing) {
-    // Previews, staging and local builds must never be indexed.
-    return "User-agent: *\nDisallow: /\n";
-  }
-  return `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /account\nDisallow: /cart\nDisallow: /checkout\nDisallow: /purchases\nDisallow: /newsletter/\nDisallow: /resources/access\nDisallow: /learn/\nDisallow: /certificates/\n\nSitemap: ${siteConfig.url}/sitemap.xml\n`;
-}
-
 await checkApi();
 
 // CMS settings that affect every page: canonical address, indexing, favicon, manifest.
 const site = (await api.getSite()).data;
 configureSite(site);
 
-const template = applyBranding(await readFile(path.join(distDir, "index.html"), "utf8"), site);
+const release = releaseId();
+const template = await applyBuildHead(
+  applyBranding(await readFile(path.join(distDir, "index.html"), "utf8"), site),
+  release,
+);
 for (const marker of ["<!--app-head-->", "<!--app-html-->", "<!--app-state-->"]) {
   if (!template.includes(marker)) fail(`dist/index.html is missing the ${marker} marker.`);
 }
@@ -173,6 +216,7 @@ const [
   productsRes,
   collectionsRes,
   coursesRes,
+  authorsRes,
 ] = await Promise.all([
   api.getTopics(),
   fetchAllArticles(),
@@ -182,8 +226,17 @@ const [
   api.getProducts(),
   api.getCollections(),
   api.getCourses(),
+  api.getAuthors(),
 ]);
 const topics = topicsRes.data;
+const authors = authorsRes.data;
+const PAGE_SIZE = 12;
+/** Paths for listing pages 2..N (page 1 is the listing's own URL). */
+const extraPages = (count, pathFor) =>
+  Array.from({ length: Math.max(0, Math.ceil(count / PAGE_SIZE) - 1) }, (_v, i) => ({
+    path: pathFor(i + 2),
+    priority: 0.3,
+  }));
 const staticPaths = new Set(staticRoutes.map((r) => r.path));
 
 const pages = [
@@ -193,6 +246,13 @@ const pages = [
     .filter((p) => !staticPaths.has(p.path))
     .map((p) => ({ path: p.path, priority: 0.6, changefreq: "monthly" })),
   ...topics.map((t) => ({ path: routes.topic(t.slug), priority: 0.7, changefreq: "weekly" })),
+  // Crawlable pagination: every page of the archive, each topic and each author.
+  ...extraPages(articles.length, (n) => routes.articlesPage(n)),
+  ...topics.flatMap((t) => extraPages(t.article_count, (n) => routes.topicPage(t.slug, n))),
+  ...authors.flatMap((a) => [
+    { path: routes.author(a.slug), priority: 0.4 },
+    ...extraPages(a.article_count, (n) => routes.authorPage(a.slug, n)),
+  ]),
   // Published products and collections (drafts and archived products are never listed).
   ...productsRes.data.map((p) => ({ path: routes.product(p.slug) })),
   ...collectionsRes.data.map((c) => ({ path: routes.collection(c.slug) })),
@@ -264,7 +324,26 @@ await writeFile(
   path.join(distDir, "redirects.json"),
   JSON.stringify(redirectsRes.data, null, 2) + "\n",
 );
-await writeFile(path.join(distDir, "robots.txt"), buildRobots());
+await writeFile(
+  path.join(distDir, "robots.txt"),
+  buildRobots({
+    allowIndexing: siteConfig.allowIndexing,
+    siteUrl: siteConfig.url,
+    blockedTrainingCrawlers: site?.seo?.blocked_training_crawlers,
+  }),
+);
+// RSS: summaries of published, indexable articles (the sitemap decides indexability).
+const indexable = new Set(sitemapRes.data.filter((e) => e.type === "article").map((e) => e.path));
+await writeFile(
+  path.join(distDir, "feed.xml"),
+  buildFeed({
+    siteUrl: siteConfig.url,
+    siteName: site?.name ?? siteConfig.name,
+    description: site?.seo?.default_description || site?.tagline || siteConfig.description,
+    articles: articles.filter((a) => indexable.has(routes.article(a.slug))),
+    articlePath: routes.article,
+  }),
+);
 const baseManifest = JSON.parse(await readFile(path.join(distDir, "manifest.webmanifest"), "utf8"));
 await writeFile(
   path.join(distDir, "manifest.webmanifest"),
@@ -275,6 +354,7 @@ await writeFile(
   JSON.stringify(
     {
       generatedAt: new Date().toISOString(),
+      release,
       siteUrl: siteConfig.url,
       indexing: siteConfig.allowIndexing,
       apiUrl,

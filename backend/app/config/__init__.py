@@ -64,6 +64,9 @@ class BaseConfig:
 
     # ---- Authentication (Flask-JWT-Extended, HttpOnly cookies) ----
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or "dev-insecure-jwt-secret-change-me"
+    # Derives administrators' authenticator secrets (app/auth/mfa.py); defaults to
+    # SECRET_KEY. Changing it ends every two-step enrolment.
+    MFA_KEY = os.environ.get("MFA_KEY") or None
     JWT_TOKEN_LOCATION = ["cookies"]
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=_int("ACCESS_TOKEN_MINUTES", 15))
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=_int("REFRESH_TOKEN_DAYS", 14))

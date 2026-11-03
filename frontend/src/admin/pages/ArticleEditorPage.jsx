@@ -182,6 +182,9 @@ export function ArticleEditorPage() {
   const canWrite = isNew ? can("articles.create") : Boolean(allowed.edit);
   const status = record?.status ?? "draft";
   const isLive = status === "published";
+  // Published articles: does this change deserve a new public "Last updated" date?
+  const [materialUpdate, setMaterialUpdate] = useState(false);
+  const canMarkMaterial = isLive && (allowed.save_live || allowed.publish_changes);
 
   // Load the form once per article. Later server responses are applied explicitly
   // (never by re-syncing), so an in-flight autosave cannot overwrite fresh typing.
@@ -258,8 +261,13 @@ export function ArticleEditorPage() {
         notify("Draft created.");
         navigate(`/admin/articles/${res.data.id}/edit`, { replace: true });
       } else {
-        const res = await api.articles.update(id, { ...payload, lock_version: lockVersion });
+        const res = await api.articles.update(id, {
+          ...payload,
+          lock_version: lockVersion,
+          ...(canMarkMaterial && materialUpdate && { material_update: true }),
+        });
         applyServer(res, sent);
+        if (res.meta?.save_result !== "pending") setMaterialUpdate(false);
         notify(
           res.meta?.save_result === "pending"
             ? "Changes saved for review. The live article changes when a publisher publishes them."
@@ -285,8 +293,11 @@ export function ArticleEditorPage() {
           : action === "schedule"
             ? await api.articles.publish(id, new Date(scheduleAt).toISOString())
             : action === "publishChanges"
-              ? await api.articles.publishChanges(id, lockVersion)
+              ? materialUpdate
+                ? await api.articles.publishChanges(id, lockVersion, true)
+                : await api.articles.publishChanges(id, lockVersion)
               : await api.articles[action](id);
+      if (action === "publishChanges") setMaterialUpdate(false);
       if (action === "remove") {
         notify(message);
         navigate("/admin/articles", { replace: true });
@@ -418,6 +429,20 @@ export function ArticleEditorPage() {
           </span>
         )}
         {record?.updated_at && <span>Last saved {formatDateTime(record.updated_at)}</span>}
+        {record?.content_modified_at && (
+          <span>Public “Last updated” {formatDateTime(record.content_modified_at)}</span>
+        )}
+        {canMarkMaterial && canWrite && (
+          <label className="inline-flex items-center gap-2 text-ink">
+            <input
+              type="checkbox"
+              checked={materialUpdate}
+              onChange={(e) => setMaterialUpdate(e.target.checked)}
+              className="size-4 accent-sage-700"
+            />
+            Material update: show a new “Last updated” date when these changes go live
+          </label>
+        )}
         {!isNew && status === "draft" && (
           <span className="rounded-full bg-beige px-2 py-0.5 text-xs text-ink">
             Draft — not visible on the website

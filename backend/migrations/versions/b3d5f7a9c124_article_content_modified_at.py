@@ -19,10 +19,19 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table("articles") as batch:
-        batch.add_column(sa.Column("content_modified_at", sa.DateTime(timezone=True), nullable=True))
+    # ALTER TABLE ... ADD COLUMN on every database: no table is rebuilt, no row touched.
+    op.add_column(
+        "articles", sa.Column("content_modified_at", sa.DateTime(timezone=True), nullable=True)
+    )
 
 
 def downgrade():
-    with op.batch_alter_table("articles") as batch:
-        batch.drop_column("content_modified_at")
+    if op.get_bind().dialect.name == "sqlite":
+        # SQLite rebuilds the table to drop a column; rows that reference articles
+        # (revisions, topics, tags) stay intact, so foreign-key checks pause meanwhile.
+        op.execute("PRAGMA foreign_keys=OFF")
+        with op.batch_alter_table("articles") as batch:
+            batch.drop_column("content_modified_at")
+        op.execute("PRAGMA foreign_keys=ON")
+        return
+    op.drop_column("articles", "content_modified_at")

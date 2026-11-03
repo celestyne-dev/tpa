@@ -1,0 +1,172 @@
+# Continuous integration for celestyne-dev/tpa.
+#
+# Tests, builds and checks only: this workflow has no deploy step and no access to any
+# server, secret or production data. Every job uses throwaway databases and the
+# development-only sample content as fixtures. Deployment stays a manual, reviewed step
+# (docs/deployment.md): staging first, production only after sign-off.
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+
+jobs:
+  backend:
+    name: Backend tests (SQLite) + lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      # nginx + openssl run the live Nginx checks (redirects, 404/410, headers) that are
+      # skipped where nginx isn't installed.
+      - name: Install nginx for the live configuration tests
+        run: sudo apt-get update -q && sudo apt-get install -y -q nginx openssl && sudo systemctl stop nginx || true
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python -m pytest -q -p no:cacheprovider
+
+  backend-postgres:
+    name: Backend tests (PostgreSQL 16)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tpa_ci
+          POSTGRES_PASSWORD: tpa_ci
+          POSTGRES_DB: tpa_ci_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tpa_ci" --health-interval 5s --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://tpa_ci:tpa_ci@127.0.0.1:5432/tpa_ci_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q -p no:cacheprovider
+
+  frontend:
+    name: Frontend lint, format and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - name: Show the formatting changes Prettier expects
+        if: failure()
+        run: npx prettier --write . > /dev/null && git --no-pager diff
+      - run: npm test
+
+  build:
+    name: Production build + prerender validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      FLASK_CONFIG: development
+      FLASK_SKIP_DOTENV: "1"
+      DATABASE_URL: sqlite:////tmp/tpa-ci-build.db
+      MEDIA_ROOT: /tmp/tpa-ci-media
+      SITE_URL: https://ci.example.com
+      CORS_ORIGINS: https://ci.example.com
+      # The site is built as production would build it (indexable), against fixtures.
+      VITE_SITE_URL: https://ci.example.com
+      VITE_ALLOW_INDEXING: "true"
+      PRERENDER_API_URL: http://127.0.0.1:5000/api/v1
+      TPA_RELEASE: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Fixture API (throwaway SQLite, development sample content)
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          flask --app wsgi db upgrade
+          flask --app wsgi seed sample-content
+          flask --app wsgi cms seed-defaults
+          python scripts/ci_build_fixtures.py   # 26 articles: pagination + an author page
+          nohup flask --app wsgi run --port 5000 > /tmp/tpa-ci-api.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:5000/api/v1/health && break; sleep 1; done
+      - working-directory: frontend
+        run: npm ci
+      - name: Build (client, SSR, prerender)
+        working-directory: frontend
+        run: npm run build
+      - name: Validate the built site
+        working-directory: frontend
+        run: node scripts/verify-build.mjs
+      - name: API log
+        if: failure()
+        run: tail -100 /tmp/tpa-ci-api.log
+
+  security:
+    name: Dependency and secret checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Python dependencies (pip-audit)
+        run: pip install pip-audit && pip-audit -r backend/requirements.txt --strict
+      - name: Runtime npm dependencies (npm audit)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+      - name: Secret scan (gitleaks, tracked files)
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.18.4 \
+            detect --source /repo --config /repo/.gitleaks.toml --no-git --redact --verbose

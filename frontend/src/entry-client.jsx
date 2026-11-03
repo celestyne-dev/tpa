@@ -13,8 +13,24 @@ import { createShopApi } from "./services/shopApi";
 import { createAppStore } from "./store";
 
 const container = document.getElementById("root");
-const preloadedState = window.__TPA_STATE__;
-delete window.__TPA_STATE__;
+
+/**
+ * The prerendered page's data, from <script type="application/json" id="tpa-state">
+ * (inert JSON, so the Content-Security-Policy can forbid inline scripts).
+ */
+function readPreloadedState() {
+  const element = document.getElementById("tpa-state");
+  if (!element) return undefined;
+  try {
+    return JSON.parse(element.textContent);
+  } catch {
+    return undefined;
+  } finally {
+    element.remove();
+  }
+}
+
+const preloadedState = readPreloadedState();
 if (preloadedState?.site?.data) configureSite(preloadedState.site.data);
 const adminApi = createAdminApi();
 const shopApi = createShopApi();

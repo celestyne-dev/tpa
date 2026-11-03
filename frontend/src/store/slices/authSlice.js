@@ -21,7 +21,21 @@ export const login = createAsyncThunk(
   "auth/login",
   async (credentials, { extra, rejectWithValue }) => {
     try {
-      return (await extra.adminApi.auth.login(credentials)).data.user;
+      const { data } = await extra.adminApi.auth.login(credentials);
+      // Accounts with two-step sign-in get a short-lived challenge instead of a session.
+      return data.mfa_required ? { mfaToken: data.mfa_token } : data.user;
+    } catch (error) {
+      return rejectWithValue(serializeError(error));
+    }
+  },
+);
+
+/** Second sign-in step: a code from the authenticator app or a recovery code. */
+export const verifyMfa = createAsyncThunk(
+  "auth/verifyMfa",
+  async ({ token, code }, { extra, rejectWithValue }) => {
+    try {
+      return (await extra.adminApi.auth.verifyMfa({ mfa_token: token, code })).data.user;
     } catch (error) {
       return rejectWithValue(serializeError(error));
     }
@@ -36,7 +50,13 @@ export const logout = createAsyncThunk("auth/logout", async (_arg, { extra }) =>
   }
 });
 
-const initialState = { user: null, status: "idle", error: null, sessionExpired: false };
+const initialState = {
+  user: null,
+  status: "idle",
+  error: null,
+  sessionExpired: false,
+  mfaToken: null,
+};
 
 const authSlice = createSlice({
   name: "auth",
@@ -49,6 +69,11 @@ const authSlice = createSlice({
     },
     userUpdated(state, action) {
       state.user = action.payload;
+    },
+    /** Back from the code step to email and password. */
+    mfaCancelled(state) {
+      state.mfaToken = null;
+      state.error = null;
     },
     /** A session was established outside the login form (e.g. invitation activation). */
     signedIn(state, action) {
@@ -78,10 +103,28 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
+        state.error = null;
+        if (action.payload?.mfaToken) {
+          state.mfaToken = action.payload.mfaToken;
+          return;
+        }
+        state.status = "authenticated";
+        state.user = action.payload;
+        state.sessionExpired = false;
+        state.mfaToken = null;
+      })
+      .addCase(verifyMfa.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(verifyMfa.fulfilled, (state, action) => {
         state.status = "authenticated";
         state.user = action.payload;
         state.sessionExpired = false;
         state.error = null;
+        state.mfaToken = null;
+      })
+      .addCase(verifyMfa.rejected, (state, action) => {
+        state.error = action.payload ?? serializeError(action.error);
       })
       .addCase(login.rejected, (state, action) => {
         state.error = action.payload ?? serializeError(action.error);
@@ -90,7 +133,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { sessionExpired, userUpdated, signedIn } = authSlice.actions;
+export const { sessionExpired, userUpdated, signedIn, mfaCancelled } = authSlice.actions;
 export const selectAuth = (state) => state.auth;
 export const selectPermissions = (state) => state.auth.user?.permissions ?? [];
 export default authSlice.reducer;

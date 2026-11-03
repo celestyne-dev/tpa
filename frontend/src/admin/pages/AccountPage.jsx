@@ -6,6 +6,7 @@ import { useAdminApi } from "../adminApiContext";
 import { AdminPageHeader } from "../components/AdminPageHeader";
 import { fieldError } from "../components/fieldError";
 import { TextField } from "../components/Fields";
+import { MfaSettings } from "../components/MfaSettings";
 import { useNotify } from "../components/notifyContext";
 
 export function AccountPage() {
@@ -90,6 +91,9 @@ export function AccountPage() {
           {busy ? "Saving…" : "Change password"}
         </Button>
       </form>
+      <div className="mt-6">
+        <MfaSettings />
+      </div>
     </>
   );
 }

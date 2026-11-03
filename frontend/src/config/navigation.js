@@ -1,8 +1,14 @@
 export const routes = {
   home: "/",
   articles: "/articles",
+  /** Archive page N (page 1 is /articles itself: one URL per page). */
+  articlesPage: (page) => (page > 1 ? `/articles/page/${page}` : "/articles"),
   article: (slug) => `/articles/${slug}`,
   topic: (slug) => `/topics/${slug}`,
+  topicPage: (slug, page) => (page > 1 ? `/topics/${slug}/page/${page}` : `/topics/${slug}`),
+  author: (slug) => `/authors/${slug}`,
+  authorPage: (slug, page) => (page > 1 ? `/authors/${slug}/page/${page}` : `/authors/${slug}`),
+  search: "/search",
   shop: "/shop",
   product: (slug) => `/shop/${slug}`,
   collection: (slug) => `/shop/collections/${slug}`,
@@ -110,6 +116,8 @@ export const legacyAuthRoutes = {
 
 /** Private customer pages, prerendered as noindex shells (data loads in the browser). */
 export const privateRoutes = [
+  // Site search: a noindex shell; results load in the browser for each query.
+  routes.search,
   routes.cart,
   routes.checkout,
   routes.checkoutComplete,

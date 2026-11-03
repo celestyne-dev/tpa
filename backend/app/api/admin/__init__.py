@@ -24,6 +24,12 @@ ADMIN_ROUTES = [
     (auth.LogoutResource, "/admin/auth/logout"),
     (auth.MeResource, "/admin/auth/me"),
     (auth.ChangePasswordResource, "/admin/auth/change-password"),
+    (auth.MfaVerifyResource, "/admin/auth/mfa/verify"),
+    (auth.MfaStatusResource, "/admin/auth/mfa"),
+    (auth.MfaSetupResource, "/admin/auth/mfa/setup"),
+    (auth.MfaEnableResource, "/admin/auth/mfa/enable"),
+    (auth.MfaDisableResource, "/admin/auth/mfa/disable"),
+    (auth.MfaRecoveryCodesResource, "/admin/auth/mfa/recovery-codes"),
     (auth.InvitationVerifyResource, "/admin/auth/invitation/verify"),
     (auth.InvitationAcceptResource, "/admin/auth/invitation/accept"),
     (auth.PasswordResetVerifyResource, "/admin/auth/password-reset/verify"),
@@ -154,6 +160,7 @@ ADMIN_ROUTES = [
 # Endpoints reachable without an access token (they authenticate in other ways).
 PUBLIC_ADMIN_PATHS = {
     "/admin/auth/login",
+    "/admin/auth/mfa/verify",
     "/admin/auth/refresh",
     "/admin/auth/logout",
     "/admin/auth/invitation/verify",

@@ -3,7 +3,8 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { routes } from "@/config/navigation";
-import { cn, slugify } from "@/utils/format";
+import { cn, formatDate, slugify } from "@/utils/format";
+import { parseInlineLinks } from "@/utils/inlineLinks";
 
 const calloutStyles = {
   info: { icon: Info, className: "border-sage-200 bg-sage-50" },
@@ -34,6 +35,65 @@ function SmartLink({ href, className, children }) {
     >
       {children}
     </a>
+  );
+}
+
+/**
+ * Text with inline [label](href) links (safe targets only). Lesson blocks (with a uid)
+ * stay exactly as written: the reader's highlights are stored against that plain text.
+ */
+function InlineText({ text, block }) {
+  if (block?.uid) return text;
+  const parts = parseInlineLinks(text);
+  if (!parts.some((p) => p.href)) return text;
+  return parts.map((part, i) => {
+    if (!part.href) return part.text;
+    if (part.href.toLowerCase().startsWith("mailto:"))
+      return (
+        <a key={i} href={part.href}>
+          {part.label}
+        </a>
+      );
+    return (
+      <SmartLink key={i} href={part.href}>
+        {part.label}
+      </SmartLink>
+    );
+  });
+}
+
+/** An article's sources: titled links (and publisher/access date when given). */
+function Sources({ block }) {
+  const id = `sources-${block.uid ?? "list"}`;
+  return (
+    <section
+      data-block-uid={block.uid}
+      aria-labelledby={id}
+      className="not-prose mt-12 border-t border-charcoal/10 pt-8"
+    >
+      <h2 id={id} className="font-serif text-2xl text-charcoal">
+        {block.title || "Sources"}
+      </h2>
+      <ol className="mt-4 list-decimal space-y-2 pl-5 text-base text-charcoal">
+        {(block.items ?? []).map((item, i) => (
+          <li key={i}>
+            <SmartLink
+              href={item.url}
+              className="text-sage-800 underline underline-offset-4 hover:text-sage-700"
+            >
+              {item.title}
+            </SmartLink>
+            {item.publisher && <span className="text-muted">, {item.publisher}</span>}
+            {item.accessed && (
+              <span className="text-muted">
+                {" "}
+                (accessed <time dateTime={item.accessed}>{formatDate(item.accessed)}</time>)
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -131,7 +191,7 @@ function ArticleBlocks({ blocks }) {
                 data-block-uid={block.uid}
                 data-highlightable={block.uid ? "" : undefined}
               >
-                {block.text}
+                <InlineText text={block.text} block={block} />
               </p>
             );
           case "heading": {
@@ -156,7 +216,9 @@ function ArticleBlocks({ blocks }) {
                 data-highlightable={block.uid ? "" : undefined}
               >
                 {block.items.map((item, i) => (
-                  <li key={i}>{item}</li>
+                  <li key={i}>
+                    <InlineText text={item} block={block} />
+                  </li>
                 ))}
               </List>
             );
@@ -207,7 +269,9 @@ function ArticleBlocks({ blocks }) {
                 <Icon aria-hidden className="mt-1 size-5 shrink-0 text-charcoal" />
                 <div>
                   {block.title && <p className="font-semibold text-charcoal">{block.title}</p>}
-                  <p className={block.title ? "mt-1" : undefined}>{block.text}</p>
+                  <p className={block.title ? "mt-1" : undefined}>
+                    <InlineText text={block.text} block={block} />
+                  </p>
                 </div>
               </aside>
             );
@@ -386,7 +450,7 @@ function ArticleBlocks({ blocks }) {
                       <tr key={r} className="border-b border-charcoal/10">
                         {row.map((cell, c) => (
                           <td key={c} className="px-3 py-2 align-top">
-                            {cell}
+                            <InlineText text={cell} block={block} />
                           </td>
                         ))}
                       </tr>
@@ -396,6 +460,8 @@ function ArticleBlocks({ blocks }) {
               </div>
             );
           }
+          case "sources":
+            return <Sources key={index} block={block} />;
           default:
             return null;
         }

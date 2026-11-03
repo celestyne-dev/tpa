@@ -53,6 +53,11 @@ class ForbiddenError(APIError):
     message = "You do not have permission to perform this action."
 
 
+class MfaEnrollmentRequiredError(ForbiddenError):
+    code = "mfa_enrollment_required"
+    message = "Set up two-step sign-in to continue (Account › Security)."
+
+
 class ConflictError(APIError):
     status_code = 409
     code = "conflict"
