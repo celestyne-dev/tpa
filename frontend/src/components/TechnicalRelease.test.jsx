@@ -144,7 +144,10 @@ describe("inline links and sources", () => {
     expect(external).toHaveAttribute("href", "https://example.org/s");
     expect(external.getAttribute("rel")).toContain("noopener");
     expect(screen.getByText(/Never \[this\]\(javascript:alert\(1\)\)\./)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "us" })).toHaveAttribute("href", "mailto:hi@example.com");
+    expect(screen.getByRole("link", { name: "us" })).toHaveAttribute(
+      "href",
+      "mailto:hi@example.com",
+    );
     expect(screen.getByText("Lesson [text](/kept) stays as written.")).toBeInTheDocument();
   });
 
@@ -257,9 +260,18 @@ describe("structured data", () => {
     expect(updated.dateModified).toBe("2026-10-20T00:00:00Z");
     const person = articleJsonLd({
       ...base,
-      author_profile: { slug: "jane", name: "Jane", bio: "Writer", is_person: true, has_page: true },
+      author_profile: {
+        slug: "jane",
+        name: "Jane",
+        bio: "Writer",
+        is_person: true,
+        has_page: true,
+      },
     });
-    expect(person.author).toMatchObject({ "@type": "Person", url: expect.stringMatching(/\/authors\/jane$/) });
+    expect(person.author).toMatchObject({
+      "@type": "Person",
+      url: expect.stringMatching(/\/authors\/jane$/),
+    });
     const profile = authorPageJsonLd({ slug: "jane", name: "Jane", bio: "Writer" });
     expect(profile["@type"]).toBe("ProfilePage");
     expect(profile.mainEntity["@id"]).toBe(person.author["@id"]);
@@ -330,10 +342,9 @@ describe("site search", () => {
       "polite",
     );
     const results = screen.getByRole("list", { name: "Search results" });
-    expect(within(results).getByRole("link", { name: /Reframe a Negative Thought/ })).toHaveAttribute(
-      "href",
-      "/articles/reframing-negative-thoughts",
-    );
+    expect(
+      within(results).getByRole("link", { name: /Reframe a Negative Thought/ }),
+    ).toHaveAttribute("href", "/articles/reframing-negative-thoughts");
     expect(within(results).getByText("Reframe", { selector: "mark" })).toBeInTheDocument();
     expect(api.search).toHaveBeenCalledWith({ q: "reframe", page: 1 });
   });

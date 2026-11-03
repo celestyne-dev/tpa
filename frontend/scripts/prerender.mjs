@@ -139,7 +139,8 @@ async function applyBuildHead(template, release) {
     `<meta name="tpa-build" content="${attr(release)}" />`,
     `<link rel="alternate" type="application/rss+xml" title="${attr(siteConfig.name)}" href="/feed.xml" />`,
     ...fonts.map(
-      (f) => `<link rel="preload" href="/assets/${attr(f)}" as="font" type="font/woff2" crossorigin />`,
+      (f) =>
+        `<link rel="preload" href="/assets/${attr(f)}" as="font" type="font/woff2" crossorigin />`,
     ),
   ].join("\n    ");
   return template.replace("<!--app-head-->", `${tags}\n    <!--app-head-->`);

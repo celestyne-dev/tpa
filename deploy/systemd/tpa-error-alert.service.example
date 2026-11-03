@@ -1,0 +1,25 @@
+# /etc/systemd/system/tpa-error-alert.service  (example; one copy per tier)
+#
+# Emails a summary of new unhandled API errors (`flask monitor errors`) to
+# ERROR_ALERT_EMAIL, using the app's own mail settings. It reads only the journal lines
+# written since the previous run (journalctl cursor file) and stores nothing else: no
+# extra service, database or memory-resident process. See docs/technical-release.md §4.
+#
+# For a second tier (e.g. staging), copy as tpa-error-alert-staging.service and change
+# --unit, the cursor file, WorkingDirectory and EnvironmentFile to that tier's.
+[Unit]
+Description=Think Positive Always error alert (unhandled API errors)
+
+[Service]
+Type=oneshot
+User=tpa
+Group=www-data
+# Reading another unit's journal needs this group (journal access only; no other rights).
+SupplementaryGroups=systemd-journal
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+StateDirectory=tpa/state
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi monitor errors --unit tpa-api.service --cursor-file /var/lib/tpa/state/error-alert.cursor
+NoNewPrivileges=true
+PrivateTmp=true

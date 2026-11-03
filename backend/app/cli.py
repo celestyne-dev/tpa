@@ -13,6 +13,7 @@ flask --app wsgi media prune
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 
 import click
@@ -542,6 +543,58 @@ def deploy_check(as_json: bool, no_database: bool):
     sys.exit({"ok": 0, "warning": 1, "error": 2}[status])
 
 
+monitor_cli = AppGroup("monitor", help="Lightweight monitoring (no changes are made).")
+
+
+@monitor_cli.command("errors")
+@click.option("--unit", default="tpa-api.service", show_default=True, help="systemd unit.")
+@click.option(
+    "--cursor-file",
+    default="/var/lib/tpa/state/error-alert.cursor",
+    show_default=True,
+    help="Where journalctl keeps its place between runs.",
+)
+@click.option("--since", "first_since", default="-15min", show_default=True,
+              help="How far back the first run looks (no cursor yet).")  # fmt: skip
+def monitor_errors(unit: str, cursor_file: str, first_since: str):
+    """Email a summary of new unhandled API errors to ERROR_ALERT_EMAIL.
+
+    Exit code: 0 no new errors or alert sent; 1 errors found but no alert could be sent
+    (no ERROR_ALERT_EMAIL or delivery failed); 2 the journal couldn't be read.
+    """
+    from .services import error_alerts, mail
+
+    try:
+        lines = error_alerts.read_journal(unit, cursor_file, first_since)
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as err:
+        click.echo(f"Could not read the journal for {unit}: {err}", err=True)
+        sys.exit(2)
+    summary = error_alerts.summarise(lines)
+    if summary.count == 0:
+        click.echo("No new unhandled API errors.")
+        return
+    cfg = current_app.config
+    tier = cfg.get("TPA_ENVIRONMENT") or ""
+    text = error_alerts.message_text(
+        summary, unit=unit, tier=tier, release=cfg.get("RELEASE_ID", "unknown")
+    )
+    click.echo(text)
+    to = (cfg.get("ERROR_ALERT_EMAIL") or "").strip()
+    if not to:
+        click.echo("ERROR_ALERT_EMAIL is not set: nothing was emailed.", err=True)
+        sys.exit(1)
+    subject = f"[TPA {tier or 'server'}] {summary.count} unhandled API error(s)"
+    try:
+        method = mail.send(mail.EmailMessage(to=to, subject=subject, text=text))
+    except mail.MailNotConfiguredError:
+        click.echo("Email delivery is not configured (MAIL_BACKEND): nothing was sent.", err=True)
+        sys.exit(1)
+    except mail.MailDeliveryError:
+        click.echo("The alert email could not be delivered.", err=True)
+        sys.exit(1)
+    click.echo(f"Alert sent ({method}).")
+
+
 legacy_cli = AppGroup("legacy", help="Legacy website SEO migration (Batch 12.4A).")
 
 
@@ -759,6 +812,7 @@ def register_cli(app: Flask) -> None:
         newsletter_cli,
         storage_cli,
         deploy_cli,
+        monitor_cli,
         legacy_cli,
     ):
         app.cli.add_command(group)

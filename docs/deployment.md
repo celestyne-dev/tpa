@@ -338,6 +338,26 @@ No migration (head stays `a7c2e9f4b318`). The staging runbook is `docs/operation
 - **New:** run `flask deploy check` before each deploy. `/api/v1/health/ready` is
   available for monitoring.
 
+## Upgrading to the technical release
+
+Full runbook: `docs/technical-release.md` (baseline, staging rehearsal, production,
+rollback). In short:
+
+- **Migrations:** `b3d5f7a9c124` (`articles.content_modified_at`) and `c4e6a8b0d235`
+  (two-step sign-in columns on `users`). Both are additive and nullable, with no backfill.
+- **Settings:** `TPA_ENVIRONMENT` (production | staging) and `TPA_RELEASE` (the deployed
+  commit). `MFA_KEY` is optional and defaults to `SECRET_KEY`. `flask deploy check` now
+  refuses cross-tier databases, Redis prefixes, folders and ports.
+- **Nginx:**
+  - install `deploy/nginx/tpa-http.conf.example` once as `/etc/nginx/conf.d/tpa-http.conf`
+  - merge the new locations from `tpa.conf.example` (one URL per page, page-1 redirects,
+    `/search`, `/feed.xml`)
+  - recopy `tpa-security-headers.conf` (CSP in report-only mode; HSTS still commented out
+    until the HTTPS audit in `deploy/verify/tpa-baseline.sh` is clean)
+- **Publish once:** the build adds `/articles/page/N`, author pages, `/feed.xml` and the
+  new `robots.txt`.
+- **New command:** `flask admin reset-mfa EMAIL` (lost phone and recovery codes).
+
 ## Frontend build (manual)
 
 ```bash

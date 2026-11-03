@@ -86,7 +86,10 @@ const authSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(loadSession.pending, (state) => {
-        state.status = "loading";
+        // Refreshing a signed-in session (e.g. after turning on two-step sign-in) keeps the
+        // page mounted: switching to "loading" would unmount it and lose what it shows,
+        // such as one-time recovery codes.
+        if (state.status !== "authenticated") state.status = "loading";
       })
       .addCase(loadSession.fulfilled, (state, action) => {
         state.status = "authenticated";

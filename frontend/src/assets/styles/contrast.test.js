@@ -1,11 +1,15 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+
+// Read from the project root (tests run in frontend/): under jsdom, import.meta.url is not
+// a file: URL, and Vitest stubs .css imports when CSS processing is off.
+const css = readFileSync(resolve(process.cwd(), "src/assets/styles/globals.css"), "utf8");
 
 /**
  * WCAG AA contrast for the colours used as text (4.5:1 for body text). Decorative,
  * aria-hidden icons (gold-500, sage-500, sage-600) are exempt and not listed here.
  */
-const css = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 const theme = css.slice(0, css.indexOf("}"));
 const tokens = Object.fromEntries(
   [...theme.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-f]{6})/gi)].map((m) => [m[1], m[2]]),

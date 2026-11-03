@@ -9,6 +9,8 @@ const linkStyles =
 /**
  * Crawlable pagination: every page is a real link (`<a href>`), so search engines and
  * visitors without JavaScript reach every article. `hrefFor(page)` returns the page URL.
+ * Each link has an explicit accessible name ("Page 2", "Older articles") that contains its
+ * visible text, so screen readers never hear "Page2".
  */
 export function Pagination({ page, totalPages, hrefFor, label = "Pagination", className }) {
   if (!totalPages || totalPages < 2) return null;
@@ -21,10 +23,14 @@ export function Pagination({ page, totalPages, hrefFor, label = "Pagination", cl
             <Link
               to={hrefFor(page - 1)}
               rel="prev"
-              className={cn(linkStyles, "border-charcoal/15 bg-white/60 text-ink hover:border-sage-600")}
+              aria-label="Newer articles"
+              className={cn(
+                linkStyles,
+                "border-charcoal/15 bg-white/60 text-ink hover:border-sage-600",
+              )}
             >
               <ArrowLeft aria-hidden className="size-4" />
-              Newer<span className="sr-only"> articles</span>
+              Newer
             </Link>
           </li>
         )}
@@ -37,6 +43,7 @@ export function Pagination({ page, totalPages, hrefFor, label = "Pagination", cl
             <li key={p}>
               <Link
                 to={hrefFor(p)}
+                aria-label={`Page ${p}`}
                 aria-current={p === page ? "page" : undefined}
                 className={cn(
                   linkStyles,
@@ -45,7 +52,6 @@ export function Pagination({ page, totalPages, hrefFor, label = "Pagination", cl
                     : "border-charcoal/15 bg-white/60 text-ink hover:border-sage-600",
                 )}
               >
-                <span className="sr-only">Page </span>
                 {p}
               </Link>
             </li>
@@ -56,9 +62,13 @@ export function Pagination({ page, totalPages, hrefFor, label = "Pagination", cl
             <Link
               to={hrefFor(page + 1)}
               rel="next"
-              className={cn(linkStyles, "border-charcoal/15 bg-white/60 text-ink hover:border-sage-600")}
+              aria-label="Older articles"
+              className={cn(
+                linkStyles,
+                "border-charcoal/15 bg-white/60 text-ink hover:border-sage-600",
+              )}
             >
-              Older<span className="sr-only"> articles</span>
+              Older
               <ArrowRight aria-hidden className="size-4" />
             </Link>
           </li>

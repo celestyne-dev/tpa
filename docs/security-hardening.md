@@ -94,3 +94,22 @@ start, with a clear message.
    - Public and secret key modes match, otherwise the app refuses to start.
 6. **Exports in a spreadsheet:** open the revenue, orders, redirect and subscriber exports
    in Excel and LibreOffice. Cells starting with `=` show as text, and numbers stay numeric.
+
+## Technical release (two-step sign-in, CSP, HSTS, request ids)
+
+- **Two-step sign-in for administrators (TOTP, RFC 6238).**
+  - **Enrolment:** Account › Two-step sign-in, using any authenticator app. The setup key is shown once, and 10 single-use recovery codes are shown once.
+  - **Storage:** only a random salt is stored per user. The secret is derived with `MFA_KEY` (default `SECRET_KEY`), and recovery codes are stored as keyed hashes. Changing that key ends every enrolment.
+  - **Sign-in:** the password step returns a 5-minute challenge token, never a session. Codes are accepted ±30 s, a used time step can't be replayed, and verification is rate-limited (the login limit plus 5 attempts per 5 minutes per challenge). Every event is in the audit log.
+  - **Enforcement:** Settings › Technical › "Require two-step sign-in". While it is on, an administrator without it can only reach the account security page.
+  - **Lockout:** `flask admin reset-mfa EMAIL` on the server. It turns two-step sign-in off, signs the person out everywhere, and is audited.
+- **Content-Security-Policy:**
+  - The page state is now inert JSON (`<script type="application/json" id="tpa-state">`), so no inline script runs.
+  - The policy in `tpa-security-headers.conf` allows scripts from the site only, inline style attributes, images from https/data/blob, and frames only from YouTube (nocookie) and Vimeo. It sets `frame-ancestors 'self'` and `object-src 'none'`.
+  - It ships as `Content-Security-Policy-Report-Only`. Reports go to `/api/v1/csp-report` and are logged as "CSP report: <directive> blocked <origin> on <path>" (no query strings or visitor data).
+  - After a clean week on staging, rename the header to `Content-Security-Policy`.
+  - The build validation (`frontend/scripts/verify-build.mjs`) fails if any page contains executable inline script.
+- **HSTS** stays off until `deploy/verify/tpa-baseline.sh` shows a valid certificate and an HTTP→HTTPS redirect for every TPA hostname.
+  - Then enable it on the main server block with `max-age=300` and raise it gradually.
+  - `includeSubDomains` covers staging and any other subdomain; `preload` is close to permanent. Add either only deliberately.
+- **Request ids:** every API response carries `X-Request-ID` (kept from Nginx if well formed), and unhandled errors are logged with it.

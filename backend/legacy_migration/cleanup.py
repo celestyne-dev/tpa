@@ -49,7 +49,7 @@ ESSENTIAL_PATHS = frozenset(
         "/verify-email", "/forgot-password", "/reset-password", "/sitemap.xml", "/robots.txt",
         "/404.html", "/manifest.webmanifest", "/favicon.ico", "/icon.svg",
         "/newsletter/confirm", "/newsletter/preferences", "/newsletter/unsubscribe",
-        "/resources/access",
+        "/resources/access", "/search", "/feed.xml",
     }
 )  # fmt: skip
 # Client-rendered shells: any path below answers 200 with its own noindex app shell.
@@ -58,8 +58,11 @@ APP_SHELL_PREFIXES = ("/admin", "/learn", "/certificates")
 NO_RULE_PREFIXES = (
     "/api", "/media", "/assets", "/images", "/icons", "/static", "/og", "/_redirect",
     "/_protected_downloads", "/.well-known", "/cart", "/checkout", "/account", "/purchases",
-    *APP_SHELL_PREFIXES,
+    "/authors", *APP_SHELL_PREFIXES,
 )  # fmt: skip
+# Listing pages the prerender generates (/articles/page/2, /topics/<slug>/page/2, ...): an
+# exact-path 410 or 301 rule there would shadow a real page, so none may be placed.
+GENERATED_PAGINATION = re.compile(r"^/(?:articles|topics/[^/]+|authors/[^/]+)/page/[0-9]+/?$")
 FORUM_PREFIXES = ("/forums", "/forum", "/community", "/discussions", "/discussion")
 LEGACY_SHOP_PREFIXES = ("/shop", "/store", "/product", "/products", "/cart", "/checkout")
 PREVIOUS_ARTICLE_ROUTES = (
@@ -85,6 +88,12 @@ EDITOR_FIELDS = ("decision", "target", "approved", "approved_by", "notes")
 
 def _starts(path: str, prefixes) -> bool:
     return any(path == p or path.startswith(p + "/") for p in prefixes)
+
+
+def _app_area(path: str) -> bool:
+    """Where no 301 or 410 rule may ever be placed: application areas and the listing
+    pages the new site generates."""
+    return _starts(path, NO_RULE_PREFIXES) or bool(GENERATED_PAGINATION.match(path))
 
 
 # ---- import ---------------------------------------------------------------------------
@@ -262,7 +271,7 @@ def family(key: str, query: str, ctx: Context) -> str:
     if protected:
         rec = ctx.by_id.get(protected[3], {})
         return "draft" if rec.get("publication_status") == "draft" else "current_article"
-    if not _starts(low, NO_RULE_PREFIXES):
+    if not _app_area(low):
         if segment in ctx.published_by_slug:
             return "current_article"
         if segment in ctx.draft_by_slug:
@@ -372,7 +381,7 @@ def propose(key: str, query: str, fam: str, evidence: dict, ctx: Context) -> tup
         product = f"/shop/{segment}"
         if key.startswith("/shop/") and product in ctx.new_site and product != key:
             return "REDIRECT_301", product, "Same product slug on the new shop."
-        if _starts(key, NO_RULE_PREFIXES):
+        if _app_area(key):
             return "ALLOW_404", "", "Old customer/cart path: the new app answers 404."
         return "RETIRE_410", "", "Obsolete shop path not in the new shop."
     if fam == "category":
@@ -568,7 +577,7 @@ def validate(rows: list[dict], ctx: Context) -> list[dict]:
             )
         if decision != "KEEP_200" and (key in ESSENTIAL_PATHS or key in ctx.new_site):
             add(row, "essential_route", "Live route on the new site: KEEP_200 only.")
-        if decision in ("REDIRECT_301", "RETIRE_410") and _starts(key, NO_RULE_PREFIXES):
+        if decision in ("REDIRECT_301", "RETIRE_410") and _app_area(key):
             add(row, "app_area", "No redirects or 410 rules in application areas.")
         if decision == "KEEP_200" and row["cms_status"] == "draft":
             add(row, "draft_published", "Drafts are excluded from publishing.")
@@ -665,7 +674,7 @@ def verify_snippet(text: str, ctx: Context, approved: list[str]) -> list[str]:
             errors.append(f"not approved: {path}")
         if key in ctx.protected or ctx.live(key) or key in HOME_ALIASES:
             errors.append(f"protected or live path: {path}")
-        if _starts(key, NO_RULE_PREFIXES):
+        if _app_area(key):
             errors.append(f"application area: {path}")
     if len(rules) != 2 * len(approved):
         errors.append(f"expected {2 * len(approved)} rules, found {len(rules)}")

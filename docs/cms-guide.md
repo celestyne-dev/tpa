@@ -169,6 +169,14 @@ Write only what is true: no invented page counts, testimonials, reviews or resul
 
 Paid sections never show anything that isn't approved and inside its booking dates, in drafts, previews and published pages alike. They follow the usual draft → preview → publish flow and page revisions. See `docs/partnerships.md` for sponsorship, affiliate and media kit workflows.
 
+## 9a. Articles: links, sources, updates and authors (technical release)
+
+- **Links inside text:** in paragraphs, list items, callouts and table cells, write `[link text](/topics/confidence)` for a page on this site or `[link text](https://example.org/page)` for another site (`mailto:` also works). Anything else is refused when you save. Paid links listed on a sponsored article are marked `rel="sponsored"` automatically.
+- **Sources block:** add it at the end of an article. Each source needs a title and an `https://` address; the publisher and access date are optional. Sources appear as a list and as `citation` in the article's structured data.
+- **"Last updated" dates:** when you change a published article, tick **Material update** (beside the save status) only when the guidance itself changed. The article then shows "Last updated <date>", and search engines see the same date. Typo fixes, SEO fields and re-saves never change it, and the publication date never changes.
+- **Author pages:** Admin › Authors. An author gets a public page at `/authors/<slug>`, linked from their bylines, only when marked as a real person, active, and with a bio. The page shows only what is recorded there.
+- **Policy pages:** create your editorial and corrections policies under Pages (default paths `/editorial-policy` and `/corrections-policy`, changeable in Settings › Trust). While published, they are linked in the footer and in Organization structured data.
+
 ## 10. Who can do what
 
 | Task                                     | Permission                                 | Built-in roles                               |

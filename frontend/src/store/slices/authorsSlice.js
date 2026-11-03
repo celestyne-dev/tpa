@@ -61,6 +61,8 @@ const authorsSlice = createSlice({
   },
 });
 
-export const selectAuthor = (slug, page = 1) => (state) =>
-  state.authors.byKey[authorKey(slug, page)];
+export const selectAuthor =
+  (slug, page = 1) =>
+  (state) =>
+    state.authors.byKey[authorKey(slug, page)];
 export default authorsSlice.reducer;

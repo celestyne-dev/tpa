@@ -123,10 +123,7 @@ export function MfaSettings() {
           className="space-y-3"
           onSubmit={async (event) => {
             event.preventDefault();
-            const res = await run(
-              () => api.auth.mfaEnable(form.code),
-              "Two-step sign-in is on.",
-            );
+            const res = await run(() => api.auth.mfaEnable(form.code), "Two-step sign-in is on.");
             if (res) setSetup(null);
           }}
         >
@@ -167,8 +164,8 @@ export function MfaSettings() {
         <>
           <p className="text-sm">
             On since {new Date(status.enabled_at).toLocaleDateString()} ·{" "}
-            {status.recovery_codes_left} recovery {status.recovery_codes_left === 1 ? "code" : "codes"}{" "}
-            left.
+            {status.recovery_codes_left} recovery{" "}
+            {status.recovery_codes_left === 1 ? "code" : "codes"} left.
           </p>
           <form className="space-y-3" onSubmit={(event) => event.preventDefault()}>
             <p className="text-sm text-muted">

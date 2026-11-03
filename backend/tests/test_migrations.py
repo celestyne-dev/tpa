@@ -1729,3 +1729,13 @@ def test_batch111_analytics_tables_upgrade_and_downgrade(tmp_path):
         db.session.remove()
         upgrade(directory=MIGRATIONS)
         assert set(sync_rbac().values()) == {0}
+
+
+def test_running_migrations_keeps_application_logging_enabled(tmp_path):
+    """Alembic's fileConfig disables already-created loggers by default; after an
+    in-process upgrade the app's warnings (CSP reports, errors) must still be logged."""
+    app = _app(tmp_path, "logging.db")
+    assert app.logger.disabled is False  # created before the migration runs
+    with app.app_context():
+        upgrade(directory=MIGRATIONS)
+    assert app.logger.disabled is False

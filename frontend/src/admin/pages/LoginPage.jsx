@@ -115,39 +115,39 @@ export function LoginPage() {
         {mfaToken ? (
           <CodeStep token={mfaToken} error={error} />
         ) : (
-        <form onSubmit={onSubmit} className="space-y-4" noValidate>
-          <TextField
-            label="Email"
-            type="email"
-            name="email"
-            autoComplete="username"
-            required
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            required
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-          />
-          {message && (
-            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">
-              {message}
-            </p>
-          )}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={submitting || !form.email || !form.password}
-          >
-            <LockKeyhole aria-hidden />
-            {submitting ? "Signing in…" : "Sign in"}
-          </Button>
-        </form>
+          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+            <TextField
+              label="Email"
+              type="email"
+              name="email"
+              autoComplete="username"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+            <TextField
+              label="Password"
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+            {message && (
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">
+                {message}
+              </p>
+            )}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={submitting || !form.email || !form.password}
+            >
+              <LockKeyhole aria-hidden />
+              {submitting ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
         )}
         <details className="mt-5 text-sm">
           <summary className="cursor-pointer text-sage-800 underline underline-offset-4">

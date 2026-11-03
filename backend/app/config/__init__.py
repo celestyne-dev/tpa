@@ -298,6 +298,8 @@ class BaseConfig:
     MAIL_SMTP_PORT = _int("MAIL_SMTP_PORT", 587)
     MAIL_SMTP_USERNAME = os.environ.get("MAIL_SMTP_USERNAME", "")
     MAIL_SMTP_PASSWORD = os.environ.get("MAIL_SMTP_PASSWORD", "")
+    # Who `flask monitor errors` (tpa-error-alert.timer) emails about unhandled API errors.
+    ERROR_ALERT_EMAIL = os.environ.get("ERROR_ALERT_EMAIL", "").strip()
     # Public origin of the admin used in emailed links (activation, password reset).
     ADMIN_BASE_URL = os.environ.get("ADMIN_BASE_URL", "http://localhost:5173").rstrip("/")
     INVITATION_TTL_HOURS = _int("INVITATION_TTL_HOURS", 72)

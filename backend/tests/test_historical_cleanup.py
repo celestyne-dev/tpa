@@ -218,6 +218,23 @@ def test_protected_and_essential_routes_reject_cleanup_rules(tmp_path):
     assert ("/shop/gratitude-journal", "essential_route") in found
 
 
+@pytest.mark.parametrize(
+    "path",
+    ["/articles/page/3", "/topics/mindset/page/2", "/authors/jane-doe", "/authors/jane-doe/page/2"],
+)
+def test_generated_listing_and_author_pages_never_get_cleanup_rules(path):
+    """The technical release's new pages: an exact-path 410 rule would shadow them."""
+    assert cleanup._app_area(path)
+    errors = cleanup.verify_snippet(cleanup.gone_snippet([path]), context(), [path])
+    assert any("application area" in e for e in errors), errors
+
+
+def test_search_and_feed_are_essential_and_ordinary_paths_unaffected():
+    assert {"/search", "/feed.xml"} <= cleanup.ESSENTIAL_PATHS
+    for path in ("/page/3", "/articles/some-old-post", "/topics/mindset", "/author/jane"):
+        assert cleanup._app_area(path) is False, path
+
+
 def test_redirects_are_direct_and_relevant(tmp_path):
     found = problems_for(tmp_path, {
         "/mystery-page": {"decision": "REDIRECT_301", "target": "/"},

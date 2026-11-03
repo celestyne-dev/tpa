@@ -103,10 +103,26 @@ echo "  API health (port $API_PORT):"
 curl -s -m 5 "http://127.0.0.1:$API_PORT/api/v1/health" | sed 's/^/    /'; echo
 
 section "Public response (through DNS and any CDN/proxy cache)"
-curl -s -A "$UA" "https://$DOMAIN/?baseline=$(date +%s)" | fingerprint
-echo "  public homepage headers (cache markers: age, cf-cache-status, x-cache, via):"
-curl -sI -A "$UA" "https://$DOMAIN/?baseline=$(date +%s)" |
-  grep -iE '^(server|cache-control|age|cf-cache-status|cf-ray|x-cache|via|x-served-by|etag|last-modified)' | sed 's/^/    /'
+# DNS: every address the domain resolves to should be this server (or a CDN in front of
+# it). A stray A/AAAA record sends some visitors and crawlers to another host.
+mine=" $(hostname -I 2>/dev/null) "
+if have getent; then
+  for addr in $(getent ahosts "$DOMAIN" | awk '{print $1}' | sort -u); do
+    case "$mine" in *" $addr "*) where="this server" ;; *) where="NOT this server (CDN/proxy or another host)" ;; esac
+    printf '  %-40s %s\n' "$addr" "$where"
+  done
+fi
+for family in 4 6; do
+  if curl -s -"$family" -o /dev/null -m 10 "https://$DOMAIN/" 2>/dev/null; then
+    echo "  public homepage over IPv$family:"
+    curl -s -"$family" -m 15 -A "$UA" "https://$DOMAIN/?baseline=$(date +%s)" | fingerprint
+    echo "  headers over IPv$family (cache markers: age, cf-cache-status, x-cache, via):"
+    curl -sI -"$family" -m 15 -A "$UA" "https://$DOMAIN/?baseline=$(date +%s)" |
+      grep -iE '^(server|cache-control|age|cf-cache-status|cf-ray|x-cache|via|x-served-by|etag|last-modified)' | sed 's/^/    /'
+  else
+    echo "  IPv$family: no public connection from this server"
+  fi
+done
 
 section "TPA services, timers and ports"
 systemctl list-units --all --no-legend 'tpa*' 2>/dev/null | awk '{printf "  %-45s %s %s\n", $1, $3, $4}'

@@ -49,10 +49,9 @@ describe("two-step sign-in", () => {
     const section = await screen.findByRole("region", { name: "Two-step sign-in" });
     await user.click(within(section).getByRole("button", { name: "Set up two-step sign-in" }));
     expect(await within(section).findByText(/ABCD EFGH/)).toBeInTheDocument();
-    expect(within(section).getByRole("link", { name: /open the authenticator app/ })).toHaveAttribute(
-      "href",
-      expect.stringMatching(/^otpauth:\/\/totp\//),
-    );
+    expect(
+      within(section).getByRole("link", { name: /open the authenticator app/ }),
+    ).toHaveAttribute("href", expect.stringMatching(/^otpauth:\/\/totp\//));
     await user.type(within(section).getByLabelText("Code from the app"), "123456");
     await user.click(within(section).getByRole("button", { name: "Turn on" }));
     const codes = await within(section).findByRole("list", { name: "Recovery codes" });

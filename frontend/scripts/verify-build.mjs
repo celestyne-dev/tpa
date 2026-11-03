@@ -113,7 +113,8 @@ for (const bad of ["/page/", "/search", "/admin", "/account", "/cart", "/learn/"
 
 // feed.xml: summaries of indexable articles only.
 const feed = await read("feed.xml");
-if (!feed.startsWith("<?xml") || !feed.includes("<rss version=\"2.0\"")) fail("feed.xml", "malformed");
+if (!feed.startsWith("<?xml") || !feed.includes('<rss version="2.0"'))
+  fail("feed.xml", "malformed");
 for (const [, link] of feed.matchAll(/<item>[\s\S]*?<link>([^<]+)<\/link>/g)) {
   if (!sitemap.includes(`<loc>${link}</loc>`)) fail("feed.xml", `${link} is not in the sitemap`);
 }

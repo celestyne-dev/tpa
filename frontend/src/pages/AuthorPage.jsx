@@ -49,7 +49,8 @@ export function AuthorPage() {
     { name: "Articles", href: routes.articles },
     { name: author.name, href: routes.author(author.slug) },
   ];
-  const description = author.bio.length > 160 ? `${author.bio.slice(0, 157).trimEnd()}…` : author.bio;
+  const description =
+    author.bio.length > 160 ? `${author.bio.slice(0, 157).trimEnd()}…` : author.bio;
 
   return (
     <>
