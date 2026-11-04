@@ -155,9 +155,53 @@ class ProcessedImage:
 # ---- validation -------------------------------------------------------------------
 
 
+# Byte-order marks a text (markup) document may start with, longest first.
+_BOMS = (
+    b"\x00\x00\xfe\xff",  # UTF-32 BE
+    b"\xff\xfe\x00\x00",  # UTF-32 LE
+    b"\xef\xbb\xbf",  # UTF-8
+    b"\xfe\xff",  # UTF-16 BE
+    b"\xff\xfe",  # UTF-16 LE
+)
+# Tags that mark a markup document even when something precedes them.
+_MARKUP_TAGS = (b"<svg", b"<?xml", b"<!doctype", b"<html", b"<script", b"<!entity", b"<body")
+# AVIF/HEIF brands (ISO base media file: "ftyp" at offset 4) of the AVIF files we accept.
+_AVIF_BRANDS = (b"avif", b"avis", b"mif1", b"msf1")
+
+
+def _binary_image_signature(data: bytes) -> bool:
+    """True when the file starts with the signature of a supported binary image format.
+
+    Such a file can't be a markup document (XML/HTML must start with "<", whitespace or
+    a byte-order mark), so its metadata (PNG text chunks, EXIF, XMP) may contain any
+    text, "<svg" included. Pillow still verifies the whole file afterwards.
+    """
+    return (
+        data.startswith(b"\x89PNG\r\n\x1a\n")
+        or data.startswith(b"\xff\xd8\xff")  # JPEG
+        or data.startswith((b"GIF87a", b"GIF89a"))
+        or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")
+        or (data[4:8] == b"ftyp" and data[8:12] in _AVIF_BRANDS)
+    )
+
+
 def _looks_like_markup(data: bytes) -> bool:
-    head = data[:512].lstrip().lower()
-    return head.startswith((b"<", b"\xef\xbb\xbf<")) or b"<svg" in head
+    """Whether the upload is (or tries to pass as) SVG, HTML or another XML document.
+
+    Binary images with a valid signature are never treated as markup, whatever their
+    metadata says. Anything else is checked as text: after any byte-order mark and
+    leading whitespace it starts with "<", or it contains a markup tag near the start
+    (also when encoded as UTF-16/32, whose NUL bytes are ignored for the check).
+    """
+    if _binary_image_signature(data):
+        return False
+    head = data[:1024]
+    for bom in _BOMS:
+        if head.startswith(bom):
+            head = head[len(bom) :]
+            break
+    text = head.replace(b"\x00", b"").lstrip().lower()
+    return text.startswith(b"<") or any(tag in text[:512] for tag in _MARKUP_TAGS)
 
 
 def open_validated(data: bytes, *, max_bytes: int, max_pixels: int, max_dimension: int):
