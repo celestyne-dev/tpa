@@ -141,6 +141,151 @@ def test_invalid_uploads_are_rejected(app, as_role, data, filename, message):
         assert db.session.scalar(db.select(db.func.count(MediaAsset.id))) == 0
 
 
+# ---- markup sniffing: binary images with text metadata vs real markup ---------------
+
+LIMITS = {"max_bytes": 10**7, "max_pixels": 10**8, "max_dimension": 9000}
+SVG_TEXT = 'Exported by <svg-tool>; source <svg xmlns="http://www.w3.org/2000/svg"><path/></svg>'
+
+
+def _encoded(fmt, **save):
+    buf = io.BytesIO()
+    Image.new("RGB", (48, 32), (200, 120, 40)).save(buf, fmt, **save)
+    return buf.getvalue()
+
+
+def _png_with_text(text=SVG_TEXT):
+    from PIL import PngImagePlugin
+
+    info = PngImagePlugin.PngInfo()
+    info.add_text("Comment", text)  # a tEXt chunk near the start of the file
+    return _encoded("PNG", pnginfo=info)
+
+
+def _jpeg_with_xmp():
+    # XMP is XML: real cameras and editors put markup (here also an <svg> fragment) in it.
+    xmp = (
+        b'<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        b"<rdf:Description><dc:description>" + SVG_TEXT.encode() + b"</dc:description>"
+        b"</rdf:Description></x:xmpmeta>"
+    )
+    return _encoded("JPEG", xmp=xmp)
+
+
+def _webp_with_xmp():
+    return _encoded("WEBP", xmp=b"<x:xmpmeta>" + SVG_TEXT.encode() + b"</x:xmpmeta>")
+
+
+AVIF = pytest.mark.skipif("AVIF" not in processing.SUPPORTED_FORMATS, reason="no AVIF codec")
+
+
+@pytest.mark.parametrize(
+    "make,mime",
+    [
+        pytest.param(_png_with_text, "image/png", id="png-with-svg-in-text-chunk"),
+        pytest.param(
+            lambda: _png_with_text("<?xml version='1.0'?><html>"), "image/png", id="png-xml-text"
+        ),
+        pytest.param(_jpeg_with_xmp, "image/jpeg", id="jpeg-with-xmp-markup"),
+        pytest.param(_webp_with_xmp, "image/webp", id="webp-with-xmp-markup"),
+        pytest.param(lambda: make_png(80, 60), "image/png", id="plain-png"),
+        pytest.param(lambda: make_photo(120, 80), "image/jpeg", id="plain-jpeg"),
+        pytest.param(lambda: _encoded("WEBP", quality=80), "image/webp", id="plain-webp"),
+        pytest.param(lambda: _encoded("AVIF"), "image/avif", id="plain-avif", marks=AVIF),
+        pytest.param(lambda: _encoded("GIF"), "image/gif", id="plain-gif"),
+    ],
+)
+def test_valid_images_are_accepted_whatever_their_metadata_says(make, mime):
+    data = make()
+    assert processing._looks_like_markup(data) is False
+    image, source_mime = processing.open_validated(data, **LIMITS)
+    assert source_mime == mime and image.size[0] > 0
+
+
+SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(SVG, id="svg"),
+        pytest.param(b"\n\t  " + SVG, id="svg-leading-whitespace"),
+        pytest.param(b"<?xml version='1.0' encoding='UTF-8'?>\n" + SVG, id="svg-xml-declaration"),
+        pytest.param(
+            b'<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+            b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">' + SVG,
+            id="svg-doctype",
+        ),
+        pytest.param(b"\xef\xbb\xbf" + SVG, id="svg-utf8-bom"),
+        pytest.param(b"\xef\xbb\xbf  <?xml version='1.0'?><svg/>", id="svg-utf8-bom-whitespace"),
+        pytest.param(
+            b"\xff\xfe" + "<?xml version='1.0'?><svg/>".encode("utf-16-le"), id="svg-utf16le-bom"
+        ),
+        pytest.param(b"\xfe\xff" + "<svg/>".encode("utf-16-be"), id="svg-utf16be-bom"),
+        pytest.param("<svg/>".encode("utf-16-le"), id="svg-utf16-no-bom"),
+        pytest.param(b"\x00\x00\xfe\xff" + "<svg/>".encode("utf-32-be"), id="svg-utf32-bom"),
+        pytest.param(b"<!DOCTYPE html><html><body>hi</body></html>", id="html"),
+        pytest.param(b"<html><script>x()</script></html>", id="html-no-doctype"),
+        pytest.param(b"GIF89 not quite: <html><script>x()</script>", id="text-then-html"),
+        pytest.param(b"<?xml version='1.0'?><root><item/></root>", id="xml"),
+    ],
+)
+def test_markup_documents_are_rejected_as_markup(data):
+    assert processing._looks_like_markup(data) is True
+    with pytest.raises(processing.ImageRejected, match="SVG and other markup"):
+        processing.open_validated(data, **LIMITS)
+
+
+@pytest.mark.parametrize(
+    "data,message",
+    [
+        pytest.param(
+            b"\x89PNG\r\n\x1a\n" + SVG, "not a supported image", id="png-signature-then-svg"
+        ),
+        pytest.param(
+            b"\x89PNG\r\n\x1a\n" + b"\x00" * 64, "not a supported image", id="png-garbage"
+        ),
+        pytest.param(make_png(200, 120)[:400], "damaged", id="truncated-png"),
+        pytest.param(
+            b"\xff\xd8\xff\xe0" + b"junk" * 20, "not a supported image", id="jpeg-garbage"
+        ),
+        pytest.param(
+            b"RIFF\x10\x00\x00\x00WEBPVP8 junk", "not a supported image", id="webp-garbage"
+        ),
+        pytest.param(
+            b"\x00\x00\x00\x18ftypavif" + b"\x00" * 32, "not a supported image", id="avif-garbage"
+        ),
+        pytest.param(_encoded("BMP"), "not supported", id="unsupported-bmp"),
+        pytest.param(b"plain text file", "not a supported image", id="text"),
+    ],
+)
+def test_malformed_and_unsupported_files_are_still_rejected(data, message):
+    with pytest.raises(processing.ImageRejected) as err:
+        processing.open_validated(data, **LIMITS)
+    assert message.lower() in str(err.value).lower()
+
+
+def test_png_with_svg_metadata_uploads_with_its_details_and_clean_variants(app, as_role):
+    """The reported bug, end to end: accepted, optimised, details kept, metadata dropped."""
+    source = _png_with_text()
+    details = {
+        "alt_text": "Orange square",
+        "title": "Brand swatch",
+        "caption": "Our warm accent colour",
+        "credit": "Design team",
+        "source_url": "https://example.org/swatch",
+    }
+    asset = _upload(as_role("super_admin"), source, "swatch.png", **details)
+    for key, value in details.items():
+        assert asset[key] == value, key
+    assert asset["mime_type"] == "image/png" and asset["width"] == 48
+    formats = {v["format"] for v in asset["variants"]}
+    assert "webp" in formats
+    # The original is retained privately; public derivatives never carry the text chunk.
+    assert len(_files(app, public=False)) == 1
+    for path in _files(app):
+        assert b"<svg" not in path.read_bytes()
+
+
 def test_animated_images_are_rejected(app, as_role):
     frames = [Image.new("RGB", (40, 40), c) for c in ((255, 0, 0), (0, 255, 0))]
     buf = io.BytesIO()
