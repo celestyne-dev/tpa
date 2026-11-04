@@ -330,7 +330,12 @@ function DraftEditor({ view, slug, onView }) {
     } catch (err) {
       setSubmitError(err);
       setConfirming(false);
-      requestAnimationFrame(() => resultRef.current?.focus());
+      // After the confirmation dialog has returned focus, move it to the error summary
+      // itself (role="alert", so it is announced), not to its wrapper.
+      requestAnimationFrame(() => {
+        const box = resultRef.current;
+        (box?.querySelector('[role="alert"]') ?? box)?.focus();
+      });
     } finally {
       setBusy(false);
     }
