@@ -139,6 +139,7 @@ jobs:
           flask --app wsgi seed sample-content
           flask --app wsgi cms seed-defaults
           python scripts/ci_build_fixtures.py   # 26 articles: pagination + an author page
+          PRODUCT_FILES_ROOT=/tmp/tpa-ci-files UPLOAD_TEMP_ROOT=/tmp/tpa-ci-tmp python scripts/visual_check_fixtures.py  # THROWAWAY
           nohup flask --app wsgi run --port 5000 > /tmp/tpa-ci-api.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5000/api/v1/health && break; sleep 1; done
       - working-directory: frontend
@@ -149,6 +150,15 @@ jobs:
       - name: Validate the built site
         working-directory: frontend
         run: node scripts/verify-build.mjs
+      - name: Visual check bundle (THROWAWAY branch only)
+        if: always()
+        run: mkdir -p /tmp/visual && cp -r frontend/dist /tmp/visual/dist && cp -r /tmp/tpa-ci-media/public /tmp/visual/media
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-check-site
+          path: /tmp/visual
+          retention-days: 3
       - name: API log
         if: failure()
         run: tail -100 /tmp/tpa-ci-api.log
