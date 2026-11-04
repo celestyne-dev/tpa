@@ -319,12 +319,13 @@ export function TopicArticlesSection({ section }) {
                 </h3>
                 <Link
                   to={routes.topic(topic.slug)}
+                  aria-label={`More in ${topic.name}`}
                   className={cn(
                     "inline-flex shrink-0 items-center gap-1 text-sm font-medium underline-offset-4 hover:underline",
                     dark ? "text-gold-300" : "text-sage-700",
                   )}
                 >
-                  More<span className="sr-only"> in {topic.name}</span>
+                  More
                   <ArrowRight aria-hidden className="size-4" />
                 </Link>
               </div>

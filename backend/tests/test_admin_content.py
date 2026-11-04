@@ -294,7 +294,7 @@ def test_navigation_management(seeded, as_role, client):
     assert nav["primary"][2]["external"] is True
     assert [g["title"] for g in nav["footer"]] == [
         "Explore",
-        "Shop & Resources",
+        "Resources",
         "Company",
         "Legal",
     ]
@@ -307,11 +307,11 @@ def test_pages_and_sections(seeded, as_role):
     home = next(p for p in pages if p["slug"] == "home")
     assert home["section_count"] == 9 and home["rendered_publicly"] is True
     detail = api.get(f"/api/v1/admin/pages/{home['id']}").get_json()["data"]
-    hero = detail["sections"][0]
-    assert hero["section_type"] == "hero"
+    hero = detail["sections"][0]  # the editorial homepage opens with its featured stories
+    assert hero["section_type"] == "featured_articles"
     ok = api.patch(
         f"/api/v1/admin/pages/{home['id']}/sections/{hero['id']}",
-        {"content": {**hero["content"], "heading": "A Better Mindset."}},
+        {"content": {**hero["content"], "heading": "Today's stories"}},
     )
     assert ok.status_code == 200
     bad = api.patch(
