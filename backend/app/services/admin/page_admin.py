@@ -931,6 +931,33 @@ def discard_draft(page: Page, actor: User) -> Page:
     return page
 
 
+def load_editorial_layout(page: Page, actor: User, lock_version: Any) -> Page:
+    """Replace the homepage *draft's* sections with the built-in editorial layout.
+
+    Nothing is published, and the page's title, SEO and social fields are kept. The
+    current draft is saved in History first, so it can be restored in one step.
+    """
+    require(page, actor, "edit")
+    if not is_home(page):
+        raise ConflictError("The editorial layout is only available for the homepage.")
+    _check_lock(page, lock_version)
+    if page.sections:
+        _record_revision(
+            page,
+            "draft_backup",
+            page_render.draft_document(page),
+            actor,
+            "Draft before loading the editorial layout",
+        )
+    layout = page_render.default_home_document()
+    _load_document_into_draft(
+        page, {"page": page_render.meta_doc(page), "sections": layout["sections"]}
+    )
+    _touch(page, actor)
+    audit_service.record("page.editorial_layout_loaded", "page", page.id, actor=actor)
+    return page
+
+
 def archive(page: Page, actor: User) -> Page:
     require(page, actor, "archive")
     was_live = page.status == "published"

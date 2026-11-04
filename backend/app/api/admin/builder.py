@@ -233,6 +233,19 @@ class PageRevisionRestoreResource(Resource):
         return _detail(page)
 
 
+class HomepageEditorialLayoutResource(Resource):
+    """Load the built-in editorial layout into the homepage draft (never publishes)."""
+
+    @require_permission(P.HOMEPAGE_EDIT)
+    def post(self):
+        page = page_admin.ensure_home(current_user)
+        page_admin.load_editorial_layout(
+            page, current_user, load_body(LockSchema())["lock_version"]
+        )
+        db.session.commit()
+        return _detail(page)
+
+
 class PageSlugCheckResource(Resource):
     @require_any_permission(P.PAGES_EDIT, P.PAGES_CREATE)
     def get(self):

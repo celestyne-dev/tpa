@@ -727,3 +727,40 @@ def products_for_section(content: dict[str, Any], limit: int) -> list[dict[str, 
     loader = _Media([p.published_snapshot for p in chosen])
     cats = _categories()
     return [d for p in chosen if (d := public_product(p, loader=loader, categories=cats))]
+
+
+def resources_for_section(content: dict[str, Any], limit: int) -> list[dict[str, Any]]:
+    """Resources for the "Free resources showcase" section: published resources (never
+    bundles or drafts) that visitors can get now, i.e. free or on sale. "Coming soon" and
+    unavailable items are left out, so no placeholder card is ever shown."""
+    mode = content.get("mode") or "free"
+    products = [p for p in published_products() if not p.is_bundle]
+    if mode == "manual":
+        by_id = {p.id: p for p in products}
+        chosen = [by_id[i] for i in content.get("products") or [] if i in by_id]
+    else:
+        chosen = sorted(products, key=lambda p: (not p.is_featured, p.featured_order, p.id))
+        if mode == "free":
+            chosen = [p for p in chosen if p.pricing_model == "free"]
+        elif mode == "featured":
+            chosen = [p for p in chosen if p.is_featured]
+    loader = _Media([p.published_snapshot for p in chosen])
+    cats = _categories()
+    out = []
+    for product in chosen:
+        data = public_product(product, loader=loader, categories=cats)
+        if data and data["availability"] in ("free", "available"):
+            out.append(
+                {
+                    "slug": data["slug"],
+                    "title": data["title"],
+                    "description": data["description"] or data["subtitle"],
+                    "type_label": data["type_label"],
+                    "is_free": data["is_free"],
+                    "cover": data["cover"],
+                    "cover_theme": data["cover_theme"],
+                }
+            )
+        if len(out) >= limit:
+            break
+    return out

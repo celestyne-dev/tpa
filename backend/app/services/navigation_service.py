@@ -69,7 +69,35 @@ def menu_tree(key: str, *, visible_only: bool = True) -> list[dict[str, Any]]:
     return _tree_from_db(menu, visible_only=visible_only) if menu else _tree_from_defaults(key)
 
 
+# Website areas that can be switched off until they are ready (Settings › Website sections).
+AREA_PREFIXES = {
+    "visibility.shop_public": ("/shop", "/cart"),
+    "visibility.courses_public": ("/courses",),
+}
+
+
+def hidden_prefixes() -> tuple[str, ...]:
+    from .settings_service import get_values
+
+    values = get_values()
+    return tuple(p for key, ps in AREA_PREFIXES.items() if not values.get(key) for p in ps)
+
+
+def is_hidden_destination(url: str | None, prefixes: tuple[str, ...]) -> bool:
+    """An internal link into a switched-off area: /shop, /shop/..., /courses, ... (The
+    pages stay reachable; they are only left out of menus and promotions.)"""
+    if not url or not url.startswith("/"):
+        return False
+    path = url.split("?", 1)[0].split("#", 1)[0].rstrip("/") or "/"
+    return any(path == p or path.startswith(p + "/") for p in prefixes)
+
+
 def public_navigation() -> dict[str, Any]:
+    hidden = hidden_prefixes()
+
+    def shown(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [n for n in nodes if not is_hidden_destination(n.get("url"), hidden)]
+
     def link(node: dict[str, Any]) -> dict[str, Any]:
         return {
             "label": node["label"],
@@ -81,9 +109,9 @@ def public_navigation() -> dict[str, Any]:
 
     def header_items(key: str) -> list[dict[str, Any]]:
         out = []
-        for n in menu_tree(key):
+        for n in shown(menu_tree(key)):
             if n["link_type"] == "heading":
-                children = [link(c) for c in n["children"]]
+                children = [link(c) for c in shown(n["children"])]
                 if children:
                     out.append(
                         {
@@ -102,12 +130,12 @@ def public_navigation() -> dict[str, Any]:
     footer = [
         {
             "title": n["label"],
-            "items": [link(c) for c in n["children"] if c["link_type"] != "heading"],
+            "items": [link(c) for c in shown(n["children"]) if c["link_type"] != "heading"],
         }
         for n in menu_tree("footer")
         if n["link_type"] == "heading"
     ]
-    legal = [link(n) for n in menu_tree("legal") if n["link_type"] != "heading"]
+    legal = [link(n) for n in shown(menu_tree("legal")) if n["link_type"] != "heading"]
     return {
         "primary": primary,
         "mobile": mobile or None,

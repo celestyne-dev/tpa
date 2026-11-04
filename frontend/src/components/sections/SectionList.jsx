@@ -1,24 +1,31 @@
+import { siteConfig } from "@/config/site";
+import { useSite } from "@/hooks/useContent";
 import { SECTION_COMPONENTS, TITLE_SECTIONS } from "./registry";
 import { SectionContext, sectionContextValue } from "./sectionContext";
 
 /**
  * Renders a resolved CMS page's sections in order. The first hero or page
- * header becomes the page's h1; when there is none, a visually hidden h1 with
- * the page title keeps the heading outline valid. Only the first section may
- * load its image eagerly (the likely LCP element).
+ * header becomes the page's h1; when there is none, a visually hidden h1 keeps
+ * the heading outline valid: the page title, or the site name on the homepage
+ * (an editorial homepage opens with its lead story, not a banner). Only the
+ * first section may load its image eagerly (the likely LCP element).
  */
 export function SectionList({ page, preview = false }) {
+  const { data: site } = useSite();
   const sections = page?.sections ?? [];
   const titleIndex = sections.findIndex((s) => TITLE_SECTIONS.has(s.type));
+  const isHome = page?.path === "/";
+  const hiddenTitle = isHome ? (site?.name ?? siteConfig.name) : page?.title;
   return (
     <>
-      {titleIndex === -1 && page?.title && <h1 className="sr-only">{page.title}</h1>}
+      {titleIndex === -1 && hiddenTitle && <h1 className="sr-only">{hiddenTitle}</h1>}
       {sections.map((section, index) => {
         const Component = SECTION_COMPONENTS[section.type];
         if (!Component) return null;
         const value = sectionContextValue(section, {
           level: index === titleIndex ? 1 : 2,
           first: index === 0,
+          preview,
         });
         return (
           <SectionContext.Provider key={section.key} value={value}>

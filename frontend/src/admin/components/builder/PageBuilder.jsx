@@ -481,6 +481,11 @@ function Builder({ load, isHome }) {
                   onClick: () => setConfirm("discard"),
                 },
                 {
+                  label: "Load the editorial layout…",
+                  show: isHome && can.edit,
+                  onClick: () => setConfirm("editorial"),
+                },
+                {
                   label: "Schedule publication…",
                   show: can.publish,
                   onClick: () => setScheduleOpen(true),
@@ -706,6 +711,25 @@ function Builder({ load, isHome }) {
         onConfirm={() =>
           runAction(() => api.pages.discard(detail.id), "Draft reset to the live version.")
         }
+        onCancel={() => setConfirm(null)}
+      />
+      <ConfirmDialog
+        open={confirm === "editorial"}
+        title="Load the editorial layout into the draft?"
+        message="The draft's sections are replaced with the editorial layout: featured stories, latest articles, topics, Editor's Picks, popular articles, the newsletter, free resources, articles by topic and About. Nothing is published, and the page's title and SEO settings are kept. The current draft is saved in History first."
+        confirmLabel="Load the layout"
+        busy={busy}
+        onConfirm={async () => {
+          let latest = detail;
+          if (dirty) {
+            latest = await saveDraft({ quiet: true });
+            if (!latest) return;
+          }
+          runAction(
+            () => api.pages.loadEditorialLayout(latest.lock_version),
+            "Editorial layout loaded into the draft. Preview it, then publish when ready.",
+          );
+        }}
         onCancel={() => setConfirm(null)}
       />
       <ConfirmDialog

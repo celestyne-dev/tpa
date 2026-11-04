@@ -103,7 +103,7 @@ def test_double_opt_in_records_consent_evidence(newsletter, client):
     assert res.status_code == 202 and res.get_json()["data"]["status"] == "check_email"
     pending = _subscriber(newsletter)
     assert pending.status == "pending" and not pending.is_marketable
-    assert pending.consent_at and pending.consent_version == "2026-10"
+    assert pending.consent_at and pending.consent_version == "2026-11"
     assert "unsubscribe" in pending.consent_text.lower() and len(pending.consent_ip_hash) == 64
     assert pending.source == "footer" and pending.preferences == ["weekly"]
     _work(newsletter)

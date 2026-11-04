@@ -1,20 +1,21 @@
 import { ArticleGrid } from "@/components/articles/ArticleGrid";
+import { ProductCard } from "@/components/products/ProductCard";
 import { Seo } from "@/components/seo/Seo";
-import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
-import { plannedFreeResources } from "@/data/marketing";
 import { LATEST_QUERY } from "@/data/queries";
-import { useArticles } from "@/hooks/useContent";
+import { useArticles, useProducts } from "@/hooks/useContent";
+import { availableFreeResources } from "@/utils/resources";
 
 export function FreeResourcesPage() {
   const { data: articles, isLoading, isError, retry } = useArticles(LATEST_QUERY);
+  const products = useProducts();
+  const resources = availableFreeResources(products.data);
   return (
     <>
       <Seo
@@ -25,39 +26,40 @@ export function FreeResourcesPage() {
       <PageHeader
         eyebrow="Free resources"
         title="Free Tools to Support Your Growth"
-        description="Practical, encouraging resources you can use at your own pace. Our free resource library is being prepared, and you can start with our free articles today."
+        description="Practical, encouraging resources you can use at your own pace, alongside free articles you can read today."
         breadcrumbs={[
           { name: "Home", href: routes.home },
           { name: "Free Resources", href: routes.freeResources },
         ]}
       />
 
-      <Section aria-labelledby="planned-heading">
-        <SectionHeading
-          id="planned-heading"
-          eyebrow="In preparation"
-          title="What our free library will include"
-          description="We are creating these resources now. They will appear here, ready to download, as soon as each one is complete."
-        />
-        <ul className="mt-12 grid gap-6 sm:grid-cols-2">
-          {plannedFreeResources.map(({ icon: Icon, title, text }) => (
-            <li key={title}>
-              <Card className="flex h-full gap-5 p-7">
-                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-sage-100 text-sage-700">
-                  <Icon aria-hidden className="size-5" />
-                </span>
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-xl font-medium">{title}</h3>
-                    <Badge tone="gold">Coming soon</Badge>
-                  </div>
-                  <p className="mt-2 text-muted">{text}</p>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      </Section>
+      {products.isLoading && !products.data && (
+        <Section>
+          <CardGridSkeleton count={3} />
+        </Section>
+      )}
+      {resources.length > 0 && (
+        <Section aria-labelledby="free-resources-heading">
+          <SectionHeading
+            id="free-resources-heading"
+            eyebrow="Free to download"
+            title="Free resources"
+            description="Each resource opens on its own page with what's included and how to get it."
+            action={
+              <ButtonLink to={routes.resources} variant="outline">
+                Resource library
+              </ButtonLink>
+            }
+          />
+          <ul className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {resources.map((product) => (
+              <li key={product.id}>
+                <ProductCard product={product} />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <Section tone="cream" aria-labelledby="read-now-heading">
         <SectionHeading

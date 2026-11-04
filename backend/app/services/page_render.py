@@ -38,6 +38,8 @@ from ..models import (
 from .serializers import _author_profile, expand_body, iso, public_article, public_topic
 
 DOC_VERSION = 1
+# Shop promotions: hidden on the website while "Show the shop" is off.
+SHOP_SECTIONS = frozenset({"product_previews"})
 META_FIELDS = (
     "title",
     "slug",
@@ -165,6 +167,9 @@ class _Loader:
         self._topic_counts: dict[int, int] | None = None
         self._settings: dict[str, Any] | None = None
         self.latest_dependency: datetime | None = None
+        # Slugs of articles already placed on the page, in section order, so later
+        # sections can leave them out ("Leave out articles already shown above").
+        self.shown: set[str] = set()
 
     def touch_products(self, products: list[dict[str, Any]]) -> None:
         for product in products:
@@ -307,6 +312,76 @@ def _resolve_field(loader: _Loader, spec: dict[str, Any], value: Any, now: datet
     return value
 
 
+def _shown(loader: _Loader, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    loader.shown.update(a["slug"] for a in articles)
+    return articles
+
+
+def _unshown(
+    loader: _Loader, articles: list[dict[str, Any]], exclude: bool, limit: int
+) -> list[dict[str, Any]]:
+    if exclude:
+        articles = [a for a in articles if a["slug"] not in loader.shown]
+    return articles[:limit]
+
+
+def _popular_articles(days: int, limit: int) -> list[dict[str, Any]]:
+    """The most-viewed published articles over the last ``days`` days, from the daily
+    analytics rollups (aggregates only; the counts themselves are never published)."""
+    from datetime import timedelta
+
+    from sqlalchemy import func
+
+    from ..models import AnalyticsDailyPage
+    from .article_service import published_filter
+
+    since = _now().date() - timedelta(days=days)
+    views = func.sum(AnalyticsDailyPage.views)
+    ranked = db.session.execute(
+        select(AnalyticsDailyPage.content_id, views.label("views"))
+        .where(
+            AnalyticsDailyPage.content_type == "article",
+            AnalyticsDailyPage.content_id.is_not(None),
+            AnalyticsDailyPage.day >= since,
+        )
+        .group_by(AnalyticsDailyPage.content_id)
+        .having(views > 0)
+        .order_by(views.desc(), AnalyticsDailyPage.content_id)
+        .limit(limit)
+    ).all()
+    ids = [row.content_id for row in ranked]
+    if not ids:
+        return []
+    found = {
+        a.id: a
+        for a in db.session.scalars(select(Article).where(Article.id.in_(ids), published_filter()))
+    }
+    return [public_article(found[i], include_body=False) for i in ids if i in found]
+
+
+def _topic_groups(loader: _Loader, content: dict[str, Any], data: dict[str, Any]) -> list[dict]:
+    from .article_service import list_articles
+    from .topic_service import list_topics
+
+    if content.get("mode") == "manual":
+        topics = data.get("topics") or []
+    else:
+        topics = list_topics(featured=True)
+    per_topic = content.get("per_topic") or 3
+    exclude = content.get("exclude_shown") is True
+    groups = []
+    for topic in topics:
+        if len(groups) >= (content.get("topic_count") or 3):
+            break
+        fetched = list_articles(
+            topic=topic["slug"], page=1, page_size=per_topic + len(loader.shown)
+        )
+        articles = _unshown(loader, fetched[0], exclude, per_topic)
+        if articles:
+            groups.append({"topic": topic, "articles": _shown(loader, articles)})
+    return groups
+
+
 def _featured_articles(limit: int) -> list[dict[str, Any]]:
     from .article_service import list_articles
 
@@ -326,13 +401,34 @@ def _computed(
     settings = loader.settings
     if section_type == "featured_articles":
         if content.get("mode") == "manual":
-            data["articles"] = data.get("articles") or []
+            data["articles"] = _shown(loader, data.get("articles") or [])
         else:
-            data["articles"] = _featured_articles(content.get("count") or 3)
+            data["articles"] = _shown(loader, _featured_articles(content.get("count") or 3))
+    elif section_type == "article_collection":
+        data["articles"] = _shown(loader, data.get("articles") or [])
     elif section_type == "latest_articles":
         topic = (data.get("topic") or [None])[0]
         data["topic"] = topic
-        data["articles"] = _latest_articles(content.get("count") or 6, topic and topic["slug"])
+        count = content.get("count") or 6
+        exclude = content.get("exclude_shown") is True
+        fetched = _latest_articles(
+            count + (len(loader.shown) if exclude else 0), topic and topic["slug"]
+        )
+        data["articles"] = _shown(loader, _unshown(loader, fetched, exclude, count))
+    elif section_type == "popular_articles":
+        count = content.get("count") or 5
+        exclude = content.get("exclude_shown") is True
+        days = int(content.get("period") or 30)
+        fetched = _popular_articles(days, count + (len(loader.shown) if exclude else 0))
+        data["articles"] = _shown(loader, _unshown(loader, fetched, exclude, count))
+    elif section_type == "topic_articles":
+        data["groups"] = _topic_groups(loader, content, data)
+        data.pop("topics", None)
+    elif section_type == "resource_showcase":
+        from .commerce.catalogue import resources_for_section
+
+        data["resources"] = resources_for_section(content, content.get("count") or 3)
+        data.pop("products", None)
     elif section_type == "topics_grid":
         from .topic_service import list_topics
 
@@ -434,6 +530,9 @@ def _resolve_section(
     definition = SECTION_TYPES.get(section_type)
     if definition is None:
         return []
+    shop_off = section_type in SHOP_SECTIONS and not loader.settings.get("visibility.shop_public")
+    if shop_off and not preview:
+        return []
     if section_type == "section_group":
         if depth >= MAX_GROUP_DEPTH:
             return []
@@ -468,6 +567,10 @@ def _resolve_section(
         resolved["shared"] = True
     if preview and not in_window:
         resolved["preview_note"] = "Outside its visibility dates: not shown on the live site now."
+    elif preview and shop_off:
+        resolved["preview_note"] = (
+            "The shop is switched off (Settings › Website sections): not shown on the live site."
+        )
     return [resolved]
 
 

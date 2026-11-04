@@ -12,7 +12,7 @@ from ..models import MediaAsset, Page
 from ..utils.validation import is_https_url
 from .admin.announcement_admin import public_announcements
 from .branding_service import public_branding
-from .navigation_service import public_navigation
+from .navigation_service import hidden_prefixes, is_hidden_destination, public_navigation
 from .serializers import iso
 from .settings_service import get_values
 
@@ -111,8 +111,17 @@ def get_site_settings() -> dict[str, Any]:
         },
         "header": {
             "cta": {"label": v["header.cta_label"], "href": v["header.cta_url"]}
-            if v["header.show_cta"] and v["header.cta_label"] and v["header.cta_url"]
+            if v["header.show_cta"]
+            and v["header.cta_label"]
+            and v["header.cta_url"]
+            and not is_hidden_destination(v["header.cta_url"], hidden_prefixes())
             else None,
+        },
+        # Areas switched on in Settings › Website sections (off: left out of menus, the
+        # header and promotions; their pages stay reachable).
+        "features": {
+            "shop": v.get("visibility.shop_public") is True,
+            "courses": v.get("visibility.courses_public") is True,
         },
         "footer": {
             "text": v["footer.text"],
@@ -153,7 +162,7 @@ def _newsletter() -> dict:
     return {
         "name": status["name"],
         "tagline": status["tagline"],
-        "cadence": "weekly",
+        "cadence": "daily",
         "is_open": status["signup_open"],
         "consent_text": status["consent_text"],
         "consent_version": get_settings()["email.consent_version"] if status["signup_open"] else "",

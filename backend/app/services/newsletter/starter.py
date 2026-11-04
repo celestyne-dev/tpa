@@ -28,21 +28,22 @@ def _button(label: str, href: str) -> dict[str, Any]:
 
 TEMPLATES: list[dict[str, Any]] = [
     {
+        # Historical key (templates are matched by key when seeded): the main edition is daily.
         "key": "weekly_edition",
-        "name": "The Positive Reset — Weekly Edition",
-        "description": "The main weekly letter: one idea, one practice, featured reading.",
-        "subject": "The Positive Reset: [this week's theme]",
-        "preheader": "[One sentence that tells readers what this week's letter offers]",
+        "name": "The Positive Reset — Daily Edition",
+        "description": "The main daily letter: one idea, one practice, featured reading.",
+        "subject": "The Positive Reset: [today's theme]",
+        "preheader": "[One sentence that tells readers what today's letter offers]",
         "blocks": [
             _p("Hello {{first_name}},"),
-            _p("[Open with a short, honest reflection on this week's theme.]"),
-            _h("This week's idea"),
+            _p("[Open with a short, honest reflection on today's theme.]"),
+            _h("Today's idea"),
             _p("[Explain the main idea in two or three short paragraphs.]"),
             {
                 "type": "callout",
                 "tone": "tip",
                 "title": "Try this",
-                "text": "[One small, practical step readers can take this week.]",
+                "text": "[One small, practical step readers can take today.]",
             },
             _p("[Close warmly. Featured articles and products you select appear below.]"),
         ],
@@ -189,7 +190,7 @@ AUTOMATIONS: list[dict[str, Any]] = [
     {
         "key": "new_article",
         "name": "New article announcement",
-        "description": "Announces each newly published article (weekly-edition subscribers).",
+        "description": "Announces each newly published article (The Positive Reset subscribers).",
         "trigger": "article_published",
         "required_preference": "weekly",
         "steps": [{"template": "new_article", "delay_minutes": 0}],

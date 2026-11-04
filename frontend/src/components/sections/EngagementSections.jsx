@@ -64,7 +64,7 @@ export function BrandIntroSection({ section }) {
 
 /**
  * The Positive Reset panel: the real signup form once sending is configured, otherwise
- * an honest "opening soon" notice that never collects email addresses.
+ * a plain "not available on the website" line that never collects email addresses.
  */
 export function NewsletterSection({ section }) {
   const { data, variant } = section;

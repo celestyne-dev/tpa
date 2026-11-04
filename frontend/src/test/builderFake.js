@@ -173,6 +173,16 @@ export function createBuilderFake(getUser) {
         ),
       ),
       homepage: vi.fn(() => ok(detail(pages[1]))),
+      loadEditorialLayout: vi.fn(() =>
+        ok(
+          detail(
+            Object.assign(pages[1], {
+              has_unpublished_changes: true,
+              lock_version: pages[1].lock_version + 1,
+            }),
+          ),
+        ),
+      ),
       get: vi.fn((id) =>
         get(id) ? ok(detail(get(id))) : fail(404, "not_found", "Page not found."),
       ),

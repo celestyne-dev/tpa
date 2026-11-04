@@ -130,15 +130,15 @@ export function ResourceLibraryPage() {
           ) : visible.length === 0 ? (
             <EmptyState
               icon={BookOpen}
-              title={type || access ? "No resources match" : "No resources yet"}
+              title={type || access ? "No resources match" : "No resources published yet"}
               description={
                 type || access
                   ? "Try another type or show all resources."
-                  : "Our first resources are being written. Please check back soon."
+                  : "Published resources are listed here. Every article is free to read in the meantime."
               }
               action={
-                <Link to={routes.shop} className="underline underline-offset-4">
-                  Visit the shop
+                <Link to={routes.articles} className="underline underline-offset-4">
+                  Read the articles
                 </Link>
               }
             />

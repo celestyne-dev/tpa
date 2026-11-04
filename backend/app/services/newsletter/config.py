@@ -25,8 +25,10 @@ from ...utils.errors import ValidationError
 SENDING_MODES = ("disabled", "test", "live")
 NEWSLETTER_NAME = "The Positive Reset"
 NEWSLETTER_TAGLINE = "A Better Mindset. A Brighter Life."
+# Keys are stored on subscribers and used by segments and automations, so they never change.
+# "weekly" is the historical key of the main edition, which is now sent daily.
 PREFERENCES = {
-    "weekly": "The Positive Reset — weekly edition",
+    "weekly": "The Positive Reset — daily email",
     "daily": "Daily encouragement",
     "reflection": "Weekly reflection prompts",
     "resources": "Free resources and guides",
@@ -34,15 +36,16 @@ PREFERENCES = {
 }
 DEFAULT_PREFERENCES = ["weekly"]
 DEFAULT_CONSENT_TEXT = (
-    "Yes, email me The Positive Reset: practical encouragement, healthier thinking, personal "
-    "growth and useful resources. I can unsubscribe at any time with one click."
+    "Yes, email me The Positive Reset every day: practical encouragement, healthier thinking, "
+    "personal growth and useful resources. I can unsubscribe at any time with one click."
 )
 DEFAULTS: dict[str, Any] = {
     "email.sending_mode": "disabled",
     "email.from_name": "Think Positive Always",
     "email.reply_to": "",
     "email.consent_text": DEFAULT_CONSENT_TEXT,
-    "email.consent_version": "2026-10",
+    # A new version for the daily wording; subscribers keep the version they agreed to.
+    "email.consent_version": "2026-11",
     "email.postal_address": "",
     "email.attestation": None,
 }

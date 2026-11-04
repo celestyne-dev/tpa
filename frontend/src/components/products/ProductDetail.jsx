@@ -11,6 +11,7 @@ import { ContentImage } from "@/components/ui/ContentImage";
 import { Section } from "@/components/ui/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { routes } from "@/config/navigation";
+import { useSite } from "@/hooks/useContent";
 import { breadcrumbJsonLd, productJsonLd } from "@/utils/structuredData";
 import { CurrencySwitcher } from "./CurrencySwitcher";
 import { PriceTag } from "./PriceTag";
@@ -36,9 +37,16 @@ function formatSize(bytes) {
  */
 export function ProductDetail({ product, currency, currencies, onCurrency, preview = false }) {
   const setCurrency = onCurrency;
+  const { data: site } = useSite();
+  // While the shop is switched off its page isn't promoted: resources lead back to the
+  // Resource library instead.
+  const parent =
+    site?.features?.shop === false
+      ? { name: "Resource library", href: routes.resources }
+      : { name: "Shop", href: routes.shop };
   const crumbs = [
     { name: "Home", href: routes.home },
-    { name: "Shop", href: routes.shop },
+    parent,
     { name: product.title, href: routes.product(product.slug) },
   ];
   const details = [

@@ -91,7 +91,7 @@ PAGE_TEMPLATES: dict[str, dict[str, Any]] = {
                 "page_header",
                 "Page header",
                 "centered",
-                {"eyebrow": "The Positive Reset", "intro": "One thoughtful email each week."},
+                {"eyebrow": "The Positive Reset", "intro": "One thoughtful email each day."},
             ),
             _s("newsletter_cta", "Newsletter", "panel", {"show_learn_more": False}),
             _s(
@@ -102,7 +102,7 @@ PAGE_TEMPLATES: dict[str, dict[str, Any]] = {
                     "items": [
                         {
                             "question": "How often will I hear from you?",
-                            "answer": "Once a week, when the newsletter launches.",
+                            "answer": "Once a day: one short, thoughtful email.",
                         }
                     ]
                 },

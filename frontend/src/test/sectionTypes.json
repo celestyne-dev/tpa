@@ -353,6 +353,10 @@
     "single_use": false,
     "variants": [
       {
+        "value": "lead_with_side",
+        "label": "Large lead story with smaller stories alongside"
+      },
+      {
         "value": "lead_and_grid",
         "label": "Large lead article and grid"
       },
@@ -591,6 +595,13 @@
         "default": 6
       },
       {
+        "name": "exclude_shown",
+        "type": "boolean",
+        "label": "Leave out articles already shown above on this page",
+        "default": false,
+        "help": "Avoids showing the same article twice on one page."
+      },
+      {
         "name": "cta",
         "type": "cta",
         "label": "Link button"
@@ -686,6 +697,7 @@
         "description": "",
         "topic": [],
         "count": 6,
+        "exclude_shown": false,
         "cta": {
           "label": "",
           "url": "",
@@ -708,13 +720,17 @@
     "type": "article_collection",
     "label": "Selected article collection",
     "category": "Articles",
-    "description": "A hand-picked reading list in your chosen order.",
+    "description": "A hand-picked reading list in your chosen order, such as Editor's Picks. Hidden on the website until it has at least one published article.",
     "reusable_only": false,
     "single_use": false,
     "variants": [
       {
         "value": "grid_3",
         "label": "Three-column cards"
+      },
+      {
+        "value": "grid_4",
+        "label": "Four-column cards"
       },
       {
         "value": "grid_2",
@@ -751,7 +767,7 @@
         "type": "articles",
         "label": "Articles",
         "max_items": 12,
-        "required": true
+        "help": "In this order."
       },
       {
         "name": "cta",
@@ -1018,6 +1034,562 @@
       },
       "design": {
         "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "popular_articles",
+    "label": "Popular articles",
+    "category": "Articles",
+    "description": "The most-read published articles, from the site's own visitor statistics (page views only; no visitor details or counts are shown). Hidden until there is data.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "numbered",
+        "label": "Numbered list"
+      },
+      {
+        "value": "grid_4",
+        "label": "Four-column cards"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "period",
+        "type": "select",
+        "label": "Most read over",
+        "choices": [
+          {
+            "value": "7",
+            "label": "The last 7 days"
+          },
+          {
+            "value": "30",
+            "label": "The last 30 days"
+          },
+          {
+            "value": "90",
+            "label": "The last 90 days"
+          }
+        ],
+        "default": "30"
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "label": "Number of articles",
+        "min": 1,
+        "max": 10,
+        "default": 5
+      },
+      {
+        "name": "exclude_shown",
+        "type": "boolean",
+        "label": "Leave out articles already shown above on this page",
+        "default": false,
+        "help": "Avoids showing the same article twice on one page."
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Link button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "numbered",
+      "content": {
+        "eyebrow": "",
+        "heading": "Popular articles",
+        "description": "",
+        "period": "30",
+        "count": 5,
+        "exclude_shown": false,
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "topic_articles",
+    "label": "Articles by topic",
+    "category": "Articles",
+    "description": "The latest articles from several topics, grouped under each topic. Topics without published articles are left out.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "columns",
+        "label": "Topics side by side"
+      },
+      {
+        "value": "rows",
+        "label": "One topic per row"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "mode",
+        "type": "select",
+        "label": "Which topics",
+        "choices": [
+          {
+            "value": "featured",
+            "label": "Featured topics"
+          },
+          {
+            "value": "manual",
+            "label": "Choose topics"
+          }
+        ],
+        "default": "featured"
+      },
+      {
+        "name": "topics",
+        "type": "topics",
+        "label": "Topics",
+        "max_items": 6,
+        "show_for_mode": "manual"
+      },
+      {
+        "name": "topic_count",
+        "type": "number",
+        "label": "Number of topics",
+        "min": 1,
+        "max": 6,
+        "default": 3
+      },
+      {
+        "name": "per_topic",
+        "type": "number",
+        "label": "Articles per topic",
+        "min": 1,
+        "max": 6,
+        "default": 3
+      },
+      {
+        "name": "exclude_shown",
+        "type": "boolean",
+        "label": "Leave out articles already shown above on this page",
+        "default": true,
+        "help": "Avoids showing the same article twice on one page."
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "columns",
+      "content": {
+        "eyebrow": "",
+        "heading": "More to read by topic",
+        "description": "",
+        "mode": "featured",
+        "topics": [],
+        "topic_count": 3,
+        "per_topic": 3,
+        "exclude_shown": true
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "resource_showcase",
+    "label": "Free resources showcase",
+    "category": "Engagement",
+    "description": "Published resources from the Resource library, each linking to its page. Only resources visitors can get now are shown (never drafts or “coming soon” items); the section is hidden when there are none.",
+    "reusable_only": false,
+    "single_use": false,
+    "variants": [
+      {
+        "value": "cards_3",
+        "label": "Three-column cards"
+      },
+      {
+        "value": "cards_4",
+        "label": "Four-column cards"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "mode",
+        "type": "select",
+        "label": "Which resources",
+        "choices": [
+          {
+            "value": "free",
+            "label": "Free resources"
+          },
+          {
+            "value": "featured",
+            "label": "Featured resources"
+          },
+          {
+            "value": "all",
+            "label": "All available resources"
+          },
+          {
+            "value": "manual",
+            "label": "Choose resources"
+          }
+        ],
+        "default": "free"
+      },
+      {
+        "name": "products",
+        "type": "products",
+        "label": "Resources",
+        "max_items": 9,
+        "show_for_mode": "manual"
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "label": "Number of resources",
+        "min": 1,
+        "max": 9,
+        "default": 3
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Link button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "cards_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "Free resources",
+        "description": "",
+        "mode": "free",
+        "products": [],
+        "count": 3,
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "cream",
         "spacing": "md"
       },
       "visibility": {
@@ -1461,7 +2033,7 @@
     "type": "newsletter_cta",
     "label": "Newsletter signup",
     "category": "Engagement",
-    "description": "The Positive Reset signup form (double opt-in). It collects addresses only when email sending and consent wording are configured; until then it shows an honest “opening soon” notice.",
+    "description": "The Positive Reset signup form (double opt-in). It collects addresses only when email sending and consent wording are configured; until then it says plainly that sign-up isn't available on the website and collects nothing.",
     "reusable_only": false,
     "single_use": false,
     "variants": [
@@ -1480,7 +2052,7 @@
         "type": "text",
         "label": "Small label",
         "max": 80,
-        "default": "Weekly newsletter"
+        "default": "Daily newsletter"
       },
       {
         "name": "heading",
@@ -1585,9 +2157,9 @@
     "defaults": {
       "variant": "panel",
       "content": {
-        "eyebrow": "Weekly newsletter",
+        "eyebrow": "Daily newsletter",
         "heading": "",
-        "description": "One thoughtful email each week to help you reset your mindset, find perspective, and keep moving forward.",
+        "description": "One thoughtful email each day to help you reset your mindset, find perspective, and keep moving forward.",
         "show_first_name": true,
         "lead_magnet": null,
         "show_learn_more": true

@@ -81,6 +81,15 @@ DESCRIPTION = textarea("Description", 400)
 ARTICLE_COUNT = _f("number", "Number of articles", min=1, max=12, default=3)
 
 
+def exclude_shown(default: bool) -> dict[str, Any]:
+    return _f(
+        "boolean",
+        "Leave out articles already shown above on this page",
+        default=default,
+        help="Avoids showing the same article twice on one page.",
+    )
+
+
 SECTION_TYPES: dict[str, dict[str, Any]] = {
     "hero": {
         "label": "Hero banner",
@@ -146,6 +155,7 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
         "category": "Articles",
         "description": "Articles marked as featured, or a hand-picked selection.",
         "variants": {
+            "lead_with_side": "Large lead story with smaller stories alongside",
             "lead_and_grid": "Large lead article and grid",
             "grid_3": "Three-column cards",
             "carousel": "Horizontal scrolling row",
@@ -184,6 +194,7 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "description": DESCRIPTION,
             "topic": _f("topics", "Only from this topic", max_items=1, help="Optional."),
             "count": {**ARTICLE_COUNT, "default": 6},
+            "exclude_shown": exclude_shown(False),
             "cta": cta("Link button"),
         },
         "design": ["background", "spacing", "card_style", "align"],
@@ -196,13 +207,21 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
     "article_collection": {
         "label": "Selected article collection",
         "category": "Articles",
-        "description": "A hand-picked reading list in your chosen order.",
-        "variants": {"grid_3": "Three-column cards", "grid_2": "Two-column cards", "list": "List"},
+        "description": (
+            "A hand-picked reading list in your chosen order, such as Editor's Picks. Hidden on "
+            "the website until it has at least one published article."
+        ),
+        "variants": {
+            "grid_3": "Three-column cards",
+            "grid_4": "Four-column cards",
+            "grid_2": "Two-column cards",
+            "list": "List",
+        },
         "fields": {
             "eyebrow": EYEBROW,
             "heading": HEADING,
             "description": DESCRIPTION,
-            "articles": _f("articles", "Articles", max_items=12, required=True),
+            "articles": _f("articles", "Articles", max_items=12, help="In this order."),
             "cta": cta("Link button"),
         },
         "design": ["background", "spacing", "card_style", "align"],
@@ -239,6 +258,110 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "variant": "cards_3",
             "design": {"background": "ivory", "spacing": "md"},
             "content": {"heading": "Explore by topic", "mode": "featured"},
+        },
+    },
+    "popular_articles": {
+        "label": "Popular articles",
+        "category": "Articles",
+        "description": (
+            "The most-read published articles, from the site's own visitor statistics (page "
+            "views only; no visitor details or counts are shown). Hidden until there is data."
+        ),
+        "variants": {"numbered": "Numbered list", "grid_4": "Four-column cards"},
+        "fields": {
+            "eyebrow": EYEBROW,
+            "heading": HEADING,
+            "description": DESCRIPTION,
+            "period": _f(
+                "select",
+                "Most read over",
+                choices={
+                    "7": "The last 7 days",
+                    "30": "The last 30 days",
+                    "90": "The last 90 days",
+                },
+                default="30",
+            ),
+            "count": {**ARTICLE_COUNT, "default": 5, "max": 10},
+            "exclude_shown": exclude_shown(False),
+            "cta": cta("Link button"),
+        },
+        "design": ["background", "spacing", "card_style", "align"],
+        "defaults": {
+            "variant": "numbered",
+            "design": {"background": "ivory", "spacing": "md"},
+            "content": {"heading": "Popular articles", "period": "30", "count": 5},
+        },
+    },
+    "topic_articles": {
+        "label": "Articles by topic",
+        "category": "Articles",
+        "description": (
+            "The latest articles from several topics, grouped under each topic. Topics without "
+            "published articles are left out."
+        ),
+        "variants": {"columns": "Topics side by side", "rows": "One topic per row"},
+        "fields": {
+            "eyebrow": EYEBROW,
+            "heading": HEADING,
+            "description": DESCRIPTION,
+            "mode": _f(
+                "select",
+                "Which topics",
+                choices={"featured": "Featured topics", "manual": "Choose topics"},
+                default="featured",
+            ),
+            "topics": _f("topics", "Topics", max_items=6, show_for_mode="manual"),
+            "topic_count": _f("number", "Number of topics", min=1, max=6, default=3),
+            "per_topic": _f("number", "Articles per topic", min=1, max=6, default=3),
+            "exclude_shown": exclude_shown(True),
+        },
+        "design": ["background", "spacing", "card_style"],
+        "defaults": {
+            "variant": "columns",
+            "design": {"background": "ivory", "spacing": "md"},
+            "content": {
+                "heading": "More to read by topic",
+                "mode": "featured",
+                "topic_count": 3,
+                "per_topic": 3,
+                "exclude_shown": True,
+            },
+        },
+    },
+    "resource_showcase": {
+        "label": "Free resources showcase",
+        "category": "Engagement",
+        "description": (
+            "Published resources from the Resource library, each linking to its page. Only "
+            "resources visitors can get now are shown (never drafts or “coming soon” items); "
+            "the section is hidden when there are none."
+        ),
+        "variants": {"cards_3": "Three-column cards", "cards_4": "Four-column cards"},
+        "fields": {
+            "eyebrow": EYEBROW,
+            "heading": HEADING,
+            "description": DESCRIPTION,
+            "mode": _f(
+                "select",
+                "Which resources",
+                choices={
+                    "free": "Free resources",
+                    "featured": "Featured resources",
+                    "all": "All available resources",
+                    "manual": "Choose resources",
+                },
+                default="free",
+            ),
+            "products": _f("products", "Resources", max_items=9, show_for_mode="manual"),
+            "count": _f("number", "Number of resources", min=1, max=9, default=3),
+            "cta": cta("Link button"),
+        },
+        "design": ["background", "spacing", "card_style", "align"],
+        "defaults": {
+            "variant": "cards_3",
+            "design": {"background": "cream", "spacing": "md"},
+            "content": {"heading": "Free resources", "mode": "free", "count": 3},
         },
     },
     "quote": {
@@ -305,12 +428,12 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
         "category": "Engagement",
         "description": (
             "The Positive Reset signup form (double opt-in). It collects addresses only when "
-            "email sending and consent wording are configured; until then it shows an honest "
-            "“opening soon” notice."
+            "email sending and consent wording are configured; until then it says plainly that "
+            "sign-up isn't available on the website and collects nothing."
         ),
         "variants": {"panel": "Panel", "compact": "Compact"},
         "fields": {
-            "eyebrow": text("Small label", 80, default="Weekly newsletter"),
+            "eyebrow": text("Small label", 80, default="Daily newsletter"),
             "heading": text("Heading", 120, help="Leave empty to use the newsletter name."),
             "description": textarea("Description", 300),
             "show_first_name": _f("boolean", "Ask for a first name (optional field)", default=True),
@@ -327,7 +450,7 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "variant": "panel",
             "design": {"background": "ivory", "spacing": "sm", "width": "wide"},
             "content": {
-                "description": "One thoughtful email each week to help you reset your mindset, "
+                "description": "One thoughtful email each day to help you reset your mindset, "
                 "find perspective, and keep moving forward."
             },
         },

@@ -12,14 +12,14 @@ export function NewsletterPage() {
   return (
     <>
       <Seo
-        title="The Positive Reset — Weekly Newsletter"
-        description="The Positive Reset is Think Positive Always' weekly email: one thoughtful message to help you reset your mindset, find perspective, and keep moving forward."
+        title="The Positive Reset — Daily Newsletter"
+        description="The Positive Reset is Think Positive Always' daily email: one thoughtful message to help you reset your mindset, find perspective, and keep moving forward."
         path={routes.newsletter}
       />
       <PageHeader
-        eyebrow="Weekly newsletter"
+        eyebrow="Daily newsletter"
         title={siteConfig.newsletterName}
-        description="One thoughtful email each week to help you reset your mindset, find perspective, and keep moving forward."
+        description="One thoughtful email each day to help you reset your mindset, find perspective, and keep moving forward."
         breadcrumbs={[
           { name: "Home", href: routes.home },
           { name: "Newsletter", href: routes.newsletter },
@@ -32,12 +32,12 @@ export function NewsletterPage() {
             <SectionHeading
               id="inside-heading"
               title="What you will find inside"
-              description="Each issue is short enough to read over a cup of coffee, and meaningful enough to stay with you through the week."
+              description="Each issue is short enough to read over a cup of coffee, and meaningful enough to stay with you through the day."
             />
             <dl className="mt-10 grid grid-cols-2 gap-6 border-t border-charcoal/10 pt-8">
               <div>
                 <dt className="text-sm text-muted">Cadence</dt>
-                <dd className="mt-1 font-serif text-2xl text-charcoal">Once a week</dd>
+                <dd className="mt-1 font-serif text-2xl text-charcoal">Once a day</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted">Cost</dt>
@@ -66,7 +66,7 @@ export function NewsletterPage() {
           Our promise to readers
         </h2>
         <ul className="prose-legal mt-6">
-          <li>We will only send what we said we would send: one thoughtful email each week.</li>
+          <li>We will only send what we said we would send: one thoughtful email each day.</li>
           <li>We will never sell your email address.</li>
           <li>Every email will include a simple way to unsubscribe.</li>
         </ul>

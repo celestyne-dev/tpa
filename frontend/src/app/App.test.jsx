@@ -58,9 +58,11 @@ describe("homepage", () => {
     expect(screen.queryByText(/\$\d/)).not.toBeInTheDocument();
   });
 
-  it("shows an honest newsletter coming-soon state and no email form", async () => {
+  it("shows a truthful newsletter state and no email form while sign-up is closed", async () => {
     renderApp("/newsletter");
-    expect(await screen.findByText("Sign-ups are opening soon.")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText(/isn.t available on the website at the moment/)).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 });

@@ -8,13 +8,15 @@ import { LeadMagnetForm } from "./LeadMagnetForm";
 import { NewsletterSignupForm } from "./NewsletterSignupForm";
 
 const DEFAULT_DESCRIPTION =
-  "One thoughtful email each week to help you reset your mindset, find perspective, and keep moving forward.";
+  "One thoughtful email each day to help you reset your mindset, find perspective, and keep moving forward.";
 
 /**
  * Newsletter presentation. It shows the real (double opt-in) signup form only when the
- * API reports that sending and consent wording are configured (site.newsletter.is_open);
- * otherwise an honest coming-soon state that never collects addresses. With a lead
- * magnet it offers the free resource instead, with subscribing as a separate choice.
+ * API reports that sending and consent wording are configured (site.newsletter.is_open,
+ * the backend's readiness check). Otherwise it says plainly that sign-up isn't available
+ * on the website: no form, no fields and no promise of a date, so nothing is collected
+ * and no subscription is ever pretended. With a lead magnet it offers the free resource
+ * instead, with subscribing as a separate choice.
  */
 export function NewsletterPanel({
   source = "other",
@@ -25,7 +27,7 @@ export function NewsletterPanel({
   description = DEFAULT_DESCRIPTION,
   showLearnMore = true,
   title,
-  eyebrow = "Weekly newsletter",
+  eyebrow = "Daily newsletter",
   className,
 }) {
   const { data: site } = useSite();
@@ -78,13 +80,9 @@ export function NewsletterPanel({
         )}
 
         {!isOpen && !leadMagnet?.available && (
-          <div className="mx-auto mt-8 max-w-lg rounded-2xl border border-ivory/15 bg-ivory/5 px-6 py-5">
-            <p className="font-medium text-ivory">Sign-ups are opening soon.</p>
-            <p className="mt-1 text-[0.95rem] text-sage-100">
-              We are preparing the first issues of {name}. Please check back shortly. Subscription
-              will be available right here once it is live.
-            </p>
-          </div>
+          <p className="mx-auto mt-8 max-w-md border-t border-ivory/15 pt-6 text-[0.95rem] text-sage-100">
+            Sign-up for {name} isn&apos;t available on the website at the moment.
+          </p>
         )}
 
         {showLearnMore && (

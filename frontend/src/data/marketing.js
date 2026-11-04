@@ -5,17 +5,14 @@
 import {
   BookOpen,
   CalendarDays,
-  ClipboardList,
   Compass,
   Download,
-  FileText,
   Handshake,
   HeartHandshake,
   Lightbulb,
   MailCheck,
   Megaphone,
   Newspaper,
-  NotebookPen,
   PenTool,
   ShieldCheck,
   Sparkles,
@@ -41,7 +38,7 @@ export const partnershipFormats = [
   {
     icon: Newspaper,
     title: "Newsletter sponsorships",
-    text: "Placement in The Positive Reset, our weekly email, once the newsletter has launched.",
+    text: "Placement in The Positive Reset, our daily email, once the newsletter has launched.",
   },
   {
     icon: Handshake,
@@ -57,34 +54,11 @@ export const brandAlignment = [
   "Willingness to clearly disclose sponsored and affiliate relationships.",
 ];
 
-export const plannedFreeResources = [
-  {
-    icon: NotebookPen,
-    title: "Reflection sheets",
-    text: "Printable prompts to help you pause, process your week, and notice patterns in your thoughts and habits.",
-  },
-  {
-    icon: Compass,
-    title: "Mindset exercises",
-    text: "Short, practical exercises for reframing negative thoughts, practising gratitude, and building realistic optimism.",
-  },
-  {
-    icon: FileText,
-    title: "Downloadable guides",
-    text: "Concise guides on topics like starting over, setting boundaries, and building quiet confidence.",
-  },
-  {
-    icon: ClipboardList,
-    title: "Habit and goal planners",
-    text: "Simple templates to help you plan intentional routines and track small steps toward meaningful goals.",
-  },
-];
-
 export const newsletterInside = [
   {
     icon: Lightbulb,
     title: "A mindset reset",
-    text: "One idea to help you look at the week ahead with more clarity, balance, and hope.",
+    text: "One idea to help you look at the day ahead with more clarity, balance, and hope.",
   },
   {
     icon: HeartHandshake,
@@ -93,7 +67,7 @@ export const newsletterInside = [
   },
   {
     icon: CalendarDays,
-    title: "A small weekly practice",
+    title: "A small daily practice",
     text: "A simple reflection prompt or action step you can try in just a few minutes.",
   },
   {

@@ -22,7 +22,7 @@ export const SIGNUP_SOURCES = {
 };
 
 export const PREFERENCES = {
-  weekly: "Weekly edition",
+  weekly: "The Positive Reset (daily)", // historical key of the main, daily edition
   daily: "Daily encouragement",
   reflection: "Weekly reflection",
   resources: "Free resources",

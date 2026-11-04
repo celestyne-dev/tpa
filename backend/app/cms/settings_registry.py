@@ -192,6 +192,25 @@ SETTINGS: list[SettingDef] = [
         help="Enable only after a real email provider is integrated.",
     ),
     SettingDef(
+        "visibility.shop_public",
+        "Show the shop on the website",
+        "Website sections",
+        "boolean",
+        _const(False),
+        help="Off: Shop and Cart links are left out of the menus and the header, and digital "
+        "product showcase sections are hidden. Resource and product pages stay reachable by "
+        "their links (free resources link to them).",
+    ),
+    SettingDef(
+        "visibility.courses_public",
+        "Show courses on the website",
+        "Website sections",
+        "boolean",
+        _const(False),
+        help="Off: Courses links are left out of the menus. Course pages stay reachable by "
+        "their links.",
+    ),
+    SettingDef(
         "partnerships.media_kit_url",
         "Media kit URL",
         "Partnerships",

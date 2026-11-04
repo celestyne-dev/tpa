@@ -2,6 +2,8 @@ import {
   ArticleCollectionSection,
   FeaturedArticlesSection,
   LatestArticlesSection,
+  PopularArticlesSection,
+  TopicArticlesSection,
   TopicsSection,
 } from "./ArticleSections";
 import {
@@ -27,6 +29,7 @@ import {
   PromoBannerSection,
 } from "./EngagementSections";
 import { HeroSection, PageHeaderSection } from "./IntroSections";
+import { ResourceShowcaseSection } from "./ResourceSections";
 import {
   AffiliateRecommendationsSection,
   BrandSpotlightSection,
@@ -49,6 +52,8 @@ export const SECTION_COMPONENTS = {
   featured_articles: FeaturedArticlesSection,
   latest_articles: LatestArticlesSection,
   article_collection: ArticleCollectionSection,
+  popular_articles: PopularArticlesSection,
+  topic_articles: TopicArticlesSection,
   topics_grid: TopicsSection,
   quote: QuoteSection,
   inspirational_message: MessageSection,
@@ -66,6 +71,7 @@ export const SECTION_COMPONENTS = {
   partnership_cta: PartnershipSection,
   author_intro: AuthorIntroSection,
   resource_list: ResourceListSection,
+  resource_showcase: ResourceShowcaseSection,
   contact_details: ContactDetailsSection,
   sponsor_logos: SponsorLogosSection,
   sponsored_banner: SponsoredBannerSection,

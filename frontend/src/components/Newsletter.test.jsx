@@ -52,10 +52,14 @@ function newsletterShop(overrides = {}) {
 const withHash = (hash) => window.history.replaceState(null, "", `/${hash}`);
 
 describe("public signup", () => {
-  it("shows an honest coming-soon notice and no form while sending is not configured", async () => {
+  it("says plainly that sign-up isn't available and shows no form until sending is ready", async () => {
     renderApp("/newsletter");
-    expect(await screen.findByText("Sign-ups are opening soon.")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText(/isn.t available on the website at the moment/)).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByRole("form", { name: /Subscribe/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Email address/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/opening soon/i)).not.toBeInTheDocument();
   });
 
   it("validates accessibly, records the shown consent and confirms by email", async () => {
