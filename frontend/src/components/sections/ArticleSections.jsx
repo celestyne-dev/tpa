@@ -340,10 +340,13 @@ export function TopicArticlesSection({ section }) {
               ) : (
                 <ul
                   className={cn(
-                    "mt-4 divide-y border-t",
-                    dark
-                      ? "divide-ivory/10 border-ivory/10"
-                      : "divide-charcoal/10 border-charcoal/10",
+                    "mt-4 border-t",
+                    dark ? "border-ivory/10" : "border-charcoal/10",
+                    // A single topic spreads its stories across the row instead of one
+                    // narrow column stretched over the full width.
+                    groups.length === 1
+                      ? "grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3"
+                      : cn("divide-y", dark ? "divide-ivory/10" : "divide-charcoal/10"),
                   )}
                 >
                   {articles.map((article) => (

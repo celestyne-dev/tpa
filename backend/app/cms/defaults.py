@@ -107,7 +107,7 @@ HOME_SECTIONS = [
         "name": "Featured stories",
         "section_type": "featured_articles",
         "variant": "lead_with_side",
-        "design": {"background": "ivory", "spacing": "md", "align": "left"},
+        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
         "content": {
             "eyebrow": "",
             "heading": "Featured stories",
@@ -121,7 +121,7 @@ HOME_SECTIONS = [
         "name": "Latest articles",
         "section_type": "latest_articles",
         "variant": "grid_3",
-        "design": {"background": "ivory", "spacing": "md", "align": "left"},
+        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
         "content": {
             "heading": "Latest articles",
             "count": 6,
@@ -147,7 +147,7 @@ HOME_SECTIONS = [
         "name": "Editor's Picks",
         "section_type": "article_collection",
         "variant": "grid_4",
-        "design": {"background": "ivory", "spacing": "md", "align": "left"},
+        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
         "content": {"heading": "Editor's Picks", "articles": []},
     },
     {
@@ -155,7 +155,7 @@ HOME_SECTIONS = [
         "name": "Popular articles",
         "section_type": "popular_articles",
         "variant": "numbered",
-        "design": {"background": "ivory", "spacing": "md", "align": "left"},
+        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
         "content": {"heading": "Popular articles", "period": "30", "count": 5},
     },
     {
@@ -191,7 +191,7 @@ HOME_SECTIONS = [
         "name": "More to read by topic",
         "section_type": "topic_articles",
         "variant": "columns",
-        "design": {"background": "ivory", "spacing": "md"},
+        "design": {"background": "ivory", "spacing": "sm"},
         "content": {
             "heading": "More to read by topic",
             "mode": "featured",
