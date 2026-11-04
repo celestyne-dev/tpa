@@ -20,7 +20,7 @@ def test_site_settings(client):
     assert site["name"] == "Think Positive Always"
     assert site["community"]["linkedin_followers_label"] == "280,000+"
     newsletter = site["newsletter"]
-    assert newsletter["name"] == "The Positive Reset" and newsletter["cadence"] == "weekly"
+    assert newsletter["name"] == "The Positive Reset" and newsletter["cadence"] == "daily"
     # Not open until sending and consent wording are configured (Batch 06).
     assert newsletter["is_open"] is False and newsletter["consent_text"] == ""
     # Nothing configured in testing: no invented contact details or social URLs.

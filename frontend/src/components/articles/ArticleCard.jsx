@@ -138,7 +138,7 @@ export function ArticleCard({
           className={cn(
             "mt-3 flex-1 text-muted",
             feature && "text-lg",
-            lead && "text-lg sm:text-xl line-clamp-3",
+            lead && "line-clamp-3 text-lg sm:text-xl",
             !feature && !lead && "line-clamp-3",
           )}
         >

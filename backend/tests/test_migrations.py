@@ -289,8 +289,29 @@ def test_batch04_upgrade_converts_homepage_without_losing_edits(tmp_path):
     """a817c9636960 -> de3d968df6ce: unedited defaults become the Batch 04 homepage,
     edited text is kept, the live homepage gets its first snapshot and custom roles
     keep (only) the equivalent permissions."""
-    from app.cms.defaults import HOME_SECTIONS
     from app.cms.sections import check_section
+
+    # The Batch 04 hero defaults the migration writes (frozen in the migration itself; the
+    # current defaults in app.cms.defaults are the later editorial layout).
+    batch04_hero = {
+        "eyebrow": "Think Positive Always",
+        "heading": "A Better Mindset.",
+        "highlight": "A Brighter Life.",
+        "body": "Practical encouragement, thoughtful resources, and tools to help you grow "
+        "through every season of life.",
+        "primary_cta": {
+            "label": "Explore Our Resources",
+            "url": "/free-resources",
+            "style": "",
+            "cta_id": None,
+        },
+        "secondary_cta": {
+            "label": "Read Our Articles",
+            "url": "/articles",
+            "style": "outline",
+            "cta_id": None,
+        },
+    }
 
     app = _app(tmp_path, "batch04.db")
     with app.app_context():
@@ -387,7 +408,7 @@ def test_batch04_upgrade_converts_homepage_without_losing_edits(tmp_path):
             page.path == page.published_path == "/" and page.is_system and page.template == "home"
         )
         by_key = {s.key: s for s in page.sections}
-        assert by_key["hero"].content == HOME_SECTIONS[0]["content"]  # unedited -> Batch 04 default
+        assert by_key["hero"].content == batch04_hero  # unedited -> Batch 04 default
         assert by_key["hero"].variant == "split" and by_key["hero"].design["background"] == "ivory"
         welcome = by_key["welcome"]
         assert welcome.content["heading"] == "Welcome, friend"  # edits are kept

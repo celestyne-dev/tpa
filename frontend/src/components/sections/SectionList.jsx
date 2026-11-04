@@ -1,7 +1,18 @@
+import { useContext } from "react";
+import { ReactReduxContext } from "react-redux";
 import { siteConfig } from "@/config/site";
-import { useSite } from "@/hooks/useContent";
 import { SECTION_COMPONENTS, TITLE_SECTIONS } from "./registry";
 import { SectionContext, sectionContextValue } from "./sectionContext";
+
+/**
+ * The CMS site name when a store is available (always on the website; the prerender
+ * preloads it), otherwise the configured name. SectionList is also rendered on its own
+ * (previews, tests), so it must not require a store.
+ */
+function useSiteName() {
+  const context = useContext(ReactReduxContext);
+  return context?.store?.getState()?.site?.data?.name ?? siteConfig.name;
+}
 
 /**
  * Renders a resolved CMS page's sections in order. The first hero or page
@@ -11,11 +22,10 @@ import { SectionContext, sectionContextValue } from "./sectionContext";
  * first section may load its image eagerly (the likely LCP element).
  */
 export function SectionList({ page, preview = false }) {
-  const { data: site } = useSite();
   const sections = page?.sections ?? [];
   const titleIndex = sections.findIndex((s) => TITLE_SECTIONS.has(s.type));
-  const isHome = page?.path === "/";
-  const hiddenTitle = isHome ? (site?.name ?? siteConfig.name) : page?.title;
+  const siteName = useSiteName();
+  const hiddenTitle = page?.path === "/" ? siteName : page?.title;
   return (
     <>
       {titleIndex === -1 && hiddenTitle && <h1 className="sr-only">{hiddenTitle}</h1>}
