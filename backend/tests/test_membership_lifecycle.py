@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -18,6 +18,7 @@ from app.models import (
     SubscriptionPeriod,
 )
 
+from .membership_clock import clock, paystack_time  # noqa: F401
 from .test_commerce_checkout import _checkout, _key, _send_webhook
 from .test_membership_checkout import ACCOUNT, _join, _reference, club  # noqa: F401
 
@@ -37,8 +38,10 @@ def _activate(club, client):  # noqa: F811
 
 
 @pytest.fixture()
-def member(club, client):  # noqa: F811
-    return _activate(club, client)
+def member(clock, club, client):  # noqa: F811
+    """A member activated at the fake's first-payment time (not today's date): the fake's
+    charges are fixed in Oct/Nov 2026, so the services' clock follows that timeline."""
+    return _activate(club, client) | {"clock": clock}
 
 
 def _sub(m):
@@ -218,7 +221,7 @@ def test_failed_payment_grace_then_expiry_preserves_purchases(club, client, monk
 
 def test_reconcile_without_events_starts_grace_even_if_paystack_is_down(member, monkeypatch):
     m, paystack = member, member["paystack"]
-    _at(monkeypatch, datetime(2026, 11, 24, tzinfo=UTC))
+    m["clock"].set(datetime(2026, 11, 24, tzinfo=UTC))
 
     def down(*_a, **_k):
         from app.payments.base import ProviderError
@@ -265,10 +268,10 @@ def test_cancel_keeps_paid_access_resume_and_end(member, monkeypatch):
     assert res.status_code == 409
     assert res.get_json()["error"]["details"]["code"] == "resume_unavailable"
 
-    _at(monkeypatch, datetime(2026, 11, 20, tzinfo=UTC))
+    m["clock"].set(datetime(2026, 11, 20, tzinfo=UTC))
     _reconcile(m)
     assert _sub(m).status == "active"  # paid time remains
-    _at(monkeypatch, datetime(2026, 11, 23, 11, 0, tzinfo=UTC))
+    m["clock"].set(datetime(2026, 11, 23, 11, 0, tzinfo=UTC))
     _reconcile(m)
     sub = _sub(m)
     assert (sub.status, sub.end_reason) == ("ended", "cancelled")
@@ -427,3 +430,72 @@ def test_interrupted_or_concurrent_renewal_never_duplicates(member, monkeypatch)
             db.session.flush()
         db.session.rollback()
     assert _events(m).count("renewed") == 1
+
+
+def test_cancelled_access_ends_exactly_at_the_paid_period_end(member):
+    """Expiry boundary: a cancelled membership keeps access until the last paid instant."""
+    m = member
+    body = {"subscription_id": m["sub_id"]}
+    assert m["member"].post(f"{ACCOUNT}/cancel", body).status_code == 200
+    m["clock"].set(FIRST_END - timedelta(seconds=1))
+    _reconcile(m)
+    assert _sub(m).status == "active" and _ents(m)[0].status == "active"
+    m["clock"].set(FIRST_END)
+    _reconcile(m)
+    sub = _sub(m)
+    assert (sub.status, sub.end_reason) == ("ended", "cancelled")
+    assert [e.status for e in _ents(m)] == ["revoked"]
+
+
+@pytest.mark.parametrize(
+    ("first_paid", "first_end", "second_end"),
+    [
+        # Year end, then a 31st into February (clamped to the 28th).
+        (
+            datetime(2026, 12, 31, 10, 0, tzinfo=UTC),
+            datetime(2027, 1, 31, 10, 0, tzinfo=UTC),
+            datetime(2027, 2, 28, 10, 0, tzinfo=UTC),
+        ),
+        # The same across a leap year (clamped to the 29th).
+        (
+            datetime(2027, 12, 31, 10, 0, tzinfo=UTC),
+            datetime(2028, 1, 31, 10, 0, tzinfo=UTC),
+            datetime(2028, 2, 29, 10, 0, tzinfo=UTC),
+        ),
+    ],
+)
+def test_periods_and_grace_across_month_and_year_ends(
+    clock,  # noqa: F811
+    club,  # noqa: F811
+    client,
+    first_paid,
+    first_end,
+    second_end,
+):
+    paystack = club["paystack"]
+    paystack.first_paid_at = paystack_time(first_paid)
+    paystack.next_payment_date = paystack.renewal_paid_at = paystack_time(first_end)
+    clock.set(first_paid + timedelta(minutes=5))
+    m = _activate(club, client)
+    sub = _sub(m)
+    assert sub.status == "active"
+    assert (_aware(sub.current_period_start), _aware(sub.current_period_end)) == (
+        first_paid,
+        first_end,
+    )
+    # The renewal on the 31st extends to the last day of the next month, once.
+    clock.set(first_end + timedelta(minutes=5))
+    tx = paystack.charge_renewal(m["code"])
+    _send_webhook(client, paystack, "charge.success", tx)
+    sub = _sub(m)
+    assert sub.status == "active"
+    assert _aware(sub.current_period_end) == _aware(sub.access_until) == second_end
+    # No further renewal: still active one second before the end, grace from the end.
+    clock.set(second_end - timedelta(seconds=1))
+    _reconcile(m, check_provider=False)
+    assert _sub(m).status == "active"
+    clock.set(second_end)
+    _reconcile(m, check_provider=False)
+    sub = _sub(m)
+    assert sub.status == "grace"
+    assert _aware(sub.access_until) == second_end + timedelta(days=3)

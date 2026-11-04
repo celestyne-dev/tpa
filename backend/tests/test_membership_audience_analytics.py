@@ -19,6 +19,7 @@ from app.models import (
     Subscriber,
 )
 
+from .membership_clock import FIRST_PAYMENT, RENEWAL, clock  # noqa: F401
 from .test_commerce_checkout import _key, _send_webhook
 from .test_membership_checkout import club  # noqa: F401, F811
 from .test_membership_lifecycle import _activate
@@ -28,8 +29,9 @@ AUDIENCE = "/api/v1/admin/analytics/audience"
 NOW = datetime.now(UTC)
 
 
-def _live_sub(app, email, *, interval, amount, cancelling=False):
+def _live_sub(app, email, *, interval, amount, cancelling=False, at=None):
     """A live-mode paid membership (inserted directly: live billing is disabled)."""
+    at = at or NOW
     with app.app_context():
         template = db.session.scalar(select(CustomerSubscription))
         c = Customer(
@@ -57,9 +59,9 @@ def _live_sub(app, email, *, interval, amount, cancelling=False):
                 amount_minor=amount,
                 idempotency_key=secrets.token_hex(8),
                 end_reason="",
-                activated_at=NOW,
-                current_period_start=NOW,
-                current_period_end=NOW + timedelta(days=30),
+                activated_at=at,
+                current_period_start=at,
+                current_period_end=at + timedelta(days=30),
                 cancel_at_period_end=cancelling,
             )
         )
@@ -67,15 +69,21 @@ def _live_sub(app, email, *, interval, amount, cancelling=False):
 
 
 def test_membership_analytics_paid_complimentary_revenue_and_estimates(
+    clock,  # noqa: F811
     club,  # noqa: F811
     client,
     as_role,
     seeded,
 ):
+    # The fake's charges are fixed (23 Oct and 23 Nov 2026): run the scenario on that
+    # timeline, not today's date, and report on a fixed range that holds both charges.
     m = _activate(club, client)
     paystack = m["paystack"]
+    clock.set(RENEWAL)
     tx = paystack.charge_renewal(m["code"])
     _send_webhook(client, paystack, "charge.success", tx)  # verified renewal
+    now = RENEWAL + timedelta(days=1)
+    clock.set(now)
     with seeded.app_context():
         oid = db.session.scalar(select(CustomerSubscription.order_id))
     finance = as_role("finance_manager")
@@ -106,20 +114,20 @@ def test_membership_analytics_paid_complimentary_revenue_and_estimates(
             "customer_id": cid,
             "plan_id": m["plan"]["id"],
             "reason": "Podcast guest",
-            "expires_at": (NOW + timedelta(days=30)).date().isoformat(),
+            "expires_at": (now + timedelta(days=30)).date().isoformat(),
             "idempotency_key": _key(),
         },
     )
     assert res.status_code == 201, res.get_json()
-    _live_sub(seeded, "live1@example.com", interval="year", amount=12000)
-    _live_sub(seeded, "live2@example.com", interval="month", amount=999, cancelling=True)
+    _live_sub(seeded, "live1@example.com", interval="year", amount=12000, at=now)
+    _live_sub(seeded, "live2@example.com", interval="month", amount=999, cancelling=True, at=now)
 
     data = finance.get(
         MEMBERSHIP,
-        # The fake renewal is dated 23 November: include it.
+        # Both fake charges (23 Oct first payment, 23 Nov renewal) and the refund.
         query_string={
-            "date_from": (NOW - timedelta(days=60)).date().isoformat(),
-            "date_to": (NOW + timedelta(days=60)).date().isoformat(),
+            "date_from": (FIRST_PAYMENT - timedelta(days=30)).date().isoformat(),
+            "date_to": (now + timedelta(days=30)).date().isoformat(),
         },
     ).get_json()["data"]
     assert data["current"]["paid_subscribers"] == 3 and data["current"]["complimentary"] == 1
