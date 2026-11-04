@@ -1,0 +1,1 @@
+import{D as e,n as t,w as n}from"./createLucideIcon-BUw1gA2m.js";import{t as r}from"./PageBuilder-DdO7eRmJ.js";import{pt as i}from"./index-Iw_SK5Rb.js";var a=e(n(),1),o=t();function s(){let e=i(),t=(0,a.useCallback)(()=>e.pages.homepage(),[e]);return(0,o.jsx)(r,{load:t,isHome:!0})}export{s as HomepageBuilderPage};
