@@ -55,15 +55,12 @@ export function ArticleNewsletterCta({ sidebarHasForm = false, className }) {
           </p>
         </div>
         {sidebarHasForm && (
-          <Button
-            type="button"
-            variant="light"
-            onClick={goToSidebarForm}
-            className="hidden shrink-0 lg:inline-flex"
-          >
-            Sign up for {name}
-            <ArrowRight aria-hidden />
-          </Button>
+          <div data-wide-only className="hidden shrink-0 lg:block">
+            <Button type="button" variant="light" onClick={goToSidebarForm}>
+              Sign up for {name}
+              <ArrowRight aria-hidden />
+            </Button>
+          </div>
         )}
       </div>
       <div className={cn("mt-6", sidebarHasForm && "lg:hidden")}>

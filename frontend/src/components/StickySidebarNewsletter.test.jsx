@@ -262,7 +262,7 @@ describe("newsletter on article pages", () => {
     const user = userEvent.setup();
     openArticle();
     const button = await screen.findByRole("button", { name: "Sign up for The Positive Reset" });
-    expect(button).toHaveClass("hidden", "lg:inline-flex");
+    expect(button.parentElement).toHaveClass("hidden", "lg:block");
     await user.click(button);
     expect(document.activeElement).toHaveAttribute("id", "sidebar-newsletter-email");
     expect(sidebarNewsletter()).toContainElement(document.activeElement);
