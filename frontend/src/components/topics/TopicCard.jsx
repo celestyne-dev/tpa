@@ -27,7 +27,7 @@ export function TopicCard({ topic, compact = false }) {
           </h3>
           {topic.description && (
             <p className="mt-1 text-sm leading-relaxed text-muted">
-              {shortExcerpt(topic.description)}
+              {shortExcerpt(topic.description, 72)}
             </p>
           )}
         </div>

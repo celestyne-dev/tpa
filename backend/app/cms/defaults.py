@@ -167,7 +167,8 @@ HOME_SECTIONS = [
             "heading": "Most read",
             "period": "30",
             "count": 4,
-            "exclude_shown": True,
+            # Real popularity may include a story shown above; the fallback never does.
+            "exclude_shown": False,
             # Until the site has reading statistics: featured articles, named as such.
             "fallback": "featured",
             "fallback_heading": "Editor's picks",
