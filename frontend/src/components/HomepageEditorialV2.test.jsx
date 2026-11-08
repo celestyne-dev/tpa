@@ -246,10 +246,10 @@ describe("header navigation", () => {
     const main = await screen.findByRole("navigation", { name: "Main" });
     await within(main).findByRole("link", { name: "Articles" });
     expect(within(main).queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Think Positive Always — home" })).toHaveAttribute(
-      "href",
-      "/",
-    );
+    const header = screen.getByRole("banner");
+    expect(
+      within(header).getByRole("link", { name: "Think Positive Always — home" }),
+    ).toHaveAttribute("href", "/");
   });
 
   it("keeps Home in the mobile menu", async () => {

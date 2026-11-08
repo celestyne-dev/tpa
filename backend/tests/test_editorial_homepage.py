@@ -368,3 +368,24 @@ def test_every_section_type_has_a_frontend_component():
     block = registry.split("export const SECTION_COMPONENTS = {", 1)[1].split("};", 1)[0]
     keys = set(re.findall(r"^\s*([a-z_]+):", block, re.M))
     assert keys == set(SECTION_TYPES) - {"section_group"}
+
+
+def test_most_read_falls_back_to_named_featured_articles_without_statistics(
+    seeded, as_role, client
+):
+    """No reading statistics: featured articles appear under "Editor's picks" (never
+    called most read). With the fallback off the section is simply empty (hidden)."""
+    manager = as_role("website_manager")
+    _edit_section(manager, "most-read", exclude_shown=False)
+    section = _by_type(client)["popular_articles"]["data"]
+    assert section["fallback"] is True and section["heading"] == "Editor's picks"
+    with seeded.app_context():
+        featured = set(
+            db.session.scalars(
+                select(Article.slug).where(Article.status == "published", Article.featured)
+            )
+        )
+    assert section["articles"] and set(_slugs(section["articles"])) <= featured
+    _edit_section(manager, "most-read", fallback="none")
+    section = _by_type(client)["popular_articles"]["data"]
+    assert section["articles"] == [] and section["heading"] == "Most read"

@@ -1,5 +1,7 @@
 import { footerNav, mainNav, routes } from "@/config/navigation";
-import { useSite, useTopics } from "./useContent";
+import { useSelector } from "react-redux";
+import { selectTopicList } from "@/store/slices/topicsSlice";
+import { useSite } from "./useContent";
 
 const fromConfig = (item) => ({
   label: item.label,
@@ -48,7 +50,10 @@ function withAllTopics(item, topics) {
   const isTopicGroup =
     item.children?.length > 0 &&
     item.children.every((child) => child.href?.startsWith(TOPIC_PREFIX));
-  if (!isTopicGroup || !topics?.length) return item;
+  if (!isTopicGroup) return item;
+  // The menu loads topics when first opened (see NavDropdown), not on every page view.
+  item = { ...item, topicGroup: true };
+  if (!topics?.length) return item;
   const listed = new Set(item.children.map((child) => child.href));
   const more = topics
     .filter((t) => t.article_count > 0 && !listed.has(routes.topic(t.slug)))
@@ -59,7 +64,7 @@ function withAllTopics(item, topics) {
 /** CMS-managed navigation (published, from GET /api/v1/site) with built-in fallbacks. */
 export function useNavigation() {
   const { data: site } = useSite();
-  const { data: topics } = useTopics();
+  const topics = useSelector(selectTopicList)?.items;
   const nav = site?.navigation;
   const upgrade = (item) => withAllTopics(readerLabels(item), topics);
   const primary = (nav?.primary?.length ? nav.primary.map(fromApi) : mainNav.map(fromConfig)).map(
