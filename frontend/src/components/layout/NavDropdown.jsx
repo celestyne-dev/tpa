@@ -1,6 +1,8 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { useDispatch } from "react-redux";
 import { useLocation } from "react-router";
+import { fetchTopics } from "@/store/slices/topicsSlice";
 import { cn } from "@/utils/format";
 import { NavItem } from "./NavItem";
 
@@ -11,6 +13,7 @@ export function NavDropdown({ item }) {
   const ref = useRef(null);
   const buttonRef = useRef(null);
   const { pathname } = useLocation();
+  const dispatch = useDispatch();
   const [lastPath, setLastPath] = useState(pathname);
   if (pathname !== lastPath) {
     setLastPath(pathname);
@@ -50,7 +53,11 @@ export function NavDropdown({ item }) {
         type="button"
         aria-expanded={open}
         aria-controls={id}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // A "Topics" menu lists every published topic: load them when first opened.
+          if (!open && item.topicGroup) dispatch(fetchTopics());
+          setOpen((v) => !v);
+        }}
         className={cn(
           "inline-flex items-center gap-1 rounded-md px-1 py-2 text-[0.95rem] font-medium text-ink transition-colors hover:text-sage-700",
           active && "text-sage-800",

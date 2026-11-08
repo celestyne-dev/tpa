@@ -166,7 +166,6 @@ def test_popular_articles_come_from_aggregate_statistics_only(seeded, as_role, c
         expected, old_slug = [b.slug, a.slug], old.slug
         db.session.commit()
     manager = as_role("website_manager")
-    _edit_section(manager, "most-read", exclude_shown=False)
     section = _by_type(client)["popular_articles"]
     assert section["data"]["fallback"] is False and section["data"]["heading"] == "Most read"
     assert _slugs(section["data"]["articles"]) == expected
@@ -368,3 +367,35 @@ def test_every_section_type_has_a_frontend_component():
     block = registry.split("export const SECTION_COMPONENTS = {", 1)[1].split("};", 1)[0]
     keys = set(re.findall(r"^\s*([a-z_]+):", block, re.M))
     assert keys == set(SECTION_TYPES) - {"section_group"}
+
+
+def test_most_read_falls_back_to_named_featured_articles_without_statistics(
+    seeded, as_role, client
+):
+    """No reading statistics: featured articles appear under "Editor's picks" (never
+    called most read). With the fallback off the section is simply empty (hidden)."""
+    manager = as_role("website_manager")
+    # Enough featured articles that some remain after the stories shown above.
+    _edit_section(manager, "latest", count=1)
+    with seeded.app_context():
+        for article in db.session.scalars(select(Article).where(Article.status == "published")):
+            article.featured = True
+        db.session.commit()
+    home = _by_type(client)
+    section = home["popular_articles"]["data"]
+    assert section["fallback"] is True and section["heading"] == "Editor's picks"
+    # The fallback never repeats a story shown above it.
+    above = _slugs(home["featured_articles"]["data"]["articles"]) + _slugs(
+        home["latest_articles"]["data"]["articles"]
+    )
+    assert not set(_slugs(section["articles"])) & set(above)
+    with seeded.app_context():
+        featured = set(
+            db.session.scalars(
+                select(Article.slug).where(Article.status == "published", Article.featured)
+            )
+        )
+    assert section["articles"] and set(_slugs(section["articles"])) <= featured
+    _edit_section(manager, "most-read", fallback="none")
+    section = _by_type(client)["popular_articles"]["data"]
+    assert section["articles"] == [] and section["heading"] == "Most read"

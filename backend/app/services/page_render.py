@@ -465,9 +465,10 @@ def _computed(
         data["fallback"] = False
         if not data["articles"] and content.get("fallback") == "featured":
             # No reading statistics yet: show featured (editor-chosen) articles under their
-            # own heading, never presented as "most read".
-            fetched = _featured_articles(count + _extra(loader, exclude))
-            data["articles"] = _shown(loader, _unshown(loader, fetched, exclude, count))
+            # own heading, never presented as "most read", and never repeating stories
+            # already shown above (such as the lead).
+            fetched = _featured_articles(count + _extra(loader, True))
+            data["articles"] = _shown(loader, _unshown(loader, fetched, True, count))
             data["fallback"] = bool(data["articles"])
             if data["fallback"]:
                 data["heading"] = content.get("fallback_heading") or "Editor's picks"

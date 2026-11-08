@@ -1,11 +1,13 @@
 import { Menu, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useDispatch } from "react-redux";
 import { useLocation } from "react-router";
 import { ButtonLink } from "@/components/ui/Button";
 import { useHeaderCta } from "@/hooks/useHeaderCta";
 import { useNavigation } from "@/hooks/useNavigation";
 import { MobileAccountLinks } from "./MobileAccountLinks";
+import { fetchTopics } from "@/store/slices/topicsSlice";
 import { NavItem } from "./NavItem";
 
 /** Accessible mobile navigation dialog: focus trap, Escape to close, focus restore, scroll lock. */
@@ -30,6 +32,13 @@ export function MobileNav() {
     setLastPath(pathname);
     if (open) setOpen(false);
   }
+
+  const dispatch = useDispatch();
+  const hasTopicGroup = items.some((item) => item.topicGroup);
+  useEffect(() => {
+    // The menu lists every published topic under "Topics": load them when it opens.
+    if (open && hasTopicGroup) dispatch(fetchTopics());
+  }, [open, hasTopicGroup, dispatch]);
 
   useEffect(() => {
     if (!open) return undefined;
