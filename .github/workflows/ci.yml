@@ -141,6 +141,7 @@ jobs:
           flask --app wsgi seed sample-content
           flask --app wsgi cms seed-defaults
           python scripts/ci_build_fixtures.py   # 26 articles: pagination + an author page
+          PRODUCT_FILES_ROOT=/tmp/tpa-ci-files UPLOAD_TEMP_ROOT=/tmp/tpa-ci-tmp python scripts/visual_check_fixtures.py  # THROWAWAY
           nohup flask --app wsgi run --port 5000 > /tmp/tpa-ci-api.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5000/api/v1/health && break; sleep 1; done
       - working-directory: frontend
