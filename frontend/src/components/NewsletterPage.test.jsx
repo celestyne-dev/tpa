@@ -21,14 +21,14 @@ const collectingSite = {
   },
 };
 
-function renderPage(site = collectingSite) {
+function renderPage(site = collectingSite, path = "/newsletter") {
   const shopApi = {
     ...createFakeShopApi(),
     subscribe: vi.fn(async () => ({
       data: { status: "received", message: "Your sign-up has been received." },
     })),
   };
-  renderApp("/newsletter", {
+  renderApp(path, {
     api: createFakeApi({ getSite: vi.fn(async () => ({ data: site })) }),
     shopApi,
   });
@@ -103,5 +103,38 @@ describe("The Positive Reset page", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("form", { name: /Subscribe/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Subscribe to/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("the newsletter on /articles", () => {
+  it("shows a compact promotion linking to /newsletter, with no sign-up fields", async () => {
+    renderPage(collectingSite, "/articles");
+    expect(await screen.findByText("Showing all 3 articles")).toBeInTheDocument();
+    const promo = screen.getByRole("complementary", { name: "A Little Encouragement, Every Day." });
+    expect(within(promo).getByText("The Positive Reset")).toBeInTheDocument();
+    expect(
+      within(promo).getByText("Fresh perspectives and practical inspiration, delivered daily."),
+    ).toBeInTheDocument();
+    expect(within(promo).getByRole("link", { name: /Join the Newsletter/ })).toHaveAttribute(
+      "href",
+      "/newsletter",
+    );
+    const main = document.querySelector("main");
+    expect(within(main).queryByRole("form")).toBeNull();
+    expect(within(main).queryByLabelText(/Email address/)).toBeNull();
+    expect(within(main).queryByLabelText(/First name/)).toBeNull();
+    expect(within(main).queryByRole("checkbox")).toBeNull();
+    // Topic navigation sits in the page header, before the articles.
+    const topics = screen.getByRole("navigation", { name: "Browse by topic" });
+    expect(within(topics).getByRole("link", { name: "Personal Growth" })).toHaveAttribute(
+      "href",
+      "/topics/personal-growth",
+    );
+  });
+
+  it("hides the promotion while sign-up is closed", async () => {
+    renderPage({ ...fx.site, newsletter: { ...fx.site.newsletter, is_open: false } }, "/articles");
+    expect(await screen.findByText("Showing all 3 articles")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Join the Newsletter/ })).toBeNull();
   });
 });

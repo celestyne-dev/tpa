@@ -1,11 +1,11 @@
 import { ArticleFilter } from "@/components/articles/ArticleFilter";
 import { LeadStories } from "@/components/articles/LeadStories";
-import { NewsletterPanel } from "@/components/newsletter/NewsletterPanel";
+import { NewsletterPromo } from "@/components/newsletter/NewsletterPromo";
 import { Seo } from "@/components/seo/Seo";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
 import { EditorialHeading } from "@/components/ui/EditorialHeading";
-import { useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { routes } from "@/config/navigation";
 import { FEATURED_QUERY, articleListQuery, pageParam } from "@/data/queries";
 import { useArticles, useTopics } from "@/hooks/useContent";
@@ -31,6 +31,8 @@ export function ArticlesPage() {
   const leads = page === 1 ? (featured ?? []).slice(0, 4) : [];
   // Only offer filters for topics that have articles.
   const usedTopics = (topics ?? []).filter((t) => t.article_count > 0);
+  // A compact link to /newsletter (no form) after the first group of articles: the
+  // featured stories when they're shown, otherwise the article list.
 
   return (
     <>
@@ -48,7 +50,24 @@ export function ArticlesPage() {
           { name: "Home", href: routes.home },
           { name: "Articles", href: routes.articles },
         ]}
-      />
+      >
+        {usedTopics.length > 0 && (
+          <nav aria-label="Browse by topic">
+            <ul className="flex flex-wrap gap-2">
+              {usedTopics.map((t) => (
+                <li key={t.slug}>
+                  <Link
+                    to={routes.topic(t.slug)}
+                    className="inline-flex rounded-full border border-charcoal/15 bg-white/60 px-3.5 py-1.5 text-sm font-medium text-ink transition-colors hover:border-sage-600 hover:text-sage-800"
+                  >
+                    {t.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+      </PageHeader>
 
       {leads.length > 0 && (
         <Section spacing="sm" size="wide" aria-labelledby="featured-heading">
@@ -58,6 +77,7 @@ export function ArticlesPage() {
           <LeadStories articles={leads} priority />
         </Section>
       )}
+      {leads.length > 0 && <NewsletterPromo className="bg-ivory pb-12 sm:pb-16" />}
 
       <Section
         tone={leads.length > 0 ? "cream" : "ivory"}
@@ -74,10 +94,7 @@ export function ArticlesPage() {
           <ArticleFilter topics={usedTopics} page={page} />
         </div>
       </Section>
-
-      <Section spacing="sm" size="wide" aria-label="Newsletter">
-        <NewsletterPanel />
-      </Section>
+      {leads.length === 0 && <NewsletterPromo className="bg-ivory py-12 sm:py-16" />}
     </>
   );
 }
