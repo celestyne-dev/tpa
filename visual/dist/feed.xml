@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Think Positive Always</title>
+    <link>https://ci.example.com/</link>
+    <description>Think Positive Always offers practical encouragement, mindset insights, personal growth articles and thoughtful resources to help you build confidence and grow through every season of life.</description>
+    <language>en</language>
+    <atom:link href="https://ci.example.com/feed.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Tue, 29 Sep 2026 09:00:00 GMT</lastBuildDate>
+    <item>
+      <title>Small Steps Forward After a Hard Season</title>
+      <link>https://ci.example.com/articles/small-steps-after-a-hard-season</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/small-steps-after-a-hard-season</guid>
+      <pubDate>Tue, 29 Sep 2026 09:00:00 GMT</pubDate>
+      <description>When life has knocked you off course, the path back rarely starts with a grand plan. It starts with one small, honest step and the permission to go slowly.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>How to Reframe a Negative Thought Without Pretending</title>
+      <link>https://ci.example.com/articles/reframing-negative-thoughts</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/reframing-negative-thoughts</guid>
+      <pubDate>Tue, 22 Sep 2026 09:00:00 GMT</pubDate>
+      <description>Thinking positively does not mean ignoring what is hard. It means learning to question unhelpful thoughts and choose a perspective that gives you room to act.</description>
+      <category>Positive Mindset</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>Building Quiet Confidence That Does Not Need Applause</title>
+      <link>https://ci.example.com/articles/building-quiet-confidence</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/building-quiet-confidence</guid>
+      <pubDate>Tue, 15 Sep 2026 09:00:00 GMT</pubDate>
+      <description>Confidence is often mistaken for loudness. The most durable kind is quieter: a steady sense that you can handle what comes, even without anyone else's approval.</description>
+      <category>Confidence &amp; Self-Worth</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>Setting Boundaries Without Carrying the Guilt</title>
+      <link>https://ci.example.com/articles/setting-boundaries-without-guilt</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/setting-boundaries-without-guilt</guid>
+      <pubDate>Tue, 08 Sep 2026 09:00:00 GMT</pubDate>
+      <description>Saying no can feel uncomfortable, especially to people you care about. Learn why boundaries protect your relationships and how to set them with clarity and kindness.</description>
+      <category>Relationships &amp; Boundaries</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>Designing an Intentional Morning You Will Actually Keep</title>
+      <link>https://ci.example.com/articles/designing-an-intentional-morning</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/designing-an-intentional-morning</guid>
+      <pubDate>Tue, 01 Sep 2026 09:00:00 GMT</pubDate>
+      <description>The best morning routine is not the one with the most steps. It is the one that helps you start the day feeling grounded, and that you can return to even on busy days.</description>
+      <category>Habits &amp; Intentional Living</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>Why a Weekly Reflection Can Change the Way You Grow</title>
+      <link>https://ci.example.com/articles/growth-through-weekly-reflection</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/growth-through-weekly-reflection</guid>
+      <pubDate>Tue, 25 Aug 2026 09:00:00 GMT</pubDate>
+      <description>Growth does not only happen when we push forward. It also happens when we pause long enough to notice what we are learning. A weekly reflection makes that pause a habit.</description>
+      <category>Personal Growth</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 20</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-20</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-20</guid>
+      <pubDate>Mon, 20 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 20 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 19</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-19</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-19</guid>
+      <pubDate>Sun, 19 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 19 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 18</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-18</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-18</guid>
+      <pubDate>Sat, 18 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 18 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 17</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-17</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-17</guid>
+      <pubDate>Fri, 17 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 17 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 16</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-16</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-16</guid>
+      <pubDate>Thu, 16 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 16 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 15</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-15</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-15</guid>
+      <pubDate>Wed, 15 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 15 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 14</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-14</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-14</guid>
+      <pubDate>Tue, 14 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 14 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 13</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-13</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-13</guid>
+      <pubDate>Mon, 13 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 13 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 12</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-12</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-12</guid>
+      <pubDate>Sun, 12 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 12 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 11</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-11</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-11</guid>
+      <pubDate>Sat, 11 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 11 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 10</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-10</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-10</guid>
+      <pubDate>Fri, 10 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 10 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 09</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-09</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-09</guid>
+      <pubDate>Thu, 09 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 09 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 08</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-08</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-08</guid>
+      <pubDate>Wed, 08 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 08 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 07</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-07</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-07</guid>
+      <pubDate>Tue, 07 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 07 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 06</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-06</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-06</guid>
+      <pubDate>Mon, 06 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 06 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 05</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-05</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-05</guid>
+      <pubDate>Sun, 05 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 05 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 04</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-04</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-04</guid>
+      <pubDate>Sat, 04 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 04 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 03</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-03</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-03</guid>
+      <pubDate>Fri, 03 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 03 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 02</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-02</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-02</guid>
+      <pubDate>Thu, 02 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 02 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+    <item>
+      <title>CI fixture article 01</title>
+      <link>https://ci.example.com/articles/ci-fixture-article-01</link>
+      <guid isPermaLink="true">https://ci.example.com/articles/ci-fixture-article-01</guid>
+      <pubDate>Wed, 01 Jan 2025 09:00:00 GMT</pubDate>
+      <description>Fixture summary 01 for the build validation.</description>
+      <category>Resilience &amp; Starting Over</category>
+      <dc:creator>Think Positive Always Editorial</dc:creator>
+    </item>
+  </channel>
+</rss>
