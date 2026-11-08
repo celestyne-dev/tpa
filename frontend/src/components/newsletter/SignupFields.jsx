@@ -4,6 +4,7 @@ import { toneClasses } from "./signupUtils";
 
 /** Accessible text input for the newsletter and free-resource forms. */
 export function SignupInput({
+  id: givenId,
   label,
   error,
   tone = "dark",
@@ -11,7 +12,8 @@ export function SignupInput({
   className,
   ...props
 }) {
-  const id = useId();
+  const generatedId = useId();
+  const id = givenId || generatedId;
   const t = toneClasses(tone);
   return (
     <div className={cn("text-left", className)}>

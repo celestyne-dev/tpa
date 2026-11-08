@@ -2,7 +2,7 @@ import { ArrowRight, Mail } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
 import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
-import { useSite } from "@/hooks/useContent";
+import { useNewsletterStatus } from "./useNewsletterStatus";
 import { cn } from "@/utils/format";
 import { LeadMagnetForm } from "./LeadMagnetForm";
 import { NewsletterSignupForm } from "./NewsletterSignupForm";
@@ -12,8 +12,8 @@ const DEFAULT_DESCRIPTION =
 
 /**
  * Newsletter presentation. It shows the real (double opt-in) signup form only when the
- * API reports that sending and consent wording are configured (site.newsletter.is_open,
- * the backend's readiness check). Otherwise it says plainly that sign-up isn't available
+ * API reports that sending and consent wording are configured (the backend's readiness
+ * check, read live by useNewsletterStatus). Otherwise it says plainly that sign-up isn't available
  * on the website: no form, no fields and no promise of a date, so nothing is collected
  * and no subscription is ever pretended. With a lead magnet it offers the free resource
  * instead, with subscribing as a separate choice.
@@ -30,11 +30,10 @@ export function NewsletterPanel({
   eyebrow = "Daily newsletter",
   className,
 }) {
-  const { data: site } = useSite();
-  const name = site?.newsletter?.name ?? siteConfig.newsletterName;
+  const { status, isOpen } = useNewsletterStatus();
+  const name = status?.name ?? siteConfig.newsletterName;
   const heading = title || name;
-  const tagline = site?.newsletter?.tagline ?? siteConfig.newsletterTagline;
-  const isOpen = site?.newsletter?.is_open === true;
+  const tagline = status?.tagline ?? siteConfig.newsletterTagline;
 
   return (
     <div

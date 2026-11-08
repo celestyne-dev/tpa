@@ -7,6 +7,8 @@ import { ArticleNav } from "@/components/articles/ArticleNav";
 import { AuthorBox } from "@/components/articles/AuthorBox";
 import { ShareLinks } from "@/components/articles/ShareLinks";
 import { SponsoredLabel } from "@/components/articles/SponsoredLabel";
+import { ArticleNewsletterCta } from "@/components/newsletter/ArticleNewsletterCta";
+import { sidebarHasNewsletterForm } from "@/components/newsletter/articleNewsletter";
 import { Seo } from "@/components/seo/Seo";
 import { ArticleSidebar } from "@/components/sidebar/ArticleSidebar";
 import { Badge } from "@/components/ui/Badge";
@@ -181,6 +183,11 @@ export function ArticleDetailPage() {
               </footer>
             </div>
 
+            <ArticleNewsletterCta
+              sidebarHasForm={sidebarHasNewsletterForm(sidebar)}
+              className="mt-14 max-w-[46rem]"
+            />
+
             {related.length > 0 && (
               <section aria-labelledby="related-heading" className="mt-16 max-w-[46rem]">
                 <EditorialHeading
@@ -208,6 +215,7 @@ export function ArticleDetailPage() {
 
           <ArticleSidebar
             sections={sidebar}
+            formBelowArticle
             className="mt-16 border-t border-charcoal/10 pt-12 lg:mt-0 lg:border-t-0 lg:pt-0"
           />
         </div>

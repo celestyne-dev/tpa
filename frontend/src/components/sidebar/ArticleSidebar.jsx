@@ -1,8 +1,11 @@
 import { Mail } from "lucide-react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { ArticleCard } from "@/components/articles/ArticleCard";
 import { LeadMagnetForm } from "@/components/newsletter/LeadMagnetForm";
 import { NewsletterSignupForm } from "@/components/newsletter/NewsletterSignupForm";
+import { SIDEBAR_NEWSLETTER_EMAIL_ID } from "@/components/newsletter/articleNewsletter";
+import { useNewsletterStatus } from "@/components/newsletter/useNewsletterStatus";
 import { liveOnly } from "@/components/partnerships/partnershipOptions";
 import { EmptyPreviewNote } from "@/components/sections/ArticleSections";
 import { DisclosureLabel, SponsoredAnchor } from "@/components/sections/PartnershipSections";
@@ -10,13 +13,77 @@ import { TopicLinks } from "@/components/topics/TopicLinks";
 import { ContentImage } from "@/components/ui/ContentImage";
 import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
-import { useSite } from "@/hooks/useContent";
 import { useNow } from "@/hooks/useNow";
 import { cn } from "@/utils/format";
 import { SectionContext, useSectionContext } from "@/components/sections/sectionContext";
 
 const PREVIEW_CONTEXT = { dark: false, design: {}, level: 2, first: false, preview: true };
 const SITE_CONTEXT = { ...PREVIEW_CONTEXT, preview: false };
+
+/** True on article pages, where the end-of-article panel carries the form below lg. */
+const FormBelowArticle = createContext(false);
+
+/** Sticky offset: the site header (h-20, 80px) plus breathing room; and the bottom gap. */
+export const STICKY_OFFSET = 104;
+const BOTTOM_GAP = 24;
+const WIDE = "(min-width: 1024px)";
+
+/**
+ * Where the sidebar sticks, given its visible blocks ({top, height} relative to the
+ * sidebar's top) and the viewport height. The sidebar sticks so that the longest run of
+ * sections at its end that fits the viewport stays in view below the header:
+ * - everything fits: the whole sidebar sticks at the offset;
+ * - too tall: the sections before that run scroll away normally, and the run sticks
+ *   (a negative top); nothing is ever cut off at the bottom of the screen;
+ * - not even the last section fits: no sticking at all (null).
+ */
+export function stickyTop(blocks, viewportHeight, offset = STICKY_OFFSET) {
+  const visible = blocks.filter((b) => b.height > 0);
+  if (!visible.length) return null;
+  const end = Math.max(...visible.map((b) => b.top + b.height));
+  const available = viewportHeight - offset - BOTTOM_GAP;
+  const start = visible.find((b) => end - b.top <= available);
+  return start ? Math.round(offset - start.top) : null;
+}
+
+/**
+ * Measures the sidebar (on wide screens only) and returns the sticky top, or null.
+ * Re-measures when the sidebar's size changes (images, fonts, a form message) or the
+ * window is resized; there is no scroll listener: the browser does the sticking.
+ */
+function useStickyTop(ref, enabled) {
+  const [top, setTop] = useState(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!enabled || !el || typeof window === "undefined" || !window.matchMedia) return undefined;
+    const wide = window.matchMedia(WIDE);
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!wide.matches) return setTop(null);
+        const origin = el.getBoundingClientRect().top;
+        const blocks = [...el.children].map((child) => {
+          const rect = child.getBoundingClientRect();
+          return { top: rect.top - origin, height: rect.height };
+        });
+        setTop(stickyTop(blocks, window.innerHeight));
+      });
+    };
+    measure();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", measure);
+    wide.addEventListener?.("change", measure);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      wide.removeEventListener?.("change", measure);
+    };
+  }, [ref, enabled]);
+  return top;
+}
 
 /** "Desktop only" / "Mobile only" from the section's visibility settings. */
 const deviceClass = (section) =>
@@ -104,20 +171,24 @@ function SidebarTopics({ section }) {
  */
 function SidebarNewsletter({ section }) {
   const { data } = section;
-  const { data: site } = useSite();
+  const { status, isOpen } = useNewsletterStatus();
+  const formBelowArticle = useContext(FormBelowArticle);
   const { pathname } = useLocation();
-  const name = data.newsletter_name ?? site?.newsletter?.name ?? siteConfig.newsletterName;
-  const isOpen = (site?.newsletter?.is_open ?? data.is_open) === true;
-  const tagline = site?.newsletter?.tagline ?? siteConfig.newsletterTagline;
+  const name = data.newsletter_name ?? status?.name ?? siteConfig.newsletterName;
+  const tagline = status?.tagline ?? siteConfig.newsletterTagline;
   const magnet = data.lead_magnet?.available ? data.lead_magnet : null;
   const id = `sidebar-${section.key}-heading`;
+  // On phones and tablets the sidebar sits below the article, right after the article's
+  // own newsletter panel: leave this one to wide screens so the form isn't repeated.
+  const wideOnly = formBelowArticle && isOpen && !magnet;
+  if (wideOnly && section.devices === "mobile") return null;
   return (
     <section
       aria-labelledby={id}
       data-sidebar-section={section.type}
       className={cn(
         "rounded-[var(--radius-card)] bg-sage-800 p-6 text-ivory",
-        deviceClass(section),
+        wideOnly ? "hidden lg:block" : deviceClass(section),
       )}
     >
       <span className="grid size-10 place-items-center rounded-full bg-ivory/10 text-gold-300">
@@ -147,6 +218,7 @@ function SidebarNewsletter({ section }) {
           source="article"
           sourceDetail={pathname}
           tone="dark"
+          emailId={formBelowArticle ? SIDEBAR_NEWSLETTER_EMAIL_ID : undefined}
           className="mx-0 mt-5"
         />
       ) : (
@@ -244,24 +316,63 @@ function SidebarSection({ section }) {
 
 /**
  * The article sidebar (Admin › Article sidebar): CMS sections in the editor's order,
- * rendered compactly. Beside the article on wide screens; below it on phones and tablets
- * (two columns on tablets). It never sticks to the screen, and empty sections are left
- * out, so it never pushes the article around. Everything in it is prerendered with the
- * article, so nothing appears late.
+ * rendered compactly. Beside the article on wide screens, where it sticks below the
+ * header as the article scrolls (see stickyTop) and stops at the end of the article
+ * layout; below the article on phones and tablets (two columns on tablets), scrolling
+ * normally. Empty sections are left out, and everything is prerendered with the article,
+ * so nothing appears late or pushes the article around.
+ *
+ * Keyboard users: when focus moves to a sidebar link that the sticking has taken off
+ * screen, the sidebar returns to its normal place until focus leaves it, so every link
+ * can be reached and seen.
  */
-export function ArticleSidebar({ sections, preview = false, className }) {
+export function ArticleSidebar({
+  sections,
+  preview = false,
+  sticky = true,
+  formBelowArticle = false,
+  className,
+}) {
   const items = sections ?? [];
+  const inner = useRef(null);
+  const [released, setReleased] = useState(false);
+  const top = useStickyTop(inner, sticky && items.length > 0);
   if (items.length === 0) return null;
+  const stuck = top !== null && !released;
+
+  const onFocus = (event) => {
+    if (!stuck) return;
+    const rect = event.target.getBoundingClientRect();
+    if (rect.top < STICKY_OFFSET - 8 || rect.bottom > window.innerHeight) {
+      setReleased(true);
+      requestAnimationFrame(() => event.target.scrollIntoView?.({ block: "nearest" }));
+    }
+  };
+  const onBlur = (event) => {
+    if (released && !event.currentTarget.contains(event.relatedTarget)) setReleased(false);
+  };
+
   return (
-    <aside
-      aria-label="More to read"
-      className={cn("grid content-start gap-10 md:grid-cols-2 lg:grid-cols-1", className)}
-    >
-      <SectionContext.Provider value={preview ? PREVIEW_CONTEXT : SITE_CONTEXT}>
-        {items.map((section) => (
-          <SidebarSection key={section.key} section={section} />
-        ))}
-      </SectionContext.Provider>
+    <aside aria-label="More to read" className={className}>
+      <div
+        ref={inner}
+        data-sticky={stuck ? "true" : "false"}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        style={stuck ? { top: `${top}px` } : undefined}
+        className={cn(
+          "grid content-start gap-10 md:grid-cols-2 lg:grid-cols-1",
+          stuck && "lg:sticky",
+        )}
+      >
+        <FormBelowArticle.Provider value={formBelowArticle}>
+          <SectionContext.Provider value={preview ? PREVIEW_CONTEXT : SITE_CONTEXT}>
+            {items.map((section) => (
+              <SidebarSection key={section.key} section={section} />
+            ))}
+          </SectionContext.Provider>
+        </FormBelowArticle.Provider>
+      </div>
     </aside>
   );
 }

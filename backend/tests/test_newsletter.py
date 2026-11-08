@@ -654,3 +654,47 @@ def test_imports_are_quarantined_unless_consent_is_attested(newsletter, as_role)
     assert res["subscribed"] == 1 and _subscriber(newsletter, "new@example.com").is_marketable
     export = manager.get(f"{ADMIN}/subscribers/export")
     assert export.status_code == 200 and b"old@example.com" in export.data
+
+
+def test_signing_up_again_never_changes_an_existing_subscribers_consent_or_choices(
+    newsletter, client
+):
+    """The website forms reuse POST /newsletter/subscribe. A confirmed subscriber who
+    agreed to an earlier consent wording, and chose their own preferences, keeps exactly
+    that record when they use a form again; they only get the "already subscribed" note."""
+    _subscribe_confirmed(newsletter, client)
+    with newsletter.app_context():
+        sub = db.session.scalar(
+            db.select(Subscriber).where(Subscriber.email == "reader@example.com")
+        )
+        sub.consent_version = "2026-10"
+        sub.consent_text = "Yes, email me The Positive Reset each week."
+        sub.preferences = ["weekly", "products"]
+        sub.first_name = "Ada"
+        db.session.commit()
+        events_before = db.session.scalar(db.select(db.func.count(SubscriberEvent.id)))
+    limiter.reset()
+    res = _signup(client, first_name="Someone else", source="article")
+    assert res.status_code == 202 and res.get_json()["data"]["status"] == "check_email"
+    with newsletter.app_context():
+        sub = db.session.scalar(
+            db.select(Subscriber).where(Subscriber.email == "reader@example.com")
+        )
+        assert sub.status == "subscribed"
+        assert sub.consent_version == "2026-10"
+        assert sub.consent_text == "Yes, email me The Positive Reset each week."
+        assert sub.preferences == ["weekly", "products"]
+        assert sub.first_name == "Ada" and sub.source == "footer"
+        assert db.session.scalar(db.select(db.func.count(SubscriberEvent.id))) == events_before
+
+
+def test_status_endpoint_reports_readiness_and_the_current_consent(seeded, newsletter, client):
+    """GET /newsletter/status is what the website forms follow after loading."""
+    data = client.get("/api/v1/newsletter/status").get_json()["data"]
+    assert data["signup_open"] is True
+    assert data["consent_version"] == "2026-11" and "every day" in data["consent_text"]
+    assert data["tagline"] == "A Better Mindset. A Brighter Life."
+    _set(newsletter, **{"newsletter.is_open": False})
+    closed = client.get("/api/v1/newsletter/status").get_json()["data"]
+    assert closed["signup_open"] is False and closed["consent_text"] == ""
+    assert _signup(client, "late@example.com").status_code == 409

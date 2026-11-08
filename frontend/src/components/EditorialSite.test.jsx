@@ -97,9 +97,10 @@ describe("article page", () => {
     expect(grid.className).toMatch(/lg:grid-cols-\[minmax\(0,1fr\)_19rem\]/);
     expect(article.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Tablets get two sidebar columns below the article; wide screens one beside it.
-    expect(aside.className).toMatch(/md:grid-cols-2/);
-    expect(aside.className).toMatch(/lg:grid-cols-1/);
-    // Nothing sticks to the screen.
+    const columns = aside.querySelector("[data-sticky]");
+    expect(columns.className).toMatch(/md:grid-cols-2/);
+    expect(columns.className).toMatch(/lg:grid-cols-1/);
+    // Below lg (this test's width) nothing sticks; desktop sticking is tested separately.
     expect(document.querySelector("aside .sticky, aside.sticky")).toBeNull();
   });
 

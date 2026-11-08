@@ -1,14 +1,30 @@
 import { ArrowUpRight, Mail } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { Container } from "@/components/ui/Container";
 import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { useNavigation } from "@/hooks/useNavigation";
 import { NewsletterSignupForm } from "@/components/newsletter/NewsletterSignupForm";
+import { useNewsletterStatus } from "@/components/newsletter/useNewsletterStatus";
 import { Logo } from "./Logo";
 
 const DEFAULT_FOOTER_TEXT =
   "Practical encouragement, mindset insights, and thoughtful personal growth resources to help you build confidence and move forward through every season of life.";
+/**
+ * Pages that already carry a Positive Reset form in their content (the homepage section,
+ * articles and the archive, the newsletter page, the shop). The footer shows only its
+ * "Learn about" link there, so a page never repeats the form.
+ */
+export function pageHasNewsletterForm(pathname) {
+  return (
+    pathname === "/" ||
+    pathname === routes.newsletter ||
+    pathname === routes.articles ||
+    pathname.startsWith(`${routes.articles}/`) ||
+    pathname === "/shop"
+  );
+}
+
 const DEFAULT_COPYRIGHT = "© {year} {site_name}. All rights reserved.";
 
 function FooterLink({
@@ -61,6 +77,9 @@ export function SiteFooter({ site }) {
   const socialLinks = settings.show_social === false ? [] : (site?.social_links ?? []);
   const name = site?.name ?? siteConfig.name;
   const promo = settings.promo;
+  const { pathname } = useLocation();
+  const { status: newsletter, isOpen: newsletterOpen } = useNewsletterStatus();
+  const showFooterForm = newsletterOpen && !pageHasNewsletterForm(pathname);
   // Editorial and corrections policies, only while those pages are published.
   const legalHrefs = new Set(legal.map((item) => item.href));
   const trustLinks = [site?.trust?.editorial_policy, site?.trust?.corrections_policy]
@@ -91,10 +110,10 @@ export function SiteFooter({ site }) {
             <p className="mt-6 text-[0.95rem] leading-relaxed">
               {settings.text || DEFAULT_FOOTER_TEXT}
             </p>
-            {site?.newsletter?.is_open && (
+            {showFooterForm && (
               <div className="mt-6">
                 <p className="font-medium text-ivory">
-                  Get {site.newsletter.name ?? siteConfig.newsletterName} by email
+                  Get {newsletter?.name ?? siteConfig.newsletterName} by email
                 </p>
                 <NewsletterSignupForm
                   compact
