@@ -55,7 +55,7 @@ export function ArticlesPage() {
           // One swipeable row on phones (so the articles start on the first screen); wraps
           // from the small breakpoint up.
           <nav aria-label="Browse by topic" className="-mx-5 sm:mx-0">
-            <ul className="flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+            <ul className="flex [scrollbar-width:none] gap-2 overflow-x-auto px-5 pb-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
               {usedTopics.map((t) => (
                 <li key={t.slug} className="shrink-0">
                   <Link
