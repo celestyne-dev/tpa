@@ -21,7 +21,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from ..cms.defaults import HOME_SECTIONS
+from ..cms.defaults import HOME_SECTIONS, SIDEBAR_SECTIONS
 from ..cms.design import visible_at
 from ..cms.sections import SECTION_TYPES, check_section
 from ..extensions import db
@@ -114,10 +114,9 @@ def has_unpublished_changes(page: Page) -> bool:
     return doc_hash(draft_document(page)) != doc_hash(page.published_snapshot)
 
 
-def default_home_document() -> dict[str, Any]:
-    """The built-in homepage (used until a homepage has been published)."""
+def _default_sections(specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     sections = []
-    for spec in HOME_SECTIONS:
+    for spec in specs:
         clean, _, _ = check_section(
             spec["section_type"], spec["variant"], spec["content"], spec.get("design")
         )
@@ -131,6 +130,12 @@ def default_home_document() -> dict[str, Any]:
                 "reusable_section_id": None,
             }
         )
+    return sections
+
+
+def default_home_document() -> dict[str, Any]:
+    """The built-in homepage (used until a homepage has been published)."""
+    sections = _default_sections(HOME_SECTIONS)
     return {
         "version": DOC_VERSION,
         "page": {
@@ -148,6 +153,28 @@ def default_home_document() -> dict[str, Any]:
             "social_image_id": None,
         },
         "sections": sections,
+    }
+
+
+def default_sidebar_document() -> dict[str, Any]:
+    """The built-in article sidebar (used until one has been published)."""
+    return {
+        "version": DOC_VERSION,
+        "page": {
+            "title": "Article sidebar",
+            "slug": "article-sidebar",
+            "path": None,
+            "template": "sidebar",
+            "parent_id": None,
+            "seo_title": None,
+            "meta_description": None,
+            "noindex": True,
+            "canonical_url": None,
+            "social_title": None,
+            "social_description": None,
+            "social_image_id": None,
+        },
+        "sections": _default_sections(SIDEBAR_SECTIONS),
     }
 
 
@@ -170,6 +197,10 @@ class _Loader:
         # Slugs of articles already placed on the page, in section order, so later
         # sections can leave them out ("Leave out articles already shown above").
         self.shown: set[str] = set()
+        # Article context (the article sidebar): the article being read, and slugs that
+        # must never appear in any section (that article and its related list).
+        self.article: str | None = None
+        self.exclude: set[str] = set()
 
     def touch_products(self, products: list[dict[str, Any]]) -> None:
         for product in products:
@@ -313,6 +344,7 @@ def _resolve_field(loader: _Loader, spec: dict[str, Any], value: Any, now: datet
 
 
 def _shown(loader: _Loader, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    articles = [a for a in articles if a["slug"] not in loader.exclude]
     loader.shown.update(a["slug"] for a in articles)
     return articles
 
@@ -322,7 +354,13 @@ def _unshown(
 ) -> list[dict[str, Any]]:
     if exclude:
         articles = [a for a in articles if a["slug"] not in loader.shown]
+    articles = [a for a in articles if a["slug"] not in loader.exclude]
     return articles[:limit]
+
+
+def _extra(loader: _Loader, exclude: bool) -> int:
+    """How many more articles to fetch so leaving some out still fills the section."""
+    return (len(loader.shown) if exclude else 0) + len(loader.exclude)
 
 
 def _popular_articles(days: int, limit: int) -> list[dict[str, Any]]:
@@ -374,7 +412,7 @@ def _topic_groups(loader: _Loader, content: dict[str, Any], data: dict[str, Any]
         if len(groups) >= (content.get("topic_count") or 3):
             break
         fetched = list_articles(
-            topic=topic["slug"], page=1, page_size=per_topic + len(loader.shown)
+            topic=topic["slug"], page=1, page_size=per_topic + _extra(loader, True)
         )
         articles = _unshown(loader, fetched[0], exclude, per_topic)
         if articles:
@@ -403,7 +441,9 @@ def _computed(
         if content.get("mode") == "manual":
             data["articles"] = _shown(loader, data.get("articles") or [])
         else:
-            data["articles"] = _shown(loader, _featured_articles(content.get("count") or 3))
+            count = content.get("count") or 3
+            fetched = _featured_articles(count + len(loader.exclude))
+            data["articles"] = _shown(loader, _unshown(loader, fetched, False, count))
     elif section_type == "article_collection":
         data["articles"] = _shown(loader, data.get("articles") or [])
     elif section_type == "latest_articles":
@@ -411,16 +451,23 @@ def _computed(
         data["topic"] = topic
         count = content.get("count") or 6
         exclude = content.get("exclude_shown") is True
-        fetched = _latest_articles(
-            count + (len(loader.shown) if exclude else 0), topic and topic["slug"]
-        )
+        fetched = _latest_articles(count + _extra(loader, exclude), topic and topic["slug"])
         data["articles"] = _shown(loader, _unshown(loader, fetched, exclude, count))
     elif section_type == "popular_articles":
         count = content.get("count") or 5
         exclude = content.get("exclude_shown") is True
         days = int(content.get("period") or 30)
-        fetched = _popular_articles(days, count + (len(loader.shown) if exclude else 0))
+        fetched = _popular_articles(days, count + _extra(loader, exclude))
         data["articles"] = _shown(loader, _unshown(loader, fetched, exclude, count))
+    elif section_type == "related_articles":
+        count = content.get("count") or 4
+        if loader.article:
+            from .article_service import related_articles
+
+            fetched = related_articles(loader.article, limit=count + len(loader.exclude))
+        else:
+            fetched = []
+        data["articles"] = _shown(loader, _unshown(loader, fetched, False, count))
     elif section_type == "topic_articles":
         data["groups"] = _topic_groups(loader, content, data)
         data.pop("topics", None)
@@ -602,10 +649,14 @@ def resolve_document(
     now: datetime | None = None,
     preview: bool = False,
     published_at: datetime | None = None,
+    context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     now = now or _now()
     meta = doc["page"]
     loader = _Loader()
+    if context:
+        loader.article = context.get("article")
+        loader.exclude = {loader.article, *context.get("exclude", ())} - {None}
     loader.collect(doc.get("sections", []))
     sections: list[dict[str, Any]] = []
     for section in doc.get("sections", []):
@@ -660,6 +711,29 @@ def public_page(path: str) -> dict[str, Any] | None:
         if home is None or not home.published_snapshot:
             return resolve_document(default_home_document())
     return None
+
+
+def _sidebar_document() -> dict[str, Any]:
+    page = db.session.scalar(select(Page).where(Page.slug == "article-sidebar"))
+    if page is not None and page.status == "published" and page.published_snapshot:
+        return page.published_snapshot
+    return default_sidebar_document()
+
+
+def public_sidebar(article_slug: str | None, exclude: list[str] | tuple = ()) -> list[dict]:
+    """The resolved article-sidebar sections for one article. ``exclude``: slugs already
+    shown with the article (its related list), so nothing appears twice."""
+    doc = _sidebar_document()
+    resolved = resolve_document(doc, context={"article": article_slug, "exclude": exclude})
+    return resolved["sections"]
+
+
+def sample_article_context() -> dict[str, Any] | None:
+    """The admin preview shows the sidebar as it would appear beside the newest article."""
+    from .article_service import list_articles
+
+    latest = list_articles(page=1, page_size=1)[0]
+    return {"article": latest[0]["slug"]} if latest else None
 
 
 def published_pages() -> list[dict[str, Any]]:

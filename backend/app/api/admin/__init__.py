@@ -87,6 +87,7 @@ ADMIN_ROUTES = [
     (media.MediaRestoreResource, "/admin/media/<int:media_id>/restore"),
     (builder.HomepageResource, "/admin/homepage"),
     (builder.HomepageEditorialLayoutResource, "/admin/homepage/editorial-layout"),
+    (builder.ArticleSidebarResource, "/admin/article-sidebar"),
     (builder.PageListResource, "/admin/pages"),
     (builder.PageSlugCheckResource, "/admin/pages/slug-check"),
     (builder.PageTemplatesResource, "/admin/page-templates"),

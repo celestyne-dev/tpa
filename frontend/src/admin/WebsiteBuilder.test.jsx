@@ -387,3 +387,39 @@ describe("site-wide settings", () => {
     );
   });
 });
+
+describe("article sidebar builder", () => {
+  it("edits the sidebar with only compact sidebar sections and no SEO tab", async () => {
+    const user = userEvent.setup();
+    renderApp("/admin/article-sidebar");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Article sidebar" }),
+    ).toBeInTheDocument();
+    await screen.findByRole("list", { name: "Page sections" });
+    expect(screen.queryByRole("tab", { name: "SEO" })).toBeNull();
+    expect(screen.getByRole("tab", { name: /Sections/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add section" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a section" });
+    for (const name of [/Related articles/, /Newsletter signup/, /Sponsored banner/])
+      expect(within(dialog).getByRole("button", { name })).toBeInTheDocument();
+    for (const name of [/Hero banner/, /^FAQ/, /Image and text/])
+      expect(within(dialog).queryByRole("button", { name })).toBeNull();
+  });
+
+  it("is listed in the website tools for people who can edit the homepage", async () => {
+    renderApp("/admin");
+    const nav = await screen.findByRole("navigation", { name: /admin/i });
+    expect(within(nav).getByRole("link", { name: "Article sidebar" })).toHaveAttribute(
+      "href",
+      "/admin/article-sidebar",
+    );
+  });
+
+  it("keeps the sidebar-only section off ordinary pages", async () => {
+    const user = userEvent.setup();
+    await openHomepage();
+    await user.click(screen.getByRole("button", { name: "Add section" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a section" });
+    expect(within(dialog).queryByRole("button", { name: /Related articles/ })).toBeNull();
+  });
+});

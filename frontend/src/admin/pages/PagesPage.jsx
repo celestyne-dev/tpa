@@ -237,7 +237,13 @@ export function PagesPage() {
               render: (p) => (
                 <div>
                   <Link
-                    to={p.is_home ? "/admin/homepage" : `/admin/pages/${p.id}`}
+                    to={
+                      p.is_home
+                        ? "/admin/homepage"
+                        : p.is_sidebar
+                          ? "/admin/article-sidebar"
+                          : `/admin/pages/${p.id}`
+                    }
                     className="font-medium hover:text-sage-700"
                   >
                     {p.title}

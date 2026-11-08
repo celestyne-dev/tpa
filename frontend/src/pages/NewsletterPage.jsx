@@ -3,7 +3,7 @@ import { Seo } from "@/components/seo/Seo";
 import { IconFeature } from "@/components/ui/IconFeature";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
-import { SectionHeading } from "@/components/ui/SectionHeading";
+import { EditorialHeading } from "@/components/ui/EditorialHeading";
 import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { newsletterInside } from "@/data/marketing";
@@ -19,7 +19,17 @@ export function NewsletterPage() {
       <PageHeader
         eyebrow="Daily newsletter"
         title={siteConfig.newsletterName}
-        description="One thoughtful email each day to help you reset your mindset, find perspective, and keep moving forward."
+        description={
+          <>
+            <p className="font-serif text-2xl text-sage-800 italic">
+              {siteConfig.newsletterTagline}
+            </p>
+            <p>
+              One thoughtful email each day to help you reset your mindset, find perspective, and
+              keep moving forward.
+            </p>
+          </>
+        }
         breadcrumbs={[
           { name: "Home", href: routes.home },
           { name: "Newsletter", href: routes.newsletter },
@@ -29,7 +39,7 @@ export function NewsletterPage() {
       <Section aria-labelledby="inside-heading">
         <div className="grid gap-14 lg:grid-cols-[1fr_1.5fr] lg:gap-20">
           <div>
-            <SectionHeading
+            <EditorialHeading
               id="inside-heading"
               title="What you will find inside"
               description="Each issue is short enough to read over a cup of coffee, and meaningful enough to stay with you through the day."
@@ -62,9 +72,7 @@ export function NewsletterPage() {
       </Section>
 
       <Section tone="cream" size="narrow" aria-labelledby="promise-heading">
-        <h2 id="promise-heading" className="text-3xl font-medium">
-          Our promise to readers
-        </h2>
+        <EditorialHeading id="promise-heading" title="Our promise to readers" />
         <ul className="prose-legal mt-6">
           <li>We will only send what we said we would send: one thoughtful email each day.</li>
           <li>We will never sell your email address.</li>

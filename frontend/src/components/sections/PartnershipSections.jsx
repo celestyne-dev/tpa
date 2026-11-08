@@ -13,7 +13,7 @@ import { CtaButton, Eyebrow, Heading, SectionHeader, SectionShell } from "./prim
 import { useSectionContext } from "./sectionContext";
 
 /** Paid links always carry rel="sponsored" (plus noopener/noreferrer when external). */
-function SponsoredAnchor({ href, className, children, ...rest }) {
+export function SponsoredAnchor({ href, className, children, ...rest }) {
   return (
     <a href={href} rel={sponsoredRel(href)} className={className} {...rest}>
       {children}
@@ -21,7 +21,7 @@ function SponsoredAnchor({ href, className, children, ...rest }) {
   );
 }
 
-function DisclosureLabel({ text, className }) {
+export function DisclosureLabel({ text, className }) {
   const { dark } = useSectionContext();
   return (
     <span

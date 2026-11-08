@@ -112,6 +112,43 @@ def related_articles(slug: str, limit: int = 3) -> list[dict[str, Any]]:
     return [public_article(a, include_body=False) for a in ranked]
 
 
+def adjacent_articles(slug: str) -> dict[str, dict[str, Any] | None]:
+    """The published articles just before and after this one ("Previous" is older, "Next"
+    is newer), for the reading links at the end of an article."""
+    from sqlalchemy import and_
+
+    article = get_article_model(slug)
+    when, ident = article.published_at, article.id
+    older = db.session.scalar(
+        select(Article)
+        .where(
+            published_filter(),
+            or_(
+                Article.published_at < when,
+                and_(Article.published_at == when, Article.id < ident),
+            ),
+        )
+        .order_by(Article.published_at.desc(), Article.id.desc())
+        .limit(1)
+    )
+    newer = db.session.scalar(
+        select(Article)
+        .where(
+            published_filter(),
+            or_(
+                Article.published_at > when,
+                and_(Article.published_at == when, Article.id > ident),
+            ),
+        )
+        .order_by(Article.published_at.asc(), Article.id.asc())
+        .limit(1)
+    )
+    return {
+        "previous": public_article(older, include_body=False) if older else None,
+        "next": public_article(newer, include_body=False) if newer else None,
+    }
+
+
 # ---- author pages ---------------------------------------------------------------------------
 
 

@@ -79,6 +79,16 @@ class HomepageResource(Resource):
         return _detail(page)
 
 
+class ArticleSidebarResource(Resource):
+    """The article sidebar: a system page shown beside every article (no address)."""
+
+    @require_permission(P.HOMEPAGE_VIEW)
+    def get(self):
+        page = page_admin.ensure_sidebar(current_user)
+        db.session.commit()
+        return _detail(page)
+
+
 class PageResource(Resource):
     @require_any_permission(*ANY_PAGE_VIEW)
     def get(self, page_id: int):
@@ -415,7 +425,7 @@ class LinkOptionsResource(Resource):
             }
             for p in db.session.scalars(
                 select(Page)
-                .where(Page.status != "archived", Page.slug != "home")
+                .where(Page.status != "archived", Page.path.is_not(None), Page.slug != "home")
                 .order_by(Page.title)
             )
             if match(p.title, p.path)
@@ -461,6 +471,7 @@ def seo_service_static_labels() -> dict[str, str]:
     labels = {
         "/": "Home",
         "/articles": "Articles",
+        "/authors": "Authors",
         "/shop": "Shop",
         "/free-resources": "Free Resources",
         "/resources": "Resource Library",

@@ -7,7 +7,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { Section } from "@/components/ui/Section";
-import { SectionHeading } from "@/components/ui/SectionHeading";
+import { EditorialHeading } from "@/components/ui/EditorialHeading";
 import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
 import { pageParam } from "@/data/queries";
@@ -46,11 +46,12 @@ export function AuthorPage() {
   const { author, articles } = data;
   const crumbs = [
     { name: "Home", href: routes.home },
-    { name: "Articles", href: routes.articles },
+    { name: "Authors", href: routes.authors },
     { name: author.name, href: routes.author(author.slug) },
   ];
   const description =
     author.bio.length > 160 ? `${author.bio.slice(0, 157).trimEnd()}…` : author.bio;
+  const count = `${author.article_count} published ${author.article_count === 1 ? "article" : "articles"}`;
 
   return (
     <>
@@ -60,23 +61,32 @@ export function AuthorPage() {
         path={routes.authorPage(author.slug, page)}
         jsonLd={[authorPageJsonLd(author), breadcrumbJsonLd(crumbs)]}
       />
-      <PageHeader eyebrow="Author" title={author.name} breadcrumbs={crumbs}>
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-          {author.image?.src && (
-            <span className="relative block size-24 shrink-0 overflow-hidden rounded-full bg-beige">
-              <ContentImage image={author.image} fill sizes="96px" className="object-cover" />
+      <PageHeader
+        eyebrow="Author"
+        title={author.name}
+        breadcrumbs={crumbs}
+        size="wide"
+        description={<p className="leading-relaxed text-ink">{author.bio}</p>}
+        media={
+          author.image?.src && (
+            <span className="relative block size-24 overflow-hidden rounded-full bg-beige ring-4 ring-ivory sm:size-32">
+              <ContentImage image={author.image} fill sizes="128px" className="object-cover" />
             </span>
-          )}
-          <p className="max-w-2xl text-lg leading-relaxed text-charcoal">{author.bio}</p>
-        </div>
+          )
+        }
+      >
+        <p className="text-sm font-medium text-muted">
+          {count}
+          {page > 1 && pagination ? ` · Page ${page} of ${pagination.total_pages}` : ""}
+        </p>
       </PageHeader>
-      <Section aria-labelledby="author-articles-heading">
-        <SectionHeading
+      <Section aria-labelledby="author-articles-heading" spacing="sm" size="wide">
+        <EditorialHeading
           id="author-articles-heading"
           title={`Articles by ${author.name}`}
-          description={`${author.article_count} ${author.article_count === 1 ? "article" : "articles"}`}
+          action={{ to: routes.authors, label: "All authors" }}
         />
-        <ArticleGrid articles={articles} className="mt-10" />
+        <ArticleGrid articles={articles} className="mt-8" />
         {pagination && (
           <Pagination
             page={pagination.page}

@@ -1,4 +1,4 @@
-"""Default navigation and homepage sections.
+"""Default navigation, homepage and article-sidebar sections.
 
 HOME_SECTIONS is the editorial homepage (lead story, latest, topics, picks, popular,
 newsletter, resources, articles by topic, about): editable CMS sections that read live
@@ -45,6 +45,8 @@ DEFAULT_MENUS = {
                 "children": [
                     {"label": "Home", "url": "/"},
                     {"label": "Articles", "url": "/articles"},
+                    {"label": "Authors", "url": "/authors"},
+                    {"label": "Search", "url": "/search"},
                     {"label": "Positive Mindset", "url": "/topics/positive-mindset"},
                     {"label": "Personal Growth", "url": "/topics/personal-growth"},
                     {
@@ -213,5 +215,54 @@ HOME_SECTIONS = [
             "navigate life's challenges, build confidence, and move forward with intention.",
             "cta": _cta("More about Think Positive Always", "/about", "outline"),
         },
+    },
+]
+
+# The article sidebar (Admin › Article sidebar): shown beside every article on wide
+# screens and below it on phones. The same CMS sections, rendered compactly; empty ones
+# are left out. No advertising by default: a "Sponsored banner" on the sidebar placement
+# can be added, and shows only while a booking is live.
+SIDEBAR_SECTIONS = [
+    {
+        "key": "popular",
+        "name": "Popular articles",
+        "section_type": "popular_articles",
+        "variant": "numbered",
+        "content": {"heading": "Popular articles", "period": "30", "count": 5},
+    },
+    {
+        "key": "related",
+        "name": "Related articles",
+        "section_type": "related_articles",
+        "variant": "list",
+        "content": {"heading": "Related articles", "count": 4, "show_images": True},
+    },
+    {
+        "key": "newsletter",
+        "name": "Newsletter",
+        "section_type": "newsletter_cta",
+        "variant": "compact",
+        "content": {
+            "eyebrow": "Daily newsletter",
+            "heading": "",
+            "description": "One thoughtful email each day to help you reset your mindset, find "
+            "perspective, and keep moving forward.",
+            "show_first_name": False,
+            "show_learn_more": True,
+        },
+    },
+    {
+        "key": "editors-picks",
+        "name": "Editor's Picks",
+        "section_type": "featured_articles",
+        "variant": "grid_3",
+        "content": {"heading": "Editor's Picks", "mode": "featured", "count": 3},
+    },
+    {
+        "key": "topics",
+        "name": "Explore topics",
+        "section_type": "topics_grid",
+        "variant": "cards_3",
+        "content": {"heading": "Explore topics", "mode": "all"},
     },
 ]

@@ -1,11 +1,10 @@
 import { ArticleGrid } from "@/components/articles/ArticleGrid";
 import { ProductCard } from "@/components/products/ProductCard";
 import { Seo } from "@/components/seo/Seo";
-import { ButtonLink } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
-import { SectionHeading } from "@/components/ui/SectionHeading";
+import { EditorialHeading } from "@/components/ui/EditorialHeading";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
 import { LATEST_QUERY } from "@/data/queries";
@@ -40,18 +39,14 @@ export function FreeResourcesPage() {
       )}
       {resources.length > 0 && (
         <Section aria-labelledby="free-resources-heading">
-          <SectionHeading
+          <EditorialHeading
             id="free-resources-heading"
             eyebrow="Free to download"
             title="Free resources"
             description="Each resource opens on its own page with what's included and how to get it."
-            action={
-              <ButtonLink to={routes.resources} variant="outline">
-                Resource library
-              </ButtonLink>
-            }
+            action={{ to: routes.resources, label: "Resource library" }}
           />
-          <ul className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {resources.map((product) => (
               <li key={product.id}>
                 <ProductCard product={product} />
@@ -62,16 +57,12 @@ export function FreeResourcesPage() {
       )}
 
       <Section tone="cream" aria-labelledby="read-now-heading">
-        <SectionHeading
+        <EditorialHeading
           id="read-now-heading"
           eyebrow="Available now"
           title="Start with our free articles"
           description="Every article on Think Positive Always is free to read."
-          action={
-            <ButtonLink to={routes.articles} variant="outline">
-              All articles
-            </ButtonLink>
-          }
+          action={{ to: routes.articles, label: "All articles" }}
         />
         <div className="mt-10">
           {isLoading && <CardGridSkeleton count={3} />}

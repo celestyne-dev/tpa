@@ -1,13 +1,16 @@
 import { Search } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { Seo } from "@/components/seo/Seo";
-import { ArticleMeta } from "@/components/articles/ArticleMeta";
+import { ArticleCard } from "@/components/articles/ArticleCard";
+import { TopicLinks } from "@/components/topics/TopicLinks";
+import { EditorialHeading } from "@/components/ui/EditorialHeading";
 import { Container } from "@/components/ui/Container";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { routes } from "@/config/navigation";
+import { useTopics } from "@/hooks/useContent";
 import { runSearch } from "@/store/slices/authorsSlice";
 
 const MAX_QUERY = 100;
@@ -54,6 +57,8 @@ export function SearchPage() {
   const [answer, setAnswer] = useState(null);
   const typing = useRef(null);
   const key = `${page}:${q}`;
+  const { data: topics } = useTopics();
+  const usedTopics = (topics ?? []).filter((t) => t.article_count > 0);
 
   // Keep the box in step with the address (back/forward, links): adjusted while rendering.
   if (q !== draftFor) {
@@ -112,79 +117,84 @@ export function SearchPage() {
   return (
     <>
       <Seo title={q ? `Search: ${q}` : "Search"} path={routes.search} noIndex />
-      <PageHeader eyebrow="Search" title="Search articles" />
-      <Container size="narrow" className="py-12 sm:py-16">
-        <form role="search" action={routes.search} method="get" onSubmit={onSubmit}>
-          <label htmlFor={inputId} className="block text-sm font-semibold text-charcoal">
-            Search for articles
-          </label>
-          <div className="mt-2 flex gap-3">
-            <input
-              id={inputId}
-              type="search"
-              name="q"
-              value={draft}
-              onChange={onChange}
-              maxLength={MAX_QUERY}
-              autoComplete="off"
-              placeholder="e.g. confidence, starting over, gratitude"
-              className="min-h-12 w-full rounded-full border border-charcoal/20 bg-white px-5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-700"
-            />
-            <button
-              type="submit"
-              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-sage-700 px-6 font-semibold text-ivory hover:bg-sage-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-700"
-            >
-              <Search aria-hidden className="size-4" />
-              Search
-            </button>
-          </div>
-        </form>
+      <PageHeader
+        eyebrow="Search"
+        title="Search articles"
+        description="Find articles on mindset, confidence, resilience and personal growth."
+        breadcrumbs={[
+          { name: "Home", href: routes.home },
+          { name: "Search", href: routes.search },
+        ]}
+      />
+      <Container className="py-10 sm:py-14">
+        <div className="max-w-3xl">
+          <form role="search" action={routes.search} method="get" onSubmit={onSubmit}>
+            <label htmlFor={inputId} className="block text-sm font-semibold text-charcoal">
+              Search for articles
+            </label>
+            <div className="mt-2 flex gap-3">
+              <input
+                id={inputId}
+                type="search"
+                name="q"
+                value={draft}
+                onChange={onChange}
+                maxLength={MAX_QUERY}
+                autoComplete="off"
+                placeholder="e.g. confidence, starting over, gratitude"
+                className="min-h-12 w-full rounded-full border border-charcoal/20 bg-white px-5 text-base text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-700"
+              />
+              <button
+                type="submit"
+                className="inline-flex min-h-12 items-center gap-2 rounded-full bg-sage-700 px-6 font-semibold text-ivory hover:bg-sage-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-700"
+              >
+                <Search aria-hidden className="size-4" />
+                Search
+              </button>
+            </div>
+          </form>
 
-        <p role="status" aria-live="polite" className="mt-6 min-h-6 text-sm text-muted">
-          {status}
-        </p>
+          <p role="status" aria-live="polite" className="mt-6 min-h-6 text-sm text-muted">
+            {status}
+          </p>
 
-        {state.results.length > 0 && (
-          <ol className="mt-6 divide-y divide-charcoal/10" aria-label="Search results">
-            {state.results.map((article) => (
-              <li key={article.slug} className="py-6">
-                {article.topic && (
-                  <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
-                    {article.topic.name}
-                  </p>
-                )}
-                <h2 className="mt-2 font-serif text-2xl leading-snug">
-                  <Link
-                    to={routes.article(article.slug)}
-                    className="text-charcoal hover:text-sage-700 hover:underline hover:underline-offset-4"
-                  >
-                    <Highlight text={article.title} terms={state.terms} />
-                  </Link>
-                </h2>
-                {article.excerpt && (
-                  <p className="mt-2 text-base text-charcoal/80">
-                    <Highlight text={article.excerpt} terms={state.terms} />
-                  </p>
-                )}
-                <ArticleMeta
-                  className="mt-3"
-                  publishedAt={article.published_at}
-                  updatedAt={article.content_modified_at}
-                  readingTimeMinutes={article.reading_time_minutes}
+          {state.results.length > 0 && (
+            <ol className="mt-6 divide-y divide-charcoal/10" aria-label="Search results">
+              {state.results.map((article) => (
+                <li key={article.slug} className="py-6 first:pt-0">
+                  <ArticleCard
+                    article={article}
+                    variant="row"
+                    headingLevel="h2"
+                    title={<Highlight text={article.title} terms={state.terms} />}
+                    excerpt={<Highlight text={article.excerpt} terms={state.terms} />}
+                  />
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {(state.status === "idle" || (state.status === "done" && total === 0)) &&
+            usedTopics.length > 0 && (
+              <section aria-labelledby="search-topics-heading" className="mt-12">
+                <EditorialHeading
+                  id="search-topics-heading"
+                  title={state.status === "idle" ? "Explore topics" : "Try a topic instead"}
+                  size="sm"
                 />
-              </li>
-            ))}
-          </ol>
-        )}
+                <TopicLinks topics={usedTopics} label="Topics" className="mt-5" />
+              </section>
+            )}
 
-        {state.pagination && (
-          <Pagination
-            page={state.pagination.page}
-            totalPages={state.pagination.total_pages}
-            hrefFor={(p) => searchHref(q, p)}
-            label="Search result pages"
-          />
-        )}
+          {state.pagination && (
+            <Pagination
+              page={state.pagination.page}
+              totalPages={state.pagination.total_pages}
+              hrefFor={(p) => searchHref(q, p)}
+              label="Search result pages"
+            />
+          )}
+        </div>
       </Container>
     </>
   );

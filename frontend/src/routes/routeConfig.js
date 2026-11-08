@@ -14,6 +14,7 @@ import { AffiliateDisclosurePage } from "@/pages/AffiliateDisclosurePage";
 import { ArticleDetailPage } from "@/pages/ArticleDetailPage";
 import { ArticlesPage } from "@/pages/ArticlesPage";
 import { AuthorPage } from "@/pages/AuthorPage";
+import { AuthorsPage } from "@/pages/AuthorsPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { CourseDetailPage } from "@/pages/CourseDetailPage";
 import { CoursesPage } from "@/pages/CoursesPage";
@@ -35,7 +36,7 @@ import { withCmsOverride } from "@/routes/cmsOverride";
 import { LegacyAuthRedirect } from "@/routes/LegacyAuthRedirect";
 import * as commerce from "@/routes/commerceRoutes";
 import { fetchArticle, fetchArticles } from "@/store/slices/articlesSlice";
-import { fetchAuthor } from "@/store/slices/authorsSlice";
+import { fetchAuthor, fetchAuthors } from "@/store/slices/authorsSlice";
 import { fetchCourse, fetchCourses } from "@/store/slices/coursesSlice";
 import { fetchMediaKit } from "@/store/slices/mediaKitSlice";
 import { fetchMemberships } from "@/store/slices/membershipsSlice";
@@ -94,6 +95,7 @@ export const routeTable = [
       fetchArticles(topicArticlesQuery(slug, pageParam(page) ?? 1)),
     ],
   },
+  { path: routes.authors, Component: AuthorsPage, load: () => [fetchAuthors()] },
   {
     path: "/authors/:slug",
     Component: AuthorPage,

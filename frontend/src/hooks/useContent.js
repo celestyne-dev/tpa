@@ -6,7 +6,12 @@ import {
   selectArticle,
   selectArticleList,
 } from "@/store/slices/articlesSlice";
-import { fetchAuthor, selectAuthor } from "@/store/slices/authorsSlice";
+import {
+  fetchAuthor,
+  fetchAuthors,
+  selectAuthor,
+  selectAuthorList,
+} from "@/store/slices/authorsSlice";
 import {
   fetchCourse,
   fetchCourses,
@@ -94,7 +99,12 @@ export function useArticles({ topic, featured, page = 1, pageSize = 12 } = {}) {
 export function useArticle(slug) {
   const entry = useSelector(selectArticle(slug));
   const load = useCallback((force) => fetchArticle({ slug, force }), [slug]);
-  return useResource(entry, load, [load], (s) => ({ article: s.article, related: s.related }));
+  return useResource(entry, load, [load], (s) => ({
+    article: s.article,
+    related: s.related,
+    adjacent: s.adjacent ?? null,
+    sidebar: s.sidebar ?? [],
+  }));
 }
 
 /** A public author page (page N of their articles). */
@@ -106,6 +116,13 @@ export function useAuthor(slug, page = 1) {
     articles: s.articles,
   }));
   return { ...result, pagination: entry?.pagination ?? null };
+}
+
+/** Writers with an author page (name, bio, portrait, article count). */
+export function useAuthors() {
+  const entry = useSelector(selectAuthorList);
+  const load = useCallback((force) => fetchAuthors({ force }), []);
+  return useResource(entry, load, [load], (s) => s.items);
 }
 
 export function useProducts() {

@@ -20,6 +20,20 @@ export const fetchAuthor = createAsyncThunk(
   },
 );
 
+/** Writers who have an author page (the /authors index). */
+export const fetchAuthors = createAsyncThunk(
+  "authors/fetchList",
+  async (_arg, { extra, rejectWithValue }) => {
+    try {
+      const { data } = await extra.api.getAuthors();
+      return data;
+    } catch (error) {
+      return rejectWithValue(serializeError(error));
+    }
+  },
+  { condition: (arg, { getState }) => shouldFetch(getState().authors.list, arg?.force) },
+);
+
 /** Site search: results stay in the page (never prerendered or cached in the store). */
 export const runSearch = createAsyncThunk(
   "authors/search",
@@ -35,7 +49,7 @@ export const runSearch = createAsyncThunk(
 
 const authorsSlice = createSlice({
   name: "authors",
-  initialState: { byKey: {} },
+  initialState: { byKey: {}, list: undefined },
   reducers: {},
   extraReducers: (builder) => {
     builder
@@ -49,6 +63,18 @@ const authorsSlice = createSlice({
           ...action.payload,
           status: Status.succeeded,
           error: null,
+        };
+      })
+      .addCase(fetchAuthors.pending, (state) => {
+        state.list = { status: Status.loading, error: null, items: state.list?.items };
+      })
+      .addCase(fetchAuthors.fulfilled, (state, action) => {
+        state.list = { status: Status.succeeded, error: null, items: action.payload };
+      })
+      .addCase(fetchAuthors.rejected, (state, action) => {
+        state.list = {
+          status: Status.failed,
+          error: action.payload ?? serializeError(action.error),
         };
       })
       .addCase(fetchAuthor.rejected, (state, action) => {
@@ -65,4 +91,5 @@ export const selectAuthor =
   (slug, page = 1) =>
   (state) =>
     state.authors.byKey[authorKey(slug, page)];
+export const selectAuthorList = (state) => state.authors.list;
 export default authorsSlice.reducer;

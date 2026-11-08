@@ -33,6 +33,7 @@ const AnnouncementsPage = screen("AnnouncementsPage", "AnnouncementsPage");
 const BrandingPage = screen("BrandingPage", "BrandingPage");
 const FooterPage = screen("FooterPage", "FooterPage");
 const HomepageBuilderPage = screen("HomepageBuilderPage", "HomepageBuilderPage");
+const ArticleSidebarBuilderPage = screen("ArticleSidebarBuilderPage", "ArticleSidebarBuilderPage");
 const PagePreviewPage = screen("PagePreviewPage", "PagePreviewPage");
 const PreviewFramePage = screen("PreviewFramePage", "PreviewFramePage");
 const SharedSectionsPage = screen("SharedSectionsPage", "SharedSectionsPage");
@@ -329,6 +330,10 @@ export default function AdminApp() {
           <Route path="tags" element={guarded(TAXONOMY_READ, <TaxonomyPage kind="tags" />)} />
           <Route path="authors" element={guarded(TAXONOMY_READ, <TaxonomyPage kind="authors" />)} />
           <Route path="homepage" element={guarded("homepage.view", <HomepageBuilderPage />)} />
+          <Route
+            path="article-sidebar"
+            element={guarded("homepage.view", <ArticleSidebarBuilderPage />)}
+          />
           <Route path="pages" element={guarded("pages.view", <PagesPage />)} />
           <Route path="pages/:id" element={guarded(PAGE_READ, <PageEditorPage />)} />
           <Route path="shared-sections" element={guarded(SHARED_ACCESS, <SharedSectionsPage />)} />

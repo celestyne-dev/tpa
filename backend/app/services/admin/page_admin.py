@@ -26,7 +26,13 @@ from sqlalchemy import func, or_, select
 from ...auth.permissions import Permission as P
 from ...auth.rbac import effective_permissions
 from ...cms import routing
-from ...cms.sections import SECTION_TYPES, SINGLE_USE, check_section, section_types_schema
+from ...cms.sections import (
+    SECTION_TYPES,
+    SIDEBAR_TYPES,
+    SINGLE_USE,
+    check_section,
+    section_types_schema,
+)
 from ...cms.templates import PAGE_TEMPLATES
 from ...extensions import db
 from ...models import (
@@ -52,6 +58,10 @@ from ..serializers import iso
 from .article_admin import EditConflict
 
 HOME_SLUG = "home"
+# The article sidebar: a system page without an address. Its sections are shown beside
+# every article (Admin › Article sidebar); it is never a page of its own on the website.
+SIDEBAR_SLUG = "article-sidebar"
+SYSTEM_LAYOUTS = (HOME_SLUG, SIDEBAR_SLUG)
 MAX_SECTIONS = 40
 MAX_REVISIONS = 50
 SCHEDULE_GRACE = timedelta(minutes=1)
@@ -79,23 +89,38 @@ def is_home(page: Page) -> bool:
     return page.slug == HOME_SLUG
 
 
+def is_sidebar(page: Page) -> bool:
+    return page.slug == SIDEBAR_SLUG
+
+
+def is_layout(page: Page) -> bool:
+    """The homepage and the article sidebar: fixed system layouts (no address changes,
+    never unpublished, archived or duplicated; edited with the homepage permissions)."""
+    return page.slug in SYSTEM_LAYOUTS
+
+
+def allowed_types(page: Page) -> tuple[str, ...] | None:
+    """Section types this page may hold (None: any type that isn't sidebar-only)."""
+    return SIDEBAR_TYPES if is_sidebar(page) else None
+
+
 # ---- permissions ---------------------------------------------------------------------------
 
 
 def capabilities(page: Page, user: User) -> dict[str, bool]:
     perms = effective_permissions(user)
-    rules = PERMISSIONS["home" if is_home(page) else "page"]
+    rules = PERMISSIONS["home" if is_layout(page) else "page"]
     can = {action: perm.value in perms for action, perm in rules.items()}
     archived = page.status == "archived"
     return {
         "view": can["view"],
         "edit": can["edit"] and not archived,
         "publish": can["publish"] and not archived,
-        "unpublish": can["publish"] and page.status == "published" and not is_home(page),
-        "archive": can["publish"] and not is_home(page) and not archived,
+        "unpublish": can["publish"] and page.status == "published" and not is_layout(page),
+        "archive": can["publish"] and not is_layout(page) and not archived,
         "restore": can["publish"] and archived,
-        "duplicate": P.PAGES_CREATE.value in perms and not is_home(page),
-        "change_slug": can["edit"] and not is_home(page) and not archived,
+        "duplicate": P.PAGES_CREATE.value in perms and not is_layout(page),
+        "change_slug": can["edit"] and not is_layout(page) and not archived,
         "restore_revisions": can["edit"] and not archived,
         "manage_shared": P.REUSABLE_SECTIONS_MANAGE.value in perms,
     }
@@ -149,10 +174,12 @@ def page_summary(p: Page) -> dict[str, Any]:
         "status": p.status,
         "template": p.template,
         "template_label": PAGE_TEMPLATES.get(p.template, {}).get(
-            "label", "Homepage" if is_home(p) else p.template
+            "label",
+            "Homepage" if is_home(p) else "Article sidebar" if is_sidebar(p) else p.template,
         ),
         "is_system": p.is_system,
         "is_home": is_home(p),
+        "is_sidebar": is_sidebar(p),
         "parent_id": p.parent_id,
         "noindex": p.noindex,
         "seo_title": p.seo_title,
@@ -164,7 +191,7 @@ def page_summary(p: Page) -> dict[str, Any]:
         "draft_updated_at": iso(p.draft_updated_at),
         "updated_at": iso(p.updated_at),
         "updated_by": _user_ref(p.updated_by),
-        "rendered_publicly": p.status == "published" or is_home(p),
+        "rendered_publicly": p.status == "published" or is_layout(p),
         "overrides_builtin": p.path in routing.OVERRIDABLE_PATHS,
     }
 
@@ -235,7 +262,7 @@ def list_pages(args: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         term = f"%{args['q'].strip().lower()}%"
         stmt = stmt.where(or_(func.lower(Page.title).like(term), Page.path.like(term)))
     if args.get("exclude_home"):
-        stmt = stmt.where(Page.slug != HOME_SLUG)
+        stmt = stmt.where(Page.slug.not_in(SYSTEM_LAYOUTS))
     return [page_summary(p) for p in db.session.scalars(stmt)]
 
 
@@ -417,7 +444,7 @@ def _clean_meta(page: Page, data: dict[str, Any], errors: dict[str, list[str]]) 
                     errors["page.social_image_id"] = [problem]
             out["social_image_id"] = value or None
     slug_given = "slug" in data or "parent_id" in data
-    if slug_given and not is_home(page):
+    if slug_given and not is_layout(page):
         slug = data.get("slug", page.slug)
         parent_id = data.get("parent_id", page.parent_id)
         if not isinstance(slug, str) or (
@@ -433,12 +460,19 @@ def _clean_meta(page: Page, data: dict[str, Any], errors: dict[str, list[str]]) 
     elif slug_given and (
         data.get("slug", page.slug) != page.slug or data.get("parent_id") is not None
     ):
-        errors["page.slug"] = ["The homepage address cannot be changed."]
+        errors["page.slug"] = [
+            "The homepage address cannot be changed."
+            if is_home(page)
+            else "The article sidebar has no address of its own."
+        ]
     return out
 
 
 def _clean_sections(
-    current: list[PageSection], items: Any, errors: dict[str, list[str]]
+    current: list[PageSection],
+    items: Any,
+    errors: dict[str, list[str]],
+    allowed: tuple[str, ...] | None = None,
 ) -> list[dict[str, Any]]:
     if not isinstance(items, list):
         errors["sections"] = ["Sections must be a list."]
@@ -483,6 +517,9 @@ def _clean_sections(
                 errors[f"{prefix}.reusable_section_id"] = ["This shared section no longer exists."]
                 continue
             section_type = target.section_type
+            if not _type_allowed(section_type, allowed):
+                errors[f"{prefix}.reusable_section_id"] = [_not_allowed_message(allowed)]
+                continue
             from ...cms.design import validate_visibility
 
             visibility, vis_errors = validate_visibility(item.get("visibility"))
@@ -502,6 +539,9 @@ def _clean_sections(
                 "reusable_only"
             ):
                 errors[f"{prefix}.section_type"] = ["Unknown section type."]
+                continue
+            if not _type_allowed(section_type, allowed):
+                errors[f"{prefix}.section_type"] = [_not_allowed_message(allowed)]
                 continue
             cleaned, problems, refs = check_section(
                 section_type,
@@ -535,6 +575,18 @@ def _clean_sections(
         keys.add(key)
         clean.append({**entry, "id": sid, "key": key, "name": name, "is_visible": is_visible})
     return clean
+
+
+def _type_allowed(section_type: str, allowed: tuple[str, ...] | None) -> bool:
+    if allowed is not None:
+        return section_type in allowed
+    return not SECTION_TYPES.get(section_type, {}).get("sidebar_only")
+
+
+def _not_allowed_message(allowed: tuple[str, ...] | None) -> str:
+    if allowed is not None:
+        return "This section can't be used in the article sidebar."
+    return "This section is only available in the article sidebar."
 
 
 def _check_lock(page: Page, lock_version: Any) -> None:
@@ -601,7 +653,11 @@ def save_draft(page: Page, data: dict[str, Any], actor: User) -> Page:
         or meta.get("parent_id", page.parent_id) != page.parent_id
     ):
         require(page, actor, "change_slug")
-    clean = _clean_sections(page.sections, data["sections"], errors) if "sections" in data else None
+    clean = (
+        _clean_sections(page.sections, data["sections"], errors, allowed_types(page))
+        if "sections" in data
+        else None
+    )
     if errors:
         raise ValidationError(
             "Some fields need attention before the draft can be saved.", details=errors
@@ -778,12 +834,12 @@ def _validate_for_publish(page: Page, doc: dict[str, Any]) -> None:
     errors: dict[str, list[str]] = {}
     items = [dict(s, id=None) for s in doc["sections"]]
     # Re-validate everything (references may have been deleted since the draft was saved).
-    _clean_sections([], items, errors)
+    _clean_sections([], items, errors, allowed_types(page))
     if not any(s.get("is_visible", True) for s in doc["sections"]):
         errors["sections"] = ["Add at least one visible section before publishing."]
     if not (doc["page"].get("title") or "").strip():
         errors["page.title"] = ["A title is required."]
-    if not is_home(page):
+    if not is_layout(page):
         path = doc["page"].get("path")
         clash = db.session.scalar(
             select(Page).where(Page.published_path == path, Page.id != page.id)
@@ -799,7 +855,7 @@ def _publish_document(
 ) -> PageRevision:
     _validate_for_publish(page, doc)
     old_path = page.published_path if page.status == "published" else None
-    new_path = "/" if is_home(page) else doc["page"]["path"]
+    new_path = "/" if is_home(page) else None if is_sidebar(page) else doc["page"]["path"]
     now = _now()
     page.published_snapshot = copy.deepcopy(doc)
     page.status = "published"
@@ -811,7 +867,9 @@ def _publish_document(
     db.session.flush()
     from .. import redirect_service
 
-    if old_path and old_path != new_path:
+    if is_sidebar(page):
+        pass  # no address: nothing to redirect
+    elif old_path and old_path != new_path:
         redirect_service.create_slug_redirect(old_path, new_path, actor)
         # Live sub-pages move with their parent.
         for child in _descendants(page):
@@ -924,7 +982,7 @@ def discard_draft(page: Page, actor: User) -> Page:
     snap = page.published_snapshot
     _load_document_into_draft(page, snap)
     meta = snap.get("page") or {}
-    if not is_home(page):
+    if not is_layout(page):
         page.slug, page.parent_id, page.path = meta["slug"], meta.get("parent_id"), meta["path"]
     _touch(page, actor)
     audit_service.record("page.draft_discarded", "page", page.id, actor=actor)
@@ -1122,19 +1180,42 @@ def ensure_home(actor: User | None = None) -> Page:
     return page
 
 
+def ensure_sidebar(actor: User | None = None) -> Page:
+    """The article sidebar row (created from the built-in defaults when first opened)."""
+    page = db.session.scalar(select(Page).where(Page.slug == SIDEBAR_SLUG))
+    if page is not None:
+        return page
+    page = Page(
+        slug=SIDEBAR_SLUG,
+        title="Article sidebar",
+        status="draft",
+        template="sidebar",
+        is_system=True,
+        path=None,
+        lock_version=1,
+    )
+    db.session.add(page)
+    db.session.flush()
+    _load_document_into_draft(page, page_render.default_sidebar_document())
+    return page
+
+
 def preview(page: Page, data: dict[str, Any] | None) -> dict[str, Any]:
     """Resolve the saved draft, or unsaved edits sent by the editor, without saving."""
     doc = page_render.draft_document(page)
     errors: dict[str, list[str]] = {}
     if data and "sections" in data:
         items = data["sections"] if isinstance(data["sections"], list) else []
-        clean = _clean_sections(page.sections, items, errors)
+        clean = _clean_sections(page.sections, items, errors, allowed_types(page))
         doc["sections"] = [{k: c[k] for k in page_render.SECTION_FIELDS} for c in clean]
     if data and isinstance(data.get("page"), dict):
         for key in ("title", "seo_title", "meta_description"):
             if isinstance(data["page"].get(key), str):
                 doc["page"][key] = data["page"][key]
-    resolved = page_render.resolve_document(doc, preview=True, published_at=page.published_at)
+    context = page_render.sample_article_context() if is_sidebar(page) else None
+    resolved = page_render.resolve_document(
+        doc, preview=True, published_at=page.published_at, context=context
+    )
     return {"page": resolved, "errors": errors}
 
 

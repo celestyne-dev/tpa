@@ -108,6 +108,37 @@ export function createBuilderFake(getUser) {
       sections: [{ ...hero, id: 70, key: "hero-1", variant: "centered" }],
     },
   };
+  // The article sidebar (Admin › Article sidebar): a system page without an address,
+  // registered when first opened (as the backend creates it on first GET).
+  const sidebarPage = {
+    ...structuredClone(pages[1]),
+    id: 9,
+    slug: "article-sidebar",
+    title: "Article sidebar",
+    path: null,
+    live_path: null,
+    status: "draft",
+    template: "sidebar",
+    template_label: "Article sidebar",
+    is_home: false,
+    is_sidebar: true,
+    has_unpublished_changes: true,
+    published_at: null,
+    lock_version: 1,
+    sections: [
+      {
+        ...hero,
+        id: 90,
+        key: "popular",
+        name: "Popular articles",
+        section_type: "popular_articles",
+        type_label: "Popular articles",
+        variant: "numbered",
+        content: { heading: "Popular articles", period: "30", count: 5, exclude_shown: false },
+        design: {},
+      },
+    ],
+  };
   const revisions = {
     1: [
       {
@@ -136,7 +167,8 @@ export function createBuilderFake(getUser) {
   };
 
   const capabilities = (page) => {
-    const home = page.is_home;
+    // The homepage and the article sidebar use the homepage permissions.
+    const home = page.is_home || page.is_sidebar;
     const view = perms.has(home ? "homepage.view" : "pages.view");
     const edit = perms.has(home ? "homepage.edit" : "pages.edit") && page.status !== "archived";
     const publish =
@@ -173,6 +205,10 @@ export function createBuilderFake(getUser) {
         ),
       ),
       homepage: vi.fn(() => ok(detail(pages[1]))),
+      articleSidebar: vi.fn(() => {
+        pages[9] ??= sidebarPage;
+        return ok(detail(pages[9]));
+      }),
       loadEditorialLayout: vi.fn(() =>
         ok(
           detail(

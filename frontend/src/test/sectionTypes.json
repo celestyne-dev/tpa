@@ -6,6 +6,8 @@
     "description": "The large opening section with the main headline and buttons.",
     "reusable_only": false,
     "single_use": true,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "split",
@@ -189,6 +191,8 @@
     "description": "Who we are and why we exist, with an optional verified community figure.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "with_stat",
@@ -351,6 +355,8 @@
     "description": "Articles marked as featured, or a hand-picked selection.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "lead_with_side",
@@ -544,6 +550,8 @@
     "description": "The most recently published articles, optionally from one topic.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "grid_3",
@@ -723,6 +731,8 @@
     "description": "A hand-picked reading list in your chosen order, such as Editor's Picks. Hidden on the website until it has at least one published article.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "grid_3",
@@ -889,6 +899,8 @@
     "description": "Cards linking to topic pages: featured topics, all topics or a selection.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "cards_3",
@@ -1050,6 +1062,8 @@
     "description": "The most-read published articles, from the site's own visitor statistics (page views only; no visitor details or counts are shown). Hidden until there is data.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "numbered",
@@ -1232,12 +1246,68 @@
     }
   },
   {
+    "type": "related_articles",
+    "label": "Related articles",
+    "category": "Articles",
+    "description": "Articles related to the one being read (same topic first, then shared topics, then the most recent). Only for the article sidebar; the article itself and the related articles under it are left out.",
+    "reusable_only": false,
+    "single_use": false,
+    "sidebar": true,
+    "sidebar_only": true,
+    "variants": [
+      {
+        "value": "list",
+        "label": "List"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "label": "Number of articles",
+        "min": 1,
+        "max": 8,
+        "default": 4
+      },
+      {
+        "name": "show_images",
+        "type": "boolean",
+        "label": "Show thumbnails",
+        "default": true
+      }
+    ],
+    "design": [],
+    "defaults": {
+      "variant": "list",
+      "content": {
+        "heading": "Related articles",
+        "count": 4,
+        "show_images": true
+      },
+      "design": {},
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
     "type": "topic_articles",
     "label": "Articles by topic",
     "category": "Articles",
     "description": "The latest articles from several topics, grouped under each topic. Topics without published articles are left out.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "columns",
@@ -1414,6 +1484,8 @@
     "description": "Published resources from the Resource library, each linking to its page. Only resources visitors can get now are shown (never drafts or “coming soon” items); the section is hidden when there are none.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "cards_3",
@@ -1606,6 +1678,8 @@
     "description": "A short quote with an optional attribution.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "minimal",
@@ -1732,6 +1806,8 @@
     "description": "A short encouraging message with an optional button.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "centered",
@@ -1868,6 +1944,8 @@
     "description": "An image beside a heading, text and buttons.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "image_left",
@@ -2036,6 +2114,8 @@
     "description": "The Positive Reset signup form (double opt-in). It collects addresses only when email sending and consent wording are configured; until then it says plainly that sign-up isn't available on the website and collects nothing.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "panel",
@@ -2183,6 +2263,8 @@
     "description": "Offers a free resource (a lead magnet with real files) by secure email link. Newsletter opt-in is a separate, unticked choice.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "card",
@@ -2323,6 +2405,8 @@
     "description": "Products from the shop catalogue: featured, newest, hand-picked, a collection or bundles. Prices appear only for products on sale; everything else is shown as an honest “coming soon” preview.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "grid",
@@ -2521,6 +2605,8 @@
     "description": "A bold banner for a campaign, series or upcoming release.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "full_width",
@@ -2668,6 +2754,8 @@
     "description": "A focused invitation with one or two buttons.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "centered",
@@ -2826,6 +2914,8 @@
     "description": "Genuine words from readers or partners, shared with permission.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "cards_3",
@@ -2997,6 +3087,8 @@
     "description": "A row of key figures.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "row",
@@ -3144,6 +3236,8 @@
     "description": "Questions and answers in an accessible expandable list.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "accordion",
@@ -3294,6 +3388,8 @@
     "description": "Free-form content built from text, headings, lists, images and quotes.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "default",
@@ -3397,6 +3493,8 @@
     "description": "Short benefits or principles, each with an icon.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "sticky_intro",
@@ -3628,6 +3726,8 @@
     "description": "An invitation for brands and organisations with a list of opportunities.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "dark",
@@ -3730,6 +3830,8 @@
     "description": "Logos from approved, currently running bookings on an advertising placement. Nothing is shown outside a booking's dates, and the strip is always labelled.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "strip",
@@ -3834,6 +3936,8 @@
     "description": "A paid banner from an approved booking on a placement, shown only while the booking is live. Links are marked rel=\"sponsored\" and labelled for readers.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "banner",
@@ -3934,6 +4038,8 @@
     "description": "Features the brand from the approved, live booking on a placement, with its sponsor disclosure. Hidden whenever no booking is live.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "split",
@@ -4038,6 +4144,8 @@
     "description": "Recommended products through affiliate links. The affiliate disclosure is always shown beside the recommendations and links are marked rel=\"sponsored\".",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "list",
@@ -4161,6 +4269,8 @@
     "description": "A summary of the published media kit. Audience figures appear only as verified, dated measurements with their source.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "panel",
@@ -4274,6 +4384,8 @@
     "description": "The partnership inquiry form with privacy notice, spam protection and rate limits. Inquiries are stored for the partnerships team; nothing is sent to the organisation automatically.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "panel",
@@ -4388,6 +4500,8 @@
     "description": "Introduce an author using their profile (portrait, name and bio).",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "card",
@@ -4506,6 +4620,8 @@
     "description": "Recommended resources, guides or pages, each with a link.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "cards",
@@ -4695,6 +4811,8 @@
     "description": "Contact email addresses from Settings. There is no contact form, so nothing is collected on the website.",
     "reusable_only": false,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "default",
@@ -4830,6 +4948,8 @@
     "description": "The title area at the top of a page, with breadcrumbs for sub-pages.",
     "reusable_only": false,
     "single_use": true,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "default",
@@ -4967,6 +5087,8 @@
     "description": "Several shared sections shown together, in order.",
     "reusable_only": true,
     "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
     "variants": [
       {
         "value": "default",

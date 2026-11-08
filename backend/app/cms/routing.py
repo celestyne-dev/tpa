@@ -21,6 +21,7 @@ RESERVED_SEGMENTS = frozenset(
         "admin",
         "api",
         "articles",
+        "authors",
         "topics",
         "shop",
         "resources",

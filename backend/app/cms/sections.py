@@ -293,6 +293,28 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "content": {"heading": "Popular articles", "period": "30", "count": 5},
         },
     },
+    "related_articles": {
+        "label": "Related articles",
+        "category": "Articles",
+        "description": (
+            "Articles related to the one being read (same topic first, then shared topics, "
+            "then the most recent). Only for the article sidebar; the article itself and the "
+            "related articles under it are left out."
+        ),
+        "sidebar_only": True,
+        "variants": {"list": "List"},
+        "fields": {
+            "heading": HEADING,
+            "count": {**ARTICLE_COUNT, "default": 4, "max": 8},
+            "show_images": _f("boolean", "Show thumbnails", default=True),
+        },
+        "design": [],
+        "defaults": {
+            "variant": "list",
+            "design": {},
+            "content": {"heading": "Related articles", "count": 4, "show_images": True},
+        },
+    },
     "topic_articles": {
         "label": "Articles by topic",
         "category": "Articles",
@@ -973,6 +995,19 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
 
 # Section types that only make sense once per page.
 SINGLE_USE = {"hero", "page_header"}
+# Section types the article sidebar can hold (Admin › Article sidebar). Everything here
+# has a compact sidebar rendering; full-width types (heroes, galleries…) are left out.
+SIDEBAR_TYPES = (
+    "popular_articles",
+    "related_articles",
+    "newsletter_cta",
+    "featured_articles",
+    "article_collection",
+    "latest_articles",
+    "topics_grid",
+    "sponsored_banner",
+    "brand_spotlight",
+)
 CATEGORIES = [
     "Introductions",
     "Articles",
@@ -1339,6 +1374,8 @@ def section_types_schema() -> list[dict[str, Any]]:
             "description": spec["description"],
             "reusable_only": spec.get("reusable_only", False),
             "single_use": key in SINGLE_USE,
+            "sidebar": key in SIDEBAR_TYPES,
+            "sidebar_only": spec.get("sidebar_only", False),
             "variants": [{"value": v, "label": label} for v, label in spec["variants"].items()],
             "fields": [field_schema(n, s) for n, s in spec["fields"].items()],
             "design": design_schema(spec["design"]),

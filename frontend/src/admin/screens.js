@@ -5,6 +5,7 @@ export const PAGE_LOADERS = {
   BrandingPage: () => import("./pages/BrandingPage"),
   FooterPage: () => import("./pages/FooterPage"),
   HomepageBuilderPage: () => import("./pages/HomepageBuilderPage"),
+  ArticleSidebarBuilderPage: () => import("./pages/ArticleSidebarBuilderPage"),
   PagePreviewPage: () => import("./pages/PagePreviewPage"),
   PreviewFramePage: () => import("./pages/PreviewFramePage"),
   SharedSectionsPage: () => import("./pages/SharedSectionsPage"),

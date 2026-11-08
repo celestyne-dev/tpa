@@ -38,21 +38,32 @@ export function CardGridSkeleton({ count = 3, className }) {
   );
 }
 
+/** Same frame as the article page (two columns on wide screens), so nothing jumps. */
 export function ArticleSkeleton() {
   return (
     <div role="status" aria-label="Loading article">
-      <div className="bg-cream">
-        <div className="mx-auto max-w-3xl space-y-5 px-5 py-14 sm:px-8">
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-3/4" />
-          <Skeleton className="h-5 w-2/3" />
+      <div className="mx-auto w-full max-w-7xl px-5 pt-8 pb-16 sm:px-8 sm:pt-10">
+        <Skeleton className="h-4 w-56" />
+        <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_21rem] xl:gap-16">
+          <div className="space-y-5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-3/4" />
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="aspect-[16/10] w-full" />
+            <div className="max-w-[46rem] space-y-4 pt-6">
+              {Array.from({ length: 6 }, (_, i) => (
+                <Skeleton key={i} className="h-4 w-full" />
+              ))}
+            </div>
+          </div>
+          <div className="mt-16 hidden space-y-4 lg:mt-0 lg:block">
+            <Skeleton className="h-6 w-40" />
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="mx-auto max-w-3xl space-y-4 px-5 py-12 sm:px-8">
-        {Array.from({ length: 6 }, (_, i) => (
-          <Skeleton key={i} className="h-4 w-full" />
-        ))}
       </div>
       <span className="sr-only">Loading…</span>
     </div>

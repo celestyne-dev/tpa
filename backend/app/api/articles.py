@@ -1,9 +1,13 @@
 from flask_restful import Resource
 
 from ..extensions import limiter
-from ..schemas.content import article_detail_schema, article_summaries_schema
+from ..schemas.content import (
+    article_detail_schema,
+    article_summaries_schema,
+    article_summary_schema,
+)
 from ..schemas.queries import ArticleListQuerySchema, PageQuerySchema, SearchQuerySchema
-from ..services import article_service, topic_service
+from ..services import article_service, page_render, topic_service
 from ..utils.responses import success
 from ._validation import load_query, require_slug
 
@@ -32,10 +36,19 @@ class ArticleDetailResource(Resource):
     def get(self, slug: str):
         article = article_service.get_article(require_slug(slug, "Article"))
         related = article_service.related_articles(slug)
+        adjacent = article_service.adjacent_articles(slug)
+        # The article sidebar (Admin › Article sidebar), never repeating the article or
+        # the related articles shown under it.
+        sidebar = page_render.public_sidebar(slug, [a["slug"] for a in related])
         return success(
             {
                 "article": article_detail_schema.dump(article),
                 "related": article_summaries_schema.dump(related),
+                "adjacent": {
+                    key: article_summary_schema.dump(value) if value else None
+                    for key, value in adjacent.items()
+                },
+                "sidebar": sidebar,
             }
         )
 
@@ -55,7 +68,15 @@ class AuthorDetailResource(Resource):
 class AuthorListResource(Resource):
     def get(self):
         items = [
-            {"slug": a.slug, "name": a.display_name, "article_count": count}
+            {
+                "slug": a.slug,
+                "name": a.display_name,
+                "article_count": count,
+                # For the authors index (/authors): the same bio and portrait as the
+                # author's own page.
+                "bio": a.bio,
+                "image": a.profile_image.as_image("avatar") if a.profile_image else None,
+            }
             for a, count in article_service.authors_with_pages()
         ]
         return success(items, {"total": len(items)})

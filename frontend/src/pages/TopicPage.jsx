@@ -1,15 +1,17 @@
-import { ArrowRight, PenLine } from "lucide-react";
-import { Link, useParams } from "react-router";
+import { PenLine } from "lucide-react";
+import { useParams } from "react-router";
+import { ArticleCard } from "@/components/articles/ArticleCard";
 import { ArticleGrid } from "@/components/articles/ArticleGrid";
 import { Seo } from "@/components/seo/Seo";
 import { TopicIcon } from "@/components/topics/TopicIcon";
+import { TopicLinks } from "@/components/topics/TopicLinks";
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
+import { EditorialHeading } from "@/components/ui/EditorialHeading";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
-import { SectionHeading } from "@/components/ui/SectionHeading";
 import { Pagination } from "@/components/ui/Pagination";
 import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
@@ -49,12 +51,16 @@ export function TopicPage() {
 
   const topic = topicState.data;
   const articles = articlesState.data ?? [];
-  const otherTopics = (allTopics ?? []).filter((t) => t.slug !== topic.slug);
+  const otherTopics = (allTopics ?? []).filter((t) => t.slug !== topic.slug && t.article_count > 0);
   const crumbs = [
     { name: "Home", href: routes.home },
     { name: "Articles", href: routes.articles },
     { name: topic.name, href: routes.topic(topic.slug) },
   ];
+  // Page 1 opens with its newest story as the featured one; later pages are plain grids.
+  const firstPage = (page ?? 1) === 1;
+  const [lead, ...rest] = firstPage ? articles : [null, ...articles];
+  const count = `${topic.article_count} ${topic.article_count === 1 ? "article" : "articles"}`;
 
   return (
     <>
@@ -64,63 +70,87 @@ export function TopicPage() {
         path={routes.topicPage(topic.slug, page)}
         jsonLd={breadcrumbJsonLd(crumbs)}
       />
-      <PageHeader eyebrow="Topic" title={topic.name} description={topic.intro} breadcrumbs={crumbs}>
-        <span className="inline-flex items-center gap-3 rounded-full bg-ivory/80 px-4 py-2 text-sm text-sage-800 shadow-soft">
-          <TopicIcon name={topic.icon} className="size-4" />
-          {topic.article_count} {topic.article_count === 1 ? "article" : "articles"}
-        </span>
+      <PageHeader
+        eyebrow="Topic"
+        title={topic.name}
+        description={topic.intro}
+        breadcrumbs={crumbs}
+        size="wide"
+        media={
+          <span className="grid size-16 place-items-center rounded-2xl bg-sage-100 text-sage-700 sm:size-20">
+            <TopicIcon name={topic.icon} className="size-7 sm:size-8" />
+          </span>
+        }
+      >
+        <p className="text-sm font-medium text-muted">
+          {count}
+          {page > 1 && pagination ? ` · Page ${page} of ${pagination.total_pages}` : ""}
+        </p>
       </PageHeader>
 
-      <Section aria-labelledby="topic-articles-heading">
-        <SectionHeading id="topic-articles-heading" title={`Articles on ${topic.name}`} />
-        <div className="mt-10">
-          {articlesState.isLoading && <CardGridSkeleton count={3} />}
-          {articlesState.isError && !articlesState.isNotFound && (
-            <ErrorState onRetry={articlesState.retry} />
-          )}
-          {articlesState.data &&
-            (articles.length > 0 ? (
-              <>
-                <ArticleGrid articles={articles} />
-                {pagination && (
-                  <Pagination
-                    page={pagination.page}
-                    totalPages={pagination.total_pages}
-                    hrefFor={(p) => routes.topicPage(topic.slug, p)}
-                    label={`${topic.name} article pages`}
+      <Section aria-labelledby="topic-articles-heading" spacing="sm" size="wide">
+        {articlesState.isLoading && <CardGridSkeleton count={3} />}
+        {articlesState.isError && !articlesState.isNotFound && (
+          <ErrorState onRetry={articlesState.retry} />
+        )}
+        {articlesState.data &&
+          (articles.length > 0 ? (
+            <>
+              {lead && (
+                <div className="mb-14">
+                  <h2 id="topic-featured-heading" className="sr-only">
+                    Featured in {topic.name}
+                  </h2>
+                  <ArticleCard article={lead} variant="feature" headingLevel="h3" priority />
+                </div>
+              )}
+              {rest.length > 0 && (
+                <>
+                  <EditorialHeading
+                    id="topic-articles-heading"
+                    title={firstPage ? `Latest in ${topic.name}` : `More in ${topic.name}`}
                   />
-                )}
-              </>
-            ) : (
+                  <ArticleGrid articles={rest} className="mt-8" />
+                </>
+              )}
+              {!rest.length && (
+                <h2 id="topic-articles-heading" className="sr-only">
+                  Articles on {topic.name}
+                </h2>
+              )}
+              {pagination && (
+                <Pagination
+                  page={pagination.page}
+                  totalPages={pagination.total_pages}
+                  hrefFor={(p) => routes.topicPage(topic.slug, p)}
+                  label={`${topic.name} article pages`}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <h2 id="topic-articles-heading" className="sr-only">
+                Articles on {topic.name}
+              </h2>
               <EmptyState
                 icon={PenLine}
                 title="New articles are being written"
                 description={`We are preparing thoughtful articles on ${topic.name.toLowerCase()}. In the meantime, explore our latest writing.`}
                 action={<ButtonLink to={routes.articles}>Browse all articles</ButtonLink>}
               />
-            ))}
-        </div>
+            </>
+          ))}
       </Section>
 
       {otherTopics.length > 0 && (
-        <Section tone="cream" spacing="sm" aria-labelledby="other-topics-heading">
-          <h2 id="other-topics-heading" className="text-2xl font-medium">
-            Explore other topics
-          </h2>
-          <ul className="mt-6 flex flex-wrap gap-3">
-            {otherTopics.map((t) => (
-              <li key={t.slug}>
-                <Link
-                  to={routes.topic(t.slug)}
-                  className="inline-flex items-center gap-2 rounded-full border border-charcoal/15 bg-white/60 px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-sage-600 hover:text-sage-800"
-                >
-                  <TopicIcon name={t.icon} className="size-4 text-sage-700" />
-                  {t.name}
-                  <ArrowRight aria-hidden className="size-3.5" />
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <Section tone="cream" spacing="sm" size="wide" aria-labelledby="other-topics-heading">
+          <EditorialHeading
+            id="other-topics-heading"
+            title="Explore other topics"
+            size="sm"
+            action={{ to: routes.articles, label: "All articles" }}
+          />
+          <TopicLinks topics={otherTopics} label="Other topics" className="mt-6" />
         </Section>
       )}
     </>

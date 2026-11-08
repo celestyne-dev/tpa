@@ -103,5 +103,6 @@ class ProductSchema(Schema):
 topic_schema = TopicSchema()
 topics_schema = TopicSchema(many=True)
 article_summaries_schema = ArticleSummarySchema(many=True)
+article_summary_schema = ArticleSummarySchema()
 article_detail_schema = ArticleDetailSchema()
 products_schema = ProductSchema(many=True)

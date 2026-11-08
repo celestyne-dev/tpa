@@ -10,7 +10,10 @@ export function AddSectionDialog({ open, types, existing, onClose, onAddType, on
   const [tab, setTab] = useState("types");
   const usedSingles = new Set(existing.filter((s) => s.is_visible).map((s) => s.section_type));
   const categories = [...new Set(types.map((t) => t.category))].filter((c) => c !== "Shared");
-  const insertable = shared.filter((s) => !["hero", "page_header"].includes(s.section_type));
+  const allowed = new Set(types.map((t) => t.type));
+  const insertable = shared.filter(
+    (s) => !["hero", "page_header"].includes(s.section_type) && allowed.has(s.section_type),
+  );
   return (
     <Modal open={open} title="Add a section" onClose={onClose} size="lg">
       <div role="tablist" aria-label="Section source" className="mb-4 flex gap-2">

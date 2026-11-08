@@ -10,7 +10,9 @@ describe("resource library", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Written resources for your growth" }),
     ).toBeVisible();
-    expect(await screen.findByText("4 resources")).toBeVisible();
+    // "Coming soon" items are never listed (only resources visitors can get now).
+    expect(await screen.findByText("3 resources")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "The Power of Starting Again" })).toBeNull();
     const types = screen.getByRole("group", { name: "Type" });
     expect(within(types).getByRole("button", { name: "All types" })).toHaveAttribute(
       "aria-pressed",

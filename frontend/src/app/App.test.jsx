@@ -139,7 +139,7 @@ describe("articles", () => {
       screen.getByRole("heading", { level: 2, name: "Notice the thought first" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Sample editorial content")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Keep reading" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Related articles" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Illustration for reframing/ })).toBeInTheDocument();
     await waitFor(() =>
       expect(document.title).toBe("How to Reframe a Negative Thought | Think Positive Always"),

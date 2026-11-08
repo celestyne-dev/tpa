@@ -6,6 +6,7 @@ export const routes = {
   article: (slug) => `/articles/${slug}`,
   topic: (slug) => `/topics/${slug}`,
   topicPage: (slug, page) => (page > 1 ? `/topics/${slug}/page/${page}` : `/topics/${slug}`),
+  authors: "/authors",
   author: (slug) => `/authors/${slug}`,
   authorPage: (slug, page) => (page > 1 ? `/authors/${slug}/page/${page}` : `/authors/${slug}`),
   search: "/search",
@@ -69,6 +70,8 @@ export const footerNav = [
     items: [
       { label: "Home", href: routes.home },
       { label: "Articles", href: routes.articles },
+      { label: "Authors", href: routes.authors },
+      { label: "Search", href: routes.search },
       { label: "Positive Mindset", href: routes.topic("positive-mindset") },
       { label: "Personal Growth", href: routes.topic("personal-growth") },
       { label: "Resilience & Starting Over", href: routes.topic("resilience-starting-over") },
@@ -146,6 +149,7 @@ export const privateRoutes = [
 export const staticRoutes = [
   { path: routes.home, priority: 1, changefreq: "weekly" },
   { path: routes.articles, priority: 0.9, changefreq: "daily" },
+  { path: routes.authors, priority: 0.5, changefreq: "weekly" },
   { path: routes.shop, priority: 0.8, changefreq: "weekly" },
   { path: routes.freeResources, priority: 0.8, changefreq: "monthly" },
   { path: routes.resources, priority: 0.8, changefreq: "weekly" },

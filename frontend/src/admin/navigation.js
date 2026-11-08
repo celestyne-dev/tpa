@@ -26,6 +26,7 @@ import {
   Home,
   Blocks,
   PanelBottom,
+  PanelRight,
   Palette,
   Bell,
   BadgeCheck,
@@ -243,6 +244,12 @@ export const adminSections = [
     title: "Website",
     items: [
       { label: "Homepage", to: "/admin/homepage", icon: Home, permission: "homepage.view" },
+      {
+        label: "Article sidebar",
+        to: "/admin/article-sidebar",
+        icon: PanelRight,
+        permission: "homepage.view",
+      },
       { label: "Pages", to: "/admin/pages", icon: LayoutTemplate, permission: "pages.view" },
       {
         label: "Shared sections",

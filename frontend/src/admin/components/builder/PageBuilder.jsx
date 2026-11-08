@@ -225,7 +225,7 @@ function SectionEditor({ type, section, onChange, errors, disabled }) {
   );
 }
 
-function Builder({ load, isHome }) {
+function Builder({ load, isHome, isSidebar = false }) {
   const api = useAdminApi();
   const notify = useNotify();
   const navigate = useNavigate();
@@ -436,7 +436,11 @@ function Builder({ load, isHome }) {
     }
   };
 
-  const title = isHome ? "Homepage" : detail.title;
+  const title = isHome ? "Homepage" : isSidebar ? "Article sidebar" : detail.title;
+  // The article sidebar holds only the compact sidebar sections and has no SEO of its own;
+  // sidebar-only sections never go on ordinary pages.
+  const addableTypes = types.filter((t) => (isSidebar ? t.sidebar : !t.sidebar_only));
+  const tabs = isSidebar ? TABS.filter(([key]) => key !== "seo") : TABS;
   return (
     <>
       <AdminPageHeader
@@ -444,12 +448,16 @@ function Builder({ load, isHome }) {
         description={
           isHome
             ? "Edit, reorder and preview the homepage sections. Changes stay private until you publish."
-            : `${detail.path ?? ""} · ${detail.template_label}`
+            : isSidebar
+              ? "The sections shown beside every article (below the article on phones and tablets). Reorder, hide, rename and size them; empty sections are left out. Changes stay private until you publish."
+              : `${detail.path ?? ""} · ${detail.template_label}`
         }
         breadcrumbs={
           isHome
             ? [{ label: "Homepage" }]
-            : [{ label: "Pages", to: "/admin/pages" }, { label: detail.title }]
+            : isSidebar
+              ? [{ label: "Article sidebar" }]
+              : [{ label: "Pages", to: "/admin/pages" }, { label: detail.title }]
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -539,7 +547,7 @@ function Builder({ load, isHome }) {
           aria-label="Page editor"
           className="flex flex-wrap gap-1 border-b border-charcoal/10"
         >
-          {TABS.map(([key, label]) => (
+          {tabs.map(([key, label]) => (
             <button
               key={key}
               type="button"
@@ -673,7 +681,7 @@ function Builder({ load, isHome }) {
 
       <AddSectionDialog
         open={addOpen}
-        types={types}
+        types={addableTypes}
         existing={sections}
         onClose={() => setAddOpen(false)}
         onAddType={(type) => {
@@ -694,7 +702,13 @@ function Builder({ load, isHome }) {
       />
       <ConfirmDialog
         open={confirm === "publish"}
-        title={isHome ? "Publish the homepage?" : `Publish “${detail.title}”?`}
+        title={
+          isHome
+            ? "Publish the homepage?"
+            : isSidebar
+              ? "Publish the article sidebar?"
+              : `Publish “${detail.title}”?`
+        }
         message={`${dirty ? "Your changes are saved first. " : ""}The live website updates after the queued rebuild finishes (usually within a minute or two). Earlier versions stay in History.`}
         confirmLabel="Publish"
         busy={busy}

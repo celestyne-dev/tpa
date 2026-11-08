@@ -24,6 +24,7 @@ from .serializers import iso
 STATIC_PATHS: list[tuple[str, float, str]] = [
     ("/", 1.0, "weekly"),
     ("/articles", 0.9, "daily"),
+    ("/authors", 0.5, "weekly"),
     ("/shop", 0.8, "weekly"),
     ("/free-resources", 0.8, "monthly"),
     ("/resources", 0.8, "weekly"),
@@ -655,6 +656,8 @@ def sitemap_entries() -> list[dict[str, Any]]:
             continue
         if path == "/advertise" and not media_kit_live and path not in live:
             continue  # nothing to index until the media kit is published
+        if path == "/authors" and not _has_author_pages():
+            continue  # the authors index only lists writers who have a page
         page = live.pop(path, None)
         if page is not None:
             entry = page_entry(page, path, priority, changefreq)
@@ -723,6 +726,12 @@ def sitemap_entries() -> list[dict[str, Any]]:
     entries.extend(_shop_entries(excluded))
     entries.extend(_course_entries(excluded))
     return entries
+
+
+def _has_author_pages() -> bool:
+    from .article_service import authors_with_pages
+
+    return bool(authors_with_pages())
 
 
 def _course_entries(excluded: set[str]) -> list[dict[str, Any]]:

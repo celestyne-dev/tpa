@@ -83,6 +83,9 @@ const articlesSlice = createSlice({
         state.bySlug[action.meta.arg.slug] = {
           article: action.payload.article,
           related: action.payload.related,
+          // Previous/next articles and the article sidebar (older APIs: absent).
+          adjacent: action.payload.adjacent ?? null,
+          sidebar: action.payload.sidebar ?? [],
           status: Status.succeeded,
           error: null,
         };

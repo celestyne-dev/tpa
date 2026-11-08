@@ -34,6 +34,7 @@ export const siteConfig = {
     alt: "Think Positive Always",
   },
   newsletterName: "The Positive Reset",
+  newsletterTagline: "A Better Mindset. A Brighter Life.",
 };
 
 /**

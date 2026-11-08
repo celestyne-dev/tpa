@@ -53,6 +53,9 @@ export const SECTION_COMPONENTS = {
   latest_articles: LatestArticlesSection,
   article_collection: ArticleCollectionSection,
   popular_articles: PopularArticlesSection,
+  // Sidebar-only (Admin › Article sidebar renders it compactly); the backend refuses it
+  // on ordinary pages, so this is only a safe fallback.
+  related_articles: ArticleCollectionSection,
   topic_articles: TopicArticlesSection,
   topics_grid: TopicsSection,
   quote: QuoteSection,

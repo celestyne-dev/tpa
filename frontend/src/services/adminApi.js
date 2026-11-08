@@ -196,6 +196,7 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       list: (params) => get("/pages", params),
       get: (id) => get(`/pages/${id}`),
       homepage: () => get("/homepage"),
+      articleSidebar: () => get("/article-sidebar"),
       // Replaces the homepage draft's sections with the editorial layout (never publishes).
       loadEditorialLayout: (lockVersion) =>
         post("/homepage/editorial-layout", { lock_version: lockVersion ?? null }),

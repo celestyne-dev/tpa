@@ -43,7 +43,8 @@ CLASSES = ("KEEP_200", "REDIRECT_301", "RETIRE_410", "ALLOW_404", "REVIEW")
 # keeps them in sync).
 ESSENTIAL_PATHS = frozenset(
     {
-        "/", "/articles", "/topics", "/shop", "/free-resources", "/resources", "/courses",
+        "/", "/articles", "/authors", "/topics", "/shop", "/free-resources", "/resources",
+        "/courses",
         "/membership", "/newsletter", "/partner-with-us", "/advertise", "/about", "/contact",
         "/privacy-policy", "/terms", "/affiliate-disclosure", "/login", "/register",
         "/verify-email", "/forgot-password", "/reset-password", "/sitemap.xml", "/robots.txt",

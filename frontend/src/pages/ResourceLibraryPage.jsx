@@ -6,12 +6,14 @@ import { ProductCard } from "@/components/products/ProductCard";
 import { Seo } from "@/components/seo/Seo";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { EditorialHeading } from "@/components/ui/EditorialHeading";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
 import { useProducts } from "@/hooks/useContent";
 import { useDisplayCurrency } from "@/hooks/useShop";
+import { listedResources } from "@/utils/resources";
 import { breadcrumbJsonLd } from "@/utils/structuredData";
 
 const ACCESS = [
@@ -26,10 +28,10 @@ function Chip({ active, onClick, children }) {
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+      className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
         active
-          ? "bg-sage-700 text-ivory"
-          : "border border-charcoal/15 bg-white text-charcoal hover:border-sage-600"
+          ? "border-sage-700 bg-sage-700 text-ivory"
+          : "border-charcoal/15 bg-white/60 text-ink hover:border-sage-600 hover:text-sage-800"
       }`}
     >
       {children}
@@ -53,7 +55,7 @@ export function ResourceLibraryPage() {
     else next.delete(key);
     setParams(next, { replace: true, preventScrollReset: true });
   };
-  const resources = useMemo(() => (products ?? []).filter((p) => p.type !== "bundle"), [products]);
+  const resources = useMemo(() => listedResources(products), [products]);
   const types = useMemo(() => {
     const seen = new Map();
     resources.forEach((p) => seen.set(p.type, p.type_label));
@@ -81,10 +83,14 @@ export function ResourceLibraryPage() {
         description="Practical eBooks, workbooks, planners and templates you can download and use at your own pace."
         breadcrumbs={crumbs}
       />
-      <Section aria-labelledby="library-heading">
-        <h2 id="library-heading" className="sr-only">
-          Resources
-        </h2>
+      <Section aria-labelledby="library-heading" spacing="sm">
+        <EditorialHeading
+          id="library-heading"
+          title="Browse the library"
+          description="Filter by type of resource, or show only the free ones."
+          action={{ to: routes.freeResources, label: "Free resources" }}
+          className="mb-8"
+        />
         <div className="space-y-4">
           <fieldset>
             <legend className="mb-2 text-sm font-medium">Type</legend>

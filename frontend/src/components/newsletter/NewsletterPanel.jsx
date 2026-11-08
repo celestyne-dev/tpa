@@ -33,6 +33,7 @@ export function NewsletterPanel({
   const { data: site } = useSite();
   const name = site?.newsletter?.name ?? siteConfig.newsletterName;
   const heading = title || name;
+  const tagline = site?.newsletter?.tagline ?? siteConfig.newsletterTagline;
   const isOpen = site?.newsletter?.is_open === true;
 
   return (
@@ -58,6 +59,7 @@ export function NewsletterPanel({
           </p>
         )}
         <Heading className="mt-3 text-4xl font-medium text-ivory sm:text-5xl">{heading}</Heading>
+        {tagline && <p className="mt-3 font-serif text-xl text-gold-300 italic">{tagline}</p>}
         {description && <p className="mt-5 text-lg text-sage-100">{description}</p>}
 
         {leadMagnet?.available ? (

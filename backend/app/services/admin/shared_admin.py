@@ -172,7 +172,11 @@ def _clean(data: dict[str, Any], existing: ReusableSection | None) -> dict[str, 
         errors["description"] = ["Use plain text of up to 300 characters."]
     out["description"] = description.strip() or None
     section_type = existing.section_type if existing else data.get("section_type")
-    if section_type not in SECTION_TYPES or section_type in ("hero", "page_header"):
+    if (
+        section_type not in SECTION_TYPES
+        or section_type in ("hero", "page_header")
+        or SECTION_TYPES[section_type].get("sidebar_only")
+    ):
         errors["section_type"] = ["Choose a section type that can be shared."]
         raise ValidationError("The shared section is invalid.", details=errors)
     clean, problems, refs = check_section(

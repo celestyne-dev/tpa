@@ -51,11 +51,56 @@ function CompactArticleCard({ article, headingLevel: Heading = "h3", showImage =
 }
 
 /**
+ * A horizontal story with its excerpt: archives, search results and author pages. The
+ * thumbnail sits on the left (above on very small screens it stays a small square), and
+ * the title is the one link. `title`/`excerpt` may be given as nodes (search highlights).
+ */
+function RowArticleCard({ article, headingLevel: Heading = "h3", title, excerpt, priority }) {
+  return (
+    <article className="group relative flex gap-4 sm:gap-6">
+      <div className="relative aspect-square w-24 shrink-0 overflow-hidden rounded-xl bg-beige sm:aspect-[4/3] sm:w-48 lg:w-56">
+        <ContentImage
+          image={article.image}
+          fill
+          priority={priority}
+          sizes="(min-width: 1024px) 224px, (min-width: 640px) 192px, 96px"
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.04] motion-reduce:group-hover:scale-100"
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
+          {article.topic?.name ?? "Articles"}
+        </p>
+        <SponsoredLabel sponsorship={article.sponsorship} compact className="mt-1" />
+        <Heading className="mt-1.5 text-xl leading-snug font-medium text-balance sm:text-2xl">
+          <Link
+            to={routes.article(article.slug)}
+            className={cn("group-hover:text-sage-800", TITLE_LINK, "after:rounded-xl")}
+          >
+            {title ?? article.title}
+          </Link>
+        </Heading>
+        {article.excerpt && (
+          <p className="mt-2 hidden text-muted sm:line-clamp-2">{excerpt ?? article.excerpt}</p>
+        )}
+        <ArticleMeta
+          publishedAt={article.published_at}
+          updatedAt={article.content_modified_at}
+          readingTimeMinutes={article.reading_time_minutes}
+          className="mt-3 text-xs sm:text-sm"
+        />
+      </div>
+    </article>
+  );
+}
+
+/**
  * Article card.
  * - `default`: image above the text (grids).
  * - `feature`: image beside the text on wider screens.
  * - `lead`: the large lead story of an editorial front page.
- * - `compact`: a small horizontal story (beside a lead, in topic groups).
+ * - `compact`: a small horizontal story (beside a lead, in topic groups, the sidebar).
+ * - `row`: a horizontal story with its excerpt (archives, search, author pages).
  */
 export function ArticleCard({
   article,
@@ -64,7 +109,20 @@ export function ArticleCard({
   priority = false,
   tone = "white",
   showImage = true,
+  title,
+  excerpt,
 }) {
+  if (variant === "row") {
+    return (
+      <RowArticleCard
+        article={article}
+        headingLevel={Heading}
+        title={title}
+        excerpt={excerpt}
+        priority={priority}
+      />
+    );
+  }
   if (variant === "compact") {
     return <CompactArticleCard article={article} headingLevel={Heading} showImage={showImage} />;
   }
