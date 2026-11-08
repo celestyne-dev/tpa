@@ -106,6 +106,8 @@ jobs:
   build:
     name: Production build + prerender validation
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # THROWAWAY branch only: pushes the built site for screenshots
     timeout-minutes: 30
     env:
       FLASK_CONFIG: development
@@ -118,6 +120,8 @@ jobs:
       VITE_SITE_URL: https://ci.example.com
       VITE_ALLOW_INDEXING: "true"
       PRERENDER_API_URL: http://127.0.0.1:5000/api/v1
+      NEWSLETTER_MAIL_BACKEND: console  # THROWAWAY: so the open form can be checked
+      NEWSLETTER_FROM_EMAIL: hello@example.invalid  # THROWAWAY
       TPA_RELEASE: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -139,6 +143,7 @@ jobs:
           flask --app wsgi seed sample-content
           flask --app wsgi cms seed-defaults
           python scripts/ci_build_fixtures.py   # 26 articles: pagination + an author page
+          PRODUCT_FILES_ROOT=/tmp/tpa-ci-files UPLOAD_TEMP_ROOT=/tmp/tpa-ci-tmp python scripts/visual_check_fixtures.py  # THROWAWAY
           nohup flask --app wsgi run --port 5000 > /tmp/tpa-ci-api.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5000/api/v1/health && break; sleep 1; done
       - working-directory: frontend
@@ -149,6 +154,22 @@ jobs:
       - name: Validate the built site
         working-directory: frontend
         run: node scripts/verify-build.mjs
+      - name: Visual check bundle (THROWAWAY branch only)
+        if: always()
+        run: mkdir -p /tmp/visual && cp -r frontend/dist /tmp/visual/dist && cp -r /tmp/tpa-ci-media/public /tmp/visual/media
+      - name: Push the built site to a throwaway branch (THROWAWAY)
+        if: always()
+        run: |
+          git config user.name "visual-check"
+          git config user.email "visual-check@example.invalid"
+          git checkout -q --orphan visual-output
+          git rm -rq --cached . >/dev/null
+          mkdir -p /tmp/out && cp -r /tmp/visual /tmp/out/visual
+          git clean -fdxq
+          cp -r /tmp/out/visual visual
+          git add -f visual
+          git commit -qm "visual build output [skip ci]"
+          git push -qf origin HEAD:refs/heads/claude/tpa-homepage-v2-visual-output
       - name: API log
         if: failure()
         run: tail -100 /tmp/tpa-ci-api.log
