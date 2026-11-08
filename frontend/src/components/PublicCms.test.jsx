@@ -229,7 +229,8 @@ describe("site-wide CMS content", () => {
       "href",
       "mailto:hello@example.org",
     );
-    expect(within(footer).queryByText(/Learn about The Positive Reset/)).toBeNull();
+    // "Show the newsletter invitation" off: no invitation.
+    expect(within(footer).queryByRole("link", { name: /Explore the Newsletter/ })).toBeNull();
   });
 
   it("applies the approved branding presets and the CMS logo", async () => {

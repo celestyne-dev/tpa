@@ -315,17 +315,19 @@ SETTINGS += [
     ),
     SettingDef(
         "footer.show_newsletter_link",
-        "Show the newsletter link",
+        "Show the newsletter invitation",
         "Footer",
         "boolean",
         _const(True),
+        help="A short invitation to The Positive Reset with a button to /newsletter. The "
+        "footer never shows a sign-up form.",
     ),
     SettingDef(
         "footer.newsletter_label",
-        "Newsletter link text",
+        "Newsletter button text",
         "Footer",
         "string",
-        _const("Learn about The Positive Reset"),
+        _const("Explore the Newsletter"),
         80,
     ),
     SettingDef("footer.show_contact", "Show the contact email", "Footer", "boolean", _const(False)),

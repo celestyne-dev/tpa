@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pageHasNewsletterForm } from "@/components/layout/SiteFooter";
 import { ArticleSidebar, STICKY_OFFSET, stickyTop } from "@/components/sidebar/ArticleSidebar";
 import { ApiError } from "@/services/apiClient";
 import { createAppStore } from "@/store";
@@ -292,26 +291,6 @@ describe("newsletter on article pages", () => {
     expect(endPanel()).toBeNull();
     expect(
       within(sidebarNewsletter()).getByText(/isn.t available on the website at the moment/),
-    ).toBeInTheDocument();
-  });
-
-  it("keeps the footer to a link where the page already has a form", () => {
-    expect(pageHasNewsletterForm("/")).toBe(true);
-    expect(pageHasNewsletterForm("/articles/some-story")).toBe(true);
-    expect(pageHasNewsletterForm("/newsletter")).toBe(true);
-    expect(pageHasNewsletterForm("/register")).toBe(true);
-    expect(pageHasNewsletterForm("/account/settings")).toBe(true);
-    expect(pageHasNewsletterForm("/about")).toBe(false);
-  });
-
-  it("offers the footer form on pages without one", async () => {
-    renderApp("/about", {
-      api: createFakeApi({ getSite: vi.fn(async () => ({ data: siteWith(true) })) }),
-      shopApi: shop(true),
-    });
-    const footer = await screen.findByRole("contentinfo");
-    expect(
-      await within(footer).findByRole("form", { name: /Subscribe to The Positive Reset/ }),
     ).toBeInTheDocument();
   });
 });

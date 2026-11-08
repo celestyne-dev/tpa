@@ -1,36 +1,21 @@
-import { ArrowUpRight, Mail } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { ArrowRight, ArrowUpRight, Mail } from "lucide-react";
+import { Link } from "react-router";
 import { Container } from "@/components/ui/Container";
 import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/utils/format";
 import { useNavigation } from "@/hooks/useNavigation";
-import { NewsletterSignupForm } from "@/components/newsletter/NewsletterSignupForm";
-import { useNewsletterStatus } from "@/components/newsletter/useNewsletterStatus";
 import { Logo } from "./Logo";
 
 const DEFAULT_FOOTER_TEXT =
   "Practical encouragement, mindset insights, and thoughtful personal growth resources to help you build confidence and move forward through every season of life.";
 /**
- * Pages where the footer shows only its "Learn about" link, not the signup form: pages
- * that already carry a Positive Reset form (the homepage section, articles and the
- * archive, the newsletter pages, the shop), and sign-in, registration, account and
- * checkout pages, which have their own email fields and newsletter choice. A page never
- * repeats the form.
+ * The newsletter button text shipped as the default of "Newsletter button text" (Admin ›
+ * Settings › Footer) before the footer invitation. Only that exact, unedited default (or
+ * an empty value) is shown as "Explore the Newsletter"; any text an editor wrote is kept.
  */
-export function pageHasNewsletterForm(pathname) {
-  const under = (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`);
-  return (
-    pathname === "/" ||
-    under(routes.newsletter) ||
-    under(routes.articles) ||
-    under("/shop") ||
-    under(routes.signIn) ||
-    under(routes.register) ||
-    under(routes.account) ||
-    under("/checkout")
-  );
-}
+export const LEGACY_NEWSLETTER_LABEL = "Learn about The Positive Reset";
+const NEWSLETTER_BUTTON = "Explore the Newsletter";
 
 const FOOTER_COLUMNS = {
   1: "sm:grid-cols-1",
@@ -84,6 +69,13 @@ function Copyright({ template, name, year }) {
   );
 }
 
+/**
+ * The one site footer, identical on every public page: brand text, a short invitation to
+ * The Positive Reset (a link to /newsletter, never a form; the full sign-up lives on that
+ * page), the CMS footer columns, and the copyright, legal and social links. Everything
+ * editable comes from Admin › Navigation (footer columns, footer legal links) and Admin ›
+ * Settings › Footer; nothing here depends on the page being viewed.
+ */
 export function SiteFooter({ site }) {
   const year = new Date().getFullYear();
   const { footer, legal } = useNavigation();
@@ -91,9 +83,23 @@ export function SiteFooter({ site }) {
   const socialLinks = settings.show_social === false ? [] : (site?.social_links ?? []);
   const name = site?.name ?? siteConfig.name;
   const promo = settings.promo;
-  const { pathname } = useLocation();
-  const { status: newsletter, isOpen: newsletterOpen } = useNewsletterStatus();
-  const showFooterForm = newsletterOpen && !pageHasNewsletterForm(pathname);
+  const newsletterName = site?.newsletter?.name || siteConfig.newsletterName;
+  const showInvitation = settings.show_newsletter_link !== false;
+  const invitationLabel =
+    !settings.newsletter_label || settings.newsletter_label === LEGACY_NEWSLETTER_LABEL
+      ? NEWSLETTER_BUTTON
+      : settings.newsletter_label;
+  // The invitation already links to /newsletter; a column link to the same page would
+  // repeat it, so it is left out of the columns while the invitation shows (the menu
+  // itself is unchanged in the CMS).
+  const columns = footer
+    .map((group) => ({
+      ...group,
+      items: showInvitation
+        ? group.items.filter((item) => item.href !== routes.newsletter)
+        : group.items,
+    }))
+    .filter((group) => group.items.length > 0);
   // Editorial and corrections policies, only while those pages are published.
   const legalHrefs = new Set(legal.map((item) => item.href));
   const trustLinks = [site?.trust?.editorial_policy, site?.trust?.corrections_policy]
@@ -124,28 +130,21 @@ export function SiteFooter({ site }) {
             <p className="mt-6 text-[0.95rem] leading-relaxed">
               {settings.text || DEFAULT_FOOTER_TEXT}
             </p>
-            {showFooterForm && (
-              <div className="mt-6">
-                <p className="font-medium text-ivory">
-                  Get {newsletter?.name ?? siteConfig.newsletterName} by email
-                </p>
-                <NewsletterSignupForm
-                  compact
-                  source="footer"
-                  showFirstName={false}
-                  tone="dark"
-                  className="mx-0 mt-3"
-                />
-              </div>
-            )}
-            {settings.show_newsletter_link !== false && (
-              <Link
-                to={routes.newsletter}
-                className="mt-6 inline-flex items-center gap-1.5 font-medium text-gold-300 underline-offset-4 hover:underline"
+            {showInvitation && (
+              <div
+                data-footer-newsletter
+                className="mt-7 rounded-2xl border border-ivory/10 bg-ivory/[0.04] p-5"
               >
-                {settings.newsletter_label || `Learn about ${siteConfig.newsletterName}`}
-                <ArrowUpRight aria-hidden className="size-4" />
-              </Link>
+                <p className="font-serif text-xl text-ivory">{newsletterName}</p>
+                <p className="mt-1 text-[0.95rem]">A little encouragement, every day.</p>
+                <Link
+                  to={routes.newsletter}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-gold-300/60 px-4 py-2 text-sm font-medium text-ivory transition-colors hover:border-gold-300 hover:bg-ivory/10"
+                >
+                  {invitationLabel}
+                  <ArrowRight aria-hidden className="size-4" />
+                </Link>
+              </div>
             )}
             {settings.show_contact && site?.contact?.email && (
               <p className="mt-4">
@@ -161,14 +160,14 @@ export function SiteFooter({ site }) {
           </div>
 
           <div
-            data-footer-columns={footer.length}
+            data-footer-columns={columns.length}
             className={cn(
               "grid grid-cols-2 gap-x-8 gap-y-10",
               // As many equal columns as there are link groups, once there is room.
-              FOOTER_COLUMNS[Math.min(footer.length, 4)],
+              FOOTER_COLUMNS[Math.min(columns.length, 4)],
             )}
           >
-            {footer.map((group) => (
+            {columns.map((group) => (
               <nav key={group.title} aria-label={group.title}>
                 <h2 className="font-sans text-xs font-semibold tracking-[0.16em] text-ivory uppercase">
                   {group.title}

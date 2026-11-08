@@ -78,7 +78,7 @@ export const footerNav = [
     ],
   },
   {
-    title: "Shop & Resources",
+    title: "Resources",
     items: [
       { label: "Shop", href: routes.shop },
       { label: "Courses", href: routes.courses },
