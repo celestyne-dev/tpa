@@ -75,7 +75,7 @@ function Hero({ name, tagline, isOpen }) {
 
           <div
             id="subscribe"
-            className="min-w-0 rounded-[1.75rem] border border-charcoal/10 border-t-4 border-t-sage-700 bg-ivory p-6 shadow-soft sm:p-8"
+            className="min-w-0 rounded-[1.75rem] border border-t-4 border-charcoal/10 border-t-sage-700 bg-ivory p-6 shadow-soft sm:p-8"
           >
             <h2 className="text-2xl font-medium">Join {name}</h2>
             <p className="mt-2 text-muted">Add your email below. Your first name is optional.</p>
