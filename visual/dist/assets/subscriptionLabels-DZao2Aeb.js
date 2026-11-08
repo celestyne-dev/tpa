@@ -1,0 +1,1 @@
+var e={pending:`Awaiting first payment`,active:`Active`,past_due:`Payment failed`,grace:`Grace period`,incomplete:`Checkout not completed`,ended:`Ended`};export{e as t};
