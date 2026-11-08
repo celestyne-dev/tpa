@@ -52,13 +52,15 @@ export function ArticlesPage() {
         ]}
       >
         {usedTopics.length > 0 && (
-          <nav aria-label="Browse by topic">
-            <ul className="flex flex-wrap gap-2">
+          // One swipeable row on phones (so the articles start on the first screen); wraps
+          // from the small breakpoint up.
+          <nav aria-label="Browse by topic" className="-mx-5 sm:mx-0">
+            <ul className="flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
               {usedTopics.map((t) => (
-                <li key={t.slug}>
+                <li key={t.slug} className="shrink-0">
                   <Link
                     to={routes.topic(t.slug)}
-                    className="inline-flex rounded-full border border-charcoal/15 bg-white/60 px-3.5 py-1.5 text-sm font-medium text-ink transition-colors hover:border-sage-600 hover:text-sage-800"
+                    className="inline-flex rounded-full border border-charcoal/15 bg-white/60 px-3.5 py-1.5 text-sm font-medium whitespace-nowrap text-ink transition-colors hover:border-sage-600 hover:text-sage-800"
                   >
                     {t.name}
                   </Link>
