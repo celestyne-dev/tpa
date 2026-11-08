@@ -125,6 +125,8 @@ export function createNewsletterAdminFake(getUser) {
           : forbidden(),
       ),
       exportUrl: () => "/api/v1/admin/subscribers/export",
+      providerExportUrl: (params = {}) =>
+        `/api/v1/admin/subscribers/export/provider?${new URLSearchParams(params).toString()}`,
     },
     emailSettings: { get: vi.fn(() => (has("email_settings.manage") ? ok({}) : forbidden())) },
   };

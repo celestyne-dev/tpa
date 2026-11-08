@@ -123,6 +123,28 @@ class SubscriberExportResource(Resource):
         )
 
 
+class SubscriberProviderExportResource(Resource):
+    """CSV for an external email service provider (consent evidence and verification
+    status; never unsubscribed or suppressed contacts). Audited."""
+
+    @require_permission(P.SUBSCRIBERS_EXPORT)
+    def get(self):
+        args = {k: v for k, v in request.args.items() if len(v) <= 120}
+        content = subscribers.export_esp_csv(args, current_user)
+        db.session.commit()
+        stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
+        return Response(
+            content,
+            mimetype="text/csv",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="positive-reset-contacts-{stamp}.csv"'
+                ),
+                "Cache-Control": "no-store",
+            },
+        )
+
+
 class SubscriberImportResource(Resource):
     @require_permission(P.SUBSCRIBERS_MANAGE)
     def post(self):
@@ -499,6 +521,7 @@ class EmailAttestationResource(Resource):
 NEWSLETTER_ROUTES = [
     (SubscriberListResource, "/admin/subscribers"),
     (SubscriberExportResource, "/admin/subscribers/export"),
+    (SubscriberProviderExportResource, "/admin/subscribers/export/provider"),
     (SubscriberImportResource, "/admin/subscribers/import"),
     (SubscriberBulkTagResource, "/admin/subscribers/bulk-tag"),
     (SubscriberResource, "/admin/subscribers/<int:subscriber_id>"),

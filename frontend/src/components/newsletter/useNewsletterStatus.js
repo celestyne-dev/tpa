@@ -78,6 +78,8 @@ export function useNewsletterStatus() {
       is_open: live.signup_open === true,
       consent_text: live.consent_text ?? "",
       consent_version: live.consent_version ?? "",
+      signup_mode: live.signup_mode ?? base?.signup_mode,
+      confirmation_email: live.confirmation_email ?? base?.confirmation_email,
     };
   }, [base, live]);
 

@@ -6,11 +6,14 @@ import { useAdminApi } from "../../adminApiContext";
 import { AdminPageHeader } from "../../components/AdminPageHeader";
 import { fieldError } from "../../components/fieldError";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "../../components/Fields";
-import { MODE_LABELS } from "../../components/newsletterLabels";
+import { MODE_LABELS, SIGNUP_MODE_LABELS } from "../../components/newsletterLabels";
 import { useNotify } from "../../components/notifyContext";
 import { useAdminQuery } from "../../hooks/useAdminQuery";
 
 const EDITABLE = [
+  "signup_mode",
+  "collection_consent_text",
+  "collection_consent_version",
   "sending_mode",
   "from_name",
   "reply_to",
@@ -63,6 +66,48 @@ function SettingsEditor({ data, setData }) {
       />
       <div className="grid gap-6 xl:grid-cols-[1fr_24rem]">
         <form onSubmit={save} className="space-y-4 rounded-2xl bg-white p-5 shadow-sm">
+          <fieldset className="space-y-4 rounded-xl border border-charcoal/10 p-4">
+            <legend className="px-1 text-sm font-medium">Website sign-ups</legend>
+            <SelectField
+              label="Signup mode"
+              value={form.signup_mode}
+              error={fieldError(saveError, "signup_mode")}
+              hint="Independent of the sending mode. Sign-ups are taken only while “Newsletter sign-ups open” is on (Settings › Newsletter)."
+              onChange={(e) => setForm({ ...form, signup_mode: e.target.value })}
+              options={Object.entries(SIGNUP_MODE_LABELS).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
+            <p className="text-sm" role="status">
+              Website sign-ups are currently <strong>{data.signup_open ? "open" : "closed"}</strong>
+              .
+            </p>
+            {form.signup_mode === "collection_only" && (
+              <>
+                <p className="text-sm text-muted">
+                  Sign-ups are stored with their consent evidence as “Collected (not verified)”: no
+                  confirmation email is sent, so addresses are not verified. Export them for your
+                  email service provider from Subscribers.
+                </p>
+                <TextField
+                  label="Collection consent version"
+                  value={form.collection_consent_version}
+                  error={fieldError(saveError, "collection_consent_version")}
+                  hint="Change it whenever the collection wording changes."
+                  onChange={(e) => setForm({ ...form, collection_consent_version: e.target.value })}
+                />
+                <TextAreaField
+                  label="Collection consent wording (shown next to every signup form)"
+                  rows={4}
+                  value={form.collection_consent_text}
+                  error={fieldError(saveError, "collection_consent_text")}
+                  hint="Say what is stored and how it is used. Don't promise a confirmation email."
+                  onChange={(e) => setForm({ ...form, collection_consent_text: e.target.value })}
+                />
+              </>
+            )}
+          </fieldset>
           <SelectField
             label="Sending mode"
             value={form.sending_mode}
@@ -99,7 +144,7 @@ function SettingsEditor({ data, setData }) {
             />
           </div>
           <TextAreaField
-            label="Consent wording (shown next to every signup form)"
+            label="Double opt-in consent wording (shown next to signup forms in double opt-in mode)"
             rows={3}
             value={form.consent_text}
             error={fieldError(saveError, "consent_text")}
@@ -119,8 +164,8 @@ function SettingsEditor({ data, setData }) {
           )}
           <Button type="submit">Save settings</Button>
           <p className="text-xs text-muted">
-            Changing the sending mode or consent wording queues a site rebuild so signup forms
-            appear, update or disappear.
+            Changing the signup mode, sending mode or consent wording queues a site rebuild so
+            signup forms appear, update or disappear.
           </p>
         </form>
         <aside className="space-y-4">

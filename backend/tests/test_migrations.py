@@ -1760,3 +1760,58 @@ def test_running_migrations_keeps_application_logging_enabled(tmp_path):
     with app.app_context():
         upgrade(directory=MIGRATIONS)
     assert app.logger.disabled is False
+
+
+def test_collection_only_status_upgrade_keeps_subscribers_and_downgrades_safely(tmp_path):
+    """The ``collected`` status only widens a check constraint: existing subscribers,
+    their events and tags are untouched; downgrading turns collected rows into
+    quarantined ones (never mailed) and keeps their consent evidence."""
+    app = _app(tmp_path, "collection.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="c4e6a8b0d235")
+        now = "2026-11-01 10:00:00"
+        db.session.execute(
+            text(
+                "INSERT INTO subscribers (id, public_id, email, first_name, status, source, "
+                "source_detail, consent_at, consent_text, consent_version, consent_ip_hash, "
+                "unsubscribe_reason, preferences, interests, import_batch, token_version, "
+                "created_at, updated_at) VALUES (1, 'p1', 'reader@example.com', 'Ada', "
+                "'subscribed', 'footer', '', :now, 'Yes', '2026-10', '', '', '[\"weekly\"]', "
+                "'[]', '', 1, :now, :now)"
+            ),
+            {"now": now},
+        )
+        db.session.execute(
+            text(
+                "INSERT INTO subscriber_events (subscriber_id, event, details, created_at) "
+                "VALUES (1, 'confirmed', '{}', :now)"
+            ),
+            {"now": now},
+        )
+        db.session.commit()
+        db.session.remove()
+        upgrade(directory=MIGRATIONS, revision="d7f1a3c5e908")
+        db.session.execute(
+            text(
+                "INSERT INTO subscribers (id, public_id, email, first_name, status, source, "
+                "source_detail, consent_at, consent_text, consent_version, consent_ip_hash, "
+                "unsubscribe_reason, preferences, interests, import_batch, token_version, "
+                "created_at, updated_at) VALUES (2, 'p2', 'new@example.com', '', 'collected', "
+                "'article', '', :now, 'Yes', '2026-11-collection', '', '', '[\"weekly\"]', "
+                "'[]', '', 1, :now, :now)"
+            ),
+            {"now": now},
+        )
+        db.session.commit()
+        rows = dict(db.session.execute(text("SELECT email, status FROM subscribers")).all())
+        assert rows == {"reader@example.com": "subscribed", "new@example.com": "collected"}
+        assert db.session.execute(text("SELECT COUNT(*) FROM subscriber_events")).scalar() == 1
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="c4e6a8b0d235")
+        rows = dict(db.session.execute(text("SELECT email, status FROM subscribers")).all())
+        assert rows == {"reader@example.com": "subscribed", "new@example.com": "quarantined"}
+        version = db.session.execute(
+            text("SELECT consent_version FROM subscribers WHERE id = 2")
+        ).scalar()
+        assert version == "2026-11-collection"
+        assert db.session.execute(text("SELECT COUNT(*) FROM subscriber_events")).scalar() == 1

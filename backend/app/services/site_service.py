@@ -154,9 +154,9 @@ def get_site_settings() -> dict[str, Any]:
 
 
 def _newsletter() -> dict:
-    """Signup is open only when sending and consent wording are configured (not merely
-    when the "sign-ups open" setting is on)."""
-    from .newsletter.config import get_settings, public_status
+    """Signup is open only when the "sign-ups open" setting is on and the current signup
+    mode is ready (double opt-in: delivery configured; collection-only: consent wording)."""
+    from .newsletter.config import public_status
 
     status = public_status()
     return {
@@ -164,8 +164,10 @@ def _newsletter() -> dict:
         "tagline": status["tagline"],
         "cadence": "daily",
         "is_open": status["signup_open"],
+        "signup_mode": status["signup_mode"],
+        "confirmation_email": status["confirmation_email"],
         "consent_text": status["consent_text"],
-        "consent_version": get_settings()["email.consent_version"] if status["signup_open"] else "",
+        "consent_version": status["consent_version"],
         "preferences": status["preferences"],
         "default_preferences": status["default_preferences"],
     }

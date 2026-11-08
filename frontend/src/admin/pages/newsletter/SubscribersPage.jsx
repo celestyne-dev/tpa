@@ -15,6 +15,7 @@ import {
   SEGMENT_FIELDS,
   SIGNUP_SOURCES,
   SUBSCRIBER_STATUS,
+  VERIFICATION_LABELS,
 } from "../../components/newsletterLabels";
 import { useNotify } from "../../components/notifyContext";
 import { Pagination } from "../../components/Pagination";
@@ -118,6 +119,31 @@ function SubscriberList() {
             Exports contain personal data and are audited.
           </span>
         </p>
+      )}
+      {can("subscribers.export") && (
+        <div className="mb-4 rounded-xl bg-white p-4 text-sm shadow-sm">
+          <h2 className="font-medium">Export for an email service provider</h2>
+          <p className="mt-1 text-muted">
+            Contacts with their consent evidence and verification status. Unsubscribed, bounced,
+            complained, quarantined and suppressed contacts are never included. Collected sign-ups
+            are marked as not verified: confirm them with your provider (for example with its own
+            double opt-in) before treating them as subscribed.
+          </p>
+          <p className="mt-3 flex flex-wrap gap-2">
+            <a
+              href={api.subscribers.providerExportUrl()}
+              className="inline-flex items-center gap-2 rounded-full border border-charcoal/20 px-4 py-2"
+            >
+              <Download aria-hidden className="size-4" /> All contacts with consent (CSV)
+            </a>
+            <a
+              href={api.subscribers.providerExportUrl({ verified_only: "1" })}
+              className="inline-flex items-center gap-2 rounded-full border border-charcoal/20 px-4 py-2"
+            >
+              <Download aria-hidden className="size-4" /> Verified (double opt-in) only (CSV)
+            </a>
+          </p>
+        </div>
       )}
       {error ? (
         <ErrorState title="We couldn't load subscribers" onRetry={reload} />
@@ -706,6 +732,14 @@ export function SubscriberDetailPage() {
               {SIGNUP_SOURCES[s.consent.source] ?? s.consent.source}
               {s.consent.source_detail && ` · ${s.consent.source_detail}`}
             </dd>
+            <dt className="text-muted">Verification</dt>
+            <dd>{VERIFICATION_LABELS[s.verification] ?? VERIFICATION_LABELS.none}</dd>
+            <dt className="text-muted">Confirmation email</dt>
+            <dd>
+              {s.consent.confirmation_sent_at
+                ? `Sent ${formatDateTime(s.consent.confirmation_sent_at)}`
+                : "Never sent"}
+            </dd>
             <dt className="text-muted">Confirmed</dt>
             <dd>{s.consent.confirmed_at ? formatDateTime(s.consent.confirmed_at) : "Not yet"}</dd>
             <dt className="text-muted">IP evidence</dt>
@@ -721,14 +755,14 @@ export function SubscriberDetailPage() {
           </dl>
           {can("subscribers.manage") && (
             <div className="mt-5 flex flex-wrap gap-2">
-              {["subscribed", "pending"].includes(s.status) && (
+              {["subscribed", "pending", "collected"].includes(s.status) && (
                 <Button variant="outline" size="sm" onClick={() => setConfirm("unsubscribe")}>
                   Unsubscribe
                 </Button>
               )}
-              {["pending", "quarantined"].includes(s.status) && (
+              {["pending", "quarantined", "collected"].includes(s.status) && (
                 <Button variant="outline" size="sm" onClick={() => act("resend-confirmation")}>
-                  {s.status === "quarantined"
+                  {s.status !== "pending"
                     ? "Ask to confirm (opt-in request)"
                     : "Resend confirmation"}
                 </Button>

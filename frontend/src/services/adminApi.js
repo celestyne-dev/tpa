@@ -512,6 +512,8 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       import: (body) => post("/subscribers/import", body),
       exportUrl: (params = {}) =>
         `${baseURL}/subscribers/export?${new URLSearchParams(params).toString()}`,
+      providerExportUrl: (params = {}) =>
+        `${baseURL}/subscribers/export/provider?${new URLSearchParams(params).toString()}`,
     },
     subscriberTags: {
       list: () => get("/subscriber-tags"),

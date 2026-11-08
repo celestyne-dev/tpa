@@ -8,6 +8,15 @@ Sending modes:
 - ``test``: mail is delivered only to NEWSLETTER_TEST_RECIPIENTS; every other
   recipient is recorded as skipped. Safe for dry runs of real campaigns.
 - ``live``: needs NEWSLETTER_LIVE_ALLOWED plus every readiness check.
+
+Signup modes (``email.signup_mode``), independent of the sending mode:
+- ``double_opt_in`` (default): website sign-ups get a confirmation email and become
+  ``subscribed`` only after clicking it. Needs delivery to be ready.
+- ``collection_only``: website sign-ups are stored with their consent evidence as
+  ``collected`` (address not verified) and no email is sent. Campaigns go out through an
+  external email service provider, from the admin export. Needs no SMTP, worker or
+  NEWSLETTER_LIVE_ALLOWED. Either way sign-ups open only while the "Newsletter sign-ups
+  open" setting (newsletter.is_open) is on.
 """
 
 from __future__ import annotations
@@ -23,6 +32,7 @@ from ...models import SiteSetting
 from ...utils.errors import ValidationError
 
 SENDING_MODES = ("disabled", "test", "live")
+SIGNUP_MODES = ("double_opt_in", "collection_only")
 NEWSLETTER_NAME = "The Positive Reset"
 NEWSLETTER_TAGLINE = "A Better Mindset. A Brighter Life."
 # Keys are stored on subscribers and used by segments and automations, so they never change.
@@ -39,6 +49,12 @@ DEFAULT_CONSENT_TEXT = (
     "Yes, email me The Positive Reset every day: practical encouragement, healthier thinking, "
     "personal growth and useful resources. I can unsubscribe at any time with one click."
 )
+DEFAULT_COLLECTION_CONSENT_TEXT = (
+    "Yes, send me The Positive Reset, the daily email newsletter from Think Positive Always, "
+    "with practical encouragement, healthier thinking, personal growth and useful resources. "
+    "Think Positive Always will store my email address (and first name, if I give it) to send "
+    "me this newsletter, using an email service provider. I can unsubscribe at any time."
+)
 DEFAULTS: dict[str, Any] = {
     "email.sending_mode": "disabled",
     "email.from_name": "Think Positive Always",
@@ -48,6 +64,11 @@ DEFAULTS: dict[str, Any] = {
     "email.consent_version": "2026-11",
     "email.postal_address": "",
     "email.attestation": None,
+    "email.signup_mode": "double_opt_in",
+    # Collection-only wording says exactly what is stored and how it is used, and promises
+    # no confirmation email. Versioned separately so the evidence shows which was agreed.
+    "email.collection_consent_text": DEFAULT_COLLECTION_CONSENT_TEXT,
+    "email.collection_consent_version": "2026-11-collection",
 }
 ATTESTATIONS = {
     "dns_authenticated": "SPF, DKIM and DMARC are published for the sending domain and pass "
@@ -113,29 +134,60 @@ def is_test_recipient(email: str) -> bool:
     return email.lower() in allowed
 
 
-def signup_open() -> bool:
-    """Public forms collect addresses only when consent wording and delivery are ready."""
-    from ..settings_service import get_values
+def signup_mode() -> str:
+    mode = get_settings()["email.signup_mode"]
+    return mode if mode in SIGNUP_MODES else "double_opt_in"
 
+
+def collection_only() -> bool:
+    return signup_mode() == "collection_only"
+
+
+def consent() -> tuple[str, str]:
+    """The consent wording and version shown on the website forms in the current mode."""
     settings = get_settings()
+    if collection_only():
+        return (
+            str(settings["email.collection_consent_text"] or "").strip(),
+            settings["email.collection_consent_version"],
+        )
+    return str(settings["email.consent_text"] or "").strip(), settings["email.consent_version"]
+
+
+def delivery_ready() -> bool:
+    """Confirmation emails can be sent (double opt-in needs this; collection does not)."""
     return bool(
-        get_values().get("newsletter.is_open")
-        and sending_mode() != "disabled"
+        sending_mode() != "disabled"
         and backend_configured()
         and (current_app.config.get("NEWSLETTER_FROM_EMAIL") or "")
-        and str(settings["email.consent_text"] or "").strip()
     )
 
 
+def signup_open() -> bool:
+    """Public forms take addresses only while sign-ups are switched on, the consent wording
+    for the current mode is set and, for double opt-in, confirmation emails can be sent."""
+    from ..settings_service import get_values
+
+    if not get_values().get("newsletter.is_open"):
+        return False
+    text, _version = consent()
+    if not text:
+        return False
+    return True if collection_only() else delivery_ready()
+
+
 def public_status() -> dict[str, Any]:
-    settings = get_settings()
     open_ = signup_open()
+    text, version = consent()
     return {
         "name": NEWSLETTER_NAME,
         "tagline": NEWSLETTER_TAGLINE,
         "signup_open": open_,
-        "consent_text": settings["email.consent_text"] if open_ else "",
-        "consent_version": settings["email.consent_version"] if open_ else "",
+        "signup_mode": signup_mode(),
+        # Whether the website sends a confirmation email (the forms say so only when true).
+        "confirmation_email": open_ and not collection_only(),
+        "consent_text": text if open_ else "",
+        "consent_version": version if open_ else "",
         "preferences": [{"key": k, "label": v} for k, v in PREFERENCES.items()],
         "default_preferences": DEFAULT_PREFERENCES,
     }
@@ -201,6 +253,11 @@ def admin_view() -> dict[str, Any]:
         "reply_to": settings["email.reply_to"],
         "consent_text": settings["email.consent_text"],
         "consent_version": settings["email.consent_version"],
+        "signup_mode": signup_mode(),
+        "signup_modes": list(SIGNUP_MODES),
+        "collection_consent_text": settings["email.collection_consent_text"],
+        "collection_consent_version": settings["email.collection_consent_version"],
+        "signup_open": signup_open(),
         "postal_address": settings["email.postal_address"],
         "attestation": {
             k: bool((settings["email.attestation"] or {}).get(k)) for k in ATTESTATIONS
@@ -226,7 +283,14 @@ def update_settings(changes: dict[str, Any], actor) -> dict[str, Any]:
     settings = get_settings()
     errors: dict[str, list[str]] = {}
     clean: dict[str, Any] = {}
-    limits = {"from_name": 80, "consent_text": 1000, "consent_version": 40, "postal_address": 300}
+    limits = {
+        "from_name": 80,
+        "consent_text": 1000,
+        "consent_version": 40,
+        "postal_address": 300,
+        "collection_consent_text": 1000,
+        "collection_consent_version": 40,
+    }
     for key, value in changes.items():
         full = f"email.{key}"
         if full not in DEFAULTS or key == "attestation":
@@ -235,6 +299,10 @@ def update_settings(changes: dict[str, Any], actor) -> dict[str, Any]:
         if key == "sending_mode":
             if value not in SENDING_MODES:
                 errors[key] = [f"Use one of: {', '.join(SENDING_MODES)}."]
+                continue
+        elif key == "signup_mode":
+            if value not in SIGNUP_MODES:
+                errors[key] = [f"Use one of: {', '.join(SIGNUP_MODES)}."]
                 continue
         elif key == "reply_to":
             value = str(value or "").strip()
@@ -259,14 +327,19 @@ def update_settings(changes: dict[str, Any], actor) -> dict[str, Any]:
                 f"{mode.capitalize()} sending cannot be enabled until the readiness checks pass.",
                 details={"sending_mode": [c["label"] for c in names if not c["ok"]]},
             )
-    if (
-        "email.consent_text" in clean
-        and clean["email.consent_text"] != settings["email.consent_text"]
-        and "email.consent_version" not in clean
+    for text_key, version_key in (
+        ("email.consent_text", "email.consent_version"),
+        ("email.collection_consent_text", "email.collection_consent_version"),
     ):
-        raise ValidationError(
-            details={"consent_version": ["Change the consent version when the wording changes."]}
-        )
+        if (
+            text_key in clean
+            and clean[text_key] != settings[text_key]
+            and (version_key not in clean or clean[version_key] == settings[version_key])
+        ):
+            short = version_key.removeprefix("email.")
+            raise ValidationError(
+                details={short: ["Change the consent version when the wording changes."]}
+            )
     changed = {}
     for key, value in clean.items():
         if settings[key] != value:
@@ -274,7 +347,14 @@ def update_settings(changes: dict[str, Any], actor) -> dict[str, Any]:
             _set(key, value, actor.id)
     if changed:
         audit_service.record("email.settings_updated", "email", actor=actor, details=changed)
-        if {"email.sending_mode", "email.consent_text", "email.consent_version"} & set(changed):
+        if {
+            "email.sending_mode",
+            "email.consent_text",
+            "email.consent_version",
+            "email.signup_mode",
+            "email.collection_consent_text",
+            "email.collection_consent_version",
+        } & set(changed):
             # Signup forms are prerendered: rebuild so they appear, disappear or update.
             from ..publication_service import record_public_change
 

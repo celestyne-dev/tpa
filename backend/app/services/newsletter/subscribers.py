@@ -257,9 +257,10 @@ def subscribe(
         raise ValidationError(
             details={"consent": ["Please tick the box to agree to receive emails."]}
         )
-    settings = config.get_settings()
+    consent_text, consent_version = config.consent()
+    collecting = config.collection_only()
     shown_version = data.get("consent_version")
-    if shown_version is not None and shown_version != settings["email.consent_version"]:
+    if shown_version is not None and shown_version != consent_version:
         raise ConflictError(
             "Our consent wording has just been updated. Please review it and try again.",
             details={"code": "consent_changed"},
@@ -277,8 +278,8 @@ def subscribe(
     subscriber = db.session.scalar(select(Subscriber).where(Subscriber.email == email))
     consent = {
         "consent_at": _now(),
-        "consent_text": settings["email.consent_text"],
-        "consent_version": settings["email.consent_version"],
+        "consent_text": consent_text,
+        "consent_version": consent_version,
         "consent_ip_hash": tokens.ip_hash(ip),
     }
     if subscriber is None:
@@ -286,7 +287,8 @@ def subscribe(
             public_id=secrets.token_hex(12),
             email=email,
             first_name=first_name,
-            status="pending",
+            # Collection-only: stored with consent, NOT verified (no email is sent).
+            status="collected" if collecting else "pending",
             source=source,
             source_detail=source_detail,
             preferences=preferences,
@@ -295,16 +297,33 @@ def subscribe(
         )
         db.session.add(subscriber)
         db.session.flush()
-        event(subscriber, "signup", source=source, detail=source_detail)
-        send_confirmation(subscriber)
+        if collecting:
+            event(subscriber, "signup", source=source, detail=source_detail, mode="collection_only")
+        else:
+            event(subscriber, "signup", source=source, detail=source_detail)
+            send_confirmation(subscriber)
         return subscriber
     if subscriber.status in ("bounced", "complained"):
         return None
+    if collecting:
+        # Nothing can be emailed and the address can't be verified, so an existing record
+        # is never changed from the public form: consent evidence, preferences and status
+        # (including "unsubscribed": no silent re-subscribe) stay as they are. The attempt
+        # is only noted on the subscriber's activity for staff.
+        event(
+            subscriber,
+            "signup_repeated",
+            source=source,
+            mode="collection_only",
+            status=subscriber.status,
+        )
+        return subscriber
     if subscriber.status == "subscribed":
         if not _recent(subscriber.notice_sent_at, timedelta(hours=NOTICE_INTERVAL_HOURS)):
             _send_already_subscribed_notice(subscriber)
         return subscriber
-    # pending, unsubscribed or quarantined: record fresh consent and ask to confirm again.
+    # pending, collected, unsubscribed or quarantined: record fresh consent and ask to
+    # confirm by email (double opt-in).
     was = subscriber.status
     for key, value in consent.items():
         setattr(subscriber, key, value)
@@ -464,6 +483,17 @@ def mark_bounced(email: str, *, complaint: bool = False, detail: str = "") -> No
 # ---- admin ------------------------------------------------------------------------------
 
 
+def verification(s: Subscriber) -> str:
+    if s.is_marketable:
+        return "double_opt_in_confirmed"
+    return {
+        "pending": "confirmation_email_sent_not_confirmed",
+        "collected": "website_signup_no_confirmation_email_sent",
+        "subscribed": "subscribed_without_email_confirmation",
+        "quarantined": "imported_unverified",
+    }.get(s.status, "none")
+
+
 def subscriber_dict(s: Subscriber, *, detail: bool = False) -> dict[str, Any]:
     data = {
         "id": s.id,
@@ -471,6 +501,9 @@ def subscriber_dict(s: Subscriber, *, detail: bool = False) -> dict[str, Any]:
         "first_name": s.first_name,
         "status": s.status,
         "marketable": s.is_marketable,
+        # Verified only by double opt-in; "collected" website sign-ups are never verified.
+        "verified": s.is_marketable,
+        "verification": verification(s),
         "source": s.source,
         "preferences": s.preferences or [],
         "tags": [{"slug": t.slug, "name": t.name} for t in s.tags],
@@ -642,14 +675,17 @@ def admin_action(subscriber: Subscriber, action: str, data: dict[str, Any], acto
             actor=actor,
         )
     elif action == "resend-confirmation":
-        if subscriber.status not in ("pending", "quarantined"):
-            raise ConflictError("Only pending or quarantined subscribers can be asked to confirm.")
-        if not config.signup_open() and config.sending_mode() == "disabled":
+        if subscriber.status not in ("pending", "quarantined", "collected"):
+            raise ConflictError(
+                "Only pending, collected or quarantined subscribers can be asked to confirm."
+            )
+        if not config.delivery_ready():
             raise ConflictError("Email sending is disabled.")
         if _recent(subscriber.confirmation_sent_at, timedelta(minutes=CONFIRM_RESEND_MINUTES)):
             raise ConflictError("A confirmation email was sent a few minutes ago.")
-        if subscriber.status == "quarantined":
-            # Asking an imported contact to opt in; they stay unmarketable until they click.
+        if subscriber.status in ("quarantined", "collected"):
+            # Asking an imported or collected contact to confirm; they stay unmarketable
+            # (and unverified) until they click the link.
             subscriber.status = "pending"
         send_confirmation(subscriber)
         event(subscriber, "confirmation_resent", actor=actor)
@@ -711,6 +747,103 @@ def export_csv(args: dict[str, Any], actor) -> str:
         details={
             "count": count,
             "filters": {k: v for k, v in args.items() if k not in ("page", "page_size")},
+        },
+    )
+    return buffer.getvalue()
+
+
+# ---- export for an external email service provider ---------------------------------------
+
+# Statuses a provider export can contain: never unsubscribed, bounced, complained or
+# quarantined. Only double opt-in subscribers are "verified" (see verification()).
+ESP_STATUSES = ("subscribed", "pending", "collected")
+ESP_COLUMNS = [
+    "email",
+    "first_name",
+    "status",
+    "email_verified",
+    "verification",
+    "marketing_permission",
+    "consent_given",
+    "consent_at",
+    "consent_version",
+    "consent_text",
+    "consent_source",
+    "consent_page",
+    "consent_ip_hash_recorded",
+    "confirmation_sent_at",
+    "confirmed_at",
+    "preferences",
+    "tags",
+    "signed_up_at",
+]
+
+
+def _superseded(suppression: EmailSuppression | None, s: Subscriber) -> bool:
+    """A suppression no longer applies only when it was an unsubscribe/erasure and the
+    person explicitly signed up again afterwards (a bounce or complaint always applies)."""
+    if suppression is None:
+        return True
+    consent_at, created = _aware(s.consent_at), _aware(suppression.created_at)
+    return bool(suppression.reason in LIFTABLE and consent_at and created and consent_at > created)
+
+
+def export_esp_csv(args: dict[str, Any], actor) -> str:
+    """Contacts for an external email service provider, with their consent evidence and
+    verification status. Unsubscribed, bounced, complained, quarantined and suppressed
+    contacts are never included. ``verified_only=1`` keeps only confirmed (double opt-in)
+    subscribers; by default unverified website sign-ups are included and labelled as such
+    (marketing_permission says they still need confirming), never as confirmed."""
+    verified_only = str(args.get("verified_only") or "").lower() in ("1", "true", "yes")
+    statuses = ("subscribed",) if verified_only else ESP_STATUSES
+    query = select(Subscriber).where(Subscriber.status.in_(statuses))
+    if args.get("source"):
+        query = query.where(Subscriber.source == args["source"])
+    if args.get("tag"):
+        query = query.where(Subscriber.tags.any(SubscriberTag.slug == args["tag"]))
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(ESP_COLUMNS)
+    count = skipped = 0
+    for s in db.session.scalars(query.order_by(Subscriber.id)):
+        if not _superseded(suppression_for(s.email), s) or not s.consent_at:
+            skipped += 1
+            continue
+        verified = s.is_marketable  # subscribed AND confirmed by email
+        how = verification(s)
+        values = [
+            s.email,
+            s.first_name,
+            s.status,
+            "yes" if verified else "no",
+            how,
+            "confirmed_opt_in"
+            if verified
+            else "consent_given_email_not_verified_confirm_before_marketing",
+            "yes",
+            iso(s.consent_at) or "",
+            s.consent_version,
+            s.consent_text,
+            s.source,
+            s.source_detail,
+            "yes" if s.consent_ip_hash else "no",
+            iso(s.confirmation_sent_at) or "",
+            iso(s.confirmed_at) or "",
+            " ".join(s.preferences or []),
+            " ".join(t.slug for t in s.tags),
+            iso(s.created_at) or "",
+        ]
+        writer.writerow([safe_cell(v) for v in map(str, values)])
+        count += 1
+    audit_service.record(
+        "subscribers.exported_for_provider",
+        "subscriber",
+        actor=actor,
+        details={
+            "count": count,
+            "excluded_suppressed": skipped,
+            "verified_only": verified_only,
+            "filters": {k: v for k, v in args.items() if k in ("source", "tag")},
         },
     )
     return buffer.getvalue()

@@ -68,7 +68,10 @@ export function LeadMagnetForm({ leadMagnet, showFirstName = false, tone = "ligh
         <p className={cn("mt-1 text-[0.95rem]", t.hint)}>
           We've sent a secure download link for “{leadMagnet.title}”. The link expires after a
           while; you can always request a new one here.
-          {form.newsletter && " We've also sent a separate email to confirm your subscription."}
+          {form.newsletter &&
+            (newsletter?.confirmation_email === false
+              ? " Your newsletter sign-up has been received too."
+              : " We've also sent a separate email to confirm your subscription.")}
         </p>
       </div>
     );

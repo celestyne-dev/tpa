@@ -47,6 +47,8 @@ export function NewsletterSignupForm({
   }, [state.phase]);
 
   if (!isOpen && state.phase !== "done") return null;
+  // Collection-only mode sends no email: never promise a confirmation link.
+  const confirmsByEmail = status?.confirmation_email ?? status?.signup_mode !== "collection_only";
 
   const focusFirstInvalid = () =>
     requestAnimationFrame(() => formRef.current?.querySelector('[aria-invalid="true"]')?.focus());
@@ -75,7 +77,11 @@ export function NewsletterSignupForm({
         website: form.website,
         elapsed_ms: Date.now() - started.current,
       });
-      setState({ phase: "done", message: res?.data?.message ?? "" });
+      setState({
+        phase: "done",
+        message: res?.data?.message ?? "",
+        received: res?.data?.status === "received",
+      });
     } catch (error) {
       const code = error?.details?.code;
       if (code === "consent_changed") {
@@ -105,15 +111,31 @@ export function NewsletterSignupForm({
         className={cn("mx-auto max-w-lg text-center outline-none", className)}
       >
         <MailCheck aria-hidden className="mx-auto size-8 text-gold-300" />
-        <p className={cn("mt-3 text-lg font-medium", t.label)}>Almost there — check your inbox.</p>
-        <p className={cn("mt-1 text-[0.95rem]", t.hint)}>
-          {state.message} We&apos;ll only add you once you click the confirmation link. If it
-          doesn&apos;t arrive in a few minutes, check your spam folder.
-        </p>
-        <p className={cn("mt-2 text-sm", t.hint)}>
-          Already subscribed? We&apos;ll send you a short note instead, and nothing about your
-          subscription changes.
-        </p>
+        {state.received ? (
+          // Collection-only: no email is sent. The same words for every address, so the
+          // form never reveals whether someone was already on the list.
+          <>
+            <p className={cn("mt-3 text-lg font-medium", t.label)}>Thank you for signing up.</p>
+            <p className={cn("mt-1 text-[0.95rem]", t.hint)}>
+              Your sign-up for {status?.name ?? "The Positive Reset"} has been received. Every email
+              will include a link to unsubscribe at any time.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className={cn("mt-3 text-lg font-medium", t.label)}>
+              Almost there — check your inbox.
+            </p>
+            <p className={cn("mt-1 text-[0.95rem]", t.hint)}>
+              {state.message} We&apos;ll only add you once you click the confirmation link. If it
+              doesn&apos;t arrive in a few minutes, check your spam folder.
+            </p>
+            <p className={cn("mt-2 text-sm", t.hint)}>
+              Already subscribed? We&apos;ll send you a short note instead, and nothing about your
+              subscription changes.
+            </p>
+          </>
+        )}
       </div>
     );
   }
@@ -177,8 +199,9 @@ export function NewsletterSignupForm({
         {sending ? "Subscribing…" : "Subscribe"}
       </Button>
       <p className={cn("text-xs", t.hint)}>
-        We&apos;ll email you to confirm. Every email has a one-click unsubscribe link, and we never
-        sell your address.
+        {confirmsByEmail
+          ? "We'll email you to confirm. Every email has a one-click unsubscribe link, and we never sell your address."
+          : "Every email has a link to unsubscribe at any time, and we never sell your address."}
       </p>
     </form>
   );

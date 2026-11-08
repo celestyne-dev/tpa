@@ -29,7 +29,9 @@ from ..extensions import db
 from .base import TimestampMixin
 from .types import JSONType, UTCDateTime, utcnow
 
-# pending: waiting for double opt-in; quarantined: imported/unverified, never mailed.
+# pending: waiting for double opt-in; quarantined: imported/unverified, never mailed;
+# collected: signed up on the website with explicit consent while the newsletter collects
+# addresses only (no confirmation email was sent: the address is NOT verified).
 SUBSCRIBER_STATUSES = (
     "pending",
     "subscribed",
@@ -37,6 +39,7 @@ SUBSCRIBER_STATUSES = (
     "bounced",
     "complained",
     "quarantined",
+    "collected",
 )
 SIGNUP_SOURCES = (
     "homepage",

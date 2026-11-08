@@ -5,6 +5,24 @@ export const SUBSCRIBER_STATUS = {
   bounced: "Bounced",
   complained: "Complained",
   quarantined: "Quarantined (not mailed)",
+  collected: "Collected (not verified)",
+};
+
+/** Signup modes (Email settings): how website sign-ups are handled. */
+export const SIGNUP_MODE_LABELS = {
+  double_opt_in: "Double opt-in: the website emails a confirmation link",
+  collection_only: "Collection only: store sign-ups for an external email service, send nothing",
+};
+
+/** Whether an address has been verified, and how (subscriber_dict.verification). */
+export const VERIFICATION_LABELS = {
+  double_opt_in_confirmed: "Verified: confirmed by double opt-in",
+  confirmation_email_sent_not_confirmed: "Not verified: confirmation email sent, not clicked",
+  website_signup_no_confirmation_email_sent:
+    "Not verified: collected on the website, no confirmation email sent",
+  subscribed_without_email_confirmation: "Not verified by email (attested import)",
+  imported_unverified: "Not verified: imported",
+  none: "Not verified",
 };
 
 export const SIGNUP_SOURCES = {

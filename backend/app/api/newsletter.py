@@ -28,6 +28,12 @@ CHECK_EMAIL = {
     "status": "check_email",
     "message": "Thank you. Please check your inbox for an email from us to continue.",
 }
+# Collection-only mode sends no email, so the answer never mentions one. As in double
+# opt-in, it is the same for new, existing and unsubscribed addresses.
+RECEIVED = {
+    "status": "received",
+    "message": "Thank you. Your sign-up for The Positive Reset has been received.",
+}
 
 
 def _body() -> dict:
@@ -60,7 +66,7 @@ class NewsletterSubscribeResource(Resource):
     def post(self):
         subscribers.subscribe(_body(), ip=request.remote_addr)
         db.session.commit()
-        return success(CHECK_EMAIL, status=202)
+        return success(RECEIVED if email_config.collection_only() else CHECK_EMAIL, status=202)
 
 
 class NewsletterConfirmResource(Resource):
