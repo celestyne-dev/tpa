@@ -154,6 +154,15 @@ def main() -> int:
             "move forward with intention."
         )
         db.session.commit()
+    # THROWAWAY: sign-ups open (console mail backend, test sending) to see the forms.
+    from app.models import SiteSetting
+
+    with app.app_context():
+        for key, value in {"newsletter.is_open": True, "email.sending_mode": "test"}.items():
+            row = db.session.get(SiteSetting, key) or SiteSetting(key=key)
+            row.value = value
+            db.session.add(row)
+        db.session.commit()
     print("Visual-check fixtures ready.")
     return 0
 

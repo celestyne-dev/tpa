@@ -120,6 +120,8 @@ jobs:
       VITE_SITE_URL: https://ci.example.com
       VITE_ALLOW_INDEXING: "true"
       PRERENDER_API_URL: http://127.0.0.1:5000/api/v1
+      NEWSLETTER_MAIL_BACKEND: console  # THROWAWAY: so the open form can be checked
+      NEWSLETTER_FROM_EMAIL: hello@example.invalid  # THROWAWAY
       TPA_RELEASE: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -167,7 +169,7 @@ jobs:
           cp -r /tmp/out/visual visual
           git add -f visual
           git commit -qm "visual build output [skip ci]"
-          git push -qf origin HEAD:refs/heads/claude/tpa-sitewide-visual-output
+          git push -qf origin HEAD:refs/heads/claude/tpa-sticky-visual-output
       - name: API log
         if: failure()
         run: tail -100 /tmp/tpa-ci-api.log
