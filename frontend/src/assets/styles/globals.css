@@ -239,3 +239,37 @@
 ::highlight(tpa-hl-focus) {
   text-decoration: underline 3px #24221f;
 }
+
+/*
+ * Dark CMS section backgrounds (Deep sage, Charcoal). SectionShell marks those sections
+ * with .section-dark; the section text is already ivory. Shared article, topic and
+ * resource components use light-background colours, so inside a dark section:
+ * - light card surfaces (.surface-light) keep dark text and become opaque, so the
+ *   translucent "soft" card never turns into a mid-tone surface;
+ * - outline cards and plain lists switch secondary text and labels to light tones and
+ *   get a visible light border.
+ * Unlayered on purpose: these rules must win over the utility classes they correct.
+ */
+.section-dark .surface-light {
+  color: var(--color-charcoal);
+}
+.section-dark .card-translucent {
+  background-color: var(--color-ivory);
+}
+.section-dark .card-outline {
+  border-color: rgb(250 246 238 / 0.22);
+}
+.section-dark .text-muted:not(.surface-light *) {
+  color: var(--color-sand);
+}
+.section-dark .text-sage-700:not(.surface-light *) {
+  color: var(--color-gold-300);
+}
+.section-dark .bg-sand:not(.surface-light *) {
+  background-color: rgb(250 246 238 / 0.4);
+}
+@media (hover: hover) {
+  .section-dark .group:hover .group-hover\:text-sage-800:not(.surface-light *) {
+    color: var(--color-gold-300);
+  }
+}

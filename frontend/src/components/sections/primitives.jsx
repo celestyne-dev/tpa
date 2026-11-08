@@ -3,7 +3,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { buttonStyles } from "@/components/ui/buttonStyles";
 import { Container } from "@/components/ui/Container";
 import { cn } from "@/utils/format";
-import { BACKGROUNDS, buttonVariant, DEVICES, HEADING_SIZE, SPACING } from "./design";
+import { BACKGROUNDS, buttonVariant, DEVICES, HEADING_SIZE, isDark, SPACING } from "./design";
 import { useSectionContext } from "./sectionContext";
 
 /**
@@ -95,7 +95,10 @@ export function CtaButton({ cta, fallback = "primary", size, arrow = false, clas
   );
 }
 
-/** Section wrapper: approved background, spacing, width and device visibility. */
+/**
+ * Section wrapper: approved background, spacing, width and device visibility. Dark
+ * backgrounds also get `section-dark`, which keeps shared cards and lists readable.
+ */
 export function SectionShell({
   section,
   children,
@@ -114,6 +117,7 @@ export function SectionShell({
       data-section={section.type}
       className={cn(
         BACKGROUNDS[background] ?? BACKGROUNDS.ivory,
+        isDark(background) && "section-dark",
         SPACING[design.spacing ?? "md"],
         DEVICES[section.devices ?? "all"],
         className,

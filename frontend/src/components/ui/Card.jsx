@@ -1,12 +1,15 @@
 import { cn } from "@/utils/format";
 
+// `surface-light` marks light surfaces (dark text even inside a dark CMS section);
+// `card-translucent` and `card-outline` let dark sections correct their surface and
+// border (see the .section-dark rules in globals.css).
 const tones = {
-  ivory: "bg-ivory shadow-soft",
-  cream: "bg-cream shadow-soft",
-  white: "bg-white/70 shadow-soft",
+  ivory: "surface-light bg-ivory shadow-soft",
+  cream: "surface-light bg-cream shadow-soft",
+  white: "surface-light card-translucent bg-white/70 shadow-soft",
   // CMS card styles: outlined or flat surfaces without a shadow.
-  outline: "bg-transparent",
-  flat: "bg-cream",
+  outline: "card-outline bg-transparent",
+  flat: "surface-light bg-cream",
 };
 
 /** Base card surface. Interactive cards lift subtly on hover/focus-within. */

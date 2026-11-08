@@ -50,7 +50,7 @@ export function ConsentCheckbox({ text, checked, onChange, error, tone = "dark",
         <input
           id={id}
           type="checkbox"
-          className="mt-0.5 size-4 shrink-0 accent-gold-300"
+          className={cn("mt-0.5 size-4 shrink-0", t.check)}
           checked={checked}
           required={required}
           aria-invalid={error ? true : undefined}

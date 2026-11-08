@@ -137,6 +137,18 @@ function MoreActions({ actions }) {
   );
 }
 
+// The Positive Reset is a daily newsletter. Older layouts saved "Weekly newsletter" and
+// "each week" in the section's own copy; the editor points it out instead of rewriting it.
+const WEEKLY_COPY = /\b(weekly|each week|every week|once a week)\b/i;
+
+function weeklyNewsletterCopy(section) {
+  if (section.section_type !== "newsletter_cta") return false;
+  const c = section.content ?? {};
+  return [c.eyebrow, c.heading, c.description].some(
+    (v) => typeof v === "string" && WEEKLY_COPY.test(v),
+  );
+}
+
 function SectionEditor({ type, section, onChange, errors, disabled }) {
   const { shared } = useBuilderLookups();
   if (!type) return <p className="text-muted">This section type is no longer available.</p>;
@@ -189,6 +201,12 @@ function SectionEditor({ type, section, onChange, errors, disabled }) {
         />
         <p className="pb-2 text-sm text-muted">{type.label}</p>
       </div>
+      {weeklyNewsletterCopy(section) && (
+        <p role="note" className="rounded-lg bg-gold-100 p-3 text-sm text-charcoal">
+          This section&apos;s wording describes a weekly newsletter, but The Positive Reset is a
+          daily newsletter. Update the Small label and Description below if they should say daily.
+        </p>
+      )}
       <SectionFields
         type={type}
         section={section}

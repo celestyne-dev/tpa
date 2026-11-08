@@ -26,6 +26,7 @@ export function NewsletterSignupForm({
   compact = false,
   tone = "dark",
   emailId,
+  align = "center",
   className,
 }) {
   const shopApi = useShopApi();
@@ -37,6 +38,9 @@ export function NewsletterSignupForm({
   const formRef = useRef(null);
   const doneRef = useRef(null);
   const t = toneClasses(tone);
+  // "start": the form fills its column (the compact homepage band); "center": a centred
+  // column of at most 32rem (panels and the /newsletter page).
+  const start = align === "start";
 
   useEffect(() => {
     started.current = Date.now();
@@ -108,9 +112,13 @@ export function NewsletterSignupForm({
         ref={doneRef}
         tabIndex={-1}
         role="status"
-        className={cn("mx-auto max-w-lg text-center outline-none", className)}
+        className={cn(
+          "outline-none",
+          start ? "text-left" : "mx-auto max-w-lg text-center",
+          className,
+        )}
       >
-        <MailCheck aria-hidden className="mx-auto size-8 text-gold-300" />
+        <MailCheck aria-hidden className={cn("size-8", t.icon, !start && "mx-auto")} />
         {state.received ? (
           // Collection-only: no email is sent. The same words for every address, so the
           // form never reveals whether someone was already on the list.
@@ -147,7 +155,7 @@ export function NewsletterSignupForm({
       noValidate
       onSubmit={submit}
       aria-busy={sending || undefined}
-      className={cn("relative mx-auto max-w-lg space-y-4", className)}
+      className={cn("relative space-y-4", !start && "mx-auto max-w-lg", className)}
       aria-label={`Subscribe to ${status?.name ?? "The Positive Reset"}`}
     >
       <div className={cn("grid gap-3", !compact && showFirstName && "sm:grid-cols-2")}>
@@ -198,7 +206,7 @@ export function NewsletterSignupForm({
       >
         {sending ? "Subscribing…" : "Subscribe"}
       </Button>
-      <p className={cn("text-xs", t.hint)}>
+      <p className={cn("text-sm", t.hint)}>
         {confirmsByEmail
           ? "We'll email you to confirm. Every email has a one-click unsubscribe link, and we never sell your address."
           : "Every email has a link to unsubscribe at any time, and we never sell your address."}

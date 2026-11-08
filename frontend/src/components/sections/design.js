@@ -30,6 +30,30 @@ export const HEADING_SIZE = {
 
 export const DEVICES = { all: "", desktop: "hidden md:block", mobile: "md:hidden" };
 
+/**
+ * What the website renders when a design key is not stored on a section (older sections
+ * and the built-in layouts store only some keys). The editor shows these, so the
+ * Appearance controls always match the page.
+ */
+export const DESIGN_FALLBACKS = {
+  background: "ivory",
+  spacing: "md",
+  width: "default",
+  align: "left",
+  card_style: "soft",
+  aspect_ratio: "landscape",
+  heading_size: "default",
+};
+
+/** The value a section actually renders with: stored, else the type default, else the fallback. */
+export function effectiveDesignValue(option, design, typeDefaults) {
+  const stored = design?.[option.name];
+  if (stored) return stored;
+  const fallback = typeDefaults?.[option.name] ?? DESIGN_FALLBACKS[option.name];
+  if (fallback && option.choices.some((c) => c.value === fallback)) return fallback;
+  return option.choices[0]?.value ?? "";
+}
+
 export const isDark = (background) => background === "sage_dark" || background === "charcoal";
 
 export function cardClass(style = "soft", dark = false) {

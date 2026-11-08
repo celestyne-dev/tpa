@@ -5,12 +5,16 @@ const TONES = {
       "border-ivory/25 bg-ivory/10 text-ivory placeholder:text-sage-100/70 focus:border-gold-300",
     hint: "text-sage-100",
     error: "text-gold-300",
+    check: "accent-gold-300",
+    icon: "text-gold-300",
   },
   light: {
     label: "text-charcoal",
     input: "border-charcoal/20 bg-white text-charcoal placeholder:text-muted focus:border-sage-600",
     hint: "text-muted",
     error: "text-red-800",
+    check: "accent-sage-700",
+    icon: "text-sage-700",
   },
 };
 

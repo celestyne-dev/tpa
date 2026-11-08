@@ -1,10 +1,14 @@
-import { useLocation } from "react-router";
-import { Check, Mail } from "lucide-react";
+import { Link, useLocation } from "react-router";
+import { ArrowRight, Check, Mail } from "lucide-react";
 import { LeadMagnetForm } from "@/components/newsletter/LeadMagnetForm";
-import { NewsletterPanel } from "@/components/newsletter/NewsletterPanel";
+import { NEWSLETTER_DESCRIPTION } from "@/components/newsletter/NewsletterPanel";
+import { NewsletterSignupForm } from "@/components/newsletter/NewsletterSignupForm";
+import { useNewsletterStatus } from "@/components/newsletter/useNewsletterStatus";
 import { ProductCard } from "@/components/products/ProductCard";
 import { useDisplayCurrency } from "@/hooks/useShop";
 import { LinkedinMark } from "@/components/home/LinkedinMark";
+import { routes } from "@/config/navigation";
+import { siteConfig } from "@/config/site";
 import { ContentImage } from "@/components/ui/ContentImage";
 import { cn } from "@/utils/format";
 import { ASPECT, BACKGROUNDS, isDark } from "./design";
@@ -63,27 +67,122 @@ export function BrandIntroSection({ section }) {
 }
 
 /**
- * The Positive Reset panel: the real signup form once sending is configured, otherwise
- * a plain "not available on the website" line that never collects email addresses.
+ * The Positive Reset sign-up as a compact editorial block: a short introduction beside the
+ * form on large screens, one column on tablets and phones. It sits on the section's own
+ * Appearance background (light backgrounds use dark text and a forest-green button; Deep
+ * sage and Charcoal switch it to light text). "Panel" frames it as a card; "Compact" is
+ * an unframed band between two rules. The form is the one signup form used everywhere, so
+ * validation, bot traps, consent recording and the collection-only mode are unchanged; it
+ * only appears while the backend reports sign-ups open.
  */
 export function NewsletterSection({ section }) {
-  const { data, variant } = section;
-  const { level } = useSectionContext();
+  const { data, variant, key, design } = section;
+  const { dark } = useSectionContext();
   const { pathname } = useLocation();
+  const { status, isOpen } = useNewsletterStatus();
+  const name = status?.name ?? siteConfig.newsletterName;
+  const tagline = status?.tagline ?? siteConfig.newsletterTagline;
+  const eyebrow = data.eyebrow ?? "Daily newsletter";
+  const description = data.description ?? NEWSLETTER_DESCRIPTION;
+  const tone = dark ? "dark" : "light";
+  const framed = variant !== "compact";
+  const id = `${key}-heading`;
   return (
-    <SectionShell section={section} label="Newsletter" width={section.design?.width ?? "wide"}>
-      <NewsletterPanel
-        headingLevel={level === 1 ? "h1" : "h2"}
-        title={data.heading}
-        eyebrow={data.eyebrow}
-        description={data.description}
-        showLearnMore={data.show_learn_more !== false}
-        showFirstName={data.show_first_name !== false}
-        leadMagnet={data.lead_magnet}
-        source={pathname === "/" ? "homepage" : "page_section"}
-        sourceDetail={pathname}
-        className={variant === "compact" ? "py-10 sm:py-12" : undefined}
-      />
+    <SectionShell section={section} labelledBy={id} width={design?.width ?? "wide"}>
+      <div
+        data-newsletter-layout={framed ? "panel" : "compact"}
+        className={cn(
+          "grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-center lg:gap-14",
+          framed
+            ? cn(
+                "rounded-[1.75rem] border p-6 sm:p-8 lg:p-10",
+                dark
+                  ? "border-ivory/15 bg-ivory/[0.05]"
+                  : "border-charcoal/10 bg-white/60 shadow-soft",
+              )
+            : cn("border-y py-8", dark ? "border-ivory/15" : "border-charcoal/10"),
+        )}
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className={cn(
+                "grid size-10 shrink-0 place-items-center rounded-full text-gold-300",
+                dark ? "bg-ivory/10" : "bg-sage-800",
+              )}
+            >
+              <Mail className="size-[1.125rem]" />
+            </span>
+            {eyebrow && (
+              <p
+                className={cn(
+                  "text-sm font-semibold tracking-[0.14em] uppercase",
+                  dark ? "text-gold-300" : "text-sage-700",
+                )}
+              >
+                {eyebrow}
+              </p>
+            )}
+          </div>
+          <Heading id={id} size="small" className="mt-4">
+            {data.heading || name}
+          </Heading>
+          {tagline && (
+            <p
+              className={cn(
+                "mt-2 font-serif text-lg italic",
+                dark ? "text-gold-300" : "text-gold-700",
+              )}
+            >
+              {tagline}
+            </p>
+          )}
+          {description && (
+            <p className={cn("mt-3 max-w-prose", dark ? "text-sand" : "text-muted")}>
+              {description}
+            </p>
+          )}
+          {data.show_learn_more !== false && (
+            <Link
+              to={routes.newsletter}
+              className={cn(
+                "mt-4 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-4 hover:underline",
+                dark ? "text-gold-300" : "text-sage-700",
+              )}
+            >
+              What to expect
+              <ArrowRight aria-hidden className="size-4" />
+            </Link>
+          )}
+        </div>
+        <div className="min-w-0">
+          {data.lead_magnet?.available ? (
+            <LeadMagnetForm
+              leadMagnet={data.lead_magnet}
+              showFirstName={data.show_first_name !== false}
+              tone={tone}
+            />
+          ) : isOpen ? (
+            <NewsletterSignupForm
+              source={pathname === "/" ? "homepage" : "page_section"}
+              sourceDetail={pathname}
+              showFirstName={data.show_first_name !== false}
+              tone={tone}
+              align="start"
+            />
+          ) : (
+            <p
+              className={cn(
+                "border-l-2 pl-4 text-[0.95rem]",
+                dark ? "border-gold-300 text-sand" : "border-sage-700/40 text-muted",
+              )}
+            >
+              Sign-up for {name} isn&apos;t available on the website at the moment.
+            </p>
+          )}
+        </div>
+      </div>
     </SectionShell>
   );
 }

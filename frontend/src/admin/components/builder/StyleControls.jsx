@@ -1,3 +1,5 @@
+import { useId } from "react";
+import { effectiveDesignValue } from "@/components/sections/design";
 import { cn } from "@/utils/format";
 import { SelectField, TextField } from "../Fields";
 import { errorText, fromLocalInput, toLocalInput } from "./draft";
@@ -12,9 +14,16 @@ const SWATCH = {
   charcoal: "bg-charcoal",
 };
 
-/** Approved design presets for a section (no free-form CSS). */
+/**
+ * Approved design presets for a section (no free-form CSS). Every control shows the value
+ * the section renders with: a key that isn't stored yet shows the section type's default
+ * (what the website uses), never a blank or a misleading first option.
+ */
 export function DesignControls({ type, design, onChange, errors = {}, disabled }) {
+  const groupName = `bg-${useId()}`;
   if (!type.design.length) return null;
+  const typeDefaults = type.defaults?.design ?? {};
+  const value = (option) => effectiveDesignValue(option, design, typeDefaults);
   return (
     <div className="space-y-4">
       {type.design.map((option) =>
@@ -27,16 +36,16 @@ export function DesignControls({ type, design, onChange, errors = {}, disabled }
                   key={c.value}
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-sage-600/40",
-                    (design.background ?? "") === c.value
+                    value(option) === c.value
                       ? "border-sage-700 bg-sage-50 font-medium text-sage-800"
                       : "border-charcoal/15 bg-white",
                   )}
                 >
                   <input
                     type="radio"
-                    name={`bg-${type.type}`}
+                    name={groupName}
                     value={c.value}
-                    checked={(design.background ?? "") === c.value}
+                    checked={value(option) === c.value}
                     disabled={disabled}
                     onChange={() => onChange({ ...design, background: c.value })}
                     className="sr-only"
@@ -49,6 +58,9 @@ export function DesignControls({ type, design, onChange, errors = {}, disabled }
                 </label>
               ))}
             </div>
+            <p className="mt-2 text-sm text-muted">
+              Deep sage and Charcoal switch the section to light text and buttons.
+            </p>
             {errorText(errors["design.background"]) && (
               <p role="alert" className="mt-1 text-sm text-red-800">
                 {errorText(errors["design.background"])}
@@ -59,7 +71,7 @@ export function DesignControls({ type, design, onChange, errors = {}, disabled }
           <SelectField
             key={option.name}
             label={option.label}
-            value={design[option.name] ?? ""}
+            value={value(option)}
             disabled={disabled}
             options={option.choices}
             error={errorText(errors[`design.${option.name}`])}

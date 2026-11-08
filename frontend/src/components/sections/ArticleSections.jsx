@@ -32,16 +32,28 @@ export function EmptyPreviewNote({ children }) {
 
 /**
  * Editorial section header: serif heading on a thin rule, with an optional "view all"
- * link on the right and a short description underneath.
+ * link on the right and a short description underneath. "Text alignment: Centred" in
+ * Appearance centres the header (the link then sits below the heading).
  */
 export function EditorialHeader({ id, data, className }) {
-  const { dark } = useSectionContext();
+  const { dark, design } = useSectionContext();
+  const centered = design?.align === "center";
   if (!data.heading && !data.eyebrow && !data.description) return null;
   return (
     <div
-      className={cn("border-b pb-4", dark ? "border-ivory/15" : "border-charcoal/10", className)}
+      className={cn(
+        "border-b pb-4",
+        dark ? "border-ivory/15" : "border-charcoal/10",
+        centered && "text-center",
+        className,
+      )}
     >
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div
+        className={cn(
+          "flex flex-wrap gap-x-6 gap-y-3",
+          centered ? "flex-col items-center" : "items-end justify-between",
+        )}
+      >
         <div className="min-w-0">
           <Eyebrow className="mb-2">{data.eyebrow}</Eyebrow>
           {data.heading && (
@@ -53,7 +65,9 @@ export function EditorialHeader({ id, data, className }) {
         {data.cta && <CtaButton cta={data.cta} fallback="ghost" arrow size="sm" />}
       </div>
       {data.description && (
-        <p className={cn("mt-2 max-w-2xl", dark ? "text-sand" : "text-muted")}>
+        <p
+          className={cn("mt-2 max-w-2xl", centered && "mx-auto", dark ? "text-sand" : "text-muted")}
+        >
           {data.description}
         </p>
       )}

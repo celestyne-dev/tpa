@@ -7,7 +7,7 @@ import { cn } from "@/utils/format";
 import { LeadMagnetForm } from "./LeadMagnetForm";
 import { NewsletterSignupForm } from "./NewsletterSignupForm";
 
-const DEFAULT_DESCRIPTION =
+export const NEWSLETTER_DESCRIPTION =
   "One thoughtful email each day to help you reset your mindset, find perspective, and keep moving forward.";
 
 /**
@@ -24,7 +24,7 @@ export function NewsletterPanel({
   showFirstName = true,
   leadMagnet = null,
   headingLevel: Heading = "h2",
-  description = DEFAULT_DESCRIPTION,
+  description = NEWSLETTER_DESCRIPTION,
   showLearnMore = true,
   title,
   eyebrow = "Daily newsletter",
