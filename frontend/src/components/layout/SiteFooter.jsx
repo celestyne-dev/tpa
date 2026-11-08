@@ -108,7 +108,7 @@ export function SiteFooter({ site }) {
   const bottomLinks = [...legal, ...trustLinks];
   return (
     <footer className="bg-charcoal text-sand">
-      <Container size="wide" className="py-16 sm:py-20">
+      <Container size="wide" className="py-12 sm:py-16 lg:py-20">
         {promo?.text && (
           <div className="mb-12 flex flex-col gap-3 rounded-2xl border border-ivory/10 bg-ivory/[0.04] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-ivory">{promo.text}</p>
@@ -124,7 +124,7 @@ export function SiteFooter({ site }) {
             )}
           </div>
         )}
-        <div className="grid gap-12 lg:grid-cols-[1.3fr_2fr]">
+        <div className="grid gap-10 lg:grid-cols-[1.3fr_2fr] lg:gap-12">
           <div className="max-w-sm">
             <Logo invert />
             <p className="mt-6 text-[0.95rem] leading-relaxed">
@@ -162,7 +162,7 @@ export function SiteFooter({ site }) {
           <div
             data-footer-columns={columns.length}
             className={cn(
-              "grid grid-cols-2 gap-x-8 gap-y-10",
+              "grid grid-cols-2 gap-x-8 gap-y-8 sm:gap-y-10",
               // As many equal columns as there are link groups, once there is room.
               FOOTER_COLUMNS[Math.min(columns.length, 4)],
             )}
@@ -172,7 +172,7 @@ export function SiteFooter({ site }) {
                 <h2 className="font-sans text-xs font-semibold tracking-[0.16em] text-ivory uppercase">
                   {group.title}
                 </h2>
-                <ul className="mt-5 space-y-3 text-[0.95rem]">
+                <ul className="mt-4 space-y-2.5 text-[0.95rem] sm:mt-5 sm:space-y-3">
                   {group.items.map((item) => (
                     <li key={`${item.href}-${item.label}`}>
                       <FooterLink item={item} />
@@ -184,7 +184,7 @@ export function SiteFooter({ site }) {
           </div>
         </div>
 
-        <div className="mt-14 flex flex-col gap-6 border-t border-ivory/10 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col gap-6 border-t border-ivory/10 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
             <Copyright template={settings.copyright} name={name} year={year} />
             {bottomLinks.length > 0 && (
