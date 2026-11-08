@@ -729,7 +729,9 @@ def products_for_section(content: dict[str, Any], limit: int) -> list[dict[str, 
     return [d for p in chosen if (d := public_product(p, loader=loader, categories=cats))]
 
 
-def resources_for_section(content: dict[str, Any], limit: int) -> list[dict[str, Any]]:
+def resources_for_section(
+    content: dict[str, Any], limit: int, include_paid: bool = True
+) -> list[dict[str, Any]]:
     """Resources for the "Free resources showcase" section: published resources (never
     bundles or drafts) that visitors can get now, i.e. free or on sale. "Coming soon" and
     unavailable items are left out, so no placeholder card is ever shown."""
@@ -749,7 +751,8 @@ def resources_for_section(content: dict[str, Any], limit: int) -> list[dict[str,
     out = []
     for product in chosen:
         data = public_product(product, loader=loader, categories=cats)
-        if data and data["availability"] in ("free", "available"):
+        allowed = ("free", "available") if include_paid else ("free",)
+        if data and data["availability"] in allowed:
             out.append(
                 {
                     "slug": data["slug"],

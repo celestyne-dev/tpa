@@ -146,7 +146,7 @@ def test_reorder_add_duplicate_hide_and_validation(seeded, as_role, client):
     saved = _save(api, home, sections)
     assert saved.status_code == 200, saved.get_json()
     detail = saved.get_json()["data"]
-    assert detail["sections"][0]["section_type"] == "brand_intro"
+    assert detail["sections"][0]["section_type"] == "quote"  # the last default, reversed
     assert [s["section_type"] for s in detail["sections"][-2:]] == ["quote", "quote"]
     assert len({s["key"] for s in detail["sections"]}) == len(detail["sections"])
     hidden_key = detail["sections"][1]["key"]
@@ -244,7 +244,7 @@ def test_discard_draft_returns_to_live_version(seeded, as_role):
     detail = _save(api, home, sections).get_json()["data"]
     assert len(detail["sections"]) == 2
     back = api.post(f"{PAGES}/{home['id']}/discard").get_json()["data"]
-    assert len(back["sections"]) == 9 and not back["has_unpublished_changes"]
+    assert len(back["sections"]) == 8 and not back["has_unpublished_changes"]
 
 
 def test_fresh_install_serves_default_homepage(app, client):

@@ -1,8 +1,8 @@
 """Default navigation, homepage and article-sidebar sections.
 
-HOME_SECTIONS is the editorial homepage (lead story, latest, topics, picks, popular,
-newsletter, resources, articles by topic, about): editable CMS sections that read live
-articles, topics and resources. Nothing is hardcoded content.
+HOME_SECTIONS is the editorial homepage (lead story with two featured stories, latest,
+topics, newsletter, most read, resources, good news, a short reflection): editable CMS
+sections that read live articles, topics and resources. Nothing is hardcoded content.
 """
 
 DEFAULT_MENUS = {
@@ -23,7 +23,7 @@ DEFAULT_MENUS = {
                     },
                 ],
             },
-            {"label": "Free Resources", "url": "/free-resources"},
+            {"label": "Resources", "url": "/resources"},
             {"label": "Newsletter", "url": "/newsletter"},
             {"label": "About", "url": "/about"},
         ],
@@ -108,14 +108,14 @@ HOME_SECTIONS = [
         "key": "featured",
         "name": "Featured stories",
         "section_type": "featured_articles",
-        "variant": "lead_with_side",
+        "variant": "lead_with_two",
         "design": {"background": "ivory", "spacing": "sm", "align": "left"},
         "content": {
             "eyebrow": "",
             "heading": "Featured stories",
             "description": "",
             "mode": "featured",
-            "count": 4,
+            "count": 3,
         },
     },
     {
@@ -133,32 +133,15 @@ HOME_SECTIONS = [
     },
     {
         "key": "topics",
-        "name": "Explore topics",
+        "name": "Explore by topic",
         "section_type": "topics_grid",
-        "variant": "cards_3",
-        "design": {"background": "cream", "spacing": "md", "align": "left"},
+        "variant": "compact_4",
+        "design": {"background": "cream", "spacing": "sm", "align": "left"},
         "content": {
-            "heading": "Explore topics",
-            "description": "Find encouragement and practical guidance for the part of life you "
-            "are working on right now.",
-            "mode": "featured",
+            "heading": "Explore by topic",
+            "description": "Find encouragement for the part of life you are working on now.",
+            "mode": "all",
         },
-    },
-    {
-        "key": "editors-picks",
-        "name": "Editor's Picks",
-        "section_type": "article_collection",
-        "variant": "grid_4",
-        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
-        "content": {"heading": "Editor's Picks", "articles": []},
-    },
-    {
-        "key": "popular",
-        "name": "Popular articles",
-        "section_type": "popular_articles",
-        "variant": "numbered",
-        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
-        "content": {"heading": "Popular articles", "period": "30", "count": 5},
     },
     {
         "key": "newsletter",
@@ -175,46 +158,59 @@ HOME_SECTIONS = [
         },
     },
     {
+        "key": "most-read",
+        "name": "Most read",
+        "section_type": "popular_articles",
+        "variant": "grid_4",
+        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
+        "content": {
+            "heading": "Most read",
+            "period": "30",
+            "count": 4,
+            "exclude_shown": True,
+            # Until the site has reading statistics: featured articles, named as such.
+            "fallback": "featured",
+            "fallback_heading": "Editor's picks",
+        },
+    },
+    {
         "key": "resources",
-        "name": "Free resources",
+        "name": "Resources for your growth",
         "section_type": "resource_showcase",
         "variant": "cards_3",
-        "design": {"background": "cream", "spacing": "md", "align": "left"},
+        "design": {"background": "cream", "spacing": "sm", "align": "left"},
         "content": {
-            "heading": "Free resources",
+            "heading": "Resources for your growth",
             "description": "Practical tools to help you reflect, plan and take the next step.",
-            "mode": "free",
+            # Free and premium; premium only while the shop is switched on.
+            "mode": "all",
             "count": 3,
-            "cta": _cta("Browse the resource library", "/resources", "outline"),
+            "cta": _cta("Browse all resources", "/resources", "outline"),
         },
     },
     {
-        "key": "by-topic",
-        "name": "More to read by topic",
-        "section_type": "topic_articles",
-        "variant": "columns",
-        "design": {"background": "ivory", "spacing": "sm"},
+        "key": "good-news",
+        "name": "Good news & real stories",
+        "section_type": "article_collection",
+        "variant": "grid_3",
+        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
+        # Chosen by the editors (hidden until stories are picked): never filled
+        # automatically, so nothing is labelled "good news" or "real" without a person
+        # deciding it is.
         "content": {
-            "heading": "More to read by topic",
-            "mode": "featured",
-            "topic_count": 3,
-            "per_topic": 3,
-            "exclude_shown": True,
+            "eyebrow": "Good news",
+            "heading": "Real stories of hope and change",
+            "articles": [],
         },
     },
     {
-        "key": "about",
-        "name": "About Think Positive Always",
-        "section_type": "brand_intro",
-        "variant": "text_only",
-        "design": {"background": "cream", "spacing": "md"},
-        "content": {
-            "eyebrow": "About us",
-            "heading": "About Think Positive Always",
-            "body": "Think Positive Always exists to help people develop a healthier mindset, "
-            "navigate life's challenges, build confidence, and move forward with intention.",
-            "cta": _cta("More about Think Positive Always", "/about", "outline"),
-        },
+        "key": "reflection",
+        "name": "Reflection",
+        "section_type": "quote",
+        "variant": "minimal",
+        "design": {"background": "cream", "spacing": "sm", "align": "center"},
+        # Unattributed: a reflection in Think Positive Always' own words, not a quotation.
+        "content": {"quote": "Small steps, taken consistently, change everything."},
     },
 ]
 

@@ -45,3 +45,18 @@ export function formatBytes(bytes) {
   if (bytes < 1024 ** 4) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
   return `${(bytes / 1024 ** 4).toFixed(1)} TB`;
 }
+
+/**
+ * A short excerpt: the first sentence of `text`, cut at a word boundary (with "…") when
+ * longer than `max` characters. Used where a full description would be too long.
+ */
+export function shortExcerpt(text, max = 90) {
+  const clean = String(text ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  const sentence = clean.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? clean;
+  if (sentence.length <= max) return sentence;
+  const cut = sentence.slice(0, max + 1).replace(/\s+\S*$/, "");
+  return `${(cut || sentence.slice(0, max)).replace(/[\s,;:.–—-]+$/, "")}…`;
+}

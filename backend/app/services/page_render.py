@@ -462,6 +462,16 @@ def _computed(
         days = int(content.get("period") or 30)
         fetched = _popular_articles(days, count + _extra(loader, exclude))
         data["articles"] = _shown(loader, _unshown(loader, fetched, exclude, count))
+        data["fallback"] = False
+        if not data["articles"] and content.get("fallback") == "featured":
+            # No reading statistics yet: show featured (editor-chosen) articles under their
+            # own heading, never presented as "most read".
+            fetched = _featured_articles(count + _extra(loader, exclude))
+            data["articles"] = _shown(loader, _unshown(loader, fetched, exclude, count))
+            data["fallback"] = bool(data["articles"])
+            if data["fallback"]:
+                data["heading"] = content.get("fallback_heading") or "Editor's picks"
+                data["description"] = ""
     elif section_type == "related_articles":
         count = content.get("count") or 4
         if loader.article:
@@ -477,7 +487,13 @@ def _computed(
     elif section_type == "resource_showcase":
         from .commerce.catalogue import resources_for_section
 
-        data["resources"] = resources_for_section(content, content.get("count") or 3)
+        # Paid resources are promoted only while the shop is switched on (Settings ›
+        # Website sections); otherwise only free ones are shown.
+        data["resources"] = resources_for_section(
+            content,
+            content.get("count") or 3,
+            include_paid=settings.get("visibility.shop_public") is True,
+        )
         data.pop("products", None)
     elif section_type == "topics_grid":
         from .topic_service import list_topics

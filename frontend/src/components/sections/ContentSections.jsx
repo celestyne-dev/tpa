@@ -89,7 +89,7 @@ export function QuoteSection({ section }) {
     </figure>
   );
   return (
-    <SectionShell section={section} label="Quote">
+    <SectionShell section={section} label={data.attribution ? "Quote" : "Reflection"}>
       {variant === "highlighted" ? (
         <div
           className={cn(

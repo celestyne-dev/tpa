@@ -1,5 +1,6 @@
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
+import { routes } from "@/config/navigation";
 import { HeaderShopLinks } from "./HeaderShopLinks";
 import { useHeaderCta } from "@/hooks/useHeaderCta";
 import { useNavigation } from "@/hooks/useNavigation";
@@ -11,9 +12,11 @@ import { NavItem } from "./NavItem";
 export function SiteHeader() {
   const { primary } = useNavigation();
   const cta = useHeaderCta();
-  // The header button replaces a menu link to the same page on desktop.
+  // The header button replaces a menu link to the same page on desktop, and the logo is
+  // the link home, so a "Home" menu link is left to the mobile menu.
   const desktopItems = primary.filter(
-    (item) => item.visibility !== "mobile" && (!cta || item.href !== cta.href),
+    (item) =>
+      item.visibility !== "mobile" && item.href !== routes.home && (!cta || item.href !== cta.href),
   );
   return (
     <header className="sticky top-0 z-40 border-b border-charcoal/[0.07] bg-ivory/90 backdrop-blur-md supports-[backdrop-filter]:bg-ivory/80">

@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router";
 import { Container } from "@/components/ui/Container";
 import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
+import { cn } from "@/utils/format";
 import { useNavigation } from "@/hooks/useNavigation";
 import { NewsletterSignupForm } from "@/components/newsletter/NewsletterSignupForm";
 import { useNewsletterStatus } from "@/components/newsletter/useNewsletterStatus";
@@ -30,6 +31,13 @@ export function pageHasNewsletterForm(pathname) {
     under("/checkout")
   );
 }
+
+const FOOTER_COLUMNS = {
+  1: "sm:grid-cols-1",
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-3",
+  4: "md:grid-cols-4",
+};
 
 const DEFAULT_COPYRIGHT = "© {year} {site_name}. All rights reserved.";
 
@@ -152,7 +160,14 @@ export function SiteFooter({ site }) {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-10 sm:grid-cols-4">
+          <div
+            data-footer-columns={footer.length}
+            className={cn(
+              "grid grid-cols-2 gap-x-8 gap-y-10",
+              // As many equal columns as there are link groups, once there is room.
+              FOOTER_COLUMNS[Math.min(footer.length, 4)],
+            )}
+          >
             {footer.map((group) => (
               <nav key={group.title} aria-label={group.title}>
                 <h2 className="font-sans text-xs font-semibold tracking-[0.16em] text-ivory uppercase">

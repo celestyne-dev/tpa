@@ -101,6 +101,7 @@ function RowArticleCard({ article, headingLevel: Heading = "h3", title, excerpt,
  * - `lead`: the large lead story of an editorial front page.
  * - `compact`: a small horizontal story (beside a lead, in topic groups, the sidebar).
  * - `row`: a horizontal story with its excerpt (archives, search, author pages).
+ * - `secondary`: a picture story beside a lead (16:9 image, title, date; no excerpt).
  */
 export function ArticleCard({
   article,
@@ -128,6 +129,7 @@ export function ArticleCard({
   }
   const feature = variant === "feature";
   const lead = variant === "lead";
+  const secondary = variant === "secondary";
   return (
     <Card
       interactive
@@ -144,7 +146,9 @@ export function ArticleCard({
             ? "aspect-[16/10] md:aspect-auto md:min-h-full"
             : lead
               ? "aspect-[16/10] lg:aspect-[3/2]"
-              : "aspect-[16/10]",
+              : secondary
+                ? "aspect-[16/9]"
+                : "aspect-[16/10]",
         )}
       >
         <ContentImage
@@ -156,7 +160,9 @@ export function ArticleCard({
               ? "(min-width: 768px) 55vw, 100vw"
               : lead
                 ? "(min-width: 1280px) 760px, (min-width: 1024px) 60vw, 100vw"
-                : IMAGE_SIZES.card
+                : secondary
+                  ? "(min-width: 1280px) 440px, (min-width: 1024px) 36vw, (min-width: 640px) 50vw, 100vw"
+                  : IMAGE_SIZES.card
           }
           className="object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:group-hover:scale-100"
         />
@@ -171,6 +177,7 @@ export function ArticleCard({
           "flex flex-1 flex-col p-6 sm:p-7",
           feature && "md:justify-center md:p-10",
           lead && "sm:p-8 lg:p-10",
+          secondary && "p-5 sm:p-6",
         )}
       >
         <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
@@ -182,7 +189,8 @@ export function ArticleCard({
             "mt-3 font-medium text-balance",
             feature && "text-2xl sm:text-3xl lg:text-4xl",
             lead && "text-3xl leading-tight sm:text-4xl lg:text-[2.75rem]",
-            !feature && !lead && "text-xl sm:text-2xl",
+            secondary && "text-xl leading-snug sm:text-[1.4rem]",
+            !feature && !lead && !secondary && "text-xl sm:text-2xl",
           )}
         >
           <Link
@@ -195,6 +203,7 @@ export function ArticleCard({
         <p
           className={cn(
             "mt-3 flex-1 text-muted",
+            secondary && "line-clamp-2 lg:hidden",
             feature && "text-lg",
             lead && "line-clamp-3 text-lg sm:text-xl",
             !feature && !lead && "line-clamp-3",

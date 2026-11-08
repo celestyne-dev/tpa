@@ -156,6 +156,7 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
         "description": "Articles marked as featured, or a hand-picked selection.",
         "variants": {
             "lead_with_side": "Large lead story with smaller stories alongside",
+            "lead_with_two": "Large lead story with two picture stories alongside",
             "lead_and_grid": "Large lead article and grid",
             "grid_3": "Three-column cards",
             "carousel": "Horizontal scrolling row",
@@ -235,7 +236,11 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
         "label": "Topic cards",
         "category": "Articles",
         "description": "Cards linking to topic pages: featured topics, all topics or a selection.",
-        "variants": {"cards_3": "Three-column cards", "cards_4": "Four-column cards"},
+        "variants": {
+            "cards_3": "Three-column cards",
+            "cards_4": "Four-column cards",
+            "compact_4": "Compact cards with a short excerpt",
+        },
         "fields": {
             "eyebrow": EYEBROW,
             "heading": HEADING,
@@ -284,6 +289,17 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             ),
             "count": {**ARTICLE_COUNT, "default": 5, "max": 10},
             "exclude_shown": exclude_shown(False),
+            "fallback": _f(
+                "select",
+                "Without reading statistics",
+                choices={
+                    "none": "Hide the section",
+                    "featured": "Show featured articles instead, under their own heading",
+                },
+                default="none",
+                help="The fallback is never presented as most-read: it uses the heading below.",
+            ),
+            "fallback_heading": text("Heading for the featured articles fallback", 120),
             "cta": cta("Link button"),
         },
         "design": ["background", "spacing", "card_style", "align"],

@@ -363,6 +363,10 @@
         "label": "Large lead story with smaller stories alongside"
       },
       {
+        "value": "lead_with_two",
+        "label": "Large lead story with two picture stories alongside"
+      },
+      {
         "value": "lead_and_grid",
         "label": "Large lead article and grid"
       },
@@ -909,6 +913,10 @@
       {
         "value": "cards_4",
         "label": "Four-column cards"
+      },
+      {
+        "value": "compact_4",
+        "label": "Compact cards with a short excerpt"
       }
     ],
     "fields": [
@@ -1131,6 +1139,29 @@
         "help": "Avoids showing the same article twice on one page."
       },
       {
+        "name": "fallback",
+        "type": "select",
+        "label": "Without reading statistics",
+        "choices": [
+          {
+            "value": "none",
+            "label": "Hide the section"
+          },
+          {
+            "value": "featured",
+            "label": "Show featured articles instead, under their own heading"
+          }
+        ],
+        "default": "none",
+        "help": "The fallback is never presented as most-read: it uses the heading below."
+      },
+      {
+        "name": "fallback_heading",
+        "type": "text",
+        "label": "Heading for the featured articles fallback",
+        "max": 120
+      },
+      {
         "name": "cta",
         "type": "cta",
         "label": "Link button"
@@ -1227,6 +1258,8 @@
         "period": "30",
         "count": 5,
         "exclude_shown": false,
+        "fallback": "none",
+        "fallback_heading": "",
         "cta": {
           "label": "",
           "url": "",

@@ -21,12 +21,11 @@ EDITORIAL_ORDER = [
     "featured_articles",
     "latest_articles",
     "topics_grid",
-    "article_collection",
-    "popular_articles",
     "newsletter_cta",
+    "popular_articles",
     "resource_showcase",
-    "topic_articles",
-    "brand_intro",
+    "article_collection",
+    "quote",
 ]
 
 
@@ -79,20 +78,31 @@ def test_default_homepage_is_the_editorial_layout_without_duplicates(seeded, cli
     assert [s["type"] for s in sections] == EDITORIAL_ORDER
     by_type = {s["type"]: s for s in sections}
     featured = by_type["featured_articles"]
-    assert featured["variant"] == "lead_with_side" and featured["data"]["articles"]
+    assert featured["variant"] == "lead_with_two"
+    assert 1 <= len(featured["data"]["articles"]) <= 3  # a lead and two stories alongside
+    assert by_type["topics_grid"]["variant"] == "compact_4"
+    assert by_type["topics_grid"]["data"]["heading"] == "Explore by topic"
     # Later sections leave out articles already shown above: no article appears twice.
-    shown = _slugs(featured["data"]["articles"]) + _slugs(
-        by_type["latest_articles"]["data"]["articles"]
+    popular = by_type["popular_articles"]["data"]
+    shown = (
+        _slugs(featured["data"]["articles"])
+        + _slugs(by_type["latest_articles"]["data"]["articles"])
+        + _slugs(popular["articles"])
     )
-    for group in by_type["topic_articles"]["data"]["groups"]:
-        assert group["articles"] and group["topic"]["slug"]
-        shown += _slugs(group["articles"])
     assert len(shown) == len(set(shown))
-    # Nothing hardcoded: empty picks, no statistics yet and no available resources are empty
+    # No reading statistics yet: never shown as "Most read". Featured articles may stand
+    # in, under their own clearly named heading.
+    if popular["articles"]:
+        assert popular["fallback"] is True and popular["heading"] == "Editor's picks"
+    else:
+        assert popular["heading"] == "Most read"
+    # Nothing hardcoded: empty good-news picks and no available resources are empty
     # (the website hides empty sections).
     assert by_type["article_collection"]["data"]["articles"] == []
-    assert by_type["popular_articles"]["data"]["articles"] == []
+    assert by_type["article_collection"]["data"]["heading"] == "Real stories of hope and change"
     assert by_type["resource_showcase"]["data"]["resources"] == []
+    reflection = by_type["quote"]["data"]
+    assert reflection["quote"] and not reflection.get("attribution")  # not a quotation
 
 
 def test_latest_articles_keep_their_old_behaviour_unless_deduplication_is_on(
@@ -117,7 +127,7 @@ def test_editors_picks_follow_the_chosen_order_and_skip_unpublished(seeded, as_r
             )
         )[:3]
         picks, expected = [c.id, a.id, b.id], [c.slug, a.slug]
-    _edit_section(api, "editors-picks", articles=picks)
+    _edit_section(api, "good-news", articles=picks)
     with seeded.app_context():
         db.session.get(Article, picks[2]).status = "draft"  # unpublished after being picked
         db.session.commit()
@@ -155,10 +165,13 @@ def test_popular_articles_come_from_aggregate_statistics_only(seeded, as_role, c
         hidden.status = "draft"  # never listed once unpublished
         expected, old_slug = [b.slug, a.slug], old.slug
         db.session.commit()
+    manager = as_role("website_manager")
+    _edit_section(manager, "most-read", exclude_shown=False)
     section = _by_type(client)["popular_articles"]
+    assert section["data"]["fallback"] is False and section["data"]["heading"] == "Most read"
     assert _slugs(section["data"]["articles"]) == expected
     assert "views" not in str(section) and "visitors" not in str(section)
-    _edit_section(as_role("website_manager"), "popular", period="90")
+    _edit_section(manager, "most-read", period="90")
     assert _slugs(_by_type(client)["popular_articles"]["data"]["articles"])[0] == old_slug
 
 
@@ -186,8 +199,13 @@ def test_resource_showcase_lists_only_available_published_resources(seeded, as_r
         "cover",
         "cover_theme",
     }
-    # "All available resources" adds the paid one, still never drafts or coming-soon items.
-    _edit_section(as_role("website_manager"), "resources", mode="all", count=9)
+    # The homepage asks for all available resources, but paid ones are promoted only while
+    # the shop is switched on; never drafts or coming-soon items.
+    manager = as_role("website_manager")
+    _edit_section(manager, "resources", mode="all", count=9)
+    titles = [r["title"] for r in _by_type(client)["resource_showcase"]["data"]["resources"]]
+    assert titles == ["Morning reset checklist"]
+    _settings(manager, **{"visibility.shop_public": True})
     titles = [r["title"] for r in _by_type(client)["resource_showcase"]["data"]["resources"]]
     assert sorted(titles) == ["Morning reset checklist", "Paid reflection workbook"]
 

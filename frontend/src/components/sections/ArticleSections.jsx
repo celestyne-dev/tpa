@@ -125,11 +125,42 @@ function LeadWithSide({ articles, tone }) {
   );
 }
 
+/**
+ * The editorial opening: a large lead story with two picture stories stacked beside it
+ * (below it on phones and tablets, side by side on tablets). Image crops are fixed
+ * (3:2 and 16:9), so nothing shifts while images load.
+ */
+function LeadWithTwo({ articles, tone }) {
+  const { first } = useSectionContext();
+  const [lead, ...rest] = articles;
+  const secondary = rest.slice(0, 2);
+  return (
+    <div
+      className={cn(
+        "grid gap-8",
+        secondary.length > 0 && "lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-10",
+      )}
+    >
+      <ArticleCard article={lead} variant="lead" tone={tone} priority={first} />
+      {secondary.length > 0 && (
+        <ul className="grid gap-8 sm:grid-cols-2 lg:grid-cols-1 lg:grid-rows-2">
+          {secondary.map((article) => (
+            <li key={article.slug} className="min-h-0">
+              <ArticleCard article={article} variant="secondary" tone={tone} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ArticleCollection({ articles, layout, cardStyle }) {
   const { first } = useSectionContext();
   const tone = CARD_TONE[cardStyle ?? "soft"];
   if (layout === "list") return <ArticleList articles={articles} />;
   if (layout === "lead_with_side") return <LeadWithSide articles={articles} tone={tone} />;
+  if (layout === "lead_with_two") return <LeadWithTwo articles={articles} tone={tone} />;
   if (layout === "lead_and_grid") {
     const [lead, ...rest] = articles;
     return (
@@ -379,13 +410,15 @@ export function TopicsSection({ section }) {
         ) : (
           <ul
             className={cn(
-              "grid gap-6 sm:grid-cols-2",
-              variant === "cards_4" ? "lg:grid-cols-4" : "lg:grid-cols-3",
+              "grid sm:grid-cols-2",
+              variant === "compact_4" ? "gap-4 lg:grid-cols-4" : "gap-6",
+              variant === "cards_4" && "lg:grid-cols-4",
+              variant === "cards_3" && "lg:grid-cols-3",
             )}
           >
             {topics.map((topic) => (
               <li key={topic.slug}>
-                <TopicCard topic={topic} />
+                <TopicCard topic={topic} compact={variant === "compact_4"} />
               </li>
             ))}
           </ul>

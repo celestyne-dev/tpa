@@ -2,19 +2,45 @@ import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 import { Card } from "@/components/ui/Card";
 import { routes } from "@/config/navigation";
+import { shortExcerpt } from "@/utils/format";
 import { TopicIcon } from "./TopicIcon";
 
-export function TopicCard({ topic }) {
+const LINK =
+  "after:absolute after:inset-0 after:rounded-[var(--radius-card)] focus-visible:outline-none focus-visible:after:outline-3 focus-visible:after:outline-offset-2 focus-visible:after:outline-sage-600";
+
+/**
+ * A topic card. `compact`: a small card with the icon beside the name and a short excerpt
+ * (the first sentence of the topic's description) for the homepage's "Explore by topic".
+ */
+export function TopicCard({ topic, compact = false }) {
+  if (compact) {
+    return (
+      <Card interactive className="group flex h-full items-start gap-4 p-5">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-sage-100 text-sage-700 transition-colors group-hover:bg-sage-700 group-hover:text-ivory">
+          <TopicIcon name={topic.icon} className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-lg leading-snug font-medium">
+            <Link to={routes.topic(topic.slug)} className={LINK}>
+              {topic.name}
+            </Link>
+          </h3>
+          {topic.description && (
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              {shortExcerpt(topic.description)}
+            </p>
+          )}
+        </div>
+      </Card>
+    );
+  }
   return (
     <Card interactive className="group flex h-full flex-col p-7">
       <span className="grid size-14 place-items-center rounded-2xl bg-sage-100 text-sage-700 transition-colors group-hover:bg-sage-700 group-hover:text-ivory">
         <TopicIcon name={topic.icon} className="size-6" />
       </span>
       <h3 className="mt-6 text-2xl font-medium">
-        <Link
-          to={routes.topic(topic.slug)}
-          className="after:absolute after:inset-0 after:rounded-[var(--radius-card)] focus-visible:outline-none focus-visible:after:outline-3 focus-visible:after:outline-offset-2 focus-visible:after:outline-sage-600"
-        >
+        <Link to={routes.topic(topic.slug)} className={LINK}>
           {topic.name}
         </Link>
       </h3>

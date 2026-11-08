@@ -58,7 +58,7 @@ export const mainNav = [
   { label: "Home", href: routes.home },
   { label: "Articles", href: routes.articles },
   { label: "Shop", href: routes.shop },
-  { label: "Free Resources", href: routes.freeResources },
+  { label: "Resources", href: routes.resources },
   { label: "Newsletter", href: routes.newsletter },
   { label: "Partner With Us", href: routes.partner },
   { label: "About", href: routes.about },

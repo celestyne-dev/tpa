@@ -305,7 +305,7 @@ def test_pages_and_sections(seeded, as_role):
     api = as_role("editor")
     pages = api.get("/api/v1/admin/pages").get_json()["data"]
     home = next(p for p in pages if p["slug"] == "home")
-    assert home["section_count"] == 9 and home["rendered_publicly"] is True
+    assert home["section_count"] == 8 and home["rendered_publicly"] is True
     detail = api.get(f"/api/v1/admin/pages/{home['id']}").get_json()["data"]
     hero = detail["sections"][0]  # the editorial homepage opens with its featured stories
     assert hero["section_type"] == "featured_articles"

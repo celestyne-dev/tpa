@@ -12,8 +12,9 @@ import { useSectionContext } from "./sectionContext";
 const CARD_TONE = { soft: "white", outline: "outline", flat: "flat" };
 
 /**
- * A published resource: its cover (or the designed brand cover), type, title,
- * description and a link to its page. The whole card is one link.
+ * A published resource: its cover (or the designed brand cover), type, Free or Premium,
+ * title, description and a link to its page (where the price, currency and purchase
+ * rules apply). The whole card is one link; there is no purchase button here.
  */
 export function ResourceCard({ resource, tone = "white", headingLevel: Heading = "h3" }) {
   return (
@@ -30,7 +31,12 @@ export function ResourceCard({ resource, tone = "white", headingLevel: Heading =
           <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
             {resource.type_label}
           </p>
-          {resource.is_free && <Badge tone="sage">Free</Badge>}
+          {resource.is_free ? (
+            <Badge tone="sage">Free</Badge>
+          ) : (
+            // Paid resources reach the homepage only while the shop is switched on.
+            <Badge tone="gold">Premium</Badge>
+          )}
         </div>
         <Heading className="mt-3 text-xl font-medium text-balance sm:text-2xl">
           <Link
@@ -43,9 +49,12 @@ export function ResourceCard({ resource, tone = "white", headingLevel: Heading =
         {resource.description && (
           <p className="mt-3 line-clamp-3 flex-1 text-muted">{resource.description}</p>
         )}
-        <p className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-sage-700">
-          View resource
-          <ArrowRight aria-hidden className="size-4" />
+        <p
+          aria-hidden
+          className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-sage-700"
+        >
+          {resource.is_free ? "Get it free" : "See details and price"}
+          <ArrowRight className="size-4" />
         </p>
       </div>
     </Card>
