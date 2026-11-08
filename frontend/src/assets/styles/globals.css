@@ -259,6 +259,12 @@
 .section-dark .card-outline {
   border-color: rgb(250 246 238 / 0.22);
 }
+.section-dark :is(h2, h3, h4):not(.surface-light *) {
+  color: var(--color-ivory);
+}
+.section-dark .bg-beige\/60:not(.surface-light *) {
+  background-color: rgb(250 246 238 / 0.08);
+}
 .section-dark .text-muted:not(.surface-light *) {
   color: var(--color-sand);
 }
