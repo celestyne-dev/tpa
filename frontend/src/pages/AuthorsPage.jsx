@@ -32,7 +32,7 @@ function AuthorCard({ author }) {
           <h2 className="text-xl font-medium">
             <Link
               to={routes.author(author.slug)}
-              className="after:absolute after:inset-0 after:rounded-[var(--radius-card)] group-hover:text-sage-800 focus-visible:outline-none focus-visible:after:outline-3 focus-visible:after:outline-offset-2 focus-visible:after:outline-sage-600"
+              className="group-hover:text-sage-800 after:absolute after:inset-0 after:rounded-[var(--radius-card)] focus-visible:outline-none focus-visible:after:outline-3 focus-visible:after:outline-offset-2 focus-visible:after:outline-sage-600"
             >
               {author.name}
             </Link>

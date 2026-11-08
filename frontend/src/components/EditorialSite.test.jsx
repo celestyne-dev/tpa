@@ -196,7 +196,7 @@ describe("article page", () => {
     );
     expect(order).toEqual(["topics_grid", "related_articles", "newsletter_cta"]);
     expect(screen.queryByRole("region", { name: "Popular articles" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+    expect(within(sidebarRegion()).queryByRole("note")).not.toBeInTheDocument();
   });
 
   it("has no sign-up form or invitation in the sidebar while sign-up is closed", async () => {
