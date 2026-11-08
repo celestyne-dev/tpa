@@ -11,17 +11,23 @@ import { Logo } from "./Logo";
 const DEFAULT_FOOTER_TEXT =
   "Practical encouragement, mindset insights, and thoughtful personal growth resources to help you build confidence and move forward through every season of life.";
 /**
- * Pages that already carry a Positive Reset form in their content (the homepage section,
- * articles and the archive, the newsletter page, the shop). The footer shows only its
- * "Learn about" link there, so a page never repeats the form.
+ * Pages where the footer shows only its "Learn about" link, not the signup form: pages
+ * that already carry a Positive Reset form (the homepage section, articles and the
+ * archive, the newsletter pages, the shop), and sign-in, registration, account and
+ * checkout pages, which have their own email fields and newsletter choice. A page never
+ * repeats the form.
  */
 export function pageHasNewsletterForm(pathname) {
+  const under = (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`);
   return (
     pathname === "/" ||
-    pathname === routes.newsletter ||
-    pathname === routes.articles ||
-    pathname.startsWith(`${routes.articles}/`) ||
-    pathname === "/shop"
+    under(routes.newsletter) ||
+    under(routes.articles) ||
+    under("/shop") ||
+    under(routes.signIn) ||
+    under(routes.register) ||
+    under(routes.account) ||
+    under("/checkout")
   );
 }
 

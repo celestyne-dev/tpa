@@ -299,6 +299,8 @@ describe("newsletter on article pages", () => {
     expect(pageHasNewsletterForm("/")).toBe(true);
     expect(pageHasNewsletterForm("/articles/some-story")).toBe(true);
     expect(pageHasNewsletterForm("/newsletter")).toBe(true);
+    expect(pageHasNewsletterForm("/register")).toBe(true);
+    expect(pageHasNewsletterForm("/account/settings")).toBe(true);
     expect(pageHasNewsletterForm("/about")).toBe(false);
   });
 
