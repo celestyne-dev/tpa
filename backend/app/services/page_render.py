@@ -198,7 +198,8 @@ class _Loader:
         # sections can leave them out ("Leave out articles already shown above").
         self.shown: set[str] = set()
         # Article context (the article sidebar): the article being read, and slugs that
-        # must never appear in any section (that article and its related list).
+        # must never appear in any section (that article and its related list). In this
+        # context an article also never appears in two sections.
         self.article: str | None = None
         self.exclude: set[str] = set()
 
@@ -345,6 +346,8 @@ def _resolve_field(loader: _Loader, spec: dict[str, Any], value: Any, now: datet
 
 def _shown(loader: _Loader, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     articles = [a for a in articles if a["slug"] not in loader.exclude]
+    if loader.article:  # the sidebar: one article never appears in two of its sections
+        articles = [a for a in articles if a["slug"] not in loader.shown]
     loader.shown.update(a["slug"] for a in articles)
     return articles
 
@@ -352,7 +355,7 @@ def _shown(loader: _Loader, articles: list[dict[str, Any]]) -> list[dict[str, An
 def _unshown(
     loader: _Loader, articles: list[dict[str, Any]], exclude: bool, limit: int
 ) -> list[dict[str, Any]]:
-    if exclude:
+    if exclude or loader.article:
         articles = [a for a in articles if a["slug"] not in loader.shown]
     articles = [a for a in articles if a["slug"] not in loader.exclude]
     return articles[:limit]
@@ -360,7 +363,7 @@ def _unshown(
 
 def _extra(loader: _Loader, exclude: bool) -> int:
     """How many more articles to fetch so leaving some out still fills the section."""
-    return (len(loader.shown) if exclude else 0) + len(loader.exclude)
+    return (len(loader.shown) if exclude or loader.article else 0) + len(loader.exclude)
 
 
 def _popular_articles(days: int, limit: int) -> list[dict[str, Any]]:
@@ -442,7 +445,7 @@ def _computed(
             data["articles"] = _shown(loader, data.get("articles") or [])
         else:
             count = content.get("count") or 3
-            fetched = _featured_articles(count + len(loader.exclude))
+            fetched = _featured_articles(count + _extra(loader, False))
             data["articles"] = _shown(loader, _unshown(loader, fetched, False, count))
     elif section_type == "article_collection":
         data["articles"] = _shown(loader, data.get("articles") or [])
@@ -464,7 +467,7 @@ def _computed(
         if loader.article:
             from .article_service import related_articles
 
-            fetched = related_articles(loader.article, limit=count + len(loader.exclude))
+            fetched = related_articles(loader.article, limit=count + _extra(loader, False))
         else:
             fetched = []
         data["articles"] = _shown(loader, _unshown(loader, fetched, False, count))

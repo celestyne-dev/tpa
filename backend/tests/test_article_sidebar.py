@@ -82,6 +82,13 @@ def test_sidebar_never_repeats_the_article_or_its_related_list(seeded, client):
     related = _by_type(data)["related_articles"]["data"]["articles"]
     assert related, "seeded articles share topics"
     assert len(related) <= 4
+    # ...and no article appears in two sidebar sections.
+    listed = [
+        article["slug"]
+        for section in data["sidebar"]
+        for article in section["data"].get("articles", [])
+    ]
+    assert len(listed) == len(set(listed))
 
 
 def test_related_articles_prefer_the_same_topic(seeded, client):
@@ -150,7 +157,8 @@ def test_manual_editors_picks(seeded, as_role, client):
     sections = _sections_payload(page)
     picks = next(s for s in sections if s["section_type"] == "featured_articles")
     picks["content"] = {**picks["content"], "mode": "manual", "articles": [pick_id]}
-    _publish(api, sections)
+    # First in the sidebar (later sections never repeat an article shown above them).
+    _publish(api, [picks, *[s for s in sections if s is not picks]])
     data = _article(client, rows[0][1])
     [section] = [s for s in data["sidebar"] if s["type"] == "featured_articles"]
     assert [a["slug"] for a in section["data"]["articles"]] == [pick]
