@@ -1,0 +1,1 @@
+import{D as e,n as t,w as n}from"./createLucideIcon-CB55XO2I.js";import{t as r}from"./PageBuilder-i6lz6yUj.js";import{ht as i}from"./index-BXJr_ZvJ.js";var a=e(n(),1),o=t();function s(){let e=i(),t=(0,a.useCallback)(()=>e.pages.articleSidebar(),[e]);return(0,o.jsx)(r,{load:t,isSidebar:!0})}export{s as ArticleSidebarBuilderPage};
