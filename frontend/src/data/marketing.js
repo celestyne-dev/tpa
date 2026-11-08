@@ -4,19 +4,19 @@
  */
 import {
   BookOpen,
-  CalendarDays,
   Compass,
   Download,
   Handshake,
   HeartHandshake,
+  Leaf,
   Lightbulb,
-  MailCheck,
   Megaphone,
   Newspaper,
   PenTool,
   ShieldCheck,
   Sparkles,
   Sprout,
+  Sun,
 } from "lucide-react";
 
 export const partnershipFormats = [
@@ -54,26 +54,50 @@ export const brandAlignment = [
   "Willingness to clearly disclose sponsored and affiliate relationships.",
 ];
 
-export const newsletterInside = [
+/** "What you'll receive" on the /newsletter page. */
+export const newsletterReceive = [
+  {
+    icon: Sun,
+    title: "Daily Encouragement",
+    text: "A few warm, honest words to help you begin the day with steadier footing and a little more hope.",
+  },
+  {
+    icon: Leaf,
+    title: "Mindset & Wellbeing",
+    text: "Gentle ideas for calmer thinking, kinder self-talk and looking after your energy.",
+  },
+  {
+    icon: Sprout,
+    title: "Personal Growth",
+    text: "Reflections and prompts that help you build confidence, habits and direction over time.",
+  },
   {
     icon: Lightbulb,
-    title: "A mindset reset",
-    text: "One idea to help you look at the day ahead with more clarity, balance, and hope.",
+    title: "Practical Wisdom",
+    text: "One small, realistic step you can try in a few minutes, plus useful articles and free resources.",
+  },
+];
+
+/**
+ * The shape of a typical Positive Reset email, shown on /newsletter. Written as an
+ * illustration of the format; it is not, and is not presented as, a past issue.
+ */
+export const dailyResetExample = [
+  {
+    label: "Today's thought",
+    text: "Progress rarely announces itself. Most days it looks like showing up, doing a little, and being patient with yourself.",
   },
   {
-    icon: HeartHandshake,
-    title: "Encouragement for real life",
-    text: "Honest perspective for the challenges, changes, and ordinary pressures we all face.",
+    label: "A moment to reflect",
+    text: "What is one thing you handled well recently that you haven't given yourself credit for?",
   },
   {
-    icon: CalendarDays,
-    title: "A small daily practice",
-    text: "A simple reflection prompt or action step you can try in just a few minutes.",
+    label: "One small step",
+    text: "Before you open your messages, take two slow breaths and choose the one task that matters most today.",
   },
   {
-    icon: MailCheck,
-    title: "New resources first",
-    text: "Early news about new articles, free resources, and upcoming Think Positive Always products.",
+    label: "Something useful",
+    text: "A link to a Think Positive Always article or free resource that goes deeper on the day's theme.",
   },
 ];
 
