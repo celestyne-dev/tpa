@@ -1,0 +1,58 @@
+# TEMPORARY (throwaway branch only, deleted after use): builds the site against the
+# fixture API, in consent mode so the cookie notice is visible, and uploads dist/ so the
+# layout can be screenshotted. Never merged.
+name: Temporary layout build
+on:
+  push:
+    branches: ["claude/tmp-layout-**"]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      FLASK_CONFIG: development
+      FLASK_SKIP_DOTENV: "1"
+      DATABASE_URL: sqlite:////tmp/tpa-ci-build.db
+      MEDIA_ROOT: /tmp/tpa-ci-media
+      SITE_URL: https://ci.example.com
+      CORS_ORIGINS: https://ci.example.com
+      VITE_SITE_URL: https://ci.example.com
+      VITE_ALLOW_INDEXING: "true"
+      PRERENDER_API_URL: http://127.0.0.1:5000/api/v1
+      TPA_RELEASE: ${{ github.sha }}
+      PRIVACY_STATISTICS_MODE: consent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          flask --app wsgi db upgrade
+          flask --app wsgi seed sample-content
+          flask --app wsgi cms seed-defaults
+          python scripts/ci_build_fixtures.py
+          nohup flask --app wsgi run --port 5000 > /tmp/tpa-ci-api.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:5000/api/v1/health && break; sleep 1; done
+      - working-directory: frontend
+        run: npm ci && npm run build && node scripts/verify-build.mjs
+      - name: Screenshots
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+          python .github/workflows/legal_shots.py frontend/dist /tmp/shots
+      - name: Commit screenshots to this throwaway branch
+        run: |
+          git config user.name "Claude"; git config user.email "noreply@anthropic.com"
+          mkdir -p shots && cp /tmp/shots/* shots/
+          git add shots && git commit -m "TEMPORARY: layout screenshots" && git push
