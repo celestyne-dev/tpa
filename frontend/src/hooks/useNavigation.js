@@ -40,6 +40,38 @@ function readerLabels(item) {
 
 const TOPIC_PREFIX = routes.topic("");
 
+/** The slug in a /topics/<slug>[/page/N][?…][#…] link, or null for any other link. */
+export function topicSlugOf(href) {
+  if (!href?.startsWith(TOPIC_PREFIX)) return null;
+  return href.slice(TOPIC_PREFIX.length).split(/[/?#]/)[0] || null;
+}
+
+/**
+ * Leaves out links to topics that are not published. The server already drops them (and
+ * points renamed topics at their new address); this covers menus cached before a topic
+ * was hidden. Until the topic list has loaded every link is kept.
+ */
+export function liveLinks(items, topics) {
+  if (!topics) return items;
+  const live = new Set(topics.map((t) => t.slug));
+  return items.filter((item) => {
+    const slug = topicSlugOf(item.href);
+    return slug === null || live.has(slug);
+  });
+}
+
+/** Built-in footer: the Explore column also links the first published topics with articles. */
+function fallbackFooter(topics) {
+  const extra = (topics ?? [])
+    .filter((t) => t.article_count > 0)
+    .slice(0, 3)
+    .map((t) => ({ label: t.name, href: routes.topic(t.slug) }));
+  return footerNav.map((g, i) => ({
+    title: g.title,
+    items: [...g.items, ...(i === 0 ? extra : [])].map(fromConfig),
+  }));
+}
+
 /**
  * A menu group made only of topic links (the header's "Topics") also lists the other
  * published topics that have articles, after the editor's own links and in the site's
@@ -50,9 +82,10 @@ function withAllTopics(item, topics) {
   const isTopicGroup =
     item.children?.length > 0 &&
     item.children.every((child) => child.href?.startsWith(TOPIC_PREFIX));
-  if (!isTopicGroup) return item;
+  if (!isTopicGroup)
+    return item.children ? { ...item, children: liveLinks(item.children, topics) } : item;
   // The menu loads topics when first opened (see NavDropdown), not on every page view.
-  item = { ...item, topicGroup: true };
+  item = { ...item, topicGroup: true, children: liveLinks(item.children, topics) };
   if (!topics?.length) return item;
   const listed = new Set(item.children.map((child) => child.href));
   const more = topics
@@ -67,16 +100,18 @@ export function useNavigation() {
   const topics = useSelector(selectTopicList)?.items;
   const nav = site?.navigation;
   const upgrade = (item) => withAllTopics(readerLabels(item), topics);
-  const primary = (nav?.primary?.length ? nav.primary.map(fromApi) : mainNav.map(fromConfig)).map(
-    upgrade,
-  );
+  const menu = (items) =>
+    liveLinks(items, topics)
+      .map(upgrade)
+      .filter((item) => !item.children || item.children.length > 0);
+  const primary = menu(nav?.primary?.length ? nav.primary.map(fromApi) : mainNav.map(fromConfig));
   return {
     primary,
     // The mobile menu falls back to the header menu when it has not been customised.
-    mobile: nav?.mobile?.length ? nav.mobile.map(fromApi).map(upgrade) : primary,
+    mobile: nav?.mobile?.length ? menu(nav.mobile.map(fromApi)) : primary,
     footer: nav?.footer?.length
-      ? nav.footer.map((g) => ({ title: g.title, items: g.items.map(fromApi) }))
-      : footerNav.map((g) => ({ title: g.title, items: g.items.map(fromConfig) })),
+      ? nav.footer.map((g) => ({ title: g.title, items: liveLinks(g.items.map(fromApi), topics) }))
+      : fallbackFooter(topics),
     legal: (nav?.legal ?? []).map(fromApi),
   };
 }

@@ -72,9 +72,7 @@ export const footerNav = [
       { label: "Articles", href: routes.articles },
       { label: "Authors", href: routes.authors },
       { label: "Search", href: routes.search },
-      { label: "Positive Mindset", href: routes.topic("positive-mindset") },
-      { label: "Personal Growth", href: routes.topic("personal-growth") },
-      { label: "Resilience & Starting Over", href: routes.topic("resilience-starting-over") },
+      // Topic links are added from the published topics (useNavigation), never hardcoded.
     ],
   },
   {

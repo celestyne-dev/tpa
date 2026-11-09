@@ -5,24 +5,17 @@ topics, newsletter, most read, resources, good news, a short reflection): editab
 sections that read live articles, topics and resources. Nothing is hardcoded content.
 """
 
+# A default menu group with "topic_links": N lists up to N real topics after its own links
+# (featured topics first, then the admin's display order).
 DEFAULT_MENUS = {
     "primary": {
         "name": "Header navigation",
         "allows_groups": True,
         "items": [
             {"label": "Articles", "url": "/articles"},
-            {
-                "label": "Topics",
-                "link_type": "heading",
-                "children": [
-                    {"label": "Positive Mindset", "url": "/topics/positive-mindset"},
-                    {"label": "Personal Growth", "url": "/topics/personal-growth"},
-                    {
-                        "label": "Resilience & Starting Over",
-                        "url": "/topics/resilience-starting-over",
-                    },
-                ],
-            },
+            # Topic links come from the topics that exist (see TOPIC_LINKS below), never
+            # from slugs written here: topics are created and renamed in the admin.
+            {"label": "Topics", "link_type": "heading", "topic_links": 3, "children": []},
             {"label": "Resources", "url": "/resources"},
             {"label": "Newsletter", "url": "/newsletter"},
             {"label": "About", "url": "/about"},
@@ -47,13 +40,8 @@ DEFAULT_MENUS = {
                     {"label": "Articles", "url": "/articles"},
                     {"label": "Authors", "url": "/authors"},
                     {"label": "Search", "url": "/search"},
-                    {"label": "Positive Mindset", "url": "/topics/positive-mindset"},
-                    {"label": "Personal Growth", "url": "/topics/personal-growth"},
-                    {
-                        "label": "Resilience & Starting Over",
-                        "url": "/topics/resilience-starting-over",
-                    },
                 ],
+                "topic_links": 3,
             },
             {
                 "label": "Resources",

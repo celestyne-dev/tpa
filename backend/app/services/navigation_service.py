@@ -13,6 +13,7 @@ from ..utils.errors import NotFoundError, ValidationError
 from ..utils.validation import is_https_url, is_internal_path, plain_text_problem
 from . import audit_service
 from .publication_service import record_public_change
+from .topic_links import TopicLinkResolver, default_topic_links, topic_slug
 
 MAX_ITEMS = 40
 VISIBILITY = ("all", "desktop", "mobile")
@@ -58,7 +59,10 @@ def _tree_from_defaults(key: str) -> list[dict[str, Any]]:
             "visibility": "all",
         }
         if top:
-            node["children"] = [norm(c, False) for c in item.get("children", [])]
+            children = list(item.get("children", []))
+            if item.get("topic_links"):
+                children += default_topic_links(item["topic_links"])
+            node["children"] = [norm(c, False) for c in children]
         return node
 
     return [norm(i, True) for i in DEFAULT_MENUS[key]["items"]]
@@ -94,9 +98,22 @@ def is_hidden_destination(url: str | None, prefixes: tuple[str, ...]) -> bool:
 
 def public_navigation() -> dict[str, Any]:
     hidden = hidden_prefixes()
+    topics = TopicLinkResolver()
 
     def shown(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        return [n for n in nodes if not is_hidden_destination(n.get("url"), hidden)]
+        out = []
+        for n in nodes:
+            if is_hidden_destination(n.get("url"), hidden):
+                continue
+            if n["link_type"] == "internal" and topic_slug(n.get("url")):
+                # A topic that was renamed is linked at its new address; a topic that does
+                # not exist (or is hidden) is left out instead of sending readers to a 404.
+                url = topics.resolve(n["url"])
+                if url is None:
+                    continue
+                n = {**n, "url": url}
+            out.append(n)
+        return out
 
     def link(node: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -154,7 +171,17 @@ def link_warnings(items: list[dict[str, Any]]) -> list[str]:
             hrefs.append(item["url"])
         hrefs += [c["url"] for c in item.get("children") or [] if c.get("link_type") == "internal"]
     broken = broken_links(hrefs)
-    return [f"{href} does not point to a published page yet." for href in dict.fromkeys(broken)]
+    warnings = [f"{href} does not point to a published page yet." for href in dict.fromkeys(broken)]
+    topics = TopicLinkResolver()
+    for href in dict.fromkeys(hrefs):
+        if href in broken or not topic_slug(href):
+            continue
+        moved = topics.resolve(href)
+        if moved is None:
+            warnings.append(f"{href} is not a published topic, so it is hidden from the menu.")
+        elif moved != href:
+            warnings.append(f"{href} has moved: readers are sent to {moved}. Update the link.")
+    return warnings
 
 
 def admin_menus() -> list[dict[str, Any]]:

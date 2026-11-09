@@ -243,8 +243,14 @@ def delete_redirect(r: Redirect, actor: User) -> None:
     _changed(actor, "redirect_deleted")
 
 
-def create_slug_redirect(old_path: str, new_path: str, actor: User | None) -> Redirect:
-    """Keep an old article URL working after a slug change (301), flattening chains."""
+def create_slug_redirect(
+    old_path: str,
+    new_path: str,
+    actor: User | None,
+    *,
+    note: str = "Created automatically when the article slug changed.",
+) -> Redirect:
+    """Keep an old URL working after a slug change (301), flattening chains."""
     # The article lives at new_path again: an older redirect from there must go.
     for r in db.session.scalars(select(Redirect).where(Redirect.source_path == new_path)):
         db.session.delete(r)
@@ -262,7 +268,7 @@ def create_slug_redirect(old_path: str, new_path: str, actor: User | None) -> Re
             destination=new_path,
             status_code=301,
             origin="slug_change",
-            note="Created automatically when the article slug changed.",
+            note=note,
             created_by_id=actor.id if actor else None,
         )
         db.session.add(redirect)

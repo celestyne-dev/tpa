@@ -6,6 +6,7 @@ flask --app wsgi rbac sync
 flask --app wsgi seed sample-content
 flask --app wsgi cms seed-defaults
 flask --app wsgi content publish-due
+flask --app wsgi content fix-topic-slug OLD NEW [--dry-run]
 flask --app wsgi publish worker
 flask --app wsgi media prune
 """
@@ -192,6 +193,31 @@ def publish_due():
     if result.get("failed"):
         click.echo(f"{len(result['failed'])} item(s) failed; see the audit log.", err=True)
         sys.exit(1)
+
+
+@content_cli.command("fix-topic-slug")
+@click.argument("old_slug")
+@click.argument("new_slug")
+@click.option("--dry-run", is_flag=True, help="Show what would change and roll back.")
+def fix_topic_slug_command(old_slug: str, new_slug: str, dry_run: bool):
+    """Correct a topic's slug in place (e.g. elationships-and-connection to
+    relationships-and-connection): same topic and articles, a 301 from the old URL,
+    menu links updated. Safe to run twice; refuses if both slugs exist."""
+    from .services.topic_links import fix_topic_slug
+    from .utils.errors import APIError
+
+    try:
+        result = fix_topic_slug(old_slug, new_slug)
+    except APIError as exc:
+        db.session.rollback()
+        click.echo(f"Not changed: {exc.message}", err=True)
+        sys.exit(1)
+    if dry_run:
+        db.session.rollback()
+        click.echo(f"Dry run (rolled back): {result}")
+        return
+    db.session.commit()
+    click.echo(f"Done: {result}")
 
 
 publish_cli = AppGroup("publish", help="Static site publishing jobs.")

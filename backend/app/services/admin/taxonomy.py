@@ -173,7 +173,23 @@ def save_topic(topic: Topic | None, data: dict[str, Any], actor: User) -> Topic:
     if "icon" in data and data["icon"] not in TOPIC_ICONS:
         raise ValidationError(details={"icon": [f"Use one of: {', '.join(TOPIC_ICONS)}."]})
     _check_image(data.get("featured_image_id"), "featured_image_id")
-    return _save("topic", Topic, topic or Topic(), data, TOPIC_FIELDS, "name", actor, public=True)
+    old_slug = topic.slug if topic is not None and topic.id is not None else None
+    saved = _save("topic", Topic, topic or Topic(), data, TOPIC_FIELDS, "name", actor, public=True)
+    if old_slug and saved.slug != old_slug:
+        # The same topic (same id, so every article and course keeps it) at a new address:
+        # the old URL answers with a permanent redirect and saved menu links follow.
+        from ..topic_links import retarget_topic_links
+
+        audit_service.record(
+            "topic.slug_changed",
+            "topic",
+            saved.id,
+            actor=actor,
+            details={"from": old_slug, "to": saved.slug},
+        )
+        retarget_topic_links(old_slug, saved.slug, actor)
+        record_public_change("topic", saved.id, "topic_changed", actor)
+    return saved
 
 
 def delete_topic(topic: Topic, actor: User) -> None:

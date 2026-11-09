@@ -377,6 +377,26 @@ deploy (`flask db current`, `ls -l /var/backups/tpa/latest`).
 - [ ] `sudo systemctl start tpa-backup.service` succeeds; `--verify-only` on `latest` passes.
 - [ ] `certbot renew --dry-run` succeeds.
 
+### Correcting a topic slug (topic links)
+
+Changing a topic's slug in **Admin › Topics** now keeps the same topic (articles, courses,
+SEO fields untouched), adds a permanent 301 from the old `/topics/<old>` URL and updates
+saved menu links. Public menus also leave out links to topics that don't exist or are
+hidden, and the built-in menus list real topics instead of fixed slugs.
+
+To correct a misspelled slug from the server instead (safe to run twice; refuses if both
+slugs exist, never creates a topic):
+
+```bash
+flask --app wsgi content fix-topic-slug elationships-and-connection relationships-and-connection --dry-run
+flask --app wsgi content fix-topic-slug elationships-and-connection relationships-and-connection
+```
+
+It queues a site rebuild. The rebuilt release drops the old prerendered topic page, so
+Nginx hands the old URL to Flask's CMS redirect (`/_redirect`, no reload needed), and the
+sitemap, canonical tags and menus use the new slug. Then check: the old URL answers 301 to
+the new one and the new URL answers 200.
+
 ## 12. Remaining operational risks
 
 - **Single VPS.** The database, files, Redis and the site all share one machine and one
