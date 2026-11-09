@@ -65,7 +65,12 @@ export function AdvertisePage() {
         { name: "Home", href: routes.home },
         { name: "Advertise", href: routes.advertise },
       ]}
-    />
+    >
+      <Link to={routes.partner} className={buttonStyles()}>
+        Start a partnership inquiry
+        <ArrowRight aria-hidden />
+      </Link>
+    </PageHeader>
   );
   if (!kit) {
     return (

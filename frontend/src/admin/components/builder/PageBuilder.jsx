@@ -15,6 +15,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn, formatDateTime } from "@/utils/format";
 import { useAdminApi } from "../../adminApiContext";
+import { useAutosave } from "../../hooks/useAutosave";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges";
 import { AdminPageHeader } from "../AdminPageHeader";
 import { ConfirmDialog } from "../ConfirmDialog";
@@ -279,8 +280,10 @@ function Builder({ load, isHome, isSidebar = false }) {
     [typeMap],
   );
 
+  const [autosavePaused, setAutosavePaused] = useState(false);
   const apply = useCallback((data) => {
     const next = toDraft(data);
+    setAutosavePaused(false);
     setDetail(data);
     setDraft(next);
     setBase(next);
@@ -310,6 +313,37 @@ function Builder({ load, isHome, isSidebar = false }) {
 
   const dirty = Boolean(draft && base && !sameDraft(draft, base));
   useUnsavedChanges(dirty);
+
+  // Autosave: a few seconds after the last edit the draft is saved (never published). The
+  // response doesn't replace what is being edited; it only moves the saved baseline, the
+  // lock version and the ids of newly added sections forward. After an edit conflict it
+  // pauses until the page is reloaded.
+  const autosave = useAutosave({
+    enabled: Boolean(detail?.capabilities?.edit) && !busy && !autosavePaused,
+    dirty,
+    payload: draft,
+    lockVersion: detail?.lock_version,
+    delay: 8000,
+    save: (body, version) =>
+      api.pages.saveDraft(detail.id, { lock_version: version, ...toPayload(body) }),
+    onSaved: (res, sent) => {
+      const ids = Object.fromEntries(toDraft(res.data).sections.map((s) => [s.key, s.id]));
+      const withIds = (d) => ({
+        ...d,
+        sections: d.sections.map((s) => (s.id || !ids[s.key] ? s : { ...s, id: ids[s.key] })),
+      });
+      setDetail(res.data);
+      setBase(withIds(sent));
+      setDraft((current) => (current ? withIds(current) : current));
+    },
+  });
+  useEffect(() => {
+    if (!autosave.conflict) return;
+    setConflict(autosave.conflict);
+    setAutosavePaused(true);
+    autosave.clearConflict();
+  }, [autosave]);
+  const autosaving = autosave.status === "saving";
 
   if (loadError) return <ErrorState title="We couldn't load this page" onRetry={reload} />;
   if (!detail || !draft) return <Skeleton className="h-96 w-full" />;
@@ -479,9 +513,23 @@ function Builder({ load, isHome, isSidebar = false }) {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {dirty && <span className="text-sm text-gold-700">Unsaved changes</span>}
+            <span aria-live="polite" className="text-sm text-gold-700">
+              {autosaving
+                ? "Saving draft…"
+                : autosave.status === "error" || autosave.status === "offline"
+                  ? "Autosave failed — retrying"
+                  : dirty
+                    ? "Unsaved changes"
+                    : autosave.lastSavedAt
+                      ? "Draft saved automatically"
+                      : ""}
+            </span>
             {can.edit && (
-              <Button variant="outline" onClick={() => saveDraft()} disabled={busy || !dirty}>
+              <Button
+                variant="outline"
+                onClick={() => saveDraft()}
+                disabled={busy || autosaving || !dirty}
+              >
                 <Save aria-hidden />
                 Save draft
               </Button>
@@ -491,7 +539,7 @@ function Builder({ load, isHome, isSidebar = false }) {
               Preview
             </Button>
             {can.publish && (
-              <Button onClick={() => setConfirm("publish")} disabled={busy}>
+              <Button onClick={() => setConfirm("publish")} disabled={busy || autosaving}>
                 <Rocket aria-hidden />
                 Publish
               </Button>

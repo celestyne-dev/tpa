@@ -2,7 +2,6 @@ import { ArrowRight, Handshake, Mail, MessageCircle } from "lucide-react";
 import { Link } from "react-router";
 import { Seo } from "@/components/seo/Seo";
 import { buttonStyles } from "@/components/ui/buttonStyles";
-import { Card } from "@/components/ui/Card";
 import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
@@ -38,8 +37,8 @@ export function ContactPage() {
 
       <Section>
         <div className="grid gap-8 lg:grid-cols-3">
-          <Card className="flex flex-col p-8 lg:col-span-2">
-            <span className="grid size-12 place-items-center rounded-xl bg-sage-100 text-sage-700">
+          <div className="flex flex-col rounded-[1.75rem] border border-charcoal/10 bg-white/60 p-7 sm:p-10 lg:col-span-2">
+            <span className="grid size-12 place-items-center rounded-full bg-sage-100 text-sage-700">
               <MessageCircle aria-hidden className="size-5" />
             </span>
             <h2 className="mt-6 text-3xl font-medium">General inquiries</h2>
@@ -87,46 +86,48 @@ export function ContactPage() {
                 </Notice>
               </div>
             )}
-          </Card>
+          </div>
 
-          <Card tone="cream" className="flex flex-col p-8">
-            <span className="grid size-12 place-items-center rounded-xl bg-ivory text-sage-700">
+          <div className="flex flex-col rounded-[1.75rem] bg-sage-800 p-7 text-ivory sm:p-10">
+            <span className="grid size-12 place-items-center rounded-full bg-ivory/10 text-gold-300">
               <Handshake aria-hidden className="size-5" />
             </span>
-            <h2 className="mt-6 text-2xl font-medium">Brands &amp; partnerships</h2>
-            <p className="mt-3 flex-1 text-muted">
+            <h2 className="mt-6 text-2xl font-medium text-ivory">Brands &amp; partnerships</h2>
+            <p className="mt-3 flex-1 text-sage-100">
               Interested in collaborating with Think Positive Always? Learn about partnership
               formats and how to make an inquiry.
             </p>
             {partnershipsEmail && partnershipsEmail !== email && (
               <a
                 href={`mailto:${partnershipsEmail}`}
-                className="mt-4 font-medium text-sage-700 underline underline-offset-4"
+                className="mt-4 font-medium break-all text-gold-300 underline underline-offset-4"
               >
                 {partnershipsEmail}
               </a>
             )}
             <Link
               to={routes.partner}
-              className={buttonStyles({ variant: "outline", className: "mt-6 self-start" })}
+              className={buttonStyles({ variant: "light", className: "mt-6 self-start" })}
             >
               Partner with us
               <ArrowRight aria-hidden />
             </Link>
-          </Card>
+          </div>
         </div>
-      </Section>
-
-      <Section tone="cream" size="narrow" spacing="sm" aria-labelledby="support-heading">
-        <h2 id="support-heading" className="text-2xl font-medium">
-          Need urgent support?
-        </h2>
-        <p className="mt-3 text-muted">
-          Think Positive Always is not a crisis or counselling service. If you are in immediate
-          danger or need urgent emotional support, please contact your local emergency services or a
-          licensed mental health professional. In the United States, you can call or text 988 to
-          reach the 988 Suicide &amp; Crisis Lifeline.
-        </p>
+        <aside
+          aria-labelledby="support-heading"
+          className="mt-8 rounded-[1.75rem] border border-charcoal/10 border-l-4 border-l-gold-400 bg-cream p-7 sm:p-10"
+        >
+          <h2 id="support-heading" className="text-2xl font-medium">
+            Need urgent support?
+          </h2>
+          <p className="mt-3 max-w-3xl text-muted">
+            Think Positive Always is not a crisis or counselling service. If you are in immediate
+            danger or need urgent emotional support, please contact your local emergency services or
+            a licensed mental health professional. In the United States, you can call or text 988 to
+            reach the 988 Suicide &amp; Crisis Lifeline.
+          </p>
+        </aside>
       </Section>
     </>
   );

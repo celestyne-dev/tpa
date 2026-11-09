@@ -24,6 +24,7 @@ reusables        list of shared section ids (section groups only)
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from ..utils.errors import ValidationError
@@ -977,6 +978,54 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "content": {"heading": "Get in touch", "show_email": True},
         },
     },
+    "legal_document": {
+        "label": "Legal document",
+        "category": "Content",
+        "description": (
+            "A policy or terms page: title, dates, an optional summary and notice, the "
+            "document itself with an automatic table of contents built from its headings, "
+            "and links to the other legal pages."
+        ),
+        "variants": {"default": "Standard"},
+        "fields": {
+            "eyebrow": text("Small label above the title", 80, default="Legal"),
+            "heading": text("Document title", 120, help="Leave empty to use the page title."),
+            "summary": textarea("Summary", 600, help="Optional short introduction."),
+            "effective_date": _f("date", "Effective date", help="Optional."),
+            "last_updated": _f("date", "Last updated", help="Optional."),
+            "notice_title": text("Notice heading", 120),
+            "notice": textarea(
+                "Notice",
+                1000,
+                help="Optional note shown above the document, for example its review status.",
+            ),
+            "body": _f(
+                "rich",
+                "Document",
+                required=True,
+                help=(
+                    "Start each section with a heading: headings build the table of contents. "
+                    "Write **bold** or *italic* for emphasis and [label](/path) for links."
+                ),
+            ),
+            "show_toc": _f("boolean", "Show the table of contents", default=True),
+            "show_related": _f("boolean", "Show links to the other legal pages", default=True),
+        },
+        "design": [],
+        "defaults": {
+            "variant": "default",
+            "design": {},
+            "content": {
+                "eyebrow": "Legal",
+                "body": [
+                    {"type": "heading", "level": 2, "text": "1. First section"},
+                    {"type": "paragraph", "text": "Write the document here."},
+                ],
+                "show_toc": True,
+                "show_related": True,
+            },
+        },
+    },
     "page_header": {
         "label": "Page header",
         "category": "Introductions",
@@ -1082,6 +1131,26 @@ def _clean_text(value, spec, required, errors, path):
     return value
 
 
+def _clean_date(value, required, errors, path):
+    """An optional calendar date, stored as YYYY-MM-DD."""
+    if value in (None, ""):
+        if required:
+            errors[path] = ["This field is required."]
+        return ""
+    if not isinstance(value, str):
+        errors[path] = ["Use a date (YYYY-MM-DD)."]
+        return ""
+    value = value.strip()
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        errors[path] = ["Use a date (YYYY-MM-DD)."]
+        return value
+    if len(value) != 10:
+        errors[path] = ["Use a date (YYYY-MM-DD)."]
+    return value
+
+
 def _clean_link(value, required, errors, path):
     value = (value or "").strip() if isinstance(value, str) or value is None else None
     if value is None:
@@ -1164,6 +1233,8 @@ def _clean_field(name, spec, value, variant, content, errors, refs, path):
     kind = spec["type"]
     if kind in ("text", "textarea"):
         return _clean_text(value, spec, required, errors, path)
+    if kind == "date":
+        return _clean_date(value, required, errors, path)
     if kind == "link":
         return _clean_link(value, required, errors, path)
     if kind == "cta":

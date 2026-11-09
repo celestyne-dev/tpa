@@ -273,9 +273,16 @@ def test_page_templates_create_editable_starter_sections(seeded, as_role):
         "campaign",
         "partnership",
         "coming_soon",
+        "legal",
+        "privacy_policy",
+        "terms_of_use",
+        "affiliate_disclosure",
+        "about",
+        "contact",
     }
     for key in templates:
-        page = _create(api, title=f"Template {key}", template=key)
+        slug = f"template-{key.replace('_', '-')}"
+        page = _create(api, title=f"Template {key}", template=key, slug=slug)
         assert page["status"] == "draft" and page["sections"], key
         assert page["path"] == f"/template-{key.replace('_', '-')}"
     coming = api.get(f"{PAGES}?q=coming").get_json()["data"][0]

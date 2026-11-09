@@ -1,0 +1,299 @@
+{
+  "privacy": {
+    "title": "Privacy Policy",
+    "path": "/privacy-policy",
+    "summary": "How we handle information when you visit and use this website.",
+    "meta_description": "How Think Positive Always handles information when you visit and use this website.",
+    "effective_date": "",
+    "last_updated": "2026-10-20",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This document is a working draft provided for transparency while the Think Positive Always website is being developed. It has not yet been reviewed by a legal professional and will be updated before commercial features such as purchases, accounts, or newsletter subscriptions are launched."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. Who we are"
+      },
+      {
+        "type": "paragraph",
+        "text": "This website is operated by Think Positive Always (\"Think Positive Always\", \"we\", \"us\"). Full legal entity and contact details will be added to this policy before commercial services launch."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Information we collect today"
+      },
+      {
+        "type": "paragraph",
+        "text": "At this stage, the website does not offer accounts, purchases, contact forms, or newsletter sign-ups, and we do not ask you to submit personal information through the site."
+      },
+      {
+        "type": "paragraph",
+        "text": "Like most websites, our hosting provider may automatically process limited technical information when you visit, such as your IP address, browser type, device information, and the pages you request. This is used to deliver the website securely and reliably."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. Information we may collect in the future"
+      },
+      {
+        "type": "paragraph",
+        "text": "As we introduce new features, we may collect:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Your email address if you subscribe to our newsletter.",
+          "Account details if you create a customer account.",
+          "Order information for digital product purchases. Payment details will be handled by a verified third-party payment provider; we do not intend to store full card details.",
+          "Messages you choose to send us.",
+          "Website usage analytics to help us improve content and performance."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "This policy will be updated to describe each feature before it goes live."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Cookies"
+      },
+      {
+        "type": "paragraph",
+        "text": "The website does not currently use advertising or analytics cookies. If we introduce cookies or similar technologies, we will update this policy and, where required, request your consent."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. How we use information"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "To operate, secure, and maintain the website.",
+          "To provide services you request, such as newsletters or downloads, once available.",
+          "To understand how the website is used so we can improve it.",
+          "To comply with legal obligations."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. Sharing information"
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not sell personal information. We may share information with service providers who help us operate the website (for example, hosting, email, or payment providers), only as needed to provide their services."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Your rights"
+      },
+      {
+        "type": "paragraph",
+        "text": "Depending on where you live, you may have rights to access, correct, delete, or restrict the use of your personal information. Details on how to exercise these rights will be provided here once contact channels are published."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Children"
+      },
+      {
+        "type": "paragraph",
+        "text": "This website is intended for adults and is not directed at children under 13. We do not knowingly collect personal information from children."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Changes to this policy"
+      },
+      {
+        "type": "paragraph",
+        "text": "We will update this policy as the website develops. The \"Last updated\" date above shows when it was last revised."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "10. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "If you have questions about this document, please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
+  },
+  "terms": {
+    "title": "Terms of Use",
+    "path": "/terms",
+    "summary": "The terms that apply when you use this website and its content.",
+    "meta_description": "The terms that apply when you use the Think Positive Always website and content.",
+    "effective_date": "",
+    "last_updated": "2026-10-20",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This document is a working draft provided for transparency while the Think Positive Always website is being developed. It has not yet been reviewed by a legal professional and will be updated before commercial features such as purchases, accounts, or newsletter subscriptions are launched."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. Acceptance of these terms"
+      },
+      {
+        "type": "paragraph",
+        "text": "By accessing or using the Think Positive Always website, you agree to these Terms of Use. If you do not agree, please do not use the website."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Educational and inspirational content"
+      },
+      {
+        "type": "paragraph",
+        "text": "Content on this website is provided for general informational, educational, and inspirational purposes only. It is not medical, psychological, legal, financial, or other professional advice, and it is not a substitute for care from a qualified professional. If you are experiencing a crisis or are concerned about your mental health, please contact a licensed professional or your local emergency services."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. Intellectual property"
+      },
+      {
+        "type": "paragraph",
+        "text": "Unless otherwise stated, the content on this website, including text, graphics, logos, and design, belongs to Think Positive Always and is protected by applicable intellectual property laws. You may share links to our content and quote brief excerpts with clear attribution. Please do not reproduce, republish, or sell our content without written permission."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Acceptable use"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Do not use the website in any way that is unlawful or harmful.",
+          "Do not attempt to disrupt, damage, or gain unauthorised access to the website.",
+          "Do not use automated means to copy content at scale without permission."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Digital products and services"
+      },
+      {
+        "type": "paragraph",
+        "text": "Digital products, accounts, and paid services are not yet available. Specific terms for purchases, downloads, licensing, and refunds will be published before these features launch."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. Third-party links"
+      },
+      {
+        "type": "paragraph",
+        "text": "The website may link to third-party websites. We are not responsible for the content, policies, or practices of those websites."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Disclaimer and limitation of liability"
+      },
+      {
+        "type": "paragraph",
+        "text": "The website is provided on an \"as is\" and \"as available\" basis. To the fullest extent permitted by law, we make no warranties about the website and are not liable for losses arising from your use of it."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Changes"
+      },
+      {
+        "type": "paragraph",
+        "text": "We may update these terms from time to time. Continued use of the website after changes are posted means you accept the updated terms."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "If you have questions about this document, please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
+  },
+  "affiliate": {
+    "title": "Affiliate Disclosure",
+    "path": "/affiliate-disclosure",
+    "summary": "Our commitment to transparency about affiliate links and sponsored content.",
+    "meta_description": "How Think Positive Always discloses affiliate links, sponsored content, and brand partnerships.",
+    "effective_date": "",
+    "last_updated": "2026-10-26",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This document is a working draft provided for transparency while the Think Positive Always website is being developed. It has not yet been reviewed by a legal professional and will be updated before commercial features such as purchases, accounts, or newsletter subscriptions are launched."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Our approach"
+      },
+      {
+        "type": "paragraph",
+        "text": "Think Positive Always may, in the future, include affiliate links and sponsored content. We want you to always know when a commercial relationship exists, so you can make informed decisions."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Affiliate links"
+      },
+      {
+        "type": "paragraph",
+        "text": "Some links on this website may be affiliate links. If you click an affiliate link and make a purchase, we may earn a commission at no additional cost to you. We will only recommend products or services we believe may be genuinely useful to our readers."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Sponsored content and partnerships"
+      },
+      {
+        "type": "paragraph",
+        "text": "When content is sponsored or created in partnership with a brand, it will be clearly labelled. Sponsorship does not guarantee a positive review, and our editorial opinions remain our own."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Where you will see disclosures"
+      },
+      {
+        "type": "paragraph",
+        "text": "Pages with affiliate recommendations show a disclosure next to those recommendations, and sponsored articles, banners and newsletter editions are labelled “Sponsored” with the sponsor’s name. Paid and affiliate links are marked as sponsored links for search engines."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Regulatory guidance"
+      },
+      {
+        "type": "paragraph",
+        "text": "We aim to follow applicable disclosure guidance, including the U.S. Federal Trade Commission's guidance on endorsements and testimonials."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Questions"
+      },
+      {
+        "type": "paragraph",
+        "text": "If you have questions about this document, please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
+  }
+}

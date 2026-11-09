@@ -188,8 +188,23 @@
   .prose-legal h2 {
     @apply mt-[2em] text-2xl font-medium;
   }
+  .prose-legal > h2:first-child {
+    @apply mt-0;
+  }
+  .prose-legal h3 {
+    @apply mt-[1.6em] text-xl font-medium;
+  }
   .prose-legal ul {
     @apply list-disc space-y-1.5 pl-6;
+  }
+  .prose-legal ol {
+    @apply list-decimal space-y-1.5 pl-6;
+  }
+  .prose-legal a {
+    @apply font-medium text-sage-700 underline underline-offset-4 hover:text-sage-800;
+  }
+  .prose-legal strong {
+    @apply font-semibold text-charcoal;
   }
 }
 

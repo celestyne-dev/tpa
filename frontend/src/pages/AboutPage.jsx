@@ -3,7 +3,6 @@ import { Seo } from "@/components/seo/Seo";
 import { TopicGrid } from "@/components/topics/TopicGrid";
 import { ButtonLink } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { IconFeature } from "@/components/ui/IconFeature";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -39,55 +38,63 @@ export function AboutPage() {
       />
 
       <Section aria-labelledby="story-heading">
-        <div className="grid gap-12 lg:grid-cols-[1fr_1.3fr] lg:gap-20">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] lg:gap-20">
           <SectionHeading id="story-heading" eyebrow="What we stand for" title="Our mission" />
-          <div className="space-y-6 text-lg text-muted">
-            <p className="font-serif text-2xl leading-snug text-charcoal">
+          <div>
+            <p className="border-l-2 border-gold-400 pl-6 font-serif text-2xl leading-snug text-charcoal sm:text-[1.75rem]">
               {site?.mission ?? DEFAULT_MISSION}
             </p>
-            <p>
-              Think Positive Always began as a place for daily encouragement and has grown into a
-              community of{" "}
-              {site?.community?.linkedin_followers_text ??
-                "more than 280,000 people who follow Think Positive Always on LinkedIn"}
-              , with audiences on other social platforms as well. This website is our new home: a
-              place to go deeper than a single post and offer thoughtful articles and practical
-              resources.
-            </p>
-            <p>
-              We believe that thinking positively is not about pretending life is easy. It is about
-              choosing a perspective that helps you keep going, and pairing that perspective with
-              practical steps that make a real difference.
-            </p>
+            <div className="mt-8 space-y-5 text-lg text-muted">
+              <p>
+                Think Positive Always began as a place for daily encouragement and has grown into a
+                community of{" "}
+                {site?.community?.linkedin_followers_text ??
+                  "more than 280,000 people who follow Think Positive Always on LinkedIn"}
+                , with audiences on other social platforms as well. This website is our new home: a
+                place to go deeper than a single post and offer thoughtful articles and practical
+                resources.
+              </p>
+              <p>
+                We believe that thinking positively is not about pretending life is easy. It is
+                about choosing a perspective that helps you keep going, and pairing that perspective
+                with practical steps that make a real difference.
+              </p>
+            </div>
           </div>
         </div>
       </Section>
 
       <Section tone="cream" aria-labelledby="who-heading">
-        <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
-          <div>
-            <SectionHeading
-              id="who-heading"
-              eyebrow="Who we serve"
-              title="For anyone ready to grow"
-            />
-            <p className="mt-6 text-lg text-muted">
-              Our readers are adults around the world who want to build a healthier mindset,
-              strengthen their confidence, recover from setbacks, nurture better relationships, and
-              live more intentionally. Some are navigating a difficult season. Others simply want to
-              keep growing. All are welcome here.
-            </p>
-          </div>
-          <ul className="grid gap-8 sm:grid-cols-2">
-            {aboutValues.map((v) => (
-              <li key={v.title}>
-                <IconFeature icon={v.icon} title={v.title} className="flex-col">
-                  {v.text}
-                </IconFeature>
-              </li>
-            ))}
-          </ul>
+        <div className="max-w-3xl">
+          <SectionHeading
+            id="who-heading"
+            eyebrow="Who we serve"
+            title="For anyone ready to grow"
+          />
+          <p className="mt-6 text-lg text-muted">
+            Our readers are adults around the world who want to build a healthier mindset,
+            strengthen their confidence, recover from setbacks, nurture better relationships, and
+            live more intentionally. Some are navigating a difficult season. Others simply want to
+            keep growing. All are welcome here.
+          </p>
         </div>
+        <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {aboutValues.map(({ icon: Icon, title, text }) => (
+            <li
+              key={title}
+              className="rounded-[var(--radius-card)] border border-charcoal/10 bg-ivory p-6"
+            >
+              <span
+                aria-hidden
+                className="grid size-11 place-items-center rounded-full bg-sage-800 text-gold-300"
+              >
+                <Icon className="size-5" />
+              </span>
+              <h3 className="mt-5 text-xl font-medium">{title}</h3>
+              <p className="mt-2 text-muted">{text}</p>
+            </li>
+          ))}
+        </ul>
       </Section>
 
       <Section aria-labelledby="about-topics-heading">
@@ -105,28 +112,27 @@ export function AboutPage() {
         </div>
       </Section>
 
-      <Section
-        tone="beige"
-        size="narrow"
-        containerClassName="text-center"
-        aria-labelledby="about-cta-heading"
-      >
-        <h2 id="about-cta-heading" className="text-3xl font-medium sm:text-4xl">
-          A note on our content
-        </h2>
-        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted">
-          Our articles and resources are designed to encourage and educate. They are not a
-          substitute for professional medical, psychological, or financial advice. If you are
-          struggling, please reach out to a qualified professional.
-        </p>
-        <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-          <ButtonLink to={routes.articles}>
-            Read our articles
-            <ArrowRight aria-hidden />
-          </ButtonLink>
-          <ButtonLink to={routes.contact} variant="outline">
-            Get in touch
-          </ButtonLink>
+      <Section spacing="sm" aria-labelledby="about-cta-heading">
+        <div className="grid gap-8 rounded-[1.75rem] border border-charcoal/10 bg-cream p-7 sm:p-10 lg:grid-cols-[minmax(0,1.6fr)_auto] lg:items-center lg:gap-14">
+          <div>
+            <h2 id="about-cta-heading" className="text-3xl font-medium sm:text-4xl">
+              A note on our content
+            </h2>
+            <p className="mt-4 max-w-2xl text-lg text-muted">
+              Our articles and resources are designed to encourage and educate. They are not a
+              substitute for professional medical, psychological, or financial advice. If you are
+              struggling, please reach out to a qualified professional.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+            <ButtonLink to={routes.articles}>
+              Read our articles
+              <ArrowRight aria-hidden />
+            </ButtonLink>
+            <ButtonLink to={routes.contact} variant="outline">
+              Get in touch
+            </ButtonLink>
+          </div>
         </div>
       </Section>
     </>

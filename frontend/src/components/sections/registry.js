@@ -29,6 +29,7 @@ import {
   PromoBannerSection,
 } from "./EngagementSections";
 import { HeroSection, PageHeaderSection } from "./IntroSections";
+import { LegalDocumentSection } from "./LegalSections";
 import { ResourceShowcaseSection } from "./ResourceSections";
 import {
   AffiliateRecommendationsSection,
@@ -70,6 +71,7 @@ export const SECTION_COMPONENTS = {
   statistics: StatisticsSection,
   faq: FaqSection,
   rich_text: RichTextSection,
+  legal_document: LegalDocumentSection,
   feature_list: FeatureListSection,
   partnership_cta: PartnershipSection,
   author_intro: AuthorIntroSection,
@@ -85,4 +87,4 @@ export const SECTION_COMPONENTS = {
 };
 
 /** Section types that provide the page's main heading (h1). */
-export const TITLE_SECTIONS = new Set(["hero", "page_header"]);
+export const TITLE_SECTIONS = new Set(["hero", "page_header", "legal_document"]);

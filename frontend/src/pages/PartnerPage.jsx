@@ -1,8 +1,9 @@
-import { FileText, Mail, Users } from "lucide-react";
+import { ArrowRight, FileText, Mail, Users } from "lucide-react";
 import { Link } from "react-router";
 import { PartnershipInquiryForm } from "@/components/partnerships/PartnershipInquiryForm";
 import { formatMeasurement } from "@/components/partnerships/partnershipOptions";
 import { Seo } from "@/components/seo/Seo";
+import { buttonStyles } from "@/components/ui/buttonStyles";
 import { Card } from "@/components/ui/Card";
 import { IconFeature } from "@/components/ui/IconFeature";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -34,7 +35,17 @@ export function PartnerPage() {
           { name: "Home", href: routes.home },
           { name: "Partner With Us", href: routes.partner },
         ]}
-      />
+      >
+        <div className="flex flex-wrap gap-3">
+          <a href="#partnership-inquiry" className={buttonStyles()}>
+            Make an inquiry
+            <ArrowRight aria-hidden />
+          </a>
+          <Link to={routes.advertise} className={buttonStyles({ variant: "outline" })}>
+            See the media kit
+          </Link>
+        </div>
+      </PageHeader>
 
       <Section aria-labelledby="audience-heading">
         <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-20">
@@ -166,7 +177,10 @@ export function PartnerPage() {
             )}
           </div>
 
-          <div className="rounded-[var(--radius-card)] bg-ivory p-8 shadow-soft sm:p-10">
+          <div
+            id="partnership-inquiry"
+            className="scroll-mt-28 rounded-[var(--radius-card)] bg-ivory p-8 shadow-soft sm:p-10"
+          >
             <h2 className="text-2xl font-medium">How to make an inquiry</h2>
             <ol className="mt-5 list-decimal space-y-3 pl-5 text-ink marker:text-sage-700">
               <li>Introduce your brand or organisation and what you do.</li>

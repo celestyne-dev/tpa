@@ -283,6 +283,7 @@ def templates() -> list[dict[str, Any]]:
             "key": key,
             "label": t["label"],
             "description": t["description"],
+            "slug": t.get("slug", ""),
             "sections": [SECTION_TYPES[s["section_type"]]["label"] for s in t["sections"]],
         }
         for key, t in PAGE_TEMPLATES.items()
@@ -1071,7 +1072,10 @@ def create_page(data: dict[str, Any], actor: User) -> Page:
     template = data.get("template") or "standard"
     if template not in PAGE_TEMPLATES:
         errors["template"] = [f"Use one of: {', '.join(PAGE_TEMPLATES)}."]
-    slug = (data.get("slug") or slugify(title)).strip()
+    # Templates for a built-in page (About, Contact, the legal pages) suggest its address,
+    # so publishing the page replaces the built-in one; an explicit slug always wins.
+    suggested = PAGE_TEMPLATES.get(template, {}).get("slug") if not data.get("parent_id") else None
+    slug = (data.get("slug") or suggested or slugify(title)).strip()
     path, path_errors = path_problems(slug, data.get("parent_id"))
     errors.update(path_errors)
     if errors:
@@ -1086,6 +1090,7 @@ def create_page(data: dict[str, Any], actor: User) -> Page:
         lock_version=1,
         draft_updated_at=_now(),
         updated_by_id=actor.id,
+        meta_description=PAGE_TEMPLATES[template].get("meta_description"),
     )
     db.session.add(page)
     db.session.flush()

@@ -4975,6 +4975,121 @@
     }
   },
   {
+    "type": "legal_document",
+    "label": "Legal document",
+    "category": "Content",
+    "description": "A policy or terms page: title, dates, an optional summary and notice, the document itself with an automatic table of contents built from its headings, and links to the other legal pages.",
+    "reusable_only": false,
+    "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
+    "variants": [
+      {
+        "value": "default",
+        "label": "Standard"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the title",
+        "max": 80,
+        "default": "Legal"
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Document title",
+        "max": 120,
+        "help": "Leave empty to use the page title."
+      },
+      {
+        "name": "summary",
+        "type": "textarea",
+        "label": "Summary",
+        "max": 600,
+        "help": "Optional short introduction."
+      },
+      {
+        "name": "effective_date",
+        "type": "date",
+        "label": "Effective date",
+        "help": "Optional."
+      },
+      {
+        "name": "last_updated",
+        "type": "date",
+        "label": "Last updated",
+        "help": "Optional."
+      },
+      {
+        "name": "notice_title",
+        "type": "text",
+        "label": "Notice heading",
+        "max": 120
+      },
+      {
+        "name": "notice",
+        "type": "textarea",
+        "label": "Notice",
+        "max": 1000,
+        "help": "Optional note shown above the document, for example its review status."
+      },
+      {
+        "name": "body",
+        "type": "rich",
+        "label": "Document",
+        "required": true,
+        "help": "Start each section with a heading: headings build the table of contents. Write **bold** or *italic* for emphasis and [label](/path) for links."
+      },
+      {
+        "name": "show_toc",
+        "type": "boolean",
+        "label": "Show the table of contents",
+        "default": true
+      },
+      {
+        "name": "show_related",
+        "type": "boolean",
+        "label": "Show links to the other legal pages",
+        "default": true
+      }
+    ],
+    "design": [],
+    "defaults": {
+      "variant": "default",
+      "content": {
+        "eyebrow": "Legal",
+        "heading": "",
+        "summary": "",
+        "effective_date": "",
+        "last_updated": "",
+        "notice_title": "",
+        "notice": "",
+        "body": [
+          {
+            "type": "heading",
+            "text": "1. First section",
+            "level": 2
+          },
+          {
+            "type": "paragraph",
+            "text": "Write the document here."
+          }
+        ],
+        "show_toc": true,
+        "show_related": true
+      },
+      "design": {},
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
     "type": "page_header",
     "label": "Page header",
     "category": "Introductions",

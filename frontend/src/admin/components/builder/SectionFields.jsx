@@ -324,6 +324,20 @@ function Field({ spec, value, onChange, errors, path, variant, disabled }) {
           onChange={(e) => onChange(e.target.value)}
         />
       );
+    case "date":
+      return (
+        <TextField
+          className={className}
+          type="date"
+          label={spec.label}
+          value={value ?? ""}
+          required={required}
+          disabled={disabled}
+          hint={spec.help}
+          error={error}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
     case "textarea":
       return (
         <TextAreaField

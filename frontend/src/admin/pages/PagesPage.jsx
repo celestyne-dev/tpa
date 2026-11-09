@@ -92,7 +92,9 @@ function CreatePageDialog({ open, onClose, pages }) {
               setForm((f) => ({
                 ...f,
                 title: e.target.value,
-                slug: slugEdited ? f.slug : slugify(e.target.value),
+                slug: slugEdited
+                  ? f.slug
+                  : templates.find((t) => t.key === f.template)?.slug || slugify(e.target.value),
               }))
             }
           />
@@ -142,7 +144,15 @@ function CreatePageDialog({ open, onClose, pages }) {
                   name="template"
                   value={t.key}
                   checked={form.template === t.key}
-                  onChange={() => setForm((f) => ({ ...f, template: t.key }))}
+                  onChange={() =>
+                    // A template for a built-in page (About, Contact, legal pages) suggests
+                    // its address, unless the slug was typed by hand.
+                    setForm((f) => ({
+                      ...f,
+                      template: t.key,
+                      slug: slugEdited ? f.slug : t.slug || slugify(f.title),
+                    }))
+                  }
                   className="sr-only"
                 />
                 <span className="block font-medium text-charcoal">{t.label}</span>
