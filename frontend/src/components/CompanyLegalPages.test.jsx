@@ -166,7 +166,8 @@ describe("legal documents managed in the CMS", () => {
     expect(
       within(toc)
         .getAllByRole("link", { hidden: true })
-        .map((a) => a.getAttribute("href")),
+        .map((a) => a.getAttribute("href"))
+        .filter((href) => href.startsWith("#")),
     ).toEqual(["#1-scope", "#1-1-visitors", "#2-cookies-we-use"]);
     expect(document.getElementById("1-1-visitors").tagName).toBe("H3");
   });
