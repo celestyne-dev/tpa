@@ -37,7 +37,7 @@ describe("built-in policy pages (drafts)", () => {
       const title = await screen.findByRole("heading", { level: 1, name: doc.title });
       const header = title.closest("header");
       expect(within(header).getByText("Effective date").nextSibling).toHaveTextContent(
-        "Not yet in effect",
+        "Pending legal review",
       );
       expect(within(header).getByText("Last updated").nextSibling).toHaveTextContent("2026");
       expect(within(header).getByText(doc.summary)).toBeInTheDocument();
@@ -71,12 +71,72 @@ describe("built-in policy pages (drafts)", () => {
     },
   );
 
-  it("existing legal pages stay indexable", async () => {
+  it.each([
+    ["/privacy-policy", "privacy"],
+    ["/terms", "terms"],
+    ["/affiliate-disclosure", "affiliate"],
+  ])(
+    "%s keeps its wording but, pending review, is noindex and not in effect",
+    async (path, key) => {
+      siteConfig.allowIndexing = true;
+      const doc = legalDocuments[key];
+      renderApp(path);
+      const title = await screen.findByRole("heading", { level: 1, name: doc.title });
+      const header = title.closest("header");
+      expect(within(header).getByText("Effective date").nextSibling).toHaveTextContent(
+        "Pending legal review",
+      );
+      expect(within(main()).getByText("Draft — pending legal review")).toBeInTheDocument();
+      expect(main().textContent).toContain(doc.notice.text);
+      await waitFor(() => expect(robots()).toBe("noindex, follow"));
+      expect(document.querySelector("[data-review]")).toHaveAttribute("data-review", "pending");
+    },
+  );
+
+  it("a CMS legal document pending review says so even with its notice removed", async () => {
     siteConfig.allowIndexing = true;
-    renderApp("/privacy-policy");
-    await screen.findByRole("heading", { level: 1, name: "Privacy Policy" });
-    await waitFor(() => expect(robots()).toMatch(/^index/));
-    expect(screen.queryByText("Not yet in effect")).toBeNull();
+    const page = {
+      ...fx.cmsPages["/spring-reset"],
+      path: "/house-rules",
+      title: "House rules",
+      seo: { ...fx.cmsPages["/spring-reset"].seo, noindex: true },
+      sections: [
+        {
+          key: "legal-document-1",
+          type: "legal_document",
+          variant: "default",
+          design: {},
+          devices: "all",
+          data: {
+            eyebrow: "Legal",
+            heading: "",
+            summary: "",
+            effective_date: "2027-01-01",
+            last_updated: "2026-12-01",
+            notice_title: "",
+            notice: "",
+            review_status: "pending_review",
+            body: [
+              { type: "heading", level: 2, text: "1. One" },
+              { type: "heading", level: 2, text: "2. Two" },
+            ],
+            show_toc: true,
+            show_related: false,
+          },
+        },
+      ],
+    };
+    renderApp("/house-rules", {
+      api: createFakeApi({ getPage: vi.fn(async () => ({ data: page })) }),
+    });
+    await screen.findByRole("heading", { level: 1, name: "House rules" });
+    expect(screen.getByText("Draft — pending legal review")).toBeInTheDocument();
+    // The planned date is not shown as if it were in effect.
+    expect(screen.getByText("Effective date").nextSibling).toHaveTextContent(
+      "Pending legal review",
+    );
+    expect(screen.queryByText(/January 1, 2027/)).toBeNull();
+    await waitFor(() => expect(robots()).toBe("noindex, follow"));
   });
 
   it("the footer links a policy only once its CMS page is published", async () => {
@@ -146,7 +206,7 @@ describe("built-in policy pages (drafts)", () => {
     });
     renderApp("/disclaimer", { api });
     await screen.findByText("Reviewed wording.");
-    expect(screen.queryByText("Not yet in effect")).toBeNull();
+    expect(screen.queryByText("Pending legal review")).toBeNull();
     expect(screen.getByText("Effective date").nextSibling).toHaveTextContent("2027");
     const legal = within(footer()).getByRole("navigation", { name: "Legal" });
     expect(within(legal).getByRole("link", { name: "Disclaimer" })).toHaveAttribute(
@@ -156,12 +216,15 @@ describe("built-in policy pages (drafts)", () => {
   });
 });
 
+const objectionSite = () =>
+  withSite({ privacy: { ...fx.site.privacy, statistics_mode: "objection" } });
+
 const sentPaths = () => send.mock.calls.map(([, body]) => JSON.parse(body));
 
 describe("cookie settings", () => {
   it("objection mode: no notice, visits count, and switching off stops them", async () => {
     const user = userEvent.setup();
-    renderApp("/about");
+    renderApp("/about", { api: objectionSite() });
     await screen.findByRole("heading", { level: 1 });
     await waitFor(() => expect(sentPaths().map((b) => b.path)).toEqual(["/about"]));
     expect(sentPaths()[0].consent).toBeUndefined();
@@ -258,6 +321,29 @@ describe("cookie settings", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("by default nothing is counted before consent, and Cookie settings stay available", async () => {
+    renderApp("/about");
+    const notice = await screen.findByRole("region", { name: "Cookie notice" });
+    expect(within(notice).getByRole("button", { name: "Accept" })).toBeInTheDocument();
+    expect(within(footer()).getByRole("button", { name: "Cookie settings" })).toBeInTheDocument();
+    await screen.findByRole("heading", { level: 1 });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("an earlier refusal is respected: not asked again, nothing counted", async () => {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: "2026-01-01", statistics: false }),
+    );
+    renderApp("/about");
+    await screen.findByRole("heading", { level: 1 });
+    await waitFor(() =>
+      expect(within(footer()).getByRole("button", { name: "Cookie settings" })).toBeVisible(),
+    );
+    expect(screen.queryByRole("region", { name: "Cookie notice" })).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("consent mode: a visitor who already chose is not asked again", async () => {
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -287,7 +373,7 @@ describe("cookie settings", () => {
   });
 
   it("choices made in another tab apply here too", async () => {
-    renderApp("/about");
+    renderApp("/about", { api: objectionSite() });
     await waitFor(() => expect(sentPaths()).toHaveLength(1));
     act(() => {
       window.localStorage.setItem(

@@ -12,6 +12,7 @@ and the database URL is never printed.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -154,6 +155,31 @@ def _cookies(cfg) -> list[dict[str, str]]:
     if problems:
         return [_result("cookies", ERROR, "; ".join(problems) + ".")]
     return [_result("cookies", OK, "Secure, CSRF-protected, SameSite.")]
+
+
+def _privacy(cfg) -> list[dict[str, str]]:
+    """Whether usage statistics wait for consent. Unset means the default (consent): say so,
+    so a deployment never changes visitors' privacy settings without someone noticing."""
+    mode = cfg.get("PRIVACY_STATISTICS_MODE")
+    if not (os.environ.get("PRIVACY_STATISTICS_MODE") or "").strip():
+        return [
+            _result(
+                "privacy_statistics",
+                WARNING,
+                "PRIVACY_STATISTICS_MODE is not set: usage statistics wait for each "
+                "visitor's consent (the default). Set it explicitly (consent, or objection "
+                "after legal advice).",
+            )
+        ]
+    if mode == "objection":
+        return [
+            _result(
+                "privacy_statistics",
+                OK,
+                "objection: visits are counted unless the visitor switches statistics off.",
+            )
+        ]
+    return [_result("privacy_statistics", OK, "consent: visits count only after consent.")]
 
 
 def _payments(cfg) -> list[dict[str, str]]:
@@ -339,7 +365,7 @@ def run_checks(*, database: bool = True) -> list[dict[str, str]]:
     if database:
         results += _database(cfg)
     results += _rate_limits(cfg) + _urls(cfg) + _cookies(cfg) + _payments(cfg)
-    results += _services(cfg)
+    results += _services(cfg) + _privacy(cfg)
     return results
 
 

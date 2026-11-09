@@ -6,6 +6,7 @@ from typing import Any
 from flask import current_app
 from sqlalchemy import select
 
+from ..cms.legal_review import pending_legal_review
 from ..cms.routing import OVERRIDABLE_PATHS
 from ..cms.settings_registry import AI_TRAINING_CRAWLERS, SOCIAL_PLATFORMS, training_crawler_key
 from ..extensions import db
@@ -52,8 +53,8 @@ def _policy_page(path: str | None) -> dict[str, str] | None:
     page = db.session.scalar(
         select(Page).where(Page.status == "published", Page.published_path == path)
     )
-    if page is None:
-        return None
+    if page is None or pending_legal_review((page.published_snapshot or {}).get("sections")):
+        return None  # nothing is claimed while the policy is pending legal review
     snap = (page.published_snapshot or {}).get("page") or {}
     return {"path": path, "title": snap.get("title") or page.title}
 

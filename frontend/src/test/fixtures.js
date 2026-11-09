@@ -138,9 +138,9 @@ export const site = {
     notice: "",
     display_currencies: ["USD", "KES"],
   },
-  // Cookie settings as the API sends them by default (PRIVACY_STATISTICS_MODE=objection).
+  // Cookie settings as the API sends them by default (PRIVACY_STATISTICS_MODE=consent).
   privacy: {
-    statistics_mode: "objection",
+    statistics_mode: "consent",
     version: "2026-11-09",
     settings_label: "Cookie settings",
     intro: "We keep cookies to a minimum.",

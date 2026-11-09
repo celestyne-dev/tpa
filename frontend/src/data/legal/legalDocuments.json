@@ -126,7 +126,8 @@
         "type": "paragraph",
         "text": "If you have questions about this document, please visit our [contact page](/contact) for the current ways to reach us."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "terms": {
     "title": "Terms of Use",
@@ -226,7 +227,8 @@
         "type": "paragraph",
         "text": "If you have questions about this document, please visit our [contact page](/contact) for the current ways to reach us."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "affiliate": {
     "title": "Affiliate Disclosure",
@@ -294,7 +296,8 @@
         "type": "paragraph",
         "text": "If you have questions about this document, please visit our [contact page](/contact) for the current ways to reach us."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "cookies": {
     "title": "Cookie Policy",
@@ -329,7 +332,7 @@
         "items": [
           "We do not use advertising cookies, advertising networks or social media tracking pixels.",
           "We do not use Google Analytics or any other third-party analytics service.",
-          "We count visits with our own usage statistics tool, which stores nothing on your device. You can switch it off at any time in **Cookie settings**.",
+          "With your permission, we count visits with our own usage statistics tool, which stores nothing on your device. You can accept or reject it, and change your mind at any time, in **Cookie settings**.",
           "Cookies are only set when you sign in, and are used to keep you signed in securely.",
           "A few features you choose to use (such as your cart) remember information in your browser's own storage."
         ]
@@ -450,7 +453,7 @@
       },
       {
         "type": "paragraph",
-        "text": "You can switch usage statistics off, or back on, at any time in **Cookie settings**."
+        "text": "Usage statistics are optional. We ask for your permission before counting your visits, and you can switch them off, or back on, at any time in **Cookie settings**."
       },
       {
         "type": "heading",
@@ -498,7 +501,8 @@
         "type": "paragraph",
         "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "editorial": {
     "title": "Editorial Policy",
@@ -615,7 +619,8 @@
         "type": "paragraph",
         "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "disclaimer": {
     "title": "Disclaimer",
@@ -720,7 +725,8 @@
         "type": "paragraph",
         "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "advertising": {
     "title": "Advertising & Sponsored Content Policy",
@@ -854,7 +860,8 @@
         "type": "paragraph",
         "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "refunds": {
     "title": "Refund & Cancellation Policy",
@@ -983,7 +990,8 @@
         "type": "paragraph",
         "text": "For any question about an order, please use our [contact page](/contact) and include your order number so we can help you quickly."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "accessibility": {
     "title": "Accessibility Statement",
@@ -1080,7 +1088,8 @@
         "type": "paragraph",
         "text": "This statement was prepared on 9 November 2026 from our own review of the website. It has not been verified by an independent auditor."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "community": {
     "title": "Community Guidelines",
@@ -1204,7 +1213,8 @@
         "type": "paragraph",
         "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
       }
-    ]
+    ],
+    "review_status": "pending_review"
   },
   "copyright": {
     "title": "Copyright & Content Usage Policy",
@@ -1317,6 +1327,239 @@
       {
         "type": "paragraph",
         "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ],
+    "review_status": "pending_review"
+  },
+  "privacy_revised": {
+    "title": "Privacy Policy",
+    "path": "/privacy-policy",
+    "summary": "What personal information this website collects, why, how long we keep it, who we share it with and the rights you have.",
+    "meta_description": "How Think Positive Always collects, uses, shares and protects personal information, and how to exercise your privacy rights.",
+    "seo_title": "Privacy Policy",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "review_status": "pending_review",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This revised Privacy Policy is a working draft. It has not been reviewed or approved by a legal professional and is not yet in effect. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. Who we are"
+      },
+      {
+        "type": "paragraph",
+        "text": "This website, thinkpositivealways.com, is operated by Think Positive Always, a digital publisher based in Kenya (“we”, “us”). We are responsible for the personal information described in this policy."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Add the full legal name of the business, its registration details, its postal address, a privacy contact email address and, if one is appointed, the data protection officer. Confirm whether Think Positive Always is registered with Kenya's Office of the Data Protection Commissioner."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Information we collect"
+      },
+      {
+        "type": "paragraph",
+        "text": "We collect information only when you use a feature that needs it:"
+      },
+      {
+        "type": "table",
+        "header_row": true,
+        "rows": [
+          ["Feature", "What we collect"],
+          [
+            "Newsletter (The Positive Reset)",
+            "Your email address, your first name if you give it, where you signed up, and a record of your consent (the wording you agreed to, its version, the time and a one-way coded form of your IP address)."
+          ],
+          [
+            "Partnership inquiries",
+            "Your organisation, name, email address, website, the type of collaboration, budget range, objectives and message, the version of the privacy notice shown to you, and a one-way coded form of your IP address."
+          ],
+          [
+            "Customer accounts",
+            "Your email address, display name, a securely hashed password, when your email address was verified and, for each signed-in session, the IP address and browser details."
+          ],
+          [
+            "Purchases",
+            "Your email address, the items, prices and currency, the order and payment status, refunds, and the IP address used when the order was placed. Download records include the IP address and browser details."
+          ],
+          ["Courses (when offered)", "Your progress, notes and the assignment answers you submit."],
+          [
+            "Usage statistics",
+            "The pages visited and, if you allow statistics, a short daily code made from a shortened IP address and browser details. Your IP address and browser details are not stored. See section 5."
+          ],
+          [
+            "Messages you send us",
+            "Whatever you choose to include, through the contact details on our [contact page](/contact)."
+          ]
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not collect payment card details: payments are handled by our payment provider. Our hosting provider may also process technical information, such as IP addresses, in server logs to deliver the website securely."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. How we use your information"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "To run the newsletter you signed up for. At present the website collects sign-ups; newsletters are sent through an external email service provider.",
+          "To reply to partnership inquiries and manage partnerships.",
+          "To provide your account, deliver your purchases and courses, send order and account emails, and handle refunds and support.",
+          "To keep the website secure, prevent spam and abuse, and keep records of consent.",
+          "To understand, with usage statistics, which pages are useful.",
+          "To meet our legal, tax and accounting obligations."
+        ]
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "State the lawful basis for each use (for example consent, contract, legitimate interests or legal obligation) under Kenya's Data Protection Act, 2019 and, where it applies, the EU and UK GDPR. These have not been decided."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Who we share information with"
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not sell personal information. We share it only with service providers who help us run the website, and only as needed:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "**Paystack**, which processes payments and recurring membership payments.",
+          "Our **hosting provider**, which stores the website and its data.",
+          "The **email service providers** that send our emails and newsletters.",
+          "Professional advisers, and authorities where the law requires it."
+        ]
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Name the hosting and email service providers and confirm where each one stores data."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Cookies, browser storage and usage statistics"
+      },
+      {
+        "type": "paragraph",
+        "text": "We use only the cookies needed to keep you signed in and protect your account, and a few entries in your browser's storage for features you choose, such as your cart. We count page visits with our own statistics tool, which uses no cookies and stores nothing on your device. Statistics are optional: you can accept or reject them, and change your mind at any time, in **Cookie settings** at the bottom of every page. Full details are in our [Cookie Policy](/cookie-policy)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. How long we keep information"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Usage statistics: by default, individual visit records are deleted after 90 days and daily summaries after about two years.",
+          "Newsletter: until you unsubscribe or ask us to delete your details. When your details are deleted, a one-way coded form of your email address is kept so that we never email you again.",
+          "Customer accounts: until you ask us to delete your account. Deleted accounts are anonymised; billing records are kept.",
+          "Signed-in sessions: they expire after 12 hours, or 30 days if you choose “Keep me signed in” (default settings)."
+        ]
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Decide how long to keep partnership inquiries, order and billing records (subject to tax and accounting law), course work, emails and server logs."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Your rights"
+      },
+      {
+        "type": "paragraph",
+        "text": "Depending on where you live, you may have the right to be told how your information is used, to see a copy of it, to correct it, to have it deleted, to object to or restrict its use, to move it to another service, and to withdraw consent at any time. Under Kenya's Data Protection Act, 2019 these include the rights to be informed, of access, to object, to correction and to deletion."
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "You can unsubscribe from the newsletter at any time using the link in our emails, and delete your newsletter details from the newsletter preferences page or by contacting us.",
+          "You can change your Cookie settings at any time.",
+          "For anything else, including deleting your account, please contact us through our [contact page](/contact)."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "If you are not satisfied with our answer, you can complain to Kenya's Office of the Data Protection Commissioner or to the data protection authority where you live."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Decide how requests are verified and answered, and the time frame we commit to."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. International transfers"
+      },
+      {
+        "type": "paragraph",
+        "text": "Some of our service providers may store or process information outside Kenya and outside the country where you live. Where the law requires it, we will make sure appropriate safeguards are in place."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Confirm the countries involved and the safeguards relied on, as required by Part VI of Kenya's Data Protection Act, 2019 and, for EU and UK visitors, the GDPR."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Security"
+      },
+      {
+        "type": "paragraph",
+        "text": "We protect information with measures such as encrypted connections, hashed passwords, protected sign-in cookies and restricted staff access. No method of transmission or storage is completely secure."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "10. Children"
+      },
+      {
+        "type": "paragraph",
+        "text": "This website is intended for adults and is not directed at children. We do not knowingly collect personal information from children."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Confirm the minimum age for accounts, purchases and newsletter sign-ups."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "11. Changes to this policy"
+      },
+      {
+        "type": "paragraph",
+        "text": "We will update this policy when our practices change and show the date of the latest version above."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "12. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "Questions about this policy or your information? Please visit our [contact page](/contact)."
       }
     ]
   }

@@ -5,7 +5,8 @@ import { useSectionContext } from "./sectionContext";
 /**
  * CMS "Legal document" section: the same layout as the built-in legal pages, so a policy
  * moved into the CMS looks exactly as before. Breadcrumbs follow the page's place in the
- * site; the title falls back to the page title.
+ * site; the title falls back to the page title. While the document is pending legal review
+ * it says so and shows no effective date (the server also keeps the page out of search).
  */
 export function LegalDocumentSection({ section, page }) {
   const { data } = section;
@@ -33,6 +34,7 @@ export function LegalDocumentSection({ section, page }) {
         headingLevel={level}
         showToc={data.show_toc !== false}
         showRelated={data.show_related !== false}
+        pendingReview={data.review_status === "pending_review"}
       />
     </section>
   );

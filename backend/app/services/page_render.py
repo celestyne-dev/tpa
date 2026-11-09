@@ -23,6 +23,7 @@ from sqlalchemy import select
 
 from ..cms.defaults import HOME_SECTIONS, SIDEBAR_SECTIONS
 from ..cms.design import visible_at
+from ..cms.legal_review import pending_legal_review
 from ..cms.sections import SECTION_TYPES, check_section
 from ..extensions import db
 from ..models import (
@@ -712,7 +713,9 @@ def resolve_document(
             "title": meta.get("seo_title") or None,
             "description": meta.get("meta_description") or None,
             "canonical_url": meta.get("canonical_url") or None,
-            "noindex": bool(meta.get("noindex")),
+            # A legal document still pending review is never indexed, whatever the page's
+            # own setting says (cms/legal_review.py).
+            "noindex": bool(meta.get("noindex")) or pending_legal_review(doc.get("sections")),
             "og_image": social,
             "og_title": meta.get("social_title") or None,
             "og_description": meta.get("social_description") or None,

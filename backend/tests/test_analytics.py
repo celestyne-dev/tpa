@@ -27,6 +27,10 @@ BROWSER = (
 
 
 def _send(client, body, *, ua=BROWSER, ip="203.0.113.7", **headers):
+    # Visitors in these tests accepted usage statistics (required by the default consent
+    # mode; tests/test_policy_pages.py covers visits sent without consent).
+    if isinstance(body, dict):
+        body = {"consent": True, **body}
     raw = body if isinstance(body, bytes) else json.dumps(body).encode()
     return client.post(
         COLLECT,

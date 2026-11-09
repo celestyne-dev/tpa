@@ -30,6 +30,9 @@ from typing import Any
 from ..utils.errors import ValidationError
 from ..utils.validation import is_https_url, is_internal_path, plain_text_problem
 from .design import DESIGN_OPTIONS, design_schema, validate_design, validate_visibility
+from .legal_review import CHOICES as LEGAL_REVIEW_CHOICES
+from .legal_review import PENDING as LEGAL_PENDING
+from .legal_review import check_approval
 
 BUTTON_STYLES = tuple(DESIGN_OPTIONS["button_style"]["choices"])
 FEATURE_ICONS = (
@@ -1145,6 +1148,18 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             ),
             "show_toc": _f("boolean", "Show the table of contents", default=True),
             "show_related": _f("boolean", "Show links to the other legal pages", default=True),
+            "review_status": _f(
+                "select",
+                "Review status",
+                choices=LEGAL_REVIEW_CHOICES,
+                default=LEGAL_PENDING,
+                help=(
+                    "While pending, the page says “Draft — pending legal review”, shows no "
+                    "effective date and is hidden from search engines and the sitemap. Mark it "
+                    "approved only after legal review: it then needs an effective date and no "
+                    "draft notice or “Decision pending” notes."
+                ),
+            ),
         },
         "design": [],
         "defaults": {
@@ -1152,6 +1167,7 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "design": {},
             "content": {
                 "eyebrow": "Legal",
+                "review_status": LEGAL_PENDING,
                 "body": [
                     {"type": "heading", "level": 2, "text": "1. First section"},
                     {"type": "paragraph", "text": "Write the document here."},
@@ -1540,6 +1556,8 @@ def check_section(
         name: _clean_field(name, spec, content.get(name), variant, content, errors, refs, name)
         for name, spec in definition["fields"].items()
     }
+    if section_type == "legal_document":
+        check_approval(clean_content, errors)
     clean_design, design_errors = validate_design(
         definition["design"], definition["defaults"].get("design", {}), design
     )

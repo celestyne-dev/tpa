@@ -15,7 +15,8 @@ from flask import current_app
 from sqlalchemy import func, select
 
 from ..cms.blocks import blocks_word_count, heading_outline, internal_links, media_ids
-from ..cms.templates import POLICY_PATHS
+from ..cms.legal_review import PENDING, pending_legal_review
+from ..cms.templates import LEGAL_DOCUMENTS, POLICY_PATHS
 from ..extensions import db
 from ..models import Article, MediaAsset, Page, Redirect, SiteSetting, Topic
 from . import publication_service
@@ -40,6 +41,15 @@ STATIC_PATHS: list[tuple[str, float, str]] = [
     ("/terms", 0.2, "yearly"),
     ("/affiliate-disclosure", 0.2, "yearly"),
 ]
+
+
+# Built-in legal pages whose shared wording is still pending legal review: noindex and
+# left out of the sitemap until reviewed (the frontend reads the same file).
+BUILT_IN_PENDING_LEGAL = frozenset(
+    doc["path"]
+    for key, doc in LEGAL_DOCUMENTS.items()
+    if key != "privacy_revised" and doc.get("review_status") == PENDING
+)
 
 
 def _site() -> str:
@@ -642,6 +652,8 @@ def sitemap_entries() -> list[dict[str, Any]]:
         canonical = (snap.get("canonical_url") or "").rstrip("/")
         if snap.get("noindex") or (canonical and canonical != f"{_site()}{path}".rstrip("/")):
             return None
+        if pending_legal_review((page.published_snapshot or {}).get("sections")):
+            return None  # a legal document still pending review is never listed
         return {
             "type": "page",
             "path": path,
@@ -667,6 +679,8 @@ def sitemap_entries() -> list[dict[str, Any]]:
             if entry:
                 entries.append(entry)
             continue
+        if path in BUILT_IN_PENDING_LEGAL:
+            continue  # the built-in legal page is a draft pending review (noindex)
         entries.append(
             {"type": "page", "path": path, "priority": priority, "changefreq": changefreq}
         )

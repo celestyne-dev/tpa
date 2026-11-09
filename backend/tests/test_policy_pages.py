@@ -185,16 +185,15 @@ def test_publishing_a_policy_replaces_the_draft_but_indexes_it_only_when_allowed
     assert "/cookie-policy" in _footer_urls(client)
     assert "/cookie-policy" not in _sitemap_paths(client)
 
-    # After review an editor unticks "Hide from search engines" and publishes again.
+    # Unticking "Hide from search engines" alone doesn't index a document still pending
+    # review (approval is tested below).
     current = api.get(f"{PAGES}/{published['id']}").get_json()["data"]
     saved = _save(api, current, noindex=False)
     assert saved.status_code == 200, saved.get_json()
     _publish(api, saved.get_json()["data"])
-    entries = {e["path"]: e for e in client.get("/api/v1/sitemap").get_json()["data"]}
-    assert entries["/cookie-policy"]["priority"] == 0.2
-    assert client.get("/api/v1/pages/resolve?path=/cookie-policy").get_json()["data"]["seo"][
-        "canonical_url"
-    ] in (None, "")
+    assert "/cookie-policy" not in _sitemap_paths(client)
+    seo = client.get("/api/v1/pages/resolve?path=/cookie-policy").get_json()["data"]["seo"]
+    assert seo["noindex"] is True
 
 
 def test_policy_pages_keep_the_cms_workflow(seeded, as_role, client):
@@ -341,7 +340,8 @@ def test_links_to_policy_drafts_are_not_reported_as_broken(seeded):
 
 def test_cookie_settings_list_only_technologies_in_use(seeded, client, app):
     privacy = _site(client)["privacy"]
-    assert privacy["statistics_mode"] == "objection"
+    # New installations ask before counting visits (PRIVACY_STATISTICS_MODE defaults to consent).
+    assert privacy["statistics_mode"] == "consent"
     assert privacy["policy_path"] == "/cookie-policy"
     assert [c["key"] for c in privacy["categories"]] == ["necessary", "statistics"]
     assert privacy["categories"][0]["required"] is True
@@ -402,18 +402,213 @@ def test_consent_mode_is_application_configuration():
         assert privacy_statistics_mode(value) == "consent"
 
 
-def test_consent_mode_counts_only_visits_the_visitor_accepted(seeded, client, app):
-    from .test_analytics import _rows, _send
+def _raw_send(client, body, ip="203.0.113.7"):
+    """A page view exactly as a browser sends it (no consent flag added)."""
+    import json as _json
 
-    app.config["PRIVACY_STATISTICS_MODE"] = "consent"
+    from .test_analytics import BROWSER, COLLECT
+
+    return client.post(
+        COLLECT,
+        data=_json.dumps(body).encode(),
+        headers={"User-Agent": BROWSER, "Content-Type": "text/plain"},
+        environ_base={"REMOTE_ADDR": ip},
+    )
+
+
+def test_by_default_only_visits_the_visitor_accepted_are_counted(seeded, client, app):
+    from .test_analytics import _rows
+
+    assert app.config["PRIVACY_STATISTICS_MODE"] == "consent"
+    assert _raw_send(client, {"path": "/articles", "spa": False}).status_code == 204
+    _raw_send(client, {"path": "/topics", "spa": False, "consent": "yes"})
+    assert _rows(seeded) == []
+    _raw_send(client, {"path": "/about", "spa": False, "consent": True})
+    assert [r.path for r in _rows(seeded)] == ["/about"]
+    # Objection mode (only after legal advice) counts visits without a consent flag.
+    app.config["PRIVACY_STATISTICS_MODE"] = "objection"
     try:
-        _send(client, {"path": "/articles", "spa": False})
-        assert _rows(seeded) == []
-        _send(client, {"path": "/about", "spa": False, "consent": True})
-        assert [r.path for r in _rows(seeded)] == ["/about"]
-        assert _site(client)["privacy"]["statistics_mode"] == "consent"
+        _raw_send(client, {"path": "/contact", "spa": False}, ip="203.0.113.9")
     finally:
-        app.config["PRIVACY_STATISTICS_MODE"] = "objection"
-    # Objection mode (the default) counts as before.
-    _send(client, {"path": "/contact", "spa": False}, ip="203.0.113.9")
+        app.config["PRIVACY_STATISTICS_MODE"] = "consent"
     assert [r.path for r in _rows(seeded)] == ["/about", "/contact"]
+
+
+def test_new_installations_default_to_consent(monkeypatch):
+    """The default and the documented templates both ask first."""
+    from app.config import BaseConfig
+
+    assert BaseConfig.PRIVACY_STATISTICS_MODE in ("consent", "objection")
+    source = (ROOT / "backend/app/config/__init__.py").read_text(encoding="utf-8")
+    assert 'os.environ.get("PRIVACY_STATISTICS_MODE", "consent")' in source
+    for template in (
+        "backend/.env.example",
+        "deploy/env/production.env.example",
+        "deploy/env/staging.env.example",
+    ):
+        text = (ROOT / template).read_text(encoding="utf-8")
+        assert "\nPRIVACY_STATISTICS_MODE=consent\n" in text, template
+
+
+def test_deploy_check_reports_the_statistics_mode(app, monkeypatch):
+    from app.services.deploy_check import _privacy
+
+    monkeypatch.delenv("PRIVACY_STATISTICS_MODE", raising=False)
+    [unset] = _privacy({"PRIVACY_STATISTICS_MODE": "consent"})
+    assert unset["level"] == "warning" and "not set" in unset["message"]
+    monkeypatch.setenv("PRIVACY_STATISTICS_MODE", "objection")
+    [explicit] = _privacy({"PRIVACY_STATISTICS_MODE": "objection"})
+    assert explicit["level"] == "ok" and explicit["message"].startswith("objection")
+
+
+def test_sign_in_works_whatever_the_cookie_choice(seeded, client):
+    """Necessary cookies don't depend on Cookie settings: consent mode changes nothing."""
+    from .test_commerce_checkout import register_customer
+
+    shopper = register_customer(seeded, verify=False, test_account=False)
+    assert shopper.get("/api/v1/account/me").status_code == 200
+    cookie = shopper.c.get_cookie("tpa_customer", path="/api/v1/")
+    assert cookie is not None and cookie.http_only
+
+
+# ---- review status of legal documents ----------------------------------------------------
+
+
+def _legal_content(page):
+    return _sections_payload(page)
+
+
+def test_every_legal_template_starts_pending_review():
+    for key, template in PAGE_TEMPLATES.items():
+        for section in template["sections"]:
+            if section["section_type"] == "legal_document":
+                assert section["content"]["review_status"] == "pending_review", key
+    for key, doc in LEGAL_DOCUMENTS.items():
+        assert doc["review_status"] == "pending_review", key
+
+
+def test_a_pending_document_is_never_indexed_even_if_seo_says_so(seeded, as_role, client):
+    api = as_role("website_manager")
+    page = _create(api, title="Editorial Policy", template="editorial_policy", slug="")
+    # Untick "Hide from search engines" without approving: still noindex, not listed.
+    saved = _save(api, page, noindex=False).get_json()["data"]
+    _publish(api, saved)
+    public = client.get("/api/v1/pages/resolve?path=/editorial-policy").get_json()["data"]
+    assert public["seo"]["noindex"] is True
+    data = public["sections"][0]["data"]
+    assert data["review_status"] == "pending_review" and data["effective_date"] == ""
+    assert "/editorial-policy" not in _sitemap_paths(client)
+    # Not claimed as the site's editorial policy in structured data / trust links either.
+    assert _site(client).get("trust", {}).get("editorial_policy") is None
+
+
+def test_approval_needs_an_effective_date_and_no_draft_wording(seeded, as_role, client):
+    api = as_role("website_manager")
+    page = _create(api, title="Disclaimer", template="disclaimer", slug="")
+    sections = _sections_payload(page)
+    sections[0]["content"] = {**sections[0]["content"], "review_status": "approved"}
+    refused = _save(api, page, sections)
+    assert refused.status_code == 400
+    details = refused.get_json()["error"]["details"]
+    assert "sections.0.content.effective_date" in details
+    assert "sections.0.content.notice" in details
+    assert "sections.0.content.body" in details  # "Decision pending" notes remain
+
+    body = [
+        b
+        for b in sections[0]["content"]["body"]
+        if not (b["type"] == "callout" and b.get("title") == "Decision pending")
+    ]
+    sections[0]["content"] = {
+        **sections[0]["content"],
+        "review_status": "approved",
+        "effective_date": "2027-01-01",
+        "notice_title": "",
+        "notice": "",
+        "body": body,
+    }
+    ok = _save(api, page, sections, noindex=False)
+    assert ok.status_code == 200, ok.get_json()
+    _publish(api, ok.get_json()["data"])
+    public = client.get("/api/v1/pages/resolve?path=/disclaimer").get_json()["data"]
+    assert public["seo"]["noindex"] is False
+    assert public["sections"][0]["data"]["effective_date"] == "2027-01-01"
+    assert "/disclaimer" in _sitemap_paths(client)
+
+
+def test_legal_pages_published_before_review_status_keep_their_settings(seeded, as_role, client):
+    """An existing published legal page (saved before this field existed) is not changed."""
+    from app.models import Page
+
+    api = as_role("website_manager")
+    page = _create(api, title="Terms", template="legal", slug="old-terms")
+    published = _publish(api, page)
+    with seeded.app_context():
+        row = db.session.get(Page, published["id"])
+        snapshot = json.loads(json.dumps(row.published_snapshot))
+        for section in snapshot["sections"]:
+            section["content"].pop("review_status", None)
+        row.published_snapshot = snapshot
+        db.session.commit()
+    public = client.get("/api/v1/pages/resolve?path=/old-terms").get_json()["data"]
+    assert public["seo"]["noindex"] is False
+    assert "/old-terms" in _sitemap_paths(client)
+
+
+def test_built_in_legal_drafts_are_not_in_the_sitemap(seeded, client):
+    paths = _sitemap_paths(client)
+    for path in ["/privacy-policy", "/terms", "/affiliate-disclosure", *POLICY_PATHS]:
+        assert path not in paths, path
+    assert "/about" in paths and "/contact" in paths
+
+
+# ---- revised Privacy Policy ------------------------------------------------------------
+
+
+def test_revised_privacy_policy_covers_what_the_site_does():
+    doc = LEGAL_DOCUMENTS["privacy_revised"]
+    text = json.dumps(doc, ensure_ascii=False)
+    for topic in (
+        "Newsletter",
+        "Partnership inquiries",
+        "Customer accounts",
+        "Paystack",
+        "Usage statistics",
+        "Cookie Policy",
+        "How long we keep information",
+        "Your rights",
+        "International transfers",
+    ):
+        assert topic in text, topic
+    pending = [b["text"] for b in doc["body"] if b["type"] == "callout"]
+    # Entity details, legal bases, retention periods and transfers are left to the owner.
+    for missing in ("legal name", "lawful basis", "how long to keep", "countries involved"):
+        assert any(missing in p for p in pending), missing
+    # The only retention periods stated are the website's own configured defaults.
+    assert {int(n) for n in __import__("re").findall(r"(\d+) (?:days|hours)", text)} <= {
+        90,
+        12,
+        30,
+    }
+    assert doc["review_status"] == "pending_review" and doc["effective_date"] == ""
+
+
+def test_revised_privacy_policy_keeps_the_current_one_until_published(seeded, as_role, client):
+    api = as_role("website_manager")
+    templates = {t["key"]: t for t in api.get("/api/v1/admin/page-templates").get_json()["data"]}
+    assert templates["privacy_policy_revised"]["slug"] == "privacy-policy"
+    page = _create(api, title="Privacy Policy", template="privacy_policy_revised", slug="")
+    assert page["path"] == "/privacy-policy" and page["status"] == "draft"
+    assert page["noindex"] is True
+    [section] = page["sections"]
+    headings = [b["text"] for b in section["content"]["body"] if b["type"] == "heading"]
+    expected = [
+        b["text"] for b in LEGAL_DOCUMENTS["privacy_revised"]["body"] if b["type"] == "heading"
+    ]
+    assert headings == expected and section["content"]["review_status"] == "pending_review"
+    # The current Privacy Policy keeps being served; the draft is private.
+    assert "/privacy-policy" not in _site(client)["cms_overrides"]
+    assert client.get("/api/v1/pages/resolve?path=/privacy-policy").status_code == 404
+    # Only one page per address: a second template can't overwrite it.
+    again = api.post(PAGES, {"title": "Privacy", "template": "privacy_policy"})
+    assert again.status_code == 400

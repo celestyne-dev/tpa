@@ -10,6 +10,11 @@ import { cn, formatDate } from "@/utils/format";
 import { DEFAULT_LEGAL_LINKS, withAnchors } from "./legalAnchors";
 import { RichInline } from "./RichInline";
 
+const PENDING_NOTICE = {
+  title: "Draft — pending legal review",
+  text: "This document has not yet been reviewed and approved, and it is not yet in effect.",
+};
+
 function TocList({ toc, className }) {
   return (
     <ol className={cn("space-y-1 text-[0.95rem]", className)}>
@@ -182,9 +187,12 @@ export function LegalDocument({
   headingLevel = 1,
   showToc = true,
   showRelated = true,
-  effectivePending,
+  pendingReview = false,
   className,
 }) {
+  // A document pending legal review always says so, and never shows an effective date.
+  const shownNotice = pendingReview && !notice?.text ? PENDING_NOTICE : notice;
+  const effective = pendingReview ? undefined : effectiveDate;
   const { blocks: anchored, toc } = withAnchors(blocks);
   const related = useLegalLinks(path);
   const Title = headingLevel === 1 ? "h1" : "h2";
@@ -195,7 +203,11 @@ export function LegalDocument({
   ];
 
   return (
-    <div data-legal-document className={cn("bg-ivory", className)}>
+    <div
+      data-legal-document
+      data-review={pendingReview ? "pending" : undefined}
+      className={cn("bg-ivory", className)}
+    >
       <header className="border-b border-charcoal/[0.08] bg-cream">
         <Container size="wide" className="py-10 sm:py-14">
           {crumbs.length > 0 && <Breadcrumbs items={crumbs} className="mb-8" />}
@@ -210,9 +222,13 @@ export function LegalDocument({
             </Title>
             <div aria-hidden className="mt-5 h-0.5 w-14 rounded-full bg-gold-400" />
             {summary && <p className="mt-5 text-lg text-muted sm:text-xl">{summary}</p>}
-            {(effectiveDate || lastUpdated || effectivePending) && (
+            {(effective || lastUpdated || pendingReview) && (
               <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3 text-[0.95rem]">
-                <DateItem label="Effective date" value={effectiveDate} pending={effectivePending} />
+                <DateItem
+                  label="Effective date"
+                  value={effective}
+                  pending={pendingReview ? "Pending legal review" : undefined}
+                />
                 <DateItem label="Last updated" value={lastUpdated} />
               </dl>
             )}
@@ -260,15 +276,17 @@ export function LegalDocument({
             </details>
           )}
 
-          {notice?.text && (
+          {shownNotice?.text && (
             <aside
               role="note"
               className="mb-8 flex gap-4 rounded-2xl border border-gold-300 bg-gold-100/60 p-5 text-[0.95rem] text-ink"
             >
               <Info aria-hidden className="mt-0.5 size-5 shrink-0 text-gold-700" />
               <div>
-                {notice.title && <p className="font-semibold text-charcoal">{notice.title}</p>}
-                <p className="mt-1 text-muted">{notice.text}</p>
+                {shownNotice.title && (
+                  <p className="font-semibold text-charcoal">{shownNotice.title}</p>
+                )}
+                <p className="mt-1 text-muted">{shownNotice.text}</p>
               </div>
             </aside>
           )}

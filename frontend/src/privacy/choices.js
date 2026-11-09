@@ -96,13 +96,15 @@ export function statisticsDecision(privacy, choice) {
   return { allowed: accepted, consent: accepted };
 }
 
-/** In consent mode, a visitor who has not chosen (for this version) is asked. */
+/**
+ * In consent mode, a visitor who has not chosen is asked. An earlier acceptance counts only
+ * for the current version (a new version asks again); an earlier refusal is always
+ * respected and never asked about again (nothing optional runs either way).
+ */
 export function needsDecision(privacy, choice) {
-  return (
-    privacy?.statistics_mode !== "objection" &&
-    hasOptionalCategories(privacy) &&
-    (!choice || choice.version !== privacy.version)
-  );
+  if (privacy?.statistics_mode === "objection" || !hasOptionalCategories(privacy)) return false;
+  if (!choice) return true;
+  return choice.statistics === true && choice.version !== privacy.version;
 }
 
 /** Opens the Cookie settings panel (from the footer link, the notice or a page). */

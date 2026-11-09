@@ -9,16 +9,17 @@ import { LegalDocument } from "./LegalDocument";
  * reproduces the page exactly and then lets editors manage it in the CMS.
  */
 export function LegalPage({ doc, draft = false }) {
+  // Pending legal review (every document until it is approved): readable, but not indexed,
+  // not in the sitemap and not presented as in effect.
+  const pending = draft || doc.review_status === "pending_review";
   return (
     <>
       <Seo
         title={doc.seo_title ?? doc.title}
         description={doc.meta_description ?? doc.summary}
         path={doc.path}
-        // A policy draft is readable at its address but never indexed (and not in the
-        // sitemap) until it is reviewed and published in the CMS.
-        noIndex={draft}
-        jsonLd={draft ? undefined : webPageJsonLd({ title: doc.title, path: doc.path })}
+        noIndex={pending}
+        jsonLd={pending ? undefined : webPageJsonLd({ title: doc.title, path: doc.path })}
       />
       <LegalDocument
         title={doc.title}
@@ -28,7 +29,7 @@ export function LegalPage({ doc, draft = false }) {
         notice={doc.notice}
         blocks={doc.body}
         path={doc.path}
-        effectivePending={draft ? "Not yet in effect" : undefined}
+        pendingReview={pending}
       />
     </>
   );

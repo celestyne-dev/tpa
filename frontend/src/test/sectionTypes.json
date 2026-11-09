@@ -5683,6 +5683,23 @@
         "type": "boolean",
         "label": "Show links to the other legal pages",
         "default": true
+      },
+      {
+        "name": "review_status",
+        "type": "select",
+        "label": "Review status",
+        "choices": [
+          {
+            "value": "pending_review",
+            "label": "Pending legal review (draft)"
+          },
+          {
+            "value": "approved",
+            "label": "Approved"
+          }
+        ],
+        "default": "pending_review",
+        "help": "While pending, the page says “Draft — pending legal review”, shows no effective date and is hidden from search engines and the sitemap. Mark it approved only after legal review: it then needs an effective date and no draft notice or “Decision pending” notes."
       }
     ],
     "design": [],
@@ -5708,7 +5725,8 @@
           }
         ],
         "show_toc": true,
-        "show_related": true
+        "show_related": true,
+        "review_status": "pending_review"
       },
       "design": {},
       "visibility": {

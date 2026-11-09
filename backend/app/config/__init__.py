@@ -276,12 +276,12 @@ class BaseConfig:
     ANALYTICS_TRACKING = os.environ.get("ANALYTICS_TRACKING", "enabled").strip().lower()
     ANALYTICS_RESPECT_DNT = _bool("ANALYTICS_RESPECT_DNT", True)
     # The visitor's choice about usage statistics (Batch 13, Cookie settings):
+    # "consent" (default): counted only after the visitor accepts in the cookie notice;
     # "objection": counted unless the visitor switches it off in Cookie settings (or sends
-    #   Do Not Track / Global Privacy Control); no banner;
-    # "consent": counted only after the visitor accepts in a cookie notice.
+    #   Do Not Track / Global Privacy Control); no notice. Use only after legal advice.
     # Any other value is treated as "consent", the stricter of the two.
     PRIVACY_STATISTICS_MODE = privacy_statistics_mode(
-        os.environ.get("PRIVACY_STATISTICS_MODE", "objection")
+        os.environ.get("PRIVACY_STATISTICS_MODE", "consent")
     )
     ANALYTICS_RAW_RETENTION_DAYS = max(7, min(400, _int("ANALYTICS_RAW_RETENTION_DAYS", 90)))
     ANALYTICS_AGGREGATE_RETENTION_DAYS = max(

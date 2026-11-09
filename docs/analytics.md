@@ -85,14 +85,21 @@ at any time from the **Cookie settings** link in the footer. The choice is store
 browser (`tpa:privacy-choices`), and the page-view beacon is not sent while statistics are
 off. `PRIVACY_STATISTICS_MODE` decides the default:
 
-- `objection` (default): visits are counted unless the visitor switches statistics off.
-  There is no banner. This matches the UK's statistical-purposes exemption (PECR, as
-  amended by the Data (Use and Access) Act 2025, in force since 5 February 2026), which
-  needs clear information and a simple, free way to object.
-- `consent`: a small notice asks first, and nothing is counted until the visitor accepts.
-  The server also ignores beacons that don't carry `"consent": true`. Use this if the
-  owner's legal advice says EU visitors' consent is required (EDPB Guidelines 2/2023 treat
-  even cookieless beacons as falling within Art. 5(3) of the ePrivacy Directive).
+- `consent` (default, and what the deploy templates set): a small notice with equally
+  prominent **Accept** and **Reject** buttons asks first, and nothing is counted until the
+  visitor accepts. The server also ignores beacons that don't carry `"consent": true`. An
+  acceptance is tied to the consent version (changing the version in Admin › Footer asks
+  again); a refusal is always respected and not asked about again. This is the
+  conservative setting for a global audience: EDPB Guidelines 2/2023 treat even cookieless
+  beacons as falling within Art. 5(3) of the ePrivacy Directive.
+- `objection`: visits are counted unless the visitor switches statistics off; there is no
+  notice. This matches the UK's statistical-purposes exemption (PECR, as amended by the
+  Data (Use and Access) Act 2025, in force since 5 February 2026), which needs clear
+  information and a simple, free way to object. Use it only after legal advice.
+
+`flask deploy check` warns when the variable isn't set, so a deployment never changes the
+visitor-facing behaviour without someone noticing. Sign-in and other necessary cookies
+never depend on this setting.
 
 Any other value means `consent`. The panel's wording is edited in **Admin › Footer ›
 Cookie settings**; the categories come from the application (only technologies the site
@@ -104,7 +111,7 @@ uses).
 | --- | --- | --- |
 | `ANALYTICS_TRACKING` | `enabled` | `disabled` stops recording; reports still show stored data |
 | `ANALYTICS_RESPECT_DNT` | `true` | Ignore `DNT: 1` / `Sec-GPC: 1` requests |
-| `PRIVACY_STATISTICS_MODE` | `objection` | `consent` asks before counting visits (see Consent) |
+| `PRIVACY_STATISTICS_MODE` | `consent` | `consent` asks before counting visits; `objection` counts unless switched off (see Consent) |
 | `ANALYTICS_RAW_RETENTION_DAYS` | `90` (7–400) | Raw page views, deleted only after their day is rolled up |
 | `ANALYTICS_AGGREGATE_RETENTION_DAYS` | `760` (30–3650) | Daily rollups |
 | `RATELIMIT_ANALYTICS_COLLECT` | `60 per minute;1000 per hour` | Per client address (Flask-Limiter; use Redis in production as for other limits) |

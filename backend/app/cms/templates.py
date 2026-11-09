@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .legal_review import PENDING
+
 # The built-in legal pages' wording, kept identical to frontend/src/data/legal/
 # legalDocuments.json (tests/test_company_legal_pages.py checks this). A CMS page created
 # from a legal template starts as an exact copy of the page that is live today.
@@ -423,6 +425,9 @@ def _legal_template(key: str, slug: str, *, policy: bool = False) -> dict[str, A
                     "body": doc["body"],
                     "show_toc": True,
                     "show_related": True,
+                    # Every template starts pending review, so publishing one unchanged
+                    # never presents it as approved (see cms/legal_review.py).
+                    "review_status": doc.get("review_status", PENDING),
                 },
             )
         ],
@@ -437,6 +442,22 @@ def _legal_template(key: str, slug: str, *, policy: bool = False) -> dict[str, A
             " Starts hidden from search engines: untick that in SEO once the policy has been "
             "reviewed and approved."
         )
+    return template
+
+
+def _revised_privacy_template() -> dict[str, Any]:
+    """The revised Privacy Policy (Batch 13.1): reflects what the website actually does, with
+    the owner's open decisions marked. The live Privacy Policy is unchanged until a page
+    created from this template is reviewed, approved and published at /privacy-policy."""
+    template = _legal_template("privacy_revised", "privacy-policy", policy=True)
+    template["label"] = "Privacy Policy, revised draft (legal document)"
+    template["description"] = (
+        "A revised Privacy Policy that covers the newsletter, partnership inquiries, customer "
+        "accounts, Paystack purchases, usage statistics, cookies, retention, your rights and "
+        "international transfers. Owner decisions are marked “Decision pending”. It starts "
+        "pending legal review and hidden from search engines; publishing it at "
+        "/privacy-policy replaces the current policy, so publish only after review."
+    )
     return template
 
 
@@ -660,6 +681,7 @@ PAGE_TEMPLATES: dict[str, dict[str, Any]] = {
                 {
                     "eyebrow": "Legal",
                     "summary": "A short summary of what this document covers.",
+                    "review_status": PENDING,
                     "body": [
                         {"type": "heading", "level": 2, "text": "1. First section"},
                         {"type": "paragraph", "text": "Write the document here."},
@@ -671,6 +693,7 @@ PAGE_TEMPLATES: dict[str, dict[str, Any]] = {
     "privacy_policy": _legal_template("privacy", "privacy-policy"),
     "terms_of_use": _legal_template("terms", "terms"),
     "affiliate_disclosure": _legal_template("affiliate", "affiliate-disclosure"),
+    "privacy_policy_revised": _revised_privacy_template(),
     **{
         template: _legal_template(key, path.lstrip("/"), policy=True)
         for template, key, path in POLICY_DOCUMENTS

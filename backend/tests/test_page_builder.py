@@ -290,6 +290,7 @@ def test_page_templates_create_editable_starter_sections(seeded, as_role):
         "accessibility_statement",
         "community_guidelines",
         "copyright_policy",
+        "privacy_policy_revised",
     }
     for key in templates:
         slug = f"template-{key.replace('_', '-')}"
