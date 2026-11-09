@@ -1,0 +1,464 @@
+[
+ {
+  "width": "390",
+  "path": "/cookie-policy",
+  "overflow": 0,
+  "h1": [
+   "Cookie Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/cookie-policy",
+  "title": "Cookie Policy | Think Positive Always",
+  "toc": 18,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "390",
+  "path": "/editorial-policy",
+  "overflow": 0,
+  "h1": [
+   "Editorial Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/editorial-policy",
+  "title": "Editorial Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "390",
+  "path": "/refund-policy",
+  "overflow": 0,
+  "h1": [
+   "Refund & Cancellation Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/refund-policy",
+  "title": "Refund & Cancellation Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "390",
+  "path": "/accessibility",
+  "overflow": 0,
+  "h1": [
+   "Accessibility Statement"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/accessibility",
+  "title": "Accessibility Statement | Think Positive Always",
+  "toc": 14,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "390",
+  "path": "/disclaimer",
+  "overflow": 0,
+  "h1": [
+   "Disclaimer"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/disclaimer",
+  "title": "Disclaimer | Think Positive Always",
+  "toc": 18,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "390",
+  "path": "/advertising-policy",
+  "overflow": 0,
+  "h1": [
+   "Advertising & Sponsored Content Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/advertising-policy",
+  "title": "Advertising & Sponsored Content Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "390",
+  "path": "/community-guidelines",
+  "overflow": 0,
+  "h1": [
+   "Community Guidelines"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/community-guidelines",
+  "title": "Community Guidelines | Think Positive Always",
+  "toc": 22,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "390",
+  "path": "/copyright-policy",
+  "overflow": 0,
+  "h1": [
+   "Copyright & Content Usage Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/copyright-policy",
+  "title": "Copyright & Content Usage Policy | Think Positive Always",
+  "toc": 16,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "390",
+  "keyboard": [
+   "Close dialog",
+   "",
+   "Read our Cookie Policy",
+   "Reject optional",
+   "Accept optional",
+   "Save choices"
+  ],
+  "dialogClosed": true
+ },
+ {
+  "width": "390",
+  "afterReject": "{\"version\":\"2026-11-09\",\"statistics\":false,\"decided_at\":\"2026-11-09T15:03:08.113Z\"}",
+  "switchChecked": false,
+  "noticeGone": true
+ },
+ {
+  "width": "820",
+  "path": "/cookie-policy",
+  "overflow": 0,
+  "h1": [
+   "Cookie Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/cookie-policy",
+  "title": "Cookie Policy | Think Positive Always",
+  "toc": 18,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "820",
+  "path": "/editorial-policy",
+  "overflow": 0,
+  "h1": [
+   "Editorial Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/editorial-policy",
+  "title": "Editorial Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "820",
+  "path": "/refund-policy",
+  "overflow": 0,
+  "h1": [
+   "Refund & Cancellation Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/refund-policy",
+  "title": "Refund & Cancellation Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "820",
+  "path": "/accessibility",
+  "overflow": 0,
+  "h1": [
+   "Accessibility Statement"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/accessibility",
+  "title": "Accessibility Statement | Think Positive Always",
+  "toc": 14,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "820",
+  "path": "/disclaimer",
+  "overflow": 0,
+  "h1": [
+   "Disclaimer"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/disclaimer",
+  "title": "Disclaimer | Think Positive Always",
+  "toc": 18,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "820",
+  "path": "/advertising-policy",
+  "overflow": 0,
+  "h1": [
+   "Advertising & Sponsored Content Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/advertising-policy",
+  "title": "Advertising & Sponsored Content Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "820",
+  "path": "/community-guidelines",
+  "overflow": 0,
+  "h1": [
+   "Community Guidelines"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/community-guidelines",
+  "title": "Community Guidelines | Think Positive Always",
+  "toc": 22,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "820",
+  "path": "/copyright-policy",
+  "overflow": 0,
+  "h1": [
+   "Copyright & Content Usage Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/copyright-policy",
+  "title": "Copyright & Content Usage Policy | Think Positive Always",
+  "toc": 16,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "820",
+  "keyboard": [
+   "Close dialog",
+   "",
+   "Read our Cookie Policy",
+   "Reject optional",
+   "Accept optional",
+   "Save choices"
+  ],
+  "dialogClosed": true
+ },
+ {
+  "width": "820",
+  "afterReject": "{\"version\":\"2026-11-09\",\"statistics\":false,\"decided_at\":\"2026-11-09T15:03:17.896Z\"}",
+  "switchChecked": false,
+  "noticeGone": true
+ },
+ {
+  "width": "1440",
+  "path": "/cookie-policy",
+  "overflow": 0,
+  "h1": [
+   "Cookie Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/cookie-policy",
+  "title": "Cookie Policy | Think Positive Always",
+  "toc": 18,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "1440",
+  "path": "/editorial-policy",
+  "overflow": 0,
+  "h1": [
+   "Editorial Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/editorial-policy",
+  "title": "Editorial Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "1440",
+  "path": "/refund-policy",
+  "overflow": 0,
+  "h1": [
+   "Refund & Cancellation Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/refund-policy",
+  "title": "Refund & Cancellation Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "1440",
+  "path": "/accessibility",
+  "overflow": 0,
+  "h1": [
+   "Accessibility Statement"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/accessibility",
+  "title": "Accessibility Statement | Think Positive Always",
+  "toc": 14,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "1440",
+  "path": "/disclaimer",
+  "overflow": 0,
+  "h1": [
+   "Disclaimer"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/disclaimer",
+  "title": "Disclaimer | Think Positive Always",
+  "toc": 18,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "1440",
+  "path": "/advertising-policy",
+  "overflow": 0,
+  "h1": [
+   "Advertising & Sponsored Content Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/advertising-policy",
+  "title": "Advertising & Sponsored Content Policy | Think Positive Always",
+  "toc": 20,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "1440",
+  "path": "/community-guidelines",
+  "overflow": 0,
+  "h1": [
+   "Community Guidelines"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/community-guidelines",
+  "title": "Community Guidelines | Think Positive Always",
+  "toc": 22,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "1440",
+  "path": "/copyright-policy",
+  "overflow": 0,
+  "h1": [
+   "Copyright & Content Usage Policy"
+  ],
+  "robots": "noindex, follow",
+  "canonical": "https://ci.example.com/copyright-policy",
+  "title": "Copyright & Content Usage Policy | Think Positive Always",
+  "toc": 16,
+  "brokenAnchors": 0,
+  "notice": true,
+  "cookieButton": [
+   "Cookie settings"
+  ]
+ },
+ {
+  "width": "1440",
+  "keyboard": [
+   "Close dialog",
+   "",
+   "Read our Cookie Policy",
+   "Reject optional",
+   "Accept optional",
+   "Save choices"
+  ],
+  "dialogClosed": true
+ },
+ {
+  "width": "1440",
+  "afterReject": "{\"version\":\"2026-11-09\",\"statistics\":false,\"decided_at\":\"2026-11-09T15:03:27.795Z\"}",
+  "switchChecked": false,
+  "noticeGone": true
+ }
+]
