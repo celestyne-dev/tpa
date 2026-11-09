@@ -116,7 +116,7 @@ export function ContactPage() {
         </div>
         <aside
           aria-labelledby="support-heading"
-          className="mt-8 rounded-[1.75rem] border border-charcoal/10 border-l-4 border-l-gold-400 bg-cream p-7 sm:p-10"
+          className="mt-8 rounded-[1.75rem] border border-l-4 border-charcoal/10 border-l-gold-400 bg-cream p-7 sm:p-10"
         >
           <h2 id="support-heading" className="text-2xl font-medium">
             Need urgent support?

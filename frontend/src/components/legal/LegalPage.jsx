@@ -1,5 +1,4 @@
 import { Seo } from "@/components/seo/Seo";
-import legalDocuments from "@/data/legal/legalDocuments.json";
 import { webPageJsonLd } from "@/utils/structuredData";
 import { LegalDocument } from "./LegalDocument";
 
@@ -30,5 +29,3 @@ export function LegalPage({ doc }) {
     </>
   );
 }
-
-export const legalDocs = legalDocuments;

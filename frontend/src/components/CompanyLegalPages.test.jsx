@@ -1,8 +1,8 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { withAnchors } from "@/components/legal/LegalDocument";
-import { parseEmphasis } from "@/components/legal/RichInline";
+import { parseEmphasis } from "@/components/legal/emphasis";
+import { withAnchors } from "@/components/legal/legalAnchors";
 import legalDocuments from "@/data/legal/legalDocuments.json";
 import { createFakeAdminApi } from "@/test/adminFake";
 import { createFakeShopApi } from "@/test/commerceFake";
