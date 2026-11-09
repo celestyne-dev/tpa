@@ -13,14 +13,7 @@ import { Seo } from "@/components/seo/Seo";
 import { Container } from "@/components/ui/Container";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { routes } from "@/config/navigation";
-import {
-  brandAlignment,
-  metricsNote,
-  partnerAudience,
-  partnerIntro,
-  partnerReasons,
-  partnershipFormats,
-} from "@/data/companyPages";
+import { partner } from "@/data/companyPages";
 import { useMediaKit, useSite } from "@/hooks/useContent";
 import { formatDate } from "@/utils/format";
 
@@ -44,15 +37,11 @@ export function PartnerPage() {
 
   return (
     <>
-      <Seo
-        title="Partner With Us — Brand Partnerships & Collaborations"
-        description="Collaborate with Think Positive Always on sponsored content, brand storytelling, newsletter sponsorships, and purpose-driven campaigns for a personal growth audience."
-        path={routes.partner}
-      />
+      <Seo title={partner.seo_title} description={partner.meta_description} path={routes.partner} />
       <CompanyHero
-        eyebrow="Partnerships"
-        title="Partner With Think Positive Always"
-        intro={partnerIntro}
+        eyebrow={partner.eyebrow}
+        title={partner.title}
+        intro={partner.intro}
         breadcrumbs={[
           { name: "Home", href: routes.home },
           { name: "Partner With Us", href: routes.partner },
@@ -60,11 +49,11 @@ export function PartnerPage() {
         actions={
           <>
             <ActionLink href={`#${FORM_ID}`}>
-              Make an inquiry
+              {partner.inquiry_action}
               <ArrowRight aria-hidden />
             </ActionLink>
             <ActionLink href={routes.advertise} variant="outline">
-              See the media kit
+              {partner.media_kit_action}
             </ActionLink>
           </>
         }
@@ -89,10 +78,7 @@ export function PartnerPage() {
                 </p>
               </>
             ) : (
-              <p className="mt-6 text-lg text-sage-100">
-                Audience figures will be published in our media kit as dated measurements with their
-                source.
-              </p>
+              <p className="mt-6 text-lg text-sage-100">{partner.audience_card_pending}</p>
             )}
           </div>
         }
@@ -105,11 +91,11 @@ export function PartnerPage() {
         >
           <SectionHeading
             id="audience-heading"
-            eyebrow="Our audience"
-            title="A community that values growth"
+            eyebrow={partner.audience.eyebrow}
+            title={partner.audience.heading}
           />
           <div className="space-y-5 text-lg text-muted">
-            {partnerAudience.map((p) => (
+            {partner.audience.paragraphs.map((p) => (
               <p key={p.slice(0, 32)}>{p}</p>
             ))}
           </div>
@@ -123,12 +109,12 @@ export function PartnerPage() {
         <Container size="wide">
           <SectionHeading
             id="formats-heading"
-            eyebrow="Campaign formats"
-            title="Ways we can work together"
-            description="Every collaboration is shaped around shared goals. These are some of the formats we can explore."
+            eyebrow={partner.formats.eyebrow}
+            title={partner.formats.heading}
+            description={partner.formats.description}
           />
           <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {partnershipFormats.map((f) => (
+            {partner.formats.items.map((f) => (
               <IconCard key={f.title} icon={f.icon} title={f.title}>
                 {f.text}
               </IconCard>
@@ -141,11 +127,11 @@ export function PartnerPage() {
         <Container size="wide">
           <SectionHeading
             id="reasons-heading"
-            eyebrow="Why Think Positive Always"
-            title="Reasons to partner with us"
+            eyebrow={partner.reasons.eyebrow}
+            title={partner.reasons.heading}
           />
           <ul className="mt-10 grid gap-5 md:grid-cols-3">
-            {partnerReasons.map((r) => (
+            {partner.reasons.items.map((r) => (
               <IconCard key={r.title} icon={r.icon} title={r.title} tone="cream">
                 {r.text}
               </IconCard>
@@ -161,12 +147,12 @@ export function PartnerPage() {
         <Container size="wide" className="grid gap-10 lg:grid-cols-2 lg:gap-16">
           <SectionHeading
             id="alignment-heading"
-            eyebrow="Brand alignment"
-            title="Partnerships built on shared values"
-            description="Our readers' trust comes first. We look for partners whose work fits naturally with what Think Positive Always stands for."
+            eyebrow={partner.alignment.eyebrow}
+            title={partner.alignment.heading}
+            description={partner.alignment.description}
           />
           <ul className="space-y-3">
-            {brandAlignment.map((item) => (
+            {partner.alignment.items.map((item) => (
               <li
                 key={item}
                 className="flex gap-4 rounded-2xl border border-charcoal/10 bg-ivory p-5"
@@ -184,9 +170,9 @@ export function PartnerPage() {
           <Container size="wide">
             <SectionHeading
               id="figures-heading"
-              eyebrow="Audience"
-              title="Measured audience figures"
-              description={metricsNote}
+              eyebrow={partner.figures.eyebrow}
+              title={partner.figures.heading}
+              description={partner.figures.note}
             />
             <MetricCards metrics={metrics.slice(0, 4)} className="mt-10" />
           </Container>
@@ -205,12 +191,10 @@ export function PartnerPage() {
               </span>
               <div>
                 <h2 id="media-kit-heading" className="text-2xl font-medium sm:text-3xl">
-                  Media kit
+                  {partner.media_kit.heading}
                 </h2>
                 <p className="mt-2 max-w-xl text-muted">
-                  {kit || mediaKitUrl
-                    ? "An overview of the brand, our content focus, audience information and partnership formats."
-                    : "Our media kit is being prepared. It will include an overview of the brand, our content focus, audience information, and partnership formats. Until it is published, we are happy to share relevant details directly with prospective partners."}
+                  {kit || mediaKitUrl ? partner.media_kit.published : partner.media_kit.pending}
                 </p>
               </div>
             </div>
@@ -218,14 +202,14 @@ export function PartnerPage() {
               <div className="flex shrink-0 flex-wrap gap-3">
                 {kit && (
                   <ActionLink href={routes.advertise}>
-                    View the Think Positive Always media kit
+                    {partner.media_kit.view_label}
                     <ArrowRight aria-hidden />
                   </ActionLink>
                 )}
                 {mediaKitUrl && (
                   <ActionLink href={mediaKitUrl} variant="outline">
                     <Download aria-hidden />
-                    Download the Think Positive Always media kit
+                    {partner.media_kit.download_label}
                   </ActionLink>
                 )}
               </div>
@@ -246,13 +230,13 @@ export function PartnerPage() {
           <div>
             <SectionHeading
               id="inquiry-heading"
-              eyebrow="Get in touch"
-              title="How to make an inquiry"
+              eyebrow={partner.inquiry.eyebrow}
+              title={partner.inquiry.heading}
             />
             <ol className="mt-6 list-decimal space-y-3 pl-5 text-lg text-ink marker:text-sage-700">
-              <li>Introduce your brand or organisation and what you do.</li>
-              <li>Describe the campaign or collaboration you have in mind.</li>
-              <li>Share your goals, preferred timeline, and any key requirements.</li>
+              {partner.inquiry.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
             </ol>
             {email && (
               <p className="mt-8 text-muted">
@@ -277,15 +261,15 @@ export function PartnerPage() {
         <Container size="wide">
           <CtaBand
             id="partner-cta-heading"
-            title="Ready to start a conversation?"
+            title={partner.closing.heading}
             actions={
               <ActionLink href={`#${FORM_ID}`} variant="light">
-                Make an inquiry
+                {partner.inquiry_action}
                 <ArrowRight aria-hidden />
               </ActionLink>
             }
           >
-            Tell us about your organisation and the collaboration you have in mind.
+            {partner.closing.body}
           </CtaBand>
         </Container>
       </section>

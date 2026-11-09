@@ -61,10 +61,18 @@ export function useSite() {
   return useResource(entry, load, [load], (s) => s.data);
 }
 
+/**
+ * The published media kit. `data` is the kit, or null while loading, when it isn't
+ * published (`isUnpublished`) or when the request failed (`isError`).
+ */
 export function useMediaKit() {
   const entry = useSelector(selectMediaKit);
   const load = useCallback((force) => fetchMediaKit({ force }), []);
-  return useResource(entry, load, [load], (s) => s.data);
+  const resource = useResource(entry, load, [load], (s) => s.data);
+  return {
+    ...resource,
+    isUnpublished: resource.status === Status.succeeded && !resource.data,
+  };
 }
 
 export function useMemberships() {

@@ -11,16 +11,7 @@ import { Seo } from "@/components/seo/Seo";
 import { Container } from "@/components/ui/Container";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { routes } from "@/config/navigation";
-import {
-  DEFAULT_COMMUNITY,
-  DEFAULT_MISSION,
-  aboutIntro,
-  aboutValues,
-  beliefLine,
-  editorialApproach,
-  metricsNote,
-  whoWeServe,
-} from "@/data/companyPages";
+import { about, aboutStory } from "@/data/companyPages";
 import { useMediaKit, useSite, useTopics } from "@/hooks/useContent";
 import { webPageJsonLd } from "@/utils/structuredData";
 
@@ -38,27 +29,27 @@ export function AboutPage() {
   return (
     <>
       <Seo
-        title="About Think Positive Always"
-        description="Think Positive Always offers practical inspiration for a stronger mindset, more confidence, and intentional personal growth. Learn what we stand for and who we serve."
+        title={about.seo_title}
+        description={about.meta_description}
         path={routes.about}
-        jsonLd={webPageJsonLd({ title: "About Think Positive Always", path: routes.about })}
+        jsonLd={webPageJsonLd({ title: about.seo_title, path: routes.about })}
       />
       <CompanyHero
-        eyebrow="About us"
-        title="Practical Inspiration for Real Life"
-        intro={aboutIntro}
+        eyebrow={about.eyebrow}
+        title={about.title}
+        intro={about.intro}
         breadcrumbs={[
           { name: "Home", href: routes.home },
           { name: "About", href: routes.about },
         ]}
         actions={
           <>
-            <ActionLink href={routes.articles}>
-              Read our articles
+            <ActionLink href={about.primary_action.href}>
+              {about.primary_action.label}
               <ArrowRight aria-hidden />
             </ActionLink>
-            <ActionLink href={routes.newsletter} variant="outline">
-              Join The Positive Reset
+            <ActionLink href={about.secondary_action.href} variant="outline">
+              {about.secondary_action.label}
             </ActionLink>
           </>
         }
@@ -72,23 +63,17 @@ export function AboutPage() {
           <div>
             <SectionHeading
               id="story-heading"
-              eyebrow="Our story"
-              title="From daily encouragement to a home for growth"
+              eyebrow={about.story.eyebrow}
+              title={about.story.heading}
             />
             <div className="mt-6 space-y-5 text-lg text-muted">
-              <p>
-                Think Positive Always began as a place for daily encouragement and has grown into a
-                community of {site?.community?.linkedin_followers_text ?? DEFAULT_COMMUNITY}, with
-                audiences on other social platforms as well. This website is our new home: a place
-                to go deeper than a single post and offer thoughtful articles and practical
-                resources.
-              </p>
+              <p>{aboutStory(site?.community?.linkedin_followers_text)}</p>
             </div>
           </div>
           <figure className="rounded-[1.75rem] border border-charcoal/10 bg-cream p-7 sm:p-9">
             <Quote aria-hidden className="size-8 text-gold-500" />
             <blockquote className="mt-4 font-serif text-2xl leading-snug text-charcoal">
-              {beliefLine}
+              {about.story.quote}
             </blockquote>
           </figure>
         </Container>
@@ -100,11 +85,11 @@ export function AboutPage() {
             id="mission-heading"
             className="text-xs font-semibold tracking-[0.16em] text-sage-700 uppercase"
           >
-            Our mission
+            {about.mission.eyebrow}
           </p>
           <div aria-hidden className="mx-auto mt-4 h-0.5 w-14 rounded-full bg-gold-400" />
           <p className="mt-6 font-serif text-2xl leading-snug text-balance text-charcoal sm:text-[2rem]">
-            {site?.mission ?? DEFAULT_MISSION}
+            {site?.mission ?? about.mission.default}
           </p>
         </Container>
       </section>
@@ -113,12 +98,12 @@ export function AboutPage() {
         <Container size="wide">
           <SectionHeading
             id="believe-heading"
-            eyebrow="What we believe"
-            title="For anyone ready to grow"
-            description={whoWeServe}
+            eyebrow={about.values.eyebrow}
+            title={about.values.heading}
+            description={about.values.description}
           />
           <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {aboutValues.map((v) => (
+            {about.values.items.map((v) => (
               <IconCard key={v.title} icon={v.icon} title={v.title}>
                 {v.text}
               </IconCard>
@@ -134,11 +119,11 @@ export function AboutPage() {
         <Container size="wide">
           <SectionHeading
             id="editorial-heading"
-            eyebrow="Our editorial approach"
-            title="Content you can trust"
+            eyebrow={about.editorial.eyebrow}
+            title={about.editorial.heading}
           />
           <ul className="mt-10 grid gap-5 md:grid-cols-3">
-            {editorialApproach.map((item) => (
+            {about.editorial.items.map((item) => (
               <IconCard key={item.title} icon={item.icon} title={item.title} tone="light">
                 {item.text}
               </IconCard>
@@ -152,9 +137,9 @@ export function AboutPage() {
           <Container size="wide">
             <SectionHeading
               id="community-heading"
-              eyebrow="Our community"
-              title="The people we write for"
-              description={metricsNote}
+              eyebrow={about.community.eyebrow}
+              title={about.community.heading}
+              description={about.community.note}
             />
             <MetricCards metrics={metrics.slice(0, 4)} className="mt-10" />
           </Container>
@@ -165,25 +150,25 @@ export function AboutPage() {
         <Container size="wide">
           <CtaBand
             id="about-cta-heading"
-            title="Keep growing with us"
+            title={about.closing.heading}
             actions={
               <>
-                <ActionLink href={routes.articles} variant="light">
-                  Read our articles
+                <ActionLink href={about.primary_action.href} variant="light">
+                  {about.primary_action.label}
                   <ArrowRight aria-hidden />
                 </ActionLink>
-                <ActionLink href={routes.newsletter} variant="outlineLight">
-                  Join The Positive Reset
+                <ActionLink href={about.secondary_action.href} variant="outlineLight">
+                  {about.secondary_action.label}
                 </ActionLink>
               </>
             }
           >
-            Explore our articles, or join The Positive Reset for a little encouragement every day.
+            {about.closing.body}
           </CtaBand>
           {topics.data?.length > 0 && (
             <nav aria-label="Topics we write about" className="mt-8 text-center">
               <p className="text-sm font-semibold tracking-[0.14em] text-sage-700 uppercase">
-                The topics at the heart of our work
+                {about.closing.topics_heading}
               </p>
               <ul className="mt-4 flex flex-wrap justify-center gap-2">
                 {topics.data.map((t) => (

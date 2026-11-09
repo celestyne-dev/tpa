@@ -1,0 +1,308 @@
+{
+  "_comment": "Copy for the four company pages. The built-in pages (frontend/src/pages) and the CMS page templates (backend/app/cms/templates.py) are both built from this file; backend/app/cms/company_pages.json is an identical copy, checked by backend/tests/test_company_pages_premium.py. Nothing here states figures, achievements or biography details: audience figures come only from verified, dated measurements.",
+  "about": {
+    "seo_title": "About Think Positive Always",
+    "meta_description": "Think Positive Always offers practical inspiration for a stronger mindset, more confidence, and intentional personal growth. Learn what we stand for and who we serve.",
+    "eyebrow": "About us",
+    "title": "Practical Inspiration for Real Life",
+    "intro": "Practical inspiration for a stronger mindset, more confidence, and intentional personal growth.",
+    "primary_action": {
+      "label": "Read our articles",
+      "href": "/articles"
+    },
+    "secondary_action": {
+      "label": "Join The Positive Reset",
+      "href": "/newsletter"
+    },
+    "story": {
+      "eyebrow": "Our story",
+      "heading": "From daily encouragement to a home for growth",
+      "body": "Think Positive Always began as a place for daily encouragement and has grown into a community of {community}, with audiences on other social platforms as well. This website is our new home: a place to go deeper than a single post and offer thoughtful articles and practical resources.",
+      "community_default": "more than 280,000 people who follow Think Positive Always on LinkedIn",
+      "quote": "We believe that thinking positively is not about pretending life is easy. It is about choosing a perspective that helps you keep going, and pairing that perspective with practical steps that make a real difference."
+    },
+    "mission": {
+      "eyebrow": "Our mission",
+      "default": "Helping people develop a healthier mindset, navigate life's challenges, build confidence, and move forward through encouragement, thoughtful content, and useful personal development tools."
+    },
+    "values": {
+      "eyebrow": "What we believe",
+      "heading": "For anyone ready to grow",
+      "description": "Our readers are adults around the world who want to build a healthier mindset, strengthen their confidence, recover from setbacks, nurture better relationships, and live more intentionally. Some are navigating a difficult season. Others simply want to keep growing. All are welcome here.",
+      "items": [
+        {
+          "icon": "heart-handshake",
+          "title": "Honest encouragement",
+          "text": "We believe in hope that tells the truth. Our content acknowledges real challenges and meets people where they are."
+        },
+        {
+          "icon": "lightbulb",
+          "title": "Practical wisdom",
+          "text": "Inspiration should be useful. We focus on ideas, tools, and small steps that people can apply in everyday life."
+        },
+        {
+          "icon": "sprout",
+          "title": "Growth at your own pace",
+          "text": "Personal growth is not a race. We encourage progress over perfection and self-compassion over pressure."
+        },
+        {
+          "icon": "compass",
+          "title": "Inclusive by design",
+          "text": "Think Positive Always is for adults of every gender, background, and stage of life who want to grow with intention."
+        }
+      ]
+    },
+    "editorial": {
+      "eyebrow": "Our editorial approach",
+      "heading": "Content you can trust",
+      "items": [
+        {
+          "icon": "book-open",
+          "title": "Written to encourage and educate",
+          "text": "Our articles and resources are designed to encourage and educate."
+        },
+        {
+          "icon": "shield-check",
+          "title": "Not a substitute for professional advice",
+          "text": "Our content is not a substitute for professional medical, psychological, or financial advice. If you are struggling, please reach out to a qualified professional."
+        },
+        {
+          "icon": "handshake",
+          "title": "Partnerships clearly labelled",
+          "text": "When content is sponsored or created in partnership with a brand, it will be clearly labelled. Sponsorship does not guarantee a positive review, and our editorial opinions remain our own."
+        }
+      ]
+    },
+    "community": {
+      "eyebrow": "Our community",
+      "heading": "The people we write for",
+      "note": "Each figure is a measurement taken on the date shown, not a live count. Social media followers are not website visitors."
+    },
+    "closing": {
+      "heading": "Keep growing with us",
+      "body": "Explore our articles, or join The Positive Reset for a little encouragement every day.",
+      "topics_heading": "The topics at the heart of our work"
+    }
+  },
+  "contact": {
+    "seo_title": "Contact Think Positive Always",
+    "meta_description": "Find the best way to get in touch with Think Positive Always for general questions, partnerships, and collaborations.",
+    "eyebrow": "Contact",
+    "title": "Get in Touch",
+    "intro": "We would love to hear from you. Here are the best ways to reach Think Positive Always.",
+    "cards": [
+      {
+        "key": "general",
+        "icon": "message-circle",
+        "title": "General inquiries",
+        "text": "For questions, feedback, or support, email us.",
+        "email": "general",
+        "subject": "",
+        "action": null
+      },
+      {
+        "key": "editorial",
+        "icon": "pen-line",
+        "title": "Editorial feedback and corrections",
+        "text": "Spotted something that needs correcting, or have feedback on an article? Let us know, including the article's title or link.",
+        "email": "general",
+        "subject": "Editorial feedback",
+        "action": null
+      },
+      {
+        "key": "partnerships",
+        "icon": "handshake",
+        "title": "Advertising and partnerships",
+        "text": "Interested in collaborating with Think Positive Always? Learn about partnership formats and how to make an inquiry.",
+        "email": "partnerships",
+        "subject": "Partnership inquiry",
+        "action": {
+          "label": "Partner with us",
+          "href": "/partner-with-us"
+        }
+      }
+    ],
+    "fallback": "We are setting up dedicated contact channels for the new website. They will be published on this page shortly.",
+    "social_heading": "Connect on social media",
+    "urgent": {
+      "heading": "Need urgent support?",
+      "body": "Think Positive Always is not a crisis or counselling service. If you are in immediate danger or need urgent emotional support, please contact your local emergency services or a licensed mental health professional. In the United States, you can call or text 988 to reach the 988 Suicide & Crisis Lifeline."
+    }
+  },
+  "partner": {
+    "seo_title": "Partner With Us — Brand Partnerships & Collaborations",
+    "meta_description": "Collaborate with Think Positive Always on sponsored content, brand storytelling, newsletter sponsorships, and purpose-driven campaigns for a personal growth audience.",
+    "eyebrow": "Partnerships",
+    "title": "Partner With Think Positive Always",
+    "intro": "We collaborate with brands, organisations, and publishers who share our belief that encouragement and practical tools can help people live better lives.",
+    "inquiry_action": "Make an inquiry",
+    "media_kit_action": "See the media kit",
+    "audience_card_pending": "Audience figures will be published in our media kit as dated measurements with their source.",
+    "audience": {
+      "eyebrow": "Our audience",
+      "heading": "A community that values growth",
+      "paragraphs": [
+        "Think Positive Always speaks to an international, primarily English-speaking audience, including readers across the United States. Our community is made up of adults of all genders who are interested in mindset, confidence, resilience, relationships, and intentional living.",
+        "They come to us for encouragement and practical perspective, which is why we only partner on messages we believe will be genuinely useful to them."
+      ]
+    },
+    "formats": {
+      "eyebrow": "Campaign formats",
+      "heading": "Ways we can work together",
+      "description": "Every collaboration is shaped around shared goals. These are some of the formats we can explore.",
+      "items": [
+        {
+          "icon": "pen-tool",
+          "title": "Sponsored content",
+          "text": "Thoughtful articles and posts that share your message in a way that genuinely serves our readers."
+        },
+        {
+          "icon": "sparkles",
+          "title": "Brand storytelling",
+          "text": "Collaborative stories that connect your brand's purpose with themes of growth, resilience, and well-being."
+        },
+        {
+          "icon": "megaphone",
+          "title": "Digital campaigns",
+          "text": "Multi-channel campaigns designed around a shared goal, from awareness to community engagement."
+        },
+        {
+          "icon": "newspaper",
+          "title": "Newsletter sponsorships",
+          "text": "Placement in The Positive Reset, our daily email, once the newsletter has launched."
+        },
+        {
+          "icon": "handshake",
+          "title": "Resource partnerships",
+          "text": "Co-created guides, challenges, or tools that offer real value to people investing in their growth."
+        }
+      ]
+    },
+    "reasons": {
+      "eyebrow": "Why Think Positive Always",
+      "heading": "Reasons to partner with us",
+      "items": [
+        {
+          "icon": "users",
+          "title": "An audience focused on growth",
+          "text": "Adults interested in mindset, confidence, resilience, relationships, and intentional living."
+        },
+        {
+          "icon": "heart-handshake",
+          "title": "Trust comes first",
+          "text": "Readers come to us for encouragement and practical perspective, so we only partner on messages we believe will be genuinely useful to them."
+        },
+        {
+          "icon": "shield-check",
+          "title": "Transparent by default",
+          "text": "Sponsored content is clearly labelled, and paid and affiliate links are marked as sponsored links for search engines."
+        }
+      ]
+    },
+    "alignment": {
+      "eyebrow": "Brand alignment",
+      "heading": "Partnerships built on shared values",
+      "description": "Our readers' trust comes first. We look for partners whose work fits naturally with what Think Positive Always stands for.",
+      "items": [
+        "Products, services, or causes that support well-being, growth, learning, or positive change.",
+        "A commitment to honest claims and respectful, inclusive messaging.",
+        "Respect for our audience: no misleading offers, pressure tactics, or harmful products.",
+        "Willingness to clearly disclose sponsored and affiliate relationships."
+      ]
+    },
+    "figures": {
+      "eyebrow": "Audience",
+      "heading": "Measured audience figures",
+      "note": "Each figure is a measurement taken on the date shown, not a live count. Social media followers are not website visitors."
+    },
+    "media_kit": {
+      "heading": "Media kit",
+      "published": "An overview of the brand, our content focus, audience information and partnership formats.",
+      "pending": "Our media kit is being prepared. It will include an overview of the brand, our content focus, audience information, and partnership formats. Until it is published, we are happy to share relevant details directly with prospective partners.",
+      "view_label": "View the Think Positive Always media kit",
+      "download_label": "Download the Think Positive Always media kit"
+    },
+    "inquiry": {
+      "eyebrow": "Get in touch",
+      "heading": "How to make an inquiry",
+      "form_heading": "Tell us about your organisation",
+      "steps": [
+        "Introduce your brand or organisation and what you do.",
+        "Describe the campaign or collaboration you have in mind.",
+        "Share your goals, preferred timeline, and any key requirements."
+      ]
+    },
+    "closing": {
+      "heading": "Ready to start a conversation?",
+      "body": "Tell us about your organisation and the collaboration you have in mind."
+    }
+  },
+  "advertise": {
+    "seo_title": "Advertise — Media Kit",
+    "meta_description": "Audience, editorial focus, placements and partnership formats at Think Positive Always.",
+    "eyebrow": "Media kit",
+    "title": "Advertise with Think Positive Always",
+    "intro": "Sponsorships, newsletter partnerships and brand collaborations for a personal growth audience.",
+    "inquiry_action": "Start a partnership inquiry",
+    "download_action": "Download the media kit",
+    "pending": {
+      "heading": "Our media kit is being prepared",
+      "body": "In the meantime, tell us about your organisation and we'll share relevant details directly.",
+      "items": [
+        "An overview of the brand",
+        "Our content focus",
+        "Audience information",
+        "Partnership formats"
+      ],
+      "request_heading": "Request information",
+      "request_action": "Partner with us"
+    },
+    "error": {
+      "heading": "The media kit isn't available right now",
+      "body": "We couldn't reach it just now. You can try again, or tell us about your organisation and we'll share relevant details directly.",
+      "retry": "Try again"
+    },
+    "audience": {
+      "social_heading": "Social audience",
+      "website_heading": "Website audience",
+      "other_heading": "Other measurements",
+      "note": "Each figure is a measurement taken on the date shown, not a live count. Social media followers are not website visitors."
+    },
+    "formats": {
+      "eyebrow": "Opportunities",
+      "heading": "Collaboration formats",
+      "items": [
+        {
+          "icon": "pen-tool",
+          "title": "Sponsored content",
+          "text": "Thoughtful articles and posts that share your message in a way that genuinely serves our readers."
+        },
+        {
+          "icon": "sparkles",
+          "title": "Brand storytelling",
+          "text": "Collaborative stories that connect your brand's purpose with themes of growth, resilience, and well-being."
+        },
+        {
+          "icon": "megaphone",
+          "title": "Digital campaigns",
+          "text": "Multi-channel campaigns designed around a shared goal, from awareness to community engagement."
+        },
+        {
+          "icon": "newspaper",
+          "title": "Newsletter sponsorships",
+          "text": "Placement in The Positive Reset, our daily email, once the newsletter has launched."
+        },
+        {
+          "icon": "handshake",
+          "title": "Resource partnerships",
+          "text": "Co-created guides, challenges, or tools that offer real value to people investing in their growth."
+        }
+      ]
+    },
+    "closing": {
+      "heading": "Let's talk about a partnership",
+      "body": "Tell us about your organisation and what you have in mind.",
+      "action": "Start a partnership conversation"
+    }
+  }
+}

@@ -8,10 +8,10 @@ import {
 } from "@/components/company/CompanyUI";
 import { Seo } from "@/components/seo/Seo";
 import { Container } from "@/components/ui/Container";
-import { PageLoading } from "@/components/ui/PageLoading";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { routes } from "@/config/navigation";
-import { byGroup, metricsNote } from "@/data/companyPages";
+import { advertise as copy, byGroup } from "@/data/companyPages";
 import { useMediaKit, useSite } from "@/hooks/useContent";
 import { cn } from "@/utils/format";
 
@@ -71,17 +71,16 @@ function MetricGroup({ icon: Icon, title, metrics }) {
  * to ask for details.
  */
 export function AdvertisePage() {
-  const { data: kit, isLoading, isNotFound } = useMediaKit();
+  const { data: kit, isLoading, isError, retry } = useMediaKit();
   const { data: site } = useSite();
   const email = site?.contact?.partnerships_email;
   const downloadUrl = site?.media_kit_url;
-  if (isLoading) return <PageLoading />;
 
   const hero = (
     <CompanyHero
-      eyebrow="Media kit"
-      title="Advertise with Think Positive Always"
-      intro="Sponsorships, newsletter partnerships and brand collaborations for a personal growth audience."
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      intro={copy.intro}
       breadcrumbs={[
         { name: "Home", href: routes.home },
         { name: "Advertise", href: routes.advertise },
@@ -89,19 +88,39 @@ export function AdvertisePage() {
       actions={
         <>
           <ActionLink href={INQUIRY}>
-            Start a partnership inquiry
+            {copy.inquiry_action}
             <ArrowRight aria-hidden />
           </ActionLink>
           {downloadUrl && (
             <ActionLink href={downloadUrl} variant="outline">
               <Download aria-hidden />
-              Download the media kit
+              {copy.download_action}
             </ActionLink>
           )}
         </>
       }
     />
   );
+
+  // While the kit is being fetched in the browser (only on client-side navigation: the
+  // prerendered page already has the answer), keep the hero and hold the space with a
+  // placeholder instead of flashing an error or swapping the whole page.
+  if (!kit && isLoading) {
+    return (
+      <>
+        <Seo title={copy.seo_title} description={copy.meta_description} path={routes.advertise} />
+        {hero}
+        <section aria-label="Media kit" className="bg-ivory py-16 sm:py-20">
+          <Container size="wide">
+            <div role="status" aria-live="polite">
+              <span className="sr-only">Loading the media kit…</span>
+              <Skeleton className="h-96 w-full rounded-[1.75rem]" />
+            </div>
+          </Container>
+        </section>
+      </>
+    );
+  }
 
   if (!kit) {
     return (
@@ -123,19 +142,22 @@ export function AdvertisePage() {
                 <FileText className="size-5" />
               </span>
               <h2 id="kit-pending-heading" className="mt-5 text-3xl font-medium">
-                {isNotFound ? "Our media kit is being prepared" : "We couldn't load the media kit"}
+                {isError ? copy.error.heading : copy.pending.heading}
               </h2>
               <p className="mt-3 text-lg text-muted">
-                In the meantime, tell us about your organisation and we&apos;ll share relevant
-                details directly.
+                {isError ? copy.error.body : copy.pending.body}
               </p>
+              {isError && (
+                <button
+                  type="button"
+                  onClick={retry}
+                  className="mt-4 font-medium text-sage-700 underline underline-offset-4 hover:text-sage-800"
+                >
+                  {copy.error.retry}
+                </button>
+              )}
               <ul className="mt-6 space-y-2">
-                {[
-                  "An overview of the brand",
-                  "Our content focus",
-                  "Audience information",
-                  "Partnership formats",
-                ].map((item) => (
+                {copy.pending.items.map((item) => (
                   <li key={item} className="flex gap-3">
                     <Check aria-hidden className="mt-0.5 size-5 shrink-0 text-sage-700" />
                     {item}
@@ -144,9 +166,9 @@ export function AdvertisePage() {
               </ul>
             </div>
             <div className="flex flex-col items-start gap-4 rounded-[var(--radius-card)] bg-ivory p-6 sm:p-8">
-              <p className="font-medium text-charcoal">Request information</p>
+              <p className="font-medium text-charcoal">{copy.pending.request_heading}</p>
               <ActionLink href={INQUIRY}>
-                Partner with us
+                {copy.pending.request_action}
                 <ArrowRight aria-hidden />
               </ActionLink>
               {email && (
@@ -170,11 +192,7 @@ export function AdvertisePage() {
   const other = kit.metrics.filter((m) => !social.includes(m) && !website.includes(m));
   return (
     <>
-      <Seo
-        title="Advertise — Media Kit"
-        description="Audience, editorial focus, placements and partnership formats at Think Positive Always."
-        path={routes.advertise}
-      />
+      <Seo title={copy.seo_title} description={copy.meta_description} path={routes.advertise} />
       {hero}
       {(kit.about || kit.editorial_focus) && (
         <Band id="about-heading">
@@ -231,11 +249,11 @@ export function AdvertisePage() {
             <>
               <p className="mt-8 flex items-start gap-2 text-sm text-muted">
                 <BarChart3 aria-hidden className="mt-0.5 size-4 shrink-0" />
-                {metricsNote}
+                {copy.audience.note}
               </p>
-              <MetricGroup icon={Users} title="Social audience" metrics={social} />
-              <MetricGroup icon={Globe} title="Website audience" metrics={website} />
-              <MetricGroup icon={BarChart3} title="Other measurements" metrics={other} />
+              <MetricGroup icon={Users} title={copy.audience.social_heading} metrics={social} />
+              <MetricGroup icon={Globe} title={copy.audience.website_heading} metrics={website} />
+              <MetricGroup icon={BarChart3} title={copy.audience.other_heading} metrics={other} />
             </>
           )}
         </Band>
@@ -367,17 +385,17 @@ export function AdvertisePage() {
       <Band id="advertise-cta-heading">
         <CtaBand
           id="advertise-cta-heading"
-          title="Let's talk about a partnership"
+          title={copy.closing.heading}
           actions={
             <>
               <ActionLink href={kit.contact_cta?.href || INQUIRY} variant="light">
-                {kit.contact_cta?.label || "Start a partnership conversation"}
+                {kit.contact_cta?.label || copy.closing.action}
                 <ArrowRight aria-hidden />
               </ActionLink>
               {downloadUrl && (
                 <ActionLink href={downloadUrl} variant="outlineLight">
                   <Download aria-hidden />
-                  Download the media kit
+                  {copy.download_action}
                 </ActionLink>
               )}
             </>
