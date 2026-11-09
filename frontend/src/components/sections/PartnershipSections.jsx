@@ -1,11 +1,9 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
+import { MetricCards } from "@/components/company/CompanyUI";
+import { useHashScroll } from "@/components/company/useHashScroll";
 import { PartnershipInquiryForm } from "@/components/partnerships/PartnershipInquiryForm";
-import {
-  formatMeasurement,
-  liveOnly,
-  sponsoredRel,
-} from "@/components/partnerships/partnershipOptions";
+import { liveOnly, sponsoredRel } from "@/components/partnerships/partnershipOptions";
 import { ContentImage } from "@/components/ui/ContentImage";
 import { useNow } from "@/hooks/useNow";
 import { cn } from "@/utils/format";
@@ -216,24 +214,7 @@ export function MediaKitSummarySection({ section }) {
   return (
     <SectionShell section={section} labelledBy={id}>
       <SectionHeader id={id} data={data} />
-      {data.metrics?.length > 0 && (
-        <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {data.metrics.map((m) => (
-            <li
-              key={`${m.metric_type}-${m.platform}-${m.measured_on}`}
-              className="rounded-2xl bg-ivory p-6"
-            >
-              <p className="font-serif text-3xl font-medium">{formatMeasurement(m)}</p>
-              <p className="mt-1 font-medium">
-                {m.label} · {m.platform}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                Measured {m.measured_on}. Source: {m.source}.
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <MetricCards metrics={data.metrics} className="mt-8" />
       <div className="mt-8">
         {data.cta ? (
           <CtaButton cta={data.cta} arrow />
@@ -250,13 +231,19 @@ export function MediaKitSummarySection({ section }) {
   );
 }
 
+/** The anchor that "Make an inquiry" buttons link to (…/partner-with-us#partnership-inquiry). */
+const INQUIRY_ANCHOR = "partnership-inquiry";
+
 export function PartnershipInquirySection({ section }) {
   const { data, key } = section;
   const id = `${key}-heading`;
+  useHashScroll(INQUIRY_ANCHOR);
   return (
-    <SectionShell section={section} labelledBy={id}>
+    <SectionShell section={section} labelledBy={id} id={INQUIRY_ANCHOR} className="scroll-mt-24">
       <SectionHeader id={id} data={data} />
-      <PartnershipInquiryForm className="mt-8" />
+      <div className="mt-8 rounded-[1.75rem] border border-charcoal/10 bg-ivory p-6 shadow-soft sm:p-10">
+        <PartnershipInquiryForm />
+      </div>
     </SectionShell>
   );
 }

@@ -49,6 +49,14 @@ FEATURE_ICONS = (
     "handshake",
     "mail-check",
     "calendar-check",
+    "mail",
+    "message-circle",
+    "pen-line",
+    "megaphone",
+    "newspaper",
+    "users",
+    "chart-column",
+    "pen-tool",
 )
 
 
@@ -451,7 +459,7 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "heading": HEADING,
             "body": textarea("Text", 1500, help="Separate paragraphs with a blank line."),
             "bullets": _f("string_list", "Bullet points", max=160, max_items=8),
-            "media": media(required=True),
+            "media": media(help="Optional. Without an image the text spans the section."),
             "primary_cta": cta("Main button"),
             "secondary_cta": cta("Second button"),
         },
@@ -976,6 +984,133 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "variant": "default",
             "design": {"background": "cream", "spacing": "md", "width": "narrow"},
             "content": {"heading": "Get in touch", "show_email": True},
+        },
+    },
+    "contact_cards": {
+        "label": "Contact cards",
+        "category": "Engagement",
+        "description": (
+            "Separate cards for each way to get in touch (for example general inquiries, "
+            "editorial feedback, partnerships), each with an email address and an action. "
+            "There is no contact form, so nothing is collected on the website."
+        ),
+        "variants": {"cards_3": "Three columns", "cards_2": "Two columns"},
+        "fields": {
+            "eyebrow": EYEBROW,
+            "heading": OPTIONAL_HEADING,
+            "intro": textarea("Introduction", 400),
+            "items": _f(
+                "items",
+                "Cards",
+                max_items=6,
+                required=True,
+                fields={
+                    "icon": _f(
+                        "select",
+                        "Icon",
+                        choices={
+                            "": "No icon",
+                            **{i: i.replace("-", " ").capitalize() for i in FEATURE_ICONS},
+                        },
+                        default="",
+                    ),
+                    "title": text("Heading", 80, required=True),
+                    "text": textarea("Short description", 300),
+                    "email": _f(
+                        "select",
+                        "Email address",
+                        choices={
+                            "none": "None",
+                            "general": "Contact email (Settings)",
+                            "partnerships": "Partnerships email (Settings)",
+                        },
+                        default="general",
+                    ),
+                    "cta_label": text("Action label", 60),
+                    "cta_url": _f("link", "Action link"),
+                },
+                help=(
+                    "Email addresses come from Settings › Contact, so they stay correct "
+                    "everywhere. A card whose address isn't set shows its action only."
+                ),
+            ),
+            "fallback": text(
+                "When no address is set",
+                200,
+                default="Contact details will be published here soon.",
+            ),
+        },
+        "design": ["background", "spacing", "card_style"],
+        "defaults": {
+            "variant": "cards_3",
+            "design": {"background": "ivory", "spacing": "md", "card_style": "soft"},
+            "content": {
+                "items": [
+                    {
+                        "icon": "message-circle",
+                        "title": "General inquiries",
+                        "text": "Questions, feedback or support.",
+                        "email": "general",
+                        "cta_label": "",
+                        "cta_url": "",
+                    }
+                ],
+                "fallback": "Contact details will be published here soon.",
+            },
+        },
+    },
+    "audience_metrics": {
+        "label": "Verified audience figures",
+        "category": "Partnerships",
+        "description": (
+            "Audience figures from Partnerships › Audience metrics: only measurements marked "
+            "verified and public, each shown with its date and source. The section stays "
+            "hidden until there is at least one."
+        ),
+        "variants": {"cards": "Cards", "row": "Row"},
+        "fields": {
+            "eyebrow": EYEBROW,
+            "heading": OPTIONAL_HEADING,
+            "description": textarea("Description", 400),
+            "metric_group": _f(
+                "select",
+                "Which figures",
+                choices={
+                    "all": "All verified figures",
+                    "social": "Social media followers",
+                    "website": "Website users and page views",
+                    "newsletter": "Newsletter",
+                },
+                default="all",
+            ),
+            "count": _f("number", "Most figures to show", min=1, max=8, default=4),
+        },
+        "design": ["background", "spacing", "align"],
+        "defaults": {
+            "variant": "cards",
+            "design": {"background": "cream", "spacing": "md", "align": "left"},
+            "content": {"metric_group": "all", "count": 4},
+        },
+    },
+    "notice_panel": {
+        "label": "Notice",
+        "category": "Content",
+        "description": (
+            "A clearly styled notice, for example that the site is not a crisis service."
+        ),
+        "variants": {"important": "Important (gold)", "calm": "Calm (sage)"},
+        "fields": {
+            "heading": HEADING,
+            "body": textarea(
+                "Text", 1200, required=True, help="Separate paragraphs with a blank line."
+            ),
+            "cta": cta("Button"),
+        },
+        "design": ["background", "spacing", "width"],
+        "defaults": {
+            "variant": "important",
+            "design": {"background": "ivory", "spacing": "sm", "width": "default"},
+            "content": {"heading": "Please note", "body": "Write the notice here."},
         },
     },
     "legal_document": {

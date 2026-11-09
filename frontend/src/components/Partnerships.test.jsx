@@ -198,7 +198,7 @@ describe("partnership page-builder sections", () => {
     ]);
     expect(screen.getByText("1,200")).toBeInTheDocument();
     expect(
-      screen.getByText(/Measured 2026-10-01\. Source: LinkedIn analytics\./),
+      screen.getByText(/Measured October 1, 2026\. Source: LinkedIn analytics\./),
     ).toBeInTheDocument();
   });
 });
@@ -312,7 +312,7 @@ describe("media kit page", () => {
     expect(await screen.findByText("Practical positivity.")).toBeInTheDocument();
     expect(screen.getByText(/Social media followers are not website visitors/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Measured 2026-10-01\. Source: LinkedIn analytics\./),
+      screen.getByText(/Measured October 1, 2026\. Source: LinkedIn analytics\./),
     ).toBeInTheDocument();
   });
 });

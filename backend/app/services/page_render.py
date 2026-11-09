@@ -559,6 +559,17 @@ def _computed(
         from .partnerships.media_kit import public_metrics
 
         data["metrics"] = public_metrics()[:4] if content.get("show_metrics", True) else []
+    elif section_type == "audience_metrics":
+        from .partnerships.media_kit import public_metrics
+
+        groups = {
+            "social": {"social_followers"},
+            "website": {"website_users", "website_pageviews"},
+            "newsletter": {"newsletter_subscribers", "email_open_rate"},
+        }
+        wanted = groups.get(content.get("metric_group") or "all")
+        metrics = [m for m in public_metrics() if wanted is None or m["metric_type"] in wanted]
+        data["metrics"] = metrics[: int(content.get("count") or 4)]
     elif section_type == "partnership_inquiry":
         from ..models.partnerships import PARTNERSHIP_TYPES
         from .partnerships.crm import BUDGET_RANGES, PRIVACY_NOTICE_VERSION

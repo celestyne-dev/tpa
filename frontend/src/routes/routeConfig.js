@@ -185,7 +185,7 @@ export const routeTable = [
   {
     path: routes.about,
     Component: withCmsOverride(AboutPage, routes.about),
-    load: () => [fetchTopics(), fetchPage({ path: routes.about })],
+    load: () => [fetchTopics(), fetchMediaKit(), fetchPage({ path: routes.about })],
   },
   {
     path: "*",

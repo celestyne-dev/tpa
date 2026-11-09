@@ -126,12 +126,18 @@ def test_about_and_contact_templates_keep_existing_pages(seeded, as_role, client
     assert about["path"] == "/about" and contact["path"] == "/contact"
     assert [s["section_type"] for s in about["sections"]] == [
         "page_header",
-        "brand_intro",
+        "image_text",
+        "inspirational_message",
         "feature_list",
-        "topics_grid",
+        "feature_list",
+        "audience_metrics",
         "call_to_action",
     ]
-    assert "contact_details" in [s["section_type"] for s in contact["sections"]]
+    assert [s["section_type"] for s in contact["sections"]] == [
+        "page_header",
+        "contact_cards",
+        "notice_panel",
+    ]
     # Nothing else changed, and nothing is public until published.
     after = {p["id"]: p["updated_at"] for p in api.get(PAGES).get_json()["data"]}
     assert {k: after[k] for k in before} == before

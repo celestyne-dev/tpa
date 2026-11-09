@@ -29,6 +29,7 @@ import {
   PromoBannerSection,
 } from "./EngagementSections";
 import { HeroSection, PageHeaderSection } from "./IntroSections";
+import { AudienceMetricsSection, ContactCardsSection, NoticePanelSection } from "./CompanySections";
 import { LegalDocumentSection } from "./LegalSections";
 import { ResourceShowcaseSection } from "./ResourceSections";
 import {
@@ -72,6 +73,9 @@ export const SECTION_COMPONENTS = {
   faq: FaqSection,
   rich_text: RichTextSection,
   legal_document: LegalDocumentSection,
+  contact_cards: ContactCardsSection,
+  audience_metrics: AudienceMetricsSection,
+  notice_panel: NoticePanelSection,
   feature_list: FeatureListSection,
   partnership_cta: PartnershipSection,
   author_intro: AuthorIntroSection,

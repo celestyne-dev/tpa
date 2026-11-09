@@ -2022,7 +2022,7 @@
         "name": "media",
         "type": "media",
         "label": "Image",
-        "required": true
+        "help": "Optional. Without an image the text spans the section."
       },
       {
         "name": "primary_cta",
@@ -3657,6 +3657,38 @@
               {
                 "value": "calendar-check",
                 "label": "Calendar check"
+              },
+              {
+                "value": "mail",
+                "label": "Mail"
+              },
+              {
+                "value": "message-circle",
+                "label": "Message circle"
+              },
+              {
+                "value": "pen-line",
+                "label": "Pen line"
+              },
+              {
+                "value": "megaphone",
+                "label": "Megaphone"
+              },
+              {
+                "value": "newspaper",
+                "label": "Newspaper"
+              },
+              {
+                "value": "users",
+                "label": "Users"
+              },
+              {
+                "value": "chart-column",
+                "label": "Chart column"
+              },
+              {
+                "value": "pen-tool",
+                "label": "Pen tool"
               }
             ],
             "default": "sun"
@@ -4966,6 +4998,603 @@
         "background": "cream",
         "spacing": "md",
         "width": "narrow"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "contact_cards",
+    "label": "Contact cards",
+    "category": "Engagement",
+    "description": "Separate cards for each way to get in touch (for example general inquiries, editorial feedback, partnerships), each with an email address and an action. There is no contact form, so nothing is collected on the website.",
+    "reusable_only": false,
+    "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
+    "variants": [
+      {
+        "value": "cards_3",
+        "label": "Three columns"
+      },
+      {
+        "value": "cards_2",
+        "label": "Two columns"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120
+      },
+      {
+        "name": "intro",
+        "type": "textarea",
+        "label": "Introduction",
+        "max": 400
+      },
+      {
+        "name": "items",
+        "type": "items",
+        "label": "Cards",
+        "max_items": 6,
+        "required": true,
+        "help": "Email addresses come from Settings › Contact, so they stay correct everywhere. A card whose address isn't set shows its action only.",
+        "fields": [
+          {
+            "name": "icon",
+            "type": "select",
+            "label": "Icon",
+            "choices": [
+              {
+                "value": "",
+                "label": "No icon"
+              },
+              {
+                "value": "heart-handshake",
+                "label": "Heart handshake"
+              },
+              {
+                "value": "compass",
+                "label": "Compass"
+              },
+              {
+                "value": "notebook-pen",
+                "label": "Notebook pen"
+              },
+              {
+                "value": "footprints",
+                "label": "Footprints"
+              },
+              {
+                "value": "sun",
+                "label": "Sun"
+              },
+              {
+                "value": "sprout",
+                "label": "Sprout"
+              },
+              {
+                "value": "gem",
+                "label": "Gem"
+              },
+              {
+                "value": "sunrise",
+                "label": "Sunrise"
+              },
+              {
+                "value": "leaf",
+                "label": "Leaf"
+              },
+              {
+                "value": "lightbulb",
+                "label": "Lightbulb"
+              },
+              {
+                "value": "book-open",
+                "label": "Book open"
+              },
+              {
+                "value": "shield-check",
+                "label": "Shield check"
+              },
+              {
+                "value": "sparkles",
+                "label": "Sparkles"
+              },
+              {
+                "value": "handshake",
+                "label": "Handshake"
+              },
+              {
+                "value": "mail-check",
+                "label": "Mail check"
+              },
+              {
+                "value": "calendar-check",
+                "label": "Calendar check"
+              },
+              {
+                "value": "mail",
+                "label": "Mail"
+              },
+              {
+                "value": "message-circle",
+                "label": "Message circle"
+              },
+              {
+                "value": "pen-line",
+                "label": "Pen line"
+              },
+              {
+                "value": "megaphone",
+                "label": "Megaphone"
+              },
+              {
+                "value": "newspaper",
+                "label": "Newspaper"
+              },
+              {
+                "value": "users",
+                "label": "Users"
+              },
+              {
+                "value": "chart-column",
+                "label": "Chart column"
+              },
+              {
+                "value": "pen-tool",
+                "label": "Pen tool"
+              }
+            ],
+            "default": ""
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "label": "Heading",
+            "max": 80,
+            "required": true
+          },
+          {
+            "name": "text",
+            "type": "textarea",
+            "label": "Short description",
+            "max": 300
+          },
+          {
+            "name": "email",
+            "type": "select",
+            "label": "Email address",
+            "choices": [
+              {
+                "value": "none",
+                "label": "None"
+              },
+              {
+                "value": "general",
+                "label": "Contact email (Settings)"
+              },
+              {
+                "value": "partnerships",
+                "label": "Partnerships email (Settings)"
+              }
+            ],
+            "default": "general"
+          },
+          {
+            "name": "cta_label",
+            "type": "text",
+            "label": "Action label",
+            "max": 60
+          },
+          {
+            "name": "cta_url",
+            "type": "link",
+            "label": "Action link"
+          }
+        ]
+      },
+      {
+        "name": "fallback",
+        "type": "text",
+        "label": "When no address is set",
+        "max": 200,
+        "default": "Contact details will be published here soon."
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "cards_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "",
+        "intro": "",
+        "items": [
+          {
+            "icon": "message-circle",
+            "title": "General inquiries",
+            "text": "Questions, feedback or support.",
+            "email": "general",
+            "cta_label": "",
+            "cta_url": ""
+          }
+        ],
+        "fallback": "Contact details will be published here soon."
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "md",
+        "card_style": "soft"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "audience_metrics",
+    "label": "Verified audience figures",
+    "category": "Partnerships",
+    "description": "Audience figures from Partnerships › Audience metrics: only measurements marked verified and public, each shown with its date and source. The section stays hidden until there is at least one.",
+    "reusable_only": false,
+    "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
+    "variants": [
+      {
+        "value": "cards",
+        "label": "Cards"
+      },
+      {
+        "value": "row",
+        "label": "Row"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "metric_group",
+        "type": "select",
+        "label": "Which figures",
+        "choices": [
+          {
+            "value": "all",
+            "label": "All verified figures"
+          },
+          {
+            "value": "social",
+            "label": "Social media followers"
+          },
+          {
+            "value": "website",
+            "label": "Website users and page views"
+          },
+          {
+            "value": "newsletter",
+            "label": "Newsletter"
+          }
+        ],
+        "default": "all"
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "label": "Most figures to show",
+        "min": 1,
+        "max": 8,
+        "default": 4
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "cards",
+      "content": {
+        "eyebrow": "",
+        "heading": "",
+        "description": "",
+        "metric_group": "all",
+        "count": 4
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md",
+        "align": "left"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
+    "type": "notice_panel",
+    "label": "Notice",
+    "category": "Content",
+    "description": "A clearly styled notice, for example that the site is not a crisis service.",
+    "reusable_only": false,
+    "single_use": false,
+    "sidebar": false,
+    "sidebar_only": false,
+    "variants": [
+      {
+        "value": "important",
+        "label": "Important (gold)"
+      },
+      {
+        "value": "calm",
+        "label": "Calm (sage)"
+      }
+    ],
+    "fields": [
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "body",
+        "type": "textarea",
+        "label": "Text",
+        "max": 1200,
+        "required": true,
+        "help": "Separate paragraphs with a blank line."
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "width",
+        "label": "Content width",
+        "choices": [
+          {
+            "value": "narrow",
+            "label": "Narrow"
+          },
+          {
+            "value": "default",
+            "label": "Standard"
+          },
+          {
+            "value": "wide",
+            "label": "Wide"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "important",
+      "content": {
+        "heading": "Please note",
+        "body": "Write the notice here.",
+        "cta": {
+          "label": "",
+          "url": "",
+          "style": "",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "ivory",
+        "spacing": "sm",
+        "width": "default"
       },
       "visibility": {
         "devices": "all",

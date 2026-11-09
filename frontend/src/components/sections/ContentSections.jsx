@@ -1,49 +1,12 @@
-import {
-  BookOpen,
-  CalendarCheck,
-  Compass,
-  Footprints,
-  Gem,
-  Handshake,
-  HeartHandshake,
-  Leaf,
-  Lightbulb,
-  MailCheck,
-  NotebookPen,
-  Quote,
-  ShieldCheck,
-  Sparkles,
-  Sprout,
-  Sun,
-  Sunrise,
-} from "lucide-react";
+import { Quote, Sun } from "lucide-react";
 import { Link } from "react-router";
 import { ArticleBody } from "@/components/articles/ArticleBody";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { cn } from "@/utils/format";
 import { ASPECT, cardClass } from "./design";
 import { CtaButton, Eyebrow, Heading, Paragraphs, SectionHeader, SectionShell } from "./primitives";
+import { SECTION_ICONS as ICONS } from "./icons";
 import { useSectionContext } from "./sectionContext";
-
-// Approved icon names (mirrors FEATURE_ICONS in backend/app/cms/sections.py).
-const ICONS = {
-  "heart-handshake": HeartHandshake,
-  compass: Compass,
-  "notebook-pen": NotebookPen,
-  footprints: Footprints,
-  sun: Sun,
-  sprout: Sprout,
-  gem: Gem,
-  sunrise: Sunrise,
-  leaf: Leaf,
-  lightbulb: Lightbulb,
-  "book-open": BookOpen,
-  "shield-check": ShieldCheck,
-  sparkles: Sparkles,
-  handshake: Handshake,
-  "mail-check": MailCheck,
-  "calendar-check": CalendarCheck,
-};
 
 function SmartLink({ href, className, children }) {
   if (href?.startsWith("https://")) {
@@ -139,23 +102,29 @@ export function ImageTextSection({ section }) {
   const imageRight = variant === "image_right";
   return (
     <SectionShell section={section} labelledBy={id}>
-      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-        <div
-          className={cn(
-            "relative overflow-hidden rounded-[var(--radius-card)] bg-beige",
-            ASPECT[design.aspect_ratio ?? "landscape"],
-            imageRight && "lg:order-2",
-          )}
-        >
-          {data.media && (
+      {/* Without an image (it is optional) the text spans a comfortable reading width. */}
+      <div
+        className={cn(
+          "grid items-center gap-10 lg:gap-16",
+          data.media ? "lg:grid-cols-2" : "max-w-3xl",
+        )}
+      >
+        {data.media && (
+          <div
+            className={cn(
+              "relative overflow-hidden rounded-[var(--radius-card)] bg-beige",
+              ASPECT[design.aspect_ratio ?? "landscape"],
+              imageRight && "lg:order-2",
+            )}
+          >
             <ContentImage
               image={data.media}
               fill
               sizes="(min-width: 1024px) 560px, 100vw"
               className="object-cover"
             />
-          )}
-        </div>
+          </div>
+        )}
         <div>
           <Eyebrow>{data.eyebrow}</Eyebrow>
           <Heading id={id}>{data.heading}</Heading>

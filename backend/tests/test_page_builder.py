@@ -279,6 +279,8 @@ def test_page_templates_create_editable_starter_sections(seeded, as_role):
         "affiliate_disclosure",
         "about",
         "contact",
+        "partner_with_us",
+        "advertise",
     }
     for key in templates:
         slug = f"template-{key.replace('_', '-')}"

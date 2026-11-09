@@ -5,7 +5,6 @@ import { parseEmphasis } from "@/components/legal/emphasis";
 import { withAnchors } from "@/components/legal/legalAnchors";
 import legalDocuments from "@/data/legal/legalDocuments.json";
 import { createFakeAdminApi } from "@/test/adminFake";
-import { createFakeShopApi } from "@/test/commerceFake";
 import * as fx from "@/test/fixtures";
 import { createFakeApi, preloadAdminApp, renderApp } from "@/test/utils";
 
@@ -203,57 +202,6 @@ describe("legal documents managed in the CMS", () => {
     expect(title.closest('[data-section="legal_document"]')).toHaveClass("hidden", "md:block");
     expect(screen.queryByRole("navigation", { name: "Table of contents" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Related legal pages" })).toBeNull();
-  });
-});
-
-describe("company pages", () => {
-  it("About keeps its mission, values, topics and closing note", async () => {
-    renderApp("/about");
-    await screen.findByRole("heading", { level: 1, name: "Practical Inspiration for Real Life" });
-    for (const name of [
-      "Our mission",
-      "For anyone ready to grow",
-      "Honest encouragement",
-      "Inclusive by design",
-      "The topics at the heart of our work",
-      "A note on our content",
-    ]) {
-      expect(screen.getByRole("heading", { name })).toBeInTheDocument();
-    }
-    expect(screen.getByRole("link", { name: /Read our articles/ })).toHaveAttribute(
-      "href",
-      "/articles",
-    );
-  });
-
-  it("Contact shows the configured email, partnerships and urgent-support information", async () => {
-    const api = createFakeApi({
-      getSite: async () => ({
-        data: { ...fx.site, contact: { email: "hello@example.com", partnerships_email: "" } },
-      }),
-    });
-    renderApp("/contact", { api });
-    expect(await screen.findByRole("link", { name: /hello@example.com/ })).toHaveAttribute(
-      "href",
-      "mailto:hello@example.com",
-    );
-    expect(screen.getByRole("heading", { name: "Brands & partnerships" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Partner with us/ })).toHaveAttribute(
-      "href",
-      "/partner-with-us",
-    );
-    expect(screen.getByRole("heading", { name: "Need urgent support?" })).toBeInTheDocument();
-  });
-
-  it("Partner With Us keeps its inquiry form and links straight to it", async () => {
-    renderApp("/partner-with-us", { shopApi: createFakeShopApi() });
-    await screen.findByRole("heading", { level: 1, name: "Partner With Think Positive Always" });
-    expect(screen.getByRole("link", { name: /Make an inquiry/ })).toHaveAttribute(
-      "href",
-      "#partnership-inquiry",
-    );
-    const panel = document.getElementById("partnership-inquiry");
-    expect(within(panel).getByRole("button", { name: /send|submit/i })).toBeInTheDocument();
   });
 });
 

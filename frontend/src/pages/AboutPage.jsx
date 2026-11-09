@@ -1,24 +1,40 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Quote } from "lucide-react";
+import { Link } from "react-router";
+import {
+  ActionLink,
+  CompanyHero,
+  CtaBand,
+  IconCard,
+  MetricCards,
+} from "@/components/company/CompanyUI";
 import { Seo } from "@/components/seo/Seo";
-import { TopicGrid } from "@/components/topics/TopicGrid";
-import { ButtonLink } from "@/components/ui/Button";
-import { ErrorState } from "@/components/ui/ErrorState";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Section } from "@/components/ui/Section";
+import { Container } from "@/components/ui/Container";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/navigation";
-import { siteConfig } from "@/config/site";
-import { aboutValues } from "@/data/marketing";
-import { useSite, useTopics } from "@/hooks/useContent";
+import {
+  DEFAULT_COMMUNITY,
+  DEFAULT_MISSION,
+  aboutIntro,
+  aboutValues,
+  beliefLine,
+  editorialApproach,
+  metricsNote,
+  whoWeServe,
+} from "@/data/companyPages";
+import { useMediaKit, useSite, useTopics } from "@/hooks/useContent";
 import { webPageJsonLd } from "@/utils/structuredData";
 
-const DEFAULT_MISSION =
-  "Helping people develop a healthier mindset, navigate life's challenges, build confidence, and move forward through encouragement, thoughtful content, and useful personal development tools.";
-
+/**
+ * The built-in About page. Every section is also available in the Page Builder (the
+ * "About page" template): publishing a CMS page at /about replaces this one. The mission
+ * and community wording come from Settings; audience figures appear only when verified,
+ * dated measurements are published in the media kit.
+ */
 export function AboutPage() {
   const { data: site } = useSite();
+  const { data: kit } = useMediaKit();
   const topics = useTopics();
+  const metrics = kit?.metrics ?? [];
   return (
     <>
       <Seo
@@ -27,114 +43,164 @@ export function AboutPage() {
         path={routes.about}
         jsonLd={webPageJsonLd({ title: "About Think Positive Always", path: routes.about })}
       />
-      <PageHeader
+      <CompanyHero
         eyebrow="About us"
         title="Practical Inspiration for Real Life"
-        description={siteConfig.tagline}
+        intro={aboutIntro}
         breadcrumbs={[
           { name: "Home", href: routes.home },
           { name: "About", href: routes.about },
         ]}
+        actions={
+          <>
+            <ActionLink href={routes.articles}>
+              Read our articles
+              <ArrowRight aria-hidden />
+            </ActionLink>
+            <ActionLink href={routes.newsletter} variant="outline">
+              Join The Positive Reset
+            </ActionLink>
+          </>
+        }
       />
 
-      <Section aria-labelledby="story-heading">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] lg:gap-20">
-          <SectionHeading id="story-heading" eyebrow="What we stand for" title="Our mission" />
+      <section aria-labelledby="story-heading" className="bg-ivory py-16 sm:py-20">
+        <Container
+          size="wide"
+          className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-center lg:gap-16"
+        >
           <div>
-            <p className="border-l-2 border-gold-400 pl-6 font-serif text-2xl leading-snug text-charcoal sm:text-[1.75rem]">
-              {site?.mission ?? DEFAULT_MISSION}
-            </p>
-            <div className="mt-8 space-y-5 text-lg text-muted">
+            <SectionHeading
+              id="story-heading"
+              eyebrow="Our story"
+              title="From daily encouragement to a home for growth"
+            />
+            <div className="mt-6 space-y-5 text-lg text-muted">
               <p>
                 Think Positive Always began as a place for daily encouragement and has grown into a
-                community of{" "}
-                {site?.community?.linkedin_followers_text ??
-                  "more than 280,000 people who follow Think Positive Always on LinkedIn"}
-                , with audiences on other social platforms as well. This website is our new home: a
-                place to go deeper than a single post and offer thoughtful articles and practical
+                community of {site?.community?.linkedin_followers_text ?? DEFAULT_COMMUNITY}, with
+                audiences on other social platforms as well. This website is our new home: a place
+                to go deeper than a single post and offer thoughtful articles and practical
                 resources.
-              </p>
-              <p>
-                We believe that thinking positively is not about pretending life is easy. It is
-                about choosing a perspective that helps you keep going, and pairing that perspective
-                with practical steps that make a real difference.
               </p>
             </div>
           </div>
-        </div>
-      </Section>
+          <figure className="rounded-[1.75rem] border border-charcoal/10 bg-cream p-7 sm:p-9">
+            <Quote aria-hidden className="size-8 text-gold-500" />
+            <blockquote className="mt-4 font-serif text-2xl leading-snug text-charcoal">
+              {beliefLine}
+            </blockquote>
+          </figure>
+        </Container>
+      </section>
 
-      <Section tone="cream" aria-labelledby="who-heading">
-        <div className="max-w-3xl">
-          <SectionHeading
-            id="who-heading"
-            eyebrow="Who we serve"
-            title="For anyone ready to grow"
-          />
-          <p className="mt-6 text-lg text-muted">
-            Our readers are adults around the world who want to build a healthier mindset,
-            strengthen their confidence, recover from setbacks, nurture better relationships, and
-            live more intentionally. Some are navigating a difficult season. Others simply want to
-            keep growing. All are welcome here.
+      <section aria-labelledby="mission-heading" className="bg-cream py-16 sm:py-20">
+        <Container size="narrow" className="text-center">
+          <p
+            id="mission-heading"
+            className="text-xs font-semibold tracking-[0.16em] text-sage-700 uppercase"
+          >
+            Our mission
           </p>
-        </div>
-        <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {aboutValues.map(({ icon: Icon, title, text }) => (
-            <li
-              key={title}
-              className="rounded-[var(--radius-card)] border border-charcoal/10 bg-ivory p-6"
-            >
-              <span
-                aria-hidden
-                className="grid size-11 place-items-center rounded-full bg-sage-800 text-gold-300"
-              >
-                <Icon className="size-5" />
-              </span>
-              <h3 className="mt-5 text-xl font-medium">{title}</h3>
-              <p className="mt-2 text-muted">{text}</p>
-            </li>
-          ))}
-        </ul>
-      </Section>
+          <div aria-hidden className="mx-auto mt-4 h-0.5 w-14 rounded-full bg-gold-400" />
+          <p className="mt-6 font-serif text-2xl leading-snug text-balance text-charcoal sm:text-[2rem]">
+            {site?.mission ?? DEFAULT_MISSION}
+          </p>
+        </Container>
+      </section>
 
-      <Section aria-labelledby="about-topics-heading">
-        <SectionHeading
-          id="about-topics-heading"
-          eyebrow="What we write about"
-          title="The topics at the heart of our work"
-        />
-        <div className="mt-12">
-          {topics.isLoading && <CardGridSkeleton count={4} className="lg:grid-cols-4" />}
-          {topics.isError && (
-            <ErrorState onRetry={topics.retry} title="We couldn't load the topics" />
+      <section aria-labelledby="believe-heading" className="bg-ivory py-16 sm:py-20">
+        <Container size="wide">
+          <SectionHeading
+            id="believe-heading"
+            eyebrow="What we believe"
+            title="For anyone ready to grow"
+            description={whoWeServe}
+          />
+          <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {aboutValues.map((v) => (
+              <IconCard key={v.title} icon={v.icon} title={v.title}>
+                {v.text}
+              </IconCard>
+            ))}
+          </ul>
+        </Container>
+      </section>
+
+      <section
+        aria-labelledby="editorial-heading"
+        className="border-y border-charcoal/[0.08] bg-cream py-16 sm:py-20"
+      >
+        <Container size="wide">
+          <SectionHeading
+            id="editorial-heading"
+            eyebrow="Our editorial approach"
+            title="Content you can trust"
+          />
+          <ul className="mt-10 grid gap-5 md:grid-cols-3">
+            {editorialApproach.map((item) => (
+              <IconCard key={item.title} icon={item.icon} title={item.title} tone="light">
+                {item.text}
+              </IconCard>
+            ))}
+          </ul>
+        </Container>
+      </section>
+
+      {metrics.length > 0 && (
+        <section aria-labelledby="community-heading" className="bg-ivory py-16 sm:py-20">
+          <Container size="wide">
+            <SectionHeading
+              id="community-heading"
+              eyebrow="Our community"
+              title="The people we write for"
+              description={metricsNote}
+            />
+            <MetricCards metrics={metrics.slice(0, 4)} className="mt-10" />
+          </Container>
+        </section>
+      )}
+
+      <section aria-labelledby="about-cta-heading" className="bg-ivory py-16 sm:py-20">
+        <Container size="wide">
+          <CtaBand
+            id="about-cta-heading"
+            title="Keep growing with us"
+            actions={
+              <>
+                <ActionLink href={routes.articles} variant="light">
+                  Read our articles
+                  <ArrowRight aria-hidden />
+                </ActionLink>
+                <ActionLink href={routes.newsletter} variant="outlineLight">
+                  Join The Positive Reset
+                </ActionLink>
+              </>
+            }
+          >
+            Explore our articles, or join The Positive Reset for a little encouragement every day.
+          </CtaBand>
+          {topics.data?.length > 0 && (
+            <nav aria-label="Topics we write about" className="mt-8 text-center">
+              <p className="text-sm font-semibold tracking-[0.14em] text-sage-700 uppercase">
+                The topics at the heart of our work
+              </p>
+              <ul className="mt-4 flex flex-wrap justify-center gap-2">
+                {topics.data.map((t) => (
+                  <li key={t.slug}>
+                    <Link
+                      to={routes.topic(t.slug)}
+                      className="inline-flex rounded-full border border-charcoal/15 bg-white/60 px-3.5 py-1.5 text-sm font-medium text-ink transition-colors hover:border-sage-600 hover:text-sage-800"
+                    >
+                      {t.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           )}
-          {topics.data && <TopicGrid topics={topics.data} className="lg:grid-cols-4" />}
-        </div>
-      </Section>
-
-      <Section spacing="sm" aria-labelledby="about-cta-heading">
-        <div className="grid gap-8 rounded-[1.75rem] border border-charcoal/10 bg-cream p-7 sm:p-10 lg:grid-cols-[minmax(0,1.6fr)_auto] lg:items-center lg:gap-14">
-          <div>
-            <h2 id="about-cta-heading" className="text-3xl font-medium sm:text-4xl">
-              A note on our content
-            </h2>
-            <p className="mt-4 max-w-2xl text-lg text-muted">
-              Our articles and resources are designed to encourage and educate. They are not a
-              substitute for professional medical, psychological, or financial advice. If you are
-              struggling, please reach out to a qualified professional.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-            <ButtonLink to={routes.articles}>
-              Read our articles
-              <ArrowRight aria-hidden />
-            </ButtonLink>
-            <ButtonLink to={routes.contact} variant="outline">
-              Get in touch
-            </ButtonLink>
-          </div>
-        </div>
-      </Section>
+        </Container>
+      </section>
     </>
   );
 }

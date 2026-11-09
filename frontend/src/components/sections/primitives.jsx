@@ -1,4 +1,5 @@
 import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { useLocation } from "react-router";
 import { ButtonLink } from "@/components/ui/Button";
 import { buttonStyles } from "@/components/ui/buttonStyles";
 import { Container } from "@/components/ui/Container";
@@ -70,6 +71,7 @@ export function Paragraphs({ text, className, paragraphClassName, tone }) {
 /** A CMS button: internal links use the router, external ones open safely. */
 export function CtaButton({ cta, fallback = "primary", size, arrow = false, className, style }) {
   const { dark } = useSectionContext();
+  const { pathname } = useLocation();
   if (!cta?.href || !cta?.label) return null;
   const variant = buttonVariant(style ?? cta.style, dark, fallback);
   const icon = arrow && <ArrowRight aria-hidden />;
@@ -84,6 +86,17 @@ export function CtaButton({ cta, fallback = "primary", size, arrow = false, clas
         {cta.label}
         <ArrowUpRight aria-hidden />
         <span className="sr-only"> (opens in a new tab)</span>
+      </a>
+    );
+  }
+  // A link to a section of this same page (e.g. /partner-with-us#partnership-inquiry on
+  // /partner-with-us) is a plain anchor, so the browser scrolls to it.
+  const [path, hash] = cta.href.split("#");
+  if (hash && (!path || path === pathname)) {
+    return (
+      <a href={`#${hash}`} className={buttonStyles({ variant, size, className })}>
+        {cta.label}
+        {icon}
       </a>
     );
   }
@@ -107,11 +120,13 @@ export function SectionShell({
   width,
   labelledBy,
   label,
+  id,
 }) {
   const design = section.design ?? {};
   const background = design.background ?? "ivory";
   return (
     <section
+      id={id}
       aria-labelledby={labelledBy}
       aria-label={labelledBy ? undefined : label}
       data-section={section.type}
