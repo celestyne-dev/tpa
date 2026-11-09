@@ -295,5 +295,1056 @@
         "text": "If you have questions about this document, please visit our [contact page](/contact) for the current ways to reach us."
       }
     ]
+  },
+  "cookies": {
+    "title": "Cookie Policy",
+    "path": "/cookie-policy",
+    "summary": "Which cookies and similar technologies this website uses, why we use them, and the choices you have.",
+    "meta_description": "The cookies, local storage and usage statistics used on Think Positive Always, what each one does, and how to change your settings.",
+    "seo_title": "Cookie Policy",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This policy is a working draft. It has not been reviewed or approved by a legal professional, it has no effective date yet, and it may change before it is adopted. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. About this policy"
+      },
+      {
+        "type": "paragraph",
+        "text": "This policy explains how thinkpositivealways.com uses cookies and similar technologies, such as your browser's local storage and session storage. It should be read together with our [Privacy Policy](/privacy-policy)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Our approach in short"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "We do not use advertising cookies, advertising networks or social media tracking pixels.",
+          "We do not use Google Analytics or any other third-party analytics service.",
+          "We count visits with our own usage statistics tool, which stores nothing on your device. You can switch it off at any time in **Cookie settings**.",
+          "Cookies are only set when you sign in, and are used to keep you signed in securely.",
+          "A few features you choose to use (such as your cart) remember information in your browser's own storage."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. Strictly necessary cookies"
+      },
+      {
+        "type": "paragraph",
+        "text": "These first-party cookies are set only when you sign in. They keep you signed in and protect your account against forged requests. They are not used for tracking or advertising, and the website's sign-in would not work without them, so they cannot be switched off in Cookie settings."
+      },
+      {
+        "type": "table",
+        "header_row": true,
+        "rows": [
+          [
+            "Name",
+            "Purpose",
+            "Who it applies to",
+            "How long"
+          ],
+          [
+            "tpa_customer",
+            "Keeps you signed in to your account.",
+            "Customers who sign in",
+            "Until you close your browser, or 30 days if you choose “Keep me signed in”"
+          ],
+          [
+            "tpa_customer_csrf",
+            "Protects account actions against cross-site request forgery.",
+            "Customers who sign in",
+            "Same as tpa_customer"
+          ],
+          [
+            "access_token_cookie",
+            "Keeps a team member signed in to the admin area.",
+            "Website staff",
+            "15 minutes"
+          ],
+          [
+            "refresh_token_cookie",
+            "Renews a team member's sign-in securely.",
+            "Website staff",
+            "14 days"
+          ],
+          [
+            "csrf_access_token, csrf_refresh_token",
+            "Protect admin actions against cross-site request forgery.",
+            "Website staff",
+            "Same as the sign-in cookies"
+          ]
+        ],
+        "caption": "Durations are the website's default settings."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Information stored in your browser for features you use"
+      },
+      {
+        "type": "paragraph",
+        "text": "Some features remember your choices in your browser's local storage or session storage. This information stays in your browser, is not sent to us automatically, and is used only for the feature concerned. Session storage is cleared when you close the tab."
+      },
+      {
+        "type": "table",
+        "header_row": true,
+        "rows": [
+          [
+            "Name",
+            "Purpose",
+            "Type",
+            "How long"
+          ],
+          [
+            "tpa:privacy-choices",
+            "Remembers your Cookie settings.",
+            "Local storage",
+            "Until you change your settings or clear your browser's storage"
+          ],
+          [
+            "tpa:cart",
+            "Remembers the items in your cart.",
+            "Local storage",
+            "Until you remove them or clear your browser's storage"
+          ],
+          [
+            "tpa:currency",
+            "Remembers the display currency you chose for prices.",
+            "Local storage",
+            "Until you change it or clear your browser's storage"
+          ],
+          [
+            "tpa:dismissed-announcements",
+            "Keeps announcements you have closed hidden.",
+            "Local storage",
+            "Until you clear your browser's storage"
+          ],
+          [
+            "tpa-reader-preferences",
+            "Remembers your course reader settings, such as text size and spacing.",
+            "Local storage",
+            "Until you change them or clear your browser's storage"
+          ],
+          [
+            "tpa-assignment-draft:…",
+            "Keeps a backup of a course assignment answer while you write it.",
+            "Local storage",
+            "Until the answer is submitted or cleared"
+          ],
+          [
+            "tpa-guest-order:…",
+            "Lets you return to an order you placed without an account.",
+            "Session storage",
+            "Until you close the tab"
+          ],
+          [
+            "tpa-guest-access",
+            "Holds the access code from your purchase link while you view your purchases.",
+            "Session storage",
+            "Until you close the tab"
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Usage statistics"
+      },
+      {
+        "type": "paragraph",
+        "text": "To understand which pages are read and improve the website, we count page visits with our own tool. It does not use cookies and stores nothing on your device. When you open a page, your browser sends us the page address, the page you came from and, for campaign links, the campaign labels in the link."
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "We do not store your IP address or your browser's details. To count unique visitors per day, we create a short code from a shortened version of your IP address, your browser's details and a random value that is replaced every day, so visits cannot be linked from one day to the next.",
+          "Visits are not recorded on private pages, such as your account, checkout or the admin area.",
+          "We respect your browser's Do Not Track and Global Privacy Control signals: when either is on, no visit is counted.",
+          "The statistics are not used for advertising, are not sold or shared, and are not combined with your account.",
+          "By default, individual visit records are deleted after 90 days and summary figures after about two years."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "You can switch usage statistics off, or back on, at any time in **Cookie settings**."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. Third-party content and services"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "**Videos.** Some articles include YouTube or Vimeo videos. They load only when you press play, using YouTube's privacy-enhanced mode and Vimeo's do-not-track option. Once a video loads, the provider may use cookies or similar technologies under its own privacy policy.",
+          "**Payments.** When you pay for a purchase, you are taken to the secure payment page of our payment provider, Paystack. Paystack may use cookies on its own website under its own policies.",
+          "**Links to other websites.** Other websites you visit from our links have their own cookie and privacy policies."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Your choices"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Use the **Cookie settings** link at the bottom of every page to see and change your choices.",
+          "You can also block or delete cookies and stored information in your browser's settings. If you block strictly necessary cookies or storage, signing in, your cart and some other features may not work.",
+          "Turning on Do Not Track or Global Privacy Control in your browser also switches off usage statistics."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Changes to this policy"
+      },
+      {
+        "type": "paragraph",
+        "text": "We review this policy whenever we add or change a technology that uses your device. If a change affects your choices, we update the version shown in Cookie settings and, where required, ask you again."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
+  },
+  "editorial": {
+    "title": "Editorial Policy",
+    "path": "/editorial-policy",
+    "summary": "How we research, write, review and correct what we publish, and how we keep our editorial work independent.",
+    "meta_description": "How Think Positive Always researches, reviews and corrects its articles, uses AI tools, handles sponsored content and listens to readers.",
+    "seo_title": "Editorial Policy",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This policy is a working draft. It has not been reviewed or approved by a legal professional, it has no effective date yet, and it may change before it is adopted. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. Our editorial mission"
+      },
+      {
+        "type": "paragraph",
+        "text": "Think Positive Always publishes practical, encouraging writing about mindset, personal growth, well-being, relationships and everyday life. We aim to be honest, useful and kind: to help readers think clearly and take small, realistic steps, without overpromising."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. What we publish, and what we don't"
+      },
+      {
+        "type": "paragraph",
+        "text": "Our articles offer general information, reflection and encouragement. We do not provide medical, psychological, legal, financial or other regulated professional advice. Where a topic needs specialist knowledge, we either have the content reviewed by a suitably qualified expert or we do not cover it. See our [Disclaimer](/disclaimer)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. Research and sourcing standards"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "We prefer primary sources and reputable organisations, and we link to the sources that support factual claims.",
+          "We make clear what is evidence, what is opinion and what is personal experience.",
+          "We do not present a single study as settled fact, and we check that information is current.",
+          "Personal stories are shared with the permission of the people involved, or changed so that they cannot be identified.",
+          "We do not invent quotes, people, experiences or sources."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Factual accuracy and editorial review"
+      },
+      {
+        "type": "paragraph",
+        "text": "Before an article is published, it is read for accuracy, clarity, tone and fairness. Our publishing tools include a submit-and-approve review step. When we make a material update to a published article, we show the date it was updated."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Corrections"
+      },
+      {
+        "type": "paragraph",
+        "text": "If we get something wrong, we correct it as quickly as we can. Where an error is significant, we make clear that the article has been corrected. To report a possible error, please tell us the page and what you believe is wrong through our [contact page](/contact)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. AI-assisted content"
+      },
+      {
+        "type": "paragraph",
+        "text": "We may use AI tools to help with tasks such as research, outlining, editing or checking readability. A person writes or substantially shapes every article, reviews it, and takes responsibility for it before it is published. We do not use AI tools to invent quotes, experiences, sources or people."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Confirm which AI tools are used and for what, and whether articles or images created with AI assistance will carry a visible label."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Editorial independence"
+      },
+      {
+        "type": "paragraph",
+        "text": "Our editorial decisions are our own. Advertisers, sponsors and affiliate partners do not decide what we cover, cannot buy a positive review, and do not see or approve independent articles before they are published."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Sponsored content and affiliate links"
+      },
+      {
+        "type": "paragraph",
+        "text": "Sponsored articles, newsletter editions and banners are labelled “Sponsored” with the sponsor's name, and affiliate links are disclosed. Sponsored content may be prepared with the sponsor, but it still has to meet our standards. See our [Advertising & Sponsored Content Policy](/advertising-policy) and [Affiliate Disclosure](/affiliate-disclosure)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Reader feedback"
+      },
+      {
+        "type": "paragraph",
+        "text": "We welcome feedback, ideas and disagreement. We read every message sent through our [contact page](/contact), although we cannot always reply individually."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "10. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
+  },
+  "disclaimer": {
+    "title": "Disclaimer",
+    "path": "/disclaimer",
+    "summary": "The limits of the information on this website, and why it is not a substitute for professional advice.",
+    "meta_description": "Think Positive Always shares general information and encouragement, not medical, mental health, financial, legal or other professional advice.",
+    "seo_title": "Disclaimer",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This policy is a working draft. It has not been reviewed or approved by a legal professional, it has no effective date yet, and it may change before it is adopted. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. General information only"
+      },
+      {
+        "type": "paragraph",
+        "text": "The content on Think Positive Always, including articles, newsletters, resources and courses, is provided for general information, education and encouragement. It is not tailored to your circumstances."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Mental health and well-being"
+      },
+      {
+        "type": "paragraph",
+        "text": "Our writing about mindset and well-being is not therapy, counselling, diagnosis or treatment, and it is not a substitute for care from a qualified health professional. If you are struggling, please speak to a doctor or a mental health professional."
+      },
+      {
+        "type": "paragraph",
+        "text": "If you are in crisis or think you may be in danger, contact your local emergency services or a crisis helpline in your country straight away."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Add verified crisis and support contacts for Kenya and other key reader countries, or decide not to list them."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. Financial information"
+      },
+      {
+        "type": "paragraph",
+        "text": "Anything we publish about money, careers or business is general information, not personalised financial or investment advice. Consider your own situation and, where appropriate, speak to a suitably licensed adviser before making financial decisions."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Other professional advice"
+      },
+      {
+        "type": "paragraph",
+        "text": "Nothing on this website is medical, legal, tax, nutritional or other professional advice. Always seek advice from a qualified professional about your own circumstances."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. External websites"
+      },
+      {
+        "type": "paragraph",
+        "text": "We link to other websites for further reading. We do not control those websites and are not responsible for their content, accuracy, availability or privacy practices. A link is not an endorsement."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. Personal experiences and individual results"
+      },
+      {
+        "type": "paragraph",
+        "text": "Stories, examples and testimonials describe individual experiences. Your results will depend on your own circumstances, and we cannot promise any particular outcome."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Accuracy and changes"
+      },
+      {
+        "type": "paragraph",
+        "text": "We work to keep our content accurate and up to date, but information can change and mistakes can happen. If you notice an error, please tell us. See our [Editorial Policy](/editorial-policy)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Limitation of liability"
+      },
+      {
+        "type": "paragraph",
+        "text": "To the extent permitted by applicable law, Think Positive Always is not liable for any loss or damage arising from your use of, or reliance on, the information on this website. Nothing in this disclaimer limits or excludes any liability or any right you have that cannot be limited or excluded under applicable law, including your rights as a consumer."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
+  },
+  "advertising": {
+    "title": "Advertising & Sponsored Content Policy",
+    "path": "/advertising-policy",
+    "summary": "How we work with advertisers, sponsors and affiliate partners while keeping our editorial work independent.",
+    "meta_description": "How Think Positive Always labels sponsored content and advertising, handles affiliate links and conflicts of interest, and keeps editorial independence.",
+    "seo_title": "Advertising & Sponsored Content Policy",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This policy is a working draft. It has not been reviewed or approved by a legal professional, it has no effective date yet, and it may change before it is adopted. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. Purpose and scope"
+      },
+      {
+        "type": "paragraph",
+        "text": "This policy applies to advertising, sponsored articles, sponsored newsletter editions, banner placements and affiliate links on Think Positive Always. Businesses interested in working with us can find out more on our [Partner With Us](/partner-with-us) page."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Advertising transparency"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Paid placements are clearly labelled, for example “Sponsored” or “Advertisement”, and name the sponsor.",
+          "We do not use advertising networks or advertising cookies, and we do not target advertising based on your browsing. If that ever changes, we will update our [Cookie Policy](/cookie-policy) and ask for your consent where required."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. How sponsored content is identified"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Sponsored articles, banners and newsletter editions carry a “Sponsored” label and the sponsor's name.",
+          "Links that are paid for, or that earn us a commission, are marked as sponsored links for search engines.",
+          "Sponsored content is kept visually distinct from our independent articles."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Affiliate relationships"
+      },
+      {
+        "type": "paragraph",
+        "text": "Some links may be affiliate links: if you buy through them, we may earn a commission at no extra cost to you. We only recommend products or services we believe may be genuinely useful. See our [Affiliate Disclosure](/affiliate-disclosure)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Editorial independence"
+      },
+      {
+        "type": "paragraph",
+        "text": "Sponsors and advertisers cannot buy editorial coverage or a favourable opinion. Independent articles are not shared with advertisers for approval. Sponsored content may be prepared together with the sponsor, but we keep the final say over what we publish and may decline or end any partnership."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. What we accept"
+      },
+      {
+        "type": "paragraph",
+        "text": "We accept advertising and sponsorship only from partners whose products and messages fit our values and are lawful and honest."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Confirm the categories Think Positive Always will not accept. A suggested starting list: gambling and betting; high-cost or predatory lending and “get rich quick” schemes; unproven health or weight-loss claims; tobacco and vaping; adult content; weapons; and political advertising."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Advertiser responsibilities"
+      },
+      {
+        "type": "paragraph",
+        "text": "Advertisers and sponsors are responsible for making sure that:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "their claims are truthful, can be substantiated and are not misleading;",
+          "their products, services and materials comply with the laws and advertising standards of the markets they target, including Kenya;",
+          "they own, or have permission to use, everything they supply to us, including logos, images and text;",
+          "they disclose any material connection that readers would expect to know about."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Managing conflicts of interest"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Writers tell us about any personal, financial or professional connection to a subject they write about, and we disclose it where relevant or assign the article to someone else.",
+          "Free products or services provided for review are disclosed in the article.",
+          "We do not accept payment or gifts in exchange for independent coverage."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Reporting concerns"
+      },
+      {
+        "type": "paragraph",
+        "text": "If you think an advertisement or sponsored item is misleading, is not properly labelled or breaks this policy, please tell us through our [contact page](/contact), including the page address and what concerns you."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "10. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
+  },
+  "refunds": {
+    "title": "Refund & Cancellation Policy",
+    "path": "/refund-policy",
+    "summary": "How purchases of digital products work, and how to ask about a refund, a duplicate charge or a problem with your order.",
+    "meta_description": "How Think Positive Always handles digital product purchases, access, refund requests, duplicate charges, cancellations and payment processing.",
+    "seo_title": "Refund & Cancellation Policy",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This policy is a working draft. It has not been reviewed or approved by a legal professional, it has no effective date yet, and it may change before it is adopted. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Refund periods, refund eligibility and the remedies for technical problems have not been decided yet. This draft describes how purchases currently work and leaves those terms open. It must not be relied on as a commitment until it is approved."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. What this policy covers"
+      },
+      {
+        "type": "paragraph",
+        "text": "This policy applies to purchases made on thinkpositivealways.com, such as digital products, downloadable resources and courses, and to paid memberships if they are offered."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Digital product purchases"
+      },
+      {
+        "type": "paragraph",
+        "text": "The price and currency are shown before you pay. Your order is confirmed only after our system has checked with our payment provider that the payment was successful."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. Delivery and access"
+      },
+      {
+        "type": "paragraph",
+        "text": "Once your payment is confirmed, your purchase is available in your account or through the access link we email to you if you bought without an account. If you cannot find or open your purchase, please contact us before requesting a refund: we can usually restore access."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Refund requests"
+      },
+      {
+        "type": "paragraph",
+        "text": "To ask for a refund, contact us through our [contact page](/contact) with your order number, the email address used for the purchase and the reason for your request. We review each request individually."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Decide whether refunds are offered for digital products, and if so within what period and on what conditions."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Duplicate charges"
+      },
+      {
+        "type": "paragraph",
+        "text": "If you think you have been charged more than once for the same order, please contact us with the order number and the dates of the charges. We will check the payments with our payment provider, and a duplicate charge that is confirmed will be refunded."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. Technical problems"
+      },
+      {
+        "type": "paragraph",
+        "text": "If a fault on our side stops you from accessing or downloading something you bought, we will first try to fix the problem or restore your access."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Decide what happens if a technical problem cannot be fixed (for example a replacement, credit or refund)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Cancellation"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "**Orders.** An order that has not been paid is not processed and can simply be left. Digital purchases are delivered as soon as payment is confirmed.",
+          "**Memberships.** If paid memberships are offered, you can cancel from your account. Your membership then ends at the end of the period you have already paid for, and you will not be charged again."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Payment processing"
+      },
+      {
+        "type": "paragraph",
+        "text": "Payments are processed by Paystack. We do not receive or store your full card details. Any approved refund is returned through Paystack to the original payment method; how long it takes to appear depends on your bank or payment provider."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Your consumer rights"
+      },
+      {
+        "type": "paragraph",
+        "text": "Nothing in this policy affects the rights you have under the consumer protection laws that apply to you, including Kenya's Consumer Protection Act, 2012 and the laws of the country where you live."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Confirm how consumers in the European Union and the United Kingdom will be treated: their right to withdraw from digital purchases within 14 days ends early only if they expressly agree to immediate access and acknowledge that they lose the right. The checkout does not currently ask for that agreement."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "10. Customer support"
+      },
+      {
+        "type": "paragraph",
+        "text": "For any question about an order, please use our [contact page](/contact) and include your order number so we can help you quickly."
+      }
+    ]
+  },
+  "accessibility": {
+    "title": "Accessibility Statement",
+    "path": "/accessibility",
+    "summary": "Our commitment to making Think Positive Always usable by as many people as possible, and how to tell us about a problem.",
+    "meta_description": "The accessibility standard Think Positive Always works towards, what we have checked so far, known limitations and how to report an issue.",
+    "seo_title": "Accessibility Statement",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This policy is a working draft. It has not been reviewed or approved by a legal professional, it has no effective date yet, and it may change before it is adopted. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. Our commitment"
+      },
+      {
+        "type": "paragraph",
+        "text": "We want everyone to be able to read and use Think Positive Always, including people who use a keyboard, a screen reader, magnification or other assistive technology."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. The standard we work towards"
+      },
+      {
+        "type": "paragraph",
+        "text": "We aim to meet the Web Content Accessibility Guidelines (WCAG) 2.2 at level AA. The website has not yet been independently audited, so we do not claim that it fully meets this standard."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. What we have checked so far"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "A “Skip to content” link is available at the top of every page.",
+          "Menus, dialogs and forms can be used with a keyboard, and our automated tests check that they work this way and have accessible names.",
+          "Pages use headings and landmarks, so assistive technology can move around them.",
+          "Videos load only when you choose to play them, using a labelled button.",
+          "Course readers can adjust text size, line spacing, width and colour theme.",
+          "Several animations are reduced when your device asks for reduced motion."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Known limitations"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "We have not yet tested the website with a full range of screen readers, browsers and assistive technologies.",
+          "Downloadable files such as PDFs have not been checked for accessibility.",
+          "Embedded YouTube and Vimeo players are provided by those services, and we cannot change their accessibility.",
+          "Image descriptions are written by our editors, and some images may still be missing a useful description."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Reporting an accessibility problem"
+      },
+      {
+        "type": "paragraph",
+        "text": "If something on the website is difficult to use, please tell us through our [contact page](/contact). It helps to include the page address, what you were trying to do, and the device, browser or assistive technology you use. If you need content in a different format, let us know and we will try to help."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Decide whether to commit to a response time for accessibility reports."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. Ongoing improvements"
+      },
+      {
+        "type": "paragraph",
+        "text": "We review accessibility as we build new features and fix problems as we find them. We plan to have the website reviewed independently and will update this statement with the results."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. About this statement"
+      },
+      {
+        "type": "paragraph",
+        "text": "This statement was prepared on 9 November 2026 from our own review of the website. It has not been verified by an independent auditor."
+      }
+    ]
+  },
+  "community": {
+    "title": "Community Guidelines",
+    "path": "/community-guidelines",
+    "summary": "How we ask people to take part when they write to us, submit work or join conversations in spaces we manage.",
+    "meta_description": "The standards Think Positive Always expects in messages, submissions and community spaces, how moderation works and how to report a problem.",
+    "seo_title": "Community Guidelines",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This policy is a working draft. It has not been reviewed or approved by a legal professional, it has no effective date yet, and it may change before it is adopted. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. Where these guidelines apply"
+      },
+      {
+        "type": "paragraph",
+        "text": "The website does not currently have public comments or forums. These guidelines apply to messages you send us, anything you submit through the website (such as partnership inquiries or course assignments) and conversations on our social media pages where we are able to manage them."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Respectful participation"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Be kind and constructive, even when you disagree.",
+          "Respect other people's experiences and privacy.",
+          "Stay on topic and keep conversations useful for others."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. Harassment and abuse"
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not accept threats, bullying, intimidation, sexual harassment, or abusive or degrading language towards anyone."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Hate speech"
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not accept content that attacks or demeans people because of their race, ethnicity, nationality, religion, sex, gender identity, sexual orientation, disability, age or other personal characteristics."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Spam"
+      },
+      {
+        "type": "paragraph",
+        "text": "Please do not send repeated, automated or unsolicited promotional messages, or misleading links."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. Misinformation"
+      },
+      {
+        "type": "paragraph",
+        "text": "Please do not share false or misleading information, especially about health, safety or money, where it could cause harm."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Personal information"
+      },
+      {
+        "type": "paragraph",
+        "text": "Do not share anyone else's personal information without their permission, and think carefully before sharing your own, such as your phone number, address or health details."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Your submissions"
+      },
+      {
+        "type": "paragraph",
+        "text": "You keep the rights to what you send us. By submitting something, you confirm that you are entitled to share it, and you allow us to use it for the purpose you sent it for (for example, to reply to your inquiry or assess an assignment). We will not publish your submission without your permission."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Confirm the terms for publishing reader stories or contributions, if Think Positive Always plans to invite them."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Moderation"
+      },
+      {
+        "type": "paragraph",
+        "text": "Where these guidelines are not followed, we may decline to respond, delete messages, block a sender, or remove or report comments on our social media pages using the tools those platforms provide. Where our terms allow, we may also restrict access to a service on this website."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "10. Reporting a problem"
+      },
+      {
+        "type": "paragraph",
+        "text": "To report something that breaks these guidelines, please use our [contact page](/contact) and include where you saw it. On social media platforms, you can also use the platform's own reporting tools. If someone is in immediate danger, contact your local emergency services."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "11. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
+  },
+  "copyright": {
+    "title": "Copyright & Content Usage Policy",
+    "path": "/copyright-policy",
+    "summary": "Who owns the material on this website, how you may share it, and how to raise a copyright concern.",
+    "meta_description": "How you may share and quote Think Positive Always content, when you need permission to republish it, and how to report a copyright concern.",
+    "seo_title": "Copyright & Content Usage Policy",
+    "effective_date": "",
+    "last_updated": "2026-11-09",
+    "notice": {
+      "title": "Draft — pending legal review",
+      "text": "This policy is a working draft. It has not been reviewed or approved by a legal professional, it has no effective date yet, and it may change before it is adopted. Items marked “Decision pending” are still to be decided by Think Positive Always."
+    },
+    "body": [
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "1. Original material"
+      },
+      {
+        "type": "paragraph",
+        "text": "Original articles, newsletters, resources and courses created for Think Positive Always are protected by copyright. Unless a page says otherwise, the rights are held by Think Positive Always or by the authors who wrote them for us."
+      },
+      {
+        "type": "callout",
+        "title": "Decision pending",
+        "text": "Confirm the rights arrangements with writers and other contributors, so this section can say precisely who owns which material."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "2. Third-party material"
+      },
+      {
+        "type": "paragraph",
+        "text": "Some images, quotes, logos, embedded videos and other material belong to other people or organisations. We use them under licence, with permission or as the law allows, and show credits where they are provided. The permissions in this policy do not cover third-party material."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "3. Sharing our content"
+      },
+      {
+        "type": "paragraph",
+        "text": "You are welcome to:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "share links to our pages;",
+          "quote a short excerpt, with attribution and a link to the original page;",
+          "save or print a copy of a page for your own personal, non-commercial use."
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "4. Attribution"
+      },
+      {
+        "type": "paragraph",
+        "text": "When you quote us, please name Think Positive Always and the article title, and link to the original page, for example: “Source: [Article title], Think Positive Always, thinkpositivealways.com”."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "5. Republishing and other uses"
+      },
+      {
+        "type": "paragraph",
+        "text": "Please ask us first, through our [contact page](/contact), if you would like to republish an article in full, translate it, use our material commercially or in training materials, or use it to train AI models. Tell us what you would like to use and how."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "6. Purchased products and courses"
+      },
+      {
+        "type": "paragraph",
+        "text": "Digital products and courses you buy are for your own personal use unless the product says otherwise. Please do not share, resell or publish them."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Copyright concerns"
+      },
+      {
+        "type": "paragraph",
+        "text": "If you believe material on this website infringes your copyright, please contact us through our [contact page](/contact) with:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "a description of your work and the page address where the material appears;",
+          "your name and contact details;",
+          "a statement that you believe in good faith that the use is not authorised, and that the information you provide is accurate and that you own the rights or are authorised to act for the owner."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "We will review your concern under applicable law, including Kenya's Copyright Act, and remove or change the material where appropriate. If you believe something was removed in error, please contact us."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Contact"
+      },
+      {
+        "type": "paragraph",
+        "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
+      }
+    ]
   }
 }

@@ -9,6 +9,21 @@ from typing import Any
 # The built-in legal pages' wording, kept identical to frontend/src/data/legal/
 # legalDocuments.json (tests/test_company_legal_pages.py checks this). A CMS page created
 # from a legal template starts as an exact copy of the page that is live today.
+# The policy pages added in Batch 13 (template key, document key, address). Their built-in
+# pages are drafts: shown at their address with "noindex" and left out of the sitemap and
+# menus until a CMS page created from the template is published there.
+POLICY_DOCUMENTS: tuple[tuple[str, str, str], ...] = (
+    ("cookie_policy", "cookies", "/cookie-policy"),
+    ("editorial_policy", "editorial", "/editorial-policy"),
+    ("disclaimer", "disclaimer", "/disclaimer"),
+    ("advertising_policy", "advertising", "/advertising-policy"),
+    ("refund_policy", "refunds", "/refund-policy"),
+    ("accessibility_statement", "accessibility", "/accessibility"),
+    ("community_guidelines", "community", "/community-guidelines"),
+    ("copyright_policy", "copyright", "/copyright-policy"),
+)
+POLICY_PATHS: frozenset[str] = frozenset(path for _t, _k, path in POLICY_DOCUMENTS)
+
 LEGAL_DOCUMENTS: dict[str, dict[str, Any]] = json.loads(
     (Path(__file__).with_name("legal_documents.json")).read_text(encoding="utf-8")
 )
@@ -382,9 +397,9 @@ def _advertise_template() -> dict[str, Any]:
     }
 
 
-def _legal_template(key: str, slug: str) -> dict[str, Any]:
+def _legal_template(key: str, slug: str, *, policy: bool = False) -> dict[str, Any]:
     doc = LEGAL_DOCUMENTS[key]
-    return {
+    template: dict[str, Any] = {
         "label": f"{doc['title']} (legal document)",
         "description": (
             f"The current {doc['title']} wording in the legal page layout, ready to manage in "
@@ -412,6 +427,17 @@ def _legal_template(key: str, slug: str) -> dict[str, Any]:
             )
         ],
     }
+    if policy:
+        # The new policy drafts: an SEO title from the document, and "Hide from search
+        # engines" on until someone unticks it after legal review, so publishing an
+        # unreviewed draft never puts it in search results or the sitemap.
+        template["seo_title"] = doc["seo_title"]
+        template["noindex"] = True
+        template["description"] += (
+            " Starts hidden from search engines: untick that in SEO once the policy has been "
+            "reviewed and approved."
+        )
+    return template
 
 
 PAGE_TEMPLATES: dict[str, dict[str, Any]] = {
@@ -645,6 +671,10 @@ PAGE_TEMPLATES: dict[str, dict[str, Any]] = {
     "privacy_policy": _legal_template("privacy", "privacy-policy"),
     "terms_of_use": _legal_template("terms", "terms"),
     "affiliate_disclosure": _legal_template("affiliate", "affiliate-disclosure"),
+    **{
+        template: _legal_template(key, path.lstrip("/"), policy=True)
+        for template, key, path in POLICY_DOCUMENTS
+    },
     "about": _about_template(),
     "contact": _contact_template(),
     "partner_with_us": _partner_template(),

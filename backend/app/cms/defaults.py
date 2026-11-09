@@ -71,6 +71,16 @@ DEFAULT_MENUS = {
                     {"label": "Privacy Policy", "url": "/privacy-policy"},
                     {"label": "Terms of Use", "url": "/terms"},
                     {"label": "Affiliate Disclosure", "url": "/affiliate-disclosure"},
+                    # Policy pages: each link shows only once its page is published in the
+                    # CMS (navigation_service.public_navigation).
+                    {"label": "Cookie Policy", "url": "/cookie-policy"},
+                    {"label": "Editorial Policy", "url": "/editorial-policy"},
+                    {"label": "Disclaimer", "url": "/disclaimer"},
+                    {"label": "Advertising Policy", "url": "/advertising-policy"},
+                    {"label": "Refund Policy", "url": "/refund-policy"},
+                    {"label": "Accessibility", "url": "/accessibility"},
+                    {"label": "Community Guidelines", "url": "/community-guidelines"},
+                    {"label": "Copyright Policy", "url": "/copyright-policy"},
                 ],
             },
         ],

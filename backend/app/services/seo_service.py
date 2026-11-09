@@ -15,6 +15,7 @@ from flask import current_app
 from sqlalchemy import func, select
 
 from ..cms.blocks import blocks_word_count, heading_outline, internal_links, media_ids
+from ..cms.templates import POLICY_PATHS
 from ..extensions import db
 from ..models import Article, MediaAsset, Page, Redirect, SiteSetting, Topic
 from . import publication_service
@@ -109,7 +110,9 @@ def _known_paths() -> tuple[set[str], set[str], set[str], set[str]]:
         for slug in db.session.scalars(select(Course.slug).where(Course.status == "published"))
     }
     return (
-        {p for p, _, _ in STATIC_PATHS} | pages | shop | commerce_pages | courses,
+        # The policy pages answer 200 (as a noindex draft until published), so links to
+        # them are not broken.
+        {p for p, _, _ in STATIC_PATHS} | POLICY_PATHS | pages | shop | commerce_pages | courses,
         articles,
         topics,
         redirects,
@@ -670,7 +673,13 @@ def sitemap_entries() -> list[dict[str, Any]]:
     for path, page in sorted(live.items()):
         if path in excluded:
             continue
-        entry = page_entry(page, path, 0.6, "monthly")
+        # A policy page is listed only once its CMS page is published and indexable; the
+        # built-in draft never is.
+        entry = (
+            page_entry(page, path, 0.2, "yearly")
+            if path in POLICY_PATHS
+            else page_entry(page, path, 0.6, "monthly")
+        )
         if entry:
             entries.append(entry)
     from .article_service import published_filter

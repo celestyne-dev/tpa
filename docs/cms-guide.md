@@ -72,7 +72,12 @@ If you try to leave with unsaved changes, the editor warns you. If somebody else
 - **New page:** choose a **template** (Standard, Landing, Newsletter, Lead magnet, Campaign, Partnership or Coming soon). The template provides starter sections, which you then edit like the homepage.
 - **Address:** a page has a **slug** and an optional **parent** (for example `/guides/spring-reset`, at most 3 levels). The availability check explains when an address can't be used.
   - **Reserved addresses** such as `/admin`, `/api`, `/articles`, `/topics`, `/shop`, `/media` and `/auth` belong to the site's own features and can never be used for pages.
-  - **Replaceable built-in pages:** About, Contact, Newsletter, Partner with us, Free resources, Privacy policy, Terms and Affiliate disclosure. If you publish a page at one of these addresses, your page replaces the built-in one. If you unpublish it, the built-in page comes back.
+  - **Replaceable built-in pages:** About, Contact, Newsletter, Partner with us, Free resources, Privacy policy, Terms and Affiliate disclosure, plus the policy pages below. If you publish a page at one of these addresses, your page replaces the built-in one. If you unpublish it, the built-in page comes back.
+- **Policy pages (Batch 13):** Cookie Policy (`/cookie-policy`), Editorial Policy (`/editorial-policy`), Disclaimer (`/disclaimer`), Advertising & Sponsored Content Policy (`/advertising-policy`), Refund & Cancellation Policy (`/refund-policy`), Accessibility Statement (`/accessibility`), Community Guidelines (`/community-guidelines`) and Copyright & Content Usage Policy (`/copyright-policy`). Each has a template with the current draft wording in the Legal document section.
+  - Until you publish one, its built-in page is a **draft**: it can be read at its address, says "Draft — pending legal review" and "Not yet in effect", is hidden from search engines, is left out of the sitemap and is not linked from the menus.
+  - A page created from a policy template starts as a private draft with **Hide from search engines** turned on. After legal review: remove the draft notice, set the effective date, untick "Hide from search engines", then publish. It then appears in the footer's Legal column (a menu link to a policy that is still a draft stays hidden and is flagged), and in the sitemap.
+  - "Decision pending" boxes mark terms the owner still has to decide; remove them once decided.
+  - Creating a page from a template never replaces a page that already uses the address.
 - **Changing the address of a published page** automatically creates a permanent (301) redirect from the old address once you publish.
 - **SEO tab:** search title, description, social image, canonical address and "hide from search engines". Pages marked as hidden, drafts and archived pages are left out of the sitemap.
 - **Schedule:** choose a date and time to publish the current draft. The worker publishes it on time and queues a rebuild.
@@ -98,6 +103,7 @@ Site name, tagline, wordmark subline, logo (and a light version for dark backgro
 - **Header button** (on the Navigation screen): show or hide it, and set its label and link. A menu link to the same address is hidden on desktop to avoid repetition.
 - **Account menu** (built in, not editable): the person icon in the header and an "Account" group in the mobile menu offer **Log in** and **Create account**, or **My account**, **My library**, **Orders**, **Settings** and **Log out** once someone is signed in. You don't need to add account links to the menus.
 - **Footer** (`/admin/footer`): footer text, the newsletter link, whether to show the contact email and social links, the copyright line and an optional promotion (text and link).
+- **Cookie settings** (also on `/admin/footer`): the wording of the Cookie settings panel and notice (link text, introduction, notice text, category names and descriptions, Cookie Policy link) and the **consent version**. Change the version after a material change so visitors are asked again where consent is required. Which technologies are listed, and whether the website asks before counting visits, are set in the application configuration (`PRIVACY_STATISTICS_MODE`), never in these fields, and the fields accept plain text only.
 
 ## 7. Announcements (`/admin/announcements`)
 

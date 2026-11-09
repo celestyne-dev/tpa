@@ -1,4 +1,4 @@
-import { footerNav, mainNav, routes } from "@/config/navigation";
+import { footerNav, mainNav, policyPages, routes } from "@/config/navigation";
 import { useSelector } from "react-redux";
 import { selectTopicList } from "@/store/slices/topicsSlice";
 import { Status } from "@/store/status";
@@ -62,14 +62,27 @@ export function liveLinks(items, topics) {
 }
 
 /** Built-in footer: the Explore column also links the first published topics with articles. */
-function fallbackFooter(topics) {
+/** Policy pages that have been published in the CMS (the built-in drafts are not linked). */
+export function publishedPolicies(overrides) {
+  const live = new Set(overrides ?? []);
+  return policyPages.filter((p) => live.has(p.path)).map((p) => ({ label: p.label, href: p.path }));
+}
+
+/**
+ * Built-in footer: the Explore column also links the first published topics with articles,
+ * and the Legal column the policy pages that have been published.
+ */
+function fallbackFooter(topics, overrides) {
   const extra = (topics ?? [])
     .filter((t) => t.article_count > 0)
     .slice(0, 3)
     .map((t) => ({ label: t.name, href: routes.topic(t.slug) }));
+  const policies = publishedPolicies(overrides);
   return footerNav.map((g, i) => ({
     title: g.title,
-    items: [...g.items, ...(i === 0 ? extra : [])].map(fromConfig),
+    items: [...g.items, ...(i === 0 ? extra : []), ...(g.title === "Legal" ? policies : [])].map(
+      fromConfig,
+    ),
   }));
 }
 
@@ -114,7 +127,7 @@ export function useNavigation() {
     mobile: nav?.mobile?.length ? menu(nav.mobile.map(fromApi)) : primary,
     footer: nav?.footer?.length
       ? nav.footer.map((g) => ({ title: g.title, items: liveLinks(g.items.map(fromApi), topics) }))
-      : fallbackFooter(topics),
+      : fallbackFooter(topics, site?.cms_overrides),
     legal: (nav?.legal ?? []).map(fromApi),
   };
 }

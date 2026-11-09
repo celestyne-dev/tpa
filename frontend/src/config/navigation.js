@@ -52,7 +52,32 @@ export const routes = {
   privacy: "/privacy-policy",
   terms: "/terms",
   affiliate: "/affiliate-disclosure",
+  cookiePolicy: "/cookie-policy",
+  editorialPolicy: "/editorial-policy",
+  disclaimer: "/disclaimer",
+  advertisingPolicy: "/advertising-policy",
+  refundPolicy: "/refund-policy",
+  accessibility: "/accessibility",
+  communityGuidelines: "/community-guidelines",
+  copyrightPolicy: "/copyright-policy",
 };
+
+/**
+ * Policy pages (Batch 13), with their key in data/legal/legalDocuments.json. Until a CMS
+ * page is published at the address, the built-in page is a draft: it answers with
+ * "noindex", is left out of the sitemap and is not linked from the menus. Mirrors
+ * POLICY_DOCUMENTS in backend/app/cms/templates.py (a backend test checks).
+ */
+export const policyPages = [
+  { key: "cookies", label: "Cookie Policy", path: routes.cookiePolicy },
+  { key: "editorial", label: "Editorial Policy", path: routes.editorialPolicy },
+  { key: "disclaimer", label: "Disclaimer", path: routes.disclaimer },
+  { key: "advertising", label: "Advertising Policy", path: routes.advertisingPolicy },
+  { key: "refunds", label: "Refund Policy", path: routes.refundPolicy },
+  { key: "accessibility", label: "Accessibility", path: routes.accessibility },
+  { key: "community", label: "Community Guidelines", path: routes.communityGuidelines },
+  { key: "copyright", label: "Copyright Policy", path: routes.copyrightPolicy },
+];
 
 export const mainNav = [
   { label: "Home", href: routes.home },

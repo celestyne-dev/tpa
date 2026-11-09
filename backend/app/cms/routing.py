@@ -80,6 +80,15 @@ OVERRIDABLE_PATHS = frozenset(
         "/privacy-policy",
         "/terms",
         "/affiliate-disclosure",
+        # Batch 13 policy pages (built-in drafts until a CMS page is published there).
+        "/cookie-policy",
+        "/editorial-policy",
+        "/disclaimer",
+        "/advertising-policy",
+        "/refund-policy",
+        "/accessibility",
+        "/community-guidelines",
+        "/copyright-policy",
     }
 )
 

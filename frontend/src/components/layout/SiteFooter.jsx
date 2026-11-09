@@ -5,6 +5,8 @@ import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/utils/format";
 import { useNavigation } from "@/hooks/useNavigation";
+import { CookieSettingsLink } from "@/components/privacy/CookieSettings";
+import { hasOptionalCategories } from "@/privacy/choices";
 import { Logo } from "./Logo";
 
 const DEFAULT_FOOTER_TEXT =
@@ -187,13 +189,18 @@ export function SiteFooter({ site }) {
         <div className="mt-10 flex flex-col gap-6 border-t border-ivory/10 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
             <Copyright template={settings.copyright} name={name} year={year} />
-            {bottomLinks.length > 0 && (
+            {(bottomLinks.length > 0 || hasOptionalCategories(site?.privacy)) && (
               <ul aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2">
                 {bottomLinks.map((item) => (
                   <li key={`${item.href}-${item.label}`}>
                     <FooterLink item={item} />
                   </li>
                 ))}
+                {hasOptionalCategories(site?.privacy) && (
+                  <li>
+                    <CookieSettingsLink className="cursor-pointer text-left transition-colors hover:text-ivory hover:underline hover:underline-offset-4" />
+                  </li>
+                )}
               </ul>
             )}
           </div>

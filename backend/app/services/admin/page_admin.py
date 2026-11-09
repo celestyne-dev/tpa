@@ -1091,6 +1091,8 @@ def create_page(data: dict[str, Any], actor: User) -> Page:
         draft_updated_at=_now(),
         updated_by_id=actor.id,
         meta_description=PAGE_TEMPLATES[template].get("meta_description"),
+        seo_title=PAGE_TEMPLATES[template].get("seo_title"),
+        noindex=bool(PAGE_TEMPLATES[template].get("noindex")),
     )
     db.session.add(page)
     db.session.flush()

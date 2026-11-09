@@ -1,5 +1,5 @@
 import { matchRoutes } from "react-router";
-import { legacyAuthRoutes, routes } from "@/config/navigation";
+import { legacyAuthRoutes, policyPages, routes } from "@/config/navigation";
 import {
   ARTICLE_LIST_QUERY,
   FEATURED_QUERY,
@@ -24,6 +24,7 @@ import { HomePage } from "@/pages/HomePage";
 import { NewsletterPage } from "@/pages/NewsletterPage";
 import { CmsRoute } from "@/pages/CmsPage";
 import { PartnerPage } from "@/pages/PartnerPage";
+import { policyPage } from "@/pages/policyPages";
 import { PrivacyPolicyPage } from "@/pages/PrivacyPolicyPage";
 import { CollectionPage } from "@/pages/CollectionPage";
 import { ProductPage } from "@/pages/ProductPage";
@@ -171,6 +172,7 @@ export const routeTable = [
     [routes.privacy, PrivacyPolicyPage],
     [routes.terms, TermsPage],
     [routes.affiliate, AffiliateDisclosurePage],
+    ...policyPages.map((p) => [p.path, policyPage(p.key)]),
   ].map(([path, Page]) => ({
     path,
     Component: withCmsOverride(Page, path),

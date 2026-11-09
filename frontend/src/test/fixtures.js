@@ -138,6 +138,29 @@ export const site = {
     notice: "",
     display_currencies: ["USD", "KES"],
   },
+  // Cookie settings as the API sends them by default (PRIVACY_STATISTICS_MODE=objection).
+  privacy: {
+    statistics_mode: "objection",
+    version: "2026-11-09",
+    settings_label: "Cookie settings",
+    intro: "We keep cookies to a minimum.",
+    notice: "May we count your visit?",
+    policy_path: "/cookie-policy",
+    categories: [
+      {
+        key: "necessary",
+        label: "Necessary",
+        description: "Keep you signed in. Always on.",
+        required: true,
+      },
+      {
+        key: "statistics",
+        label: "Usage statistics",
+        description: "Count page visits. No cookies.",
+        required: false,
+      },
+    ],
+  },
 };
 
 const cta = (label, href, style = null) => ({ label, href, external: false, style });

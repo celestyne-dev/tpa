@@ -43,6 +43,7 @@ const {
   createServerApi,
   staticRoutes,
   privateRoutes,
+  policyPages,
   routes,
   siteConfig,
   configureSite,
@@ -239,6 +240,7 @@ const extraPages = (count, pathFor) =>
     priority: 0.3,
   }));
 const staticPaths = new Set(staticRoutes.map((r) => r.path));
+const cmsPaths = new Set(cmsPagesRes.data.map((p) => p.path));
 
 const pages = [
   ...staticRoutes,
@@ -259,6 +261,9 @@ const pages = [
   ...collectionsRes.data.map((c) => ({ path: routes.collection(c.slug) })),
   // Published course pages (marketing content and syllabus titles; never lesson content).
   ...coursesRes.data.map((c) => ({ path: routes.course(c.slug) })),
+  // Policy pages not yet published in the CMS: their built-in drafts render with
+  // "noindex" (a published one is rendered above, as a CMS page).
+  ...policyPages.filter((p) => !cmsPaths.has(p.path)).map((p) => ({ path: p.path })),
   // Private customer pages: noindex shells; customer data only ever loads in the browser.
   ...privateRoutes.map((path) => ({ path, private: true })),
   ...articles.map((a) => ({

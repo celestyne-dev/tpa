@@ -47,6 +47,11 @@ def normalise_database_url(url: str | None) -> str | None:
     return url
 
 
+def privacy_statistics_mode(value: str | None) -> str:
+    """ "objection" or "consent" (PRIVACY_STATISTICS_MODE); anything else is "consent"."""
+    return "objection" if (value or "").strip().lower() == "objection" else "consent"
+
+
 class BaseConfig:
     SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-insecure-change-me"
     SQLALCHEMY_DATABASE_URI = normalise_database_url(os.environ.get("DATABASE_URL"))
@@ -270,6 +275,14 @@ class BaseConfig:
     # stored (a daily-rotating salted hash estimates daily visitors).
     ANALYTICS_TRACKING = os.environ.get("ANALYTICS_TRACKING", "enabled").strip().lower()
     ANALYTICS_RESPECT_DNT = _bool("ANALYTICS_RESPECT_DNT", True)
+    # The visitor's choice about usage statistics (Batch 13, Cookie settings):
+    # "objection": counted unless the visitor switches it off in Cookie settings (or sends
+    #   Do Not Track / Global Privacy Control); no banner;
+    # "consent": counted only after the visitor accepts in a cookie notice.
+    # Any other value is treated as "consent", the stricter of the two.
+    PRIVACY_STATISTICS_MODE = privacy_statistics_mode(
+        os.environ.get("PRIVACY_STATISTICS_MODE", "objection")
+    )
     ANALYTICS_RAW_RETENTION_DAYS = max(7, min(400, _int("ANALYTICS_RAW_RETENTION_DAYS", 90)))
     ANALYTICS_AGGREGATE_RETENTION_DAYS = max(
         30, min(3650, _int("ANALYTICS_AGGREGATE_RETENTION_DAYS", 760))

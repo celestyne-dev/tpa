@@ -8,7 +8,9 @@ Privacy and data minimisation:
   16 hex characters. The salt is replaced every day and the old one deleted, so hashes
   can't be reversed or linked across days: unique visitors are estimated per day only;
 - private, transactional and token-bearing routes are never recorded;
-- ``DNT: 1`` / ``Sec-GPC: 1`` are honoured (``ANALYTICS_RESPECT_DNT``).
+- ``DNT: 1`` / ``Sec-GPC: 1`` are honoured (``ANALYTICS_RESPECT_DNT``);
+- the visitor's Cookie settings choice is honoured in the browser; with
+  ``PRIVACY_STATISTICS_MODE=consent`` only hits that carry ``"consent": true`` count.
 
 Exclusions: bots and automation (user agent), admin and API paths, prerendering
 (headless browsers), cross-site requests, repeated hits of the same page by the same
@@ -299,6 +301,13 @@ def collect(raw_body: bytes) -> dict[str, Any]:
         return _ignored("malformed")
     if not isinstance(data, dict):
         return _ignored("malformed")
+    # Consent mode: only browsers whose visitor accepted usage statistics say so; anything
+    # else (an old cached page, a script) is not counted.
+    if (
+        current_app.config.get("PRIVACY_STATISTICS_MODE") == "consent"
+        and data.get("consent") is not True
+    ):
+        return _ignored("no_consent")
     path = normalise_path(data.get("path"))
     if path is None:
         return _ignored("path")

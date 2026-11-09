@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from flask import current_app
 from sqlalchemy import select
 
 from ..cms.routing import OVERRIDABLE_PATHS
@@ -55,6 +56,40 @@ def _policy_page(path: str | None) -> dict[str, str] | None:
         return None
     snap = (page.published_snapshot or {}).get("page") or {}
     return {"path": path, "title": snap.get("title") or page.title}
+
+
+def _privacy(v: dict[str, Any]) -> dict[str, Any]:
+    """Cookie settings: the categories come from the application (only technologies the
+    site actually uses are listed), the wording from Settings › Footer › Privacy choices."""
+    cfg = current_app.config
+    statistics = cfg.get("ANALYTICS_TRACKING") == "enabled"
+    categories = [
+        {
+            "key": "necessary",
+            "label": v["privacy.necessary_label"],
+            "description": v["privacy.necessary_description"],
+            "required": True,
+        }
+    ]
+    if statistics:
+        categories.append(
+            {
+                "key": "statistics",
+                "label": v["privacy.statistics_label"],
+                "description": v["privacy.statistics_description"],
+                "required": False,
+            }
+        )
+    return {
+        # "objection" (no banner; switch off any time) or "consent" (ask first).
+        "statistics_mode": cfg.get("PRIVACY_STATISTICS_MODE", "consent"),
+        "version": v["privacy.consent_version"],
+        "settings_label": v["privacy.settings_label"],
+        "intro": v["privacy.panel_intro"],
+        "notice": v["privacy.notice_text"],
+        "policy_path": v["privacy.policy_path"],
+        "categories": categories,
+    }
 
 
 def get_site_settings() -> dict[str, Any]:
@@ -145,6 +180,7 @@ def get_site_settings() -> dict[str, Any]:
             "notice": v["shop.notice"],
             "display_currencies": _display_currencies(v),
         },
+        "privacy": _privacy(v),
         "navigation": public_navigation(),
         "announcements": public_announcements(),
         # Lets the browser hydrate time-limited content exactly as it was rendered.

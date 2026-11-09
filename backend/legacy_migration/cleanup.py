@@ -51,6 +51,8 @@ ESSENTIAL_PATHS = frozenset(
         "/404.html", "/manifest.webmanifest", "/favicon.ico", "/icon.svg",
         "/newsletter/confirm", "/newsletter/preferences", "/newsletter/unsubscribe",
         "/resources/access", "/search", "/feed.xml",
+        "/cookie-policy", "/editorial-policy", "/disclaimer", "/advertising-policy",
+        "/refund-policy", "/accessibility", "/community-guidelines", "/copyright-policy",
     }
 )  # fmt: skip
 # Client-rendered shells: any path below answers 200 with its own noindex app shell.

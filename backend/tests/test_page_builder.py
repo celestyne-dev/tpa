@@ -281,6 +281,15 @@ def test_page_templates_create_editable_starter_sections(seeded, as_role):
         "contact",
         "partner_with_us",
         "advertise",
+        # Batch 13 policy pages.
+        "cookie_policy",
+        "editorial_policy",
+        "disclaimer",
+        "advertising_policy",
+        "refund_policy",
+        "accessibility_statement",
+        "community_guidelines",
+        "copyright_policy",
     }
     for key in templates:
         slug = f"template-{key.replace('_', '-')}"

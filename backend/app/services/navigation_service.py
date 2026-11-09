@@ -96,14 +96,39 @@ def is_hidden_destination(url: str | None, prefixes: tuple[str, ...]) -> bool:
     return any(path == p or path.startswith(p + "/") for p in prefixes)
 
 
+def unpublished_policy_paths() -> set[str]:
+    """Policy addresses still served by their built-in draft (no published CMS page)."""
+    from ..cms.routing import OVERRIDABLE_PATHS
+    from ..cms.templates import POLICY_PATHS
+    from ..models import Page
+
+    live = db.session.scalars(
+        select(Page.published_path).where(
+            Page.status == "published", Page.published_path.in_(POLICY_PATHS)
+        )
+    )
+    assert POLICY_PATHS <= OVERRIDABLE_PATHS
+    return set(POLICY_PATHS) - set(live)
+
+
+def _path_only(url: str | None) -> str | None:
+    if not url or not url.startswith("/"):
+        return None
+    return url.split("#", 1)[0].split("?", 1)[0].rstrip("/") or "/"
+
+
 def public_navigation() -> dict[str, Any]:
     hidden = hidden_prefixes()
     topics = TopicLinkResolver()
+    drafts = unpublished_policy_paths()
 
     def shown(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         out = []
         for n in nodes:
             if is_hidden_destination(n.get("url"), hidden):
+                continue
+            if _path_only(n.get("url")) in drafts:
+                # A policy that is still a built-in draft is not advertised in the menus.
                 continue
             if n["link_type"] == "internal" and topic_slug(n.get("url")):
                 # A topic that was renamed is linked at its new address; a topic that does
@@ -172,6 +197,13 @@ def link_warnings(items: list[dict[str, Any]]) -> list[str]:
         hrefs += [c["url"] for c in item.get("children") or [] if c.get("link_type") == "internal"]
     broken = broken_links(hrefs)
     warnings = [f"{href} does not point to a published page yet." for href in dict.fromkeys(broken)]
+    drafts = unpublished_policy_paths()
+    for href in dict.fromkeys(hrefs):
+        if _path_only(href) in drafts:
+            warnings.append(
+                f"{href} is still a draft policy, so it stays hidden from the menu until its "
+                "page is published under Pages."
+            )
     topics = TopicLinkResolver()
     for href in dict.fromkeys(hrefs):
         if href in broken or not topic_slug(href):

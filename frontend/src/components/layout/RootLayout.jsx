@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router";
 import { usePageViewTracking } from "@/analytics/pageViews";
+import { PrivacyChoices } from "@/components/privacy/CookieSettings";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { useSite } from "@/hooks/useContent";
 import { siteJsonLd } from "@/utils/structuredData";
@@ -43,6 +44,7 @@ export function RootLayout() {
         <Outlet />
       </main>
       <SiteFooter site={site} />
+      <PrivacyChoices />
       <JsonLd data={siteJsonLd(site)} />
     </div>
   );

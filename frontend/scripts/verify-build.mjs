@@ -10,12 +10,14 @@
  *   blocked unless approved, private paths closed, sitemap listed
  * - sitemap.xml and feed.xml: well formed, indexable URLs only, summaries not full text
  * - 404.html exists and is noindex
+ * - policy pages: all prerendered; built-in drafts are noindex and not in the sitemap
  *
  * Usage: node scripts/verify-build.mjs [distDir]   (exit 1 with a list of problems)
  */
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { policyPages } from "../src/config/navigation.js";
 import { isAllowed, SEARCH_CRAWLERS } from "./lib/robots.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -109,6 +111,22 @@ const sitemap = await read("sitemap.xml");
 if (!sitemap.startsWith("<?xml") || !sitemap.includes("<urlset")) fail("sitemap.xml", "malformed");
 for (const bad of ["/page/", "/search", "/admin", "/account", "/cart", "/learn/"]) {
   if (sitemap.includes(`${siteUrl}${bad}`)) fail("sitemap.xml", `lists a ${bad} URL`);
+}
+
+// Policy pages: each answers (prerendered). A built-in draft is noindex and never in the
+// sitemap; only a published, indexable CMS page there may be listed.
+for (const { path: route } of policyPages) {
+  const page = manifest.pages.find((p) => p.path === route);
+  if (!page) {
+    fail(route, "policy page was not prerendered");
+    continue;
+  }
+  const html = await read(page.file);
+  if (html.includes("Not yet in effect")) {
+    if (!/name="robots" content="noindex/.test(html)) fail(route, "policy draft is indexable");
+    if (sitemap.includes(`<loc>${siteUrl}${route}</loc>`))
+      fail("sitemap.xml", `lists the ${route} policy draft`);
+  }
 }
 
 // feed.xml: summaries of indexable articles only.

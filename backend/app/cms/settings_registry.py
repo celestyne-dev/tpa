@@ -456,6 +456,99 @@ SETTINGS += [
         "account's security page until they set it up. Enrol yourself first.",
         public=False,
     ),
+    # Cookie settings (Batch 13): wording only. Which technologies exist, and whether usage
+    # statistics wait for consent, are fixed in the application (PRIVACY_STATISTICS_MODE),
+    # never in these fields.
+    SettingDef(
+        "privacy.settings_label",
+        "Cookie settings link text",
+        "Privacy choices",
+        "string",
+        _const("Cookie settings"),
+        40,
+        "Shown at the bottom of every page; it opens the cookie settings panel.",
+    ),
+    SettingDef(
+        "privacy.panel_intro",
+        "Cookie settings introduction",
+        "Privacy choices",
+        "text",
+        _const(
+            "We keep cookies to a minimum. The necessary ones keep the website working. Usage "
+            "statistics are optional: they help us see which pages are useful, store nothing "
+            "on your device and are never used for advertising."
+        ),
+        500,
+    ),
+    SettingDef(
+        "privacy.notice_text",
+        "Cookie notice text",
+        "Privacy choices",
+        "text",
+        _const(
+            "May we count your visit? Our own usage statistics store nothing on your device "
+            "and are never used for advertising."
+        ),
+        300,
+        "Shown only when the website asks before counting visits (consent mode).",
+    ),
+    SettingDef(
+        "privacy.necessary_label",
+        "Necessary: name",
+        "Privacy choices",
+        "string",
+        _const("Necessary"),
+        60,
+    ),
+    SettingDef(
+        "privacy.necessary_description",
+        "Necessary: description",
+        "Privacy choices",
+        "text",
+        _const(
+            "Keep you signed in, protect your account and remember things you ask for, such "
+            "as your cart. Always on."
+        ),
+        400,
+    ),
+    SettingDef(
+        "privacy.statistics_label",
+        "Usage statistics: name",
+        "Privacy choices",
+        "string",
+        _const("Usage statistics"),
+        60,
+    ),
+    SettingDef(
+        "privacy.statistics_description",
+        "Usage statistics: description",
+        "Privacy choices",
+        "text",
+        _const(
+            "Count page visits so we can see what is useful. No cookies, nothing stored on "
+            "your device, no advertising, and your IP address is never stored."
+        ),
+        400,
+    ),
+    SettingDef(
+        "privacy.policy_path",
+        "Cookie Policy link",
+        "Privacy choices",
+        "path_or_https",
+        _const("/cookie-policy"),
+        200,
+    ),
+    SettingDef(
+        "privacy.consent_version",
+        "Consent version",
+        "Privacy choices",
+        "string",
+        _const("2026-11-09"),
+        40,
+        "Change this (for example to today's date) after a material change to the cookie "
+        "categories or wording: visitors are asked for their choice again where consent is "
+        "required.",
+    ),
     SettingDef(
         "trust.editorial_policy_path",
         "Editorial policy page",

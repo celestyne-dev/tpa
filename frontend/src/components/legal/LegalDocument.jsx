@@ -4,7 +4,8 @@ import { ArticleBody } from "@/components/articles/ArticleBody";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Container } from "@/components/ui/Container";
 import { routes } from "@/config/navigation";
-import { useNavigation } from "@/hooks/useNavigation";
+import { useSite } from "@/hooks/useContent";
+import { publishedPolicies, useNavigation } from "@/hooks/useNavigation";
 import { cn, formatDate } from "@/utils/format";
 import { DEFAULT_LEGAL_LINKS, withAnchors } from "./legalAnchors";
 import { RichInline } from "./RichInline";
@@ -135,21 +136,27 @@ export function LegalBody({ blocks }) {
   );
 }
 
-/** Links to the other legal pages: the CMS footer's "Legal" column, else the defaults. */
+/**
+ * Links to the other legal pages: the CMS footer's "Legal" column, else the defaults and
+ * any policy pages already published (built-in policy drafts are never linked).
+ */
 function useLegalLinks(currentPath) {
   const { footer } = useNavigation();
+  const { data: site } = useSite();
   const column = footer.find((group) => /legal/i.test(group.title ?? ""));
-  const links = column?.items?.length ? column.items : DEFAULT_LEGAL_LINKS;
+  const links = column?.items?.length
+    ? column.items
+    : [...DEFAULT_LEGAL_LINKS, ...publishedPolicies(site?.cms_overrides)];
   return links.filter((link) => link.href && link.href !== currentPath);
 }
 
-function DateItem({ label, value }) {
-  if (!value) return null;
+function DateItem({ label, value, pending }) {
+  if (!value && !pending) return null;
   return (
     <div>
       <dt className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">{label}</dt>
       <dd className="mt-1 text-charcoal">
-        <time dateTime={value}>{formatDate(value)}</time>
+        {value ? <time dateTime={value}>{formatDate(value)}</time> : pending}
       </dd>
     </div>
   );
@@ -175,6 +182,7 @@ export function LegalDocument({
   headingLevel = 1,
   showToc = true,
   showRelated = true,
+  effectivePending,
   className,
 }) {
   const { blocks: anchored, toc } = withAnchors(blocks);
@@ -202,9 +210,9 @@ export function LegalDocument({
             </Title>
             <div aria-hidden className="mt-5 h-0.5 w-14 rounded-full bg-gold-400" />
             {summary && <p className="mt-5 text-lg text-muted sm:text-xl">{summary}</p>}
-            {(effectiveDate || lastUpdated) && (
+            {(effectiveDate || lastUpdated || effectivePending) && (
               <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3 text-[0.95rem]">
-                <DateItem label="Effective date" value={effectiveDate} />
+                <DateItem label="Effective date" value={effectiveDate} pending={effectivePending} />
                 <DateItem label="Last updated" value={lastUpdated} />
               </dl>
             )}

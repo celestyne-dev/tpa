@@ -80,12 +80,31 @@ approach normally needs no cookie banner. The site owner should still:
 
 Do Not Track and GPC are honoured by default.
 
+**Cookie settings (Batch 13).** Visitors can switch usage statistics off, or back on,
+at any time from the **Cookie settings** link in the footer. The choice is stored in the
+browser (`tpa:privacy-choices`), and the page-view beacon is not sent while statistics are
+off. `PRIVACY_STATISTICS_MODE` decides the default:
+
+- `objection` (default): visits are counted unless the visitor switches statistics off.
+  There is no banner. This matches the UK's statistical-purposes exemption (PECR, as
+  amended by the Data (Use and Access) Act 2025, in force since 5 February 2026), which
+  needs clear information and a simple, free way to object.
+- `consent`: a small notice asks first, and nothing is counted until the visitor accepts.
+  The server also ignores beacons that don't carry `"consent": true`. Use this if the
+  owner's legal advice says EU visitors' consent is required (EDPB Guidelines 2/2023 treat
+  even cookieless beacons as falling within Art. 5(3) of the ePrivacy Directive).
+
+Any other value means `consent`. The panel's wording is edited in **Admin › Footer ›
+Cookie settings**; the categories come from the application (only technologies the site
+uses).
+
 ## Configuration (`backend/.env`)
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `ANALYTICS_TRACKING` | `enabled` | `disabled` stops recording; reports still show stored data |
 | `ANALYTICS_RESPECT_DNT` | `true` | Ignore `DNT: 1` / `Sec-GPC: 1` requests |
+| `PRIVACY_STATISTICS_MODE` | `objection` | `consent` asks before counting visits (see Consent) |
 | `ANALYTICS_RAW_RETENTION_DAYS` | `90` (7–400) | Raw page views, deleted only after their day is rolled up |
 | `ANALYTICS_AGGREGATE_RETENTION_DAYS` | `760` (30–3650) | Daily rollups |
 | `RATELIMIT_ANALYTICS_COLLECT` | `60 per minute;1000 per hour` | Per client address (Flask-Limiter; use Redis in production as for other limits) |

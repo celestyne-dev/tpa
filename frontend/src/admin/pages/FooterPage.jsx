@@ -31,6 +31,17 @@ export function FooterPage() {
         ))}
       </div>
       <SettingsForm groups={["Footer"]} />
+      <section aria-labelledby="cookie-settings-heading" className="mt-10">
+        <h2 id="cookie-settings-heading" className="font-serif text-2xl font-medium">
+          Cookie settings
+        </h2>
+        <p className="mt-1 mb-4 max-w-3xl text-sm text-muted">
+          The wording of the Cookie settings panel and notice, and the consent version. Which
+          technologies are listed, and whether the site asks before counting visits, are set in the
+          application configuration (PRIVACY_STATISTICS_MODE), not here. Plain text only.
+        </p>
+        <SettingsForm groups={["Privacy choices"]} />
+      </section>
     </>
   );
 }
