@@ -1,6 +1,7 @@
 import { footerNav, mainNav, routes } from "@/config/navigation";
 import { useSelector } from "react-redux";
 import { selectTopicList } from "@/store/slices/topicsSlice";
+import { Status } from "@/store/status";
 import { useSite } from "./useContent";
 
 const fromConfig = (item) => ({
@@ -97,7 +98,9 @@ function withAllTopics(item, topics) {
 /** CMS-managed navigation (published, from GET /api/v1/site) with built-in fallbacks. */
 export function useNavigation() {
   const { data: site } = useSite();
-  const topics = useSelector(selectTopicList)?.items;
+  const topicList = useSelector(selectTopicList);
+  // Only a loaded list says which topics exist (it is empty, not missing, before loading).
+  const topics = topicList?.status === Status.succeeded ? topicList.items : undefined;
   const nav = site?.navigation;
   const upgrade = (item) => withAllTopics(readerLabels(item), topics);
   const menu = (items) =>
