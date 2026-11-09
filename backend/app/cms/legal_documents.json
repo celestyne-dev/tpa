@@ -350,41 +350,35 @@
           [
             "Name",
             "Purpose",
-            "Who it applies to",
             "How long"
           ],
           [
             "tpa_customer",
-            "Keeps you signed in to your account.",
-            "Customers who sign in",
+            "Keeps a customer signed in to their account.",
             "Until you close your browser, or 30 days if you choose “Keep me signed in”"
           ],
           [
             "tpa_customer_csrf",
-            "Protects account actions against cross-site request forgery.",
-            "Customers who sign in",
+            "Protects a customer's account actions against cross-site request forgery.",
             "Same as tpa_customer"
           ],
           [
             "access_token_cookie",
-            "Keeps a team member signed in to the admin area.",
-            "Website staff",
+            "Keeps a member of our team signed in to the admin area.",
             "15 minutes"
           ],
           [
             "refresh_token_cookie",
             "Renews a team member's sign-in securely.",
-            "Website staff",
             "14 days"
           ],
           [
             "csrf_access_token, csrf_refresh_token",
             "Protect admin actions against cross-site request forgery.",
-            "Website staff",
             "Same as the sign-in cookies"
           ]
         ],
-        "caption": "Durations are the website's default settings."
+        "caption": "Durations are the website's default settings. Only people who sign in receive these cookies."
       },
       {
         "type": "heading",
@@ -402,56 +396,47 @@
           [
             "Name",
             "Purpose",
-            "Type",
-            "How long"
+            "Where and how long"
           ],
           [
             "tpa:privacy-choices",
             "Remembers your Cookie settings.",
-            "Local storage",
-            "Until you change your settings or clear your browser's storage"
+            "Local storage, until you change your settings or clear your browser's storage"
           ],
           [
             "tpa:cart",
             "Remembers the items in your cart.",
-            "Local storage",
-            "Until you remove them or clear your browser's storage"
+            "Local storage, until you remove them or clear your browser's storage"
           ],
           [
             "tpa:currency",
             "Remembers the display currency you chose for prices.",
-            "Local storage",
-            "Until you change it or clear your browser's storage"
+            "Local storage, until you change it or clear your browser's storage"
           ],
           [
             "tpa:dismissed-announcements",
             "Keeps announcements you have closed hidden.",
-            "Local storage",
-            "Until you clear your browser's storage"
+            "Local storage, until you clear your browser's storage"
           ],
           [
             "tpa-reader-preferences",
             "Remembers your course reader settings, such as text size and spacing.",
-            "Local storage",
-            "Until you change them or clear your browser's storage"
+            "Local storage, until you change them or clear your browser's storage"
           ],
           [
             "tpa-assignment-draft:…",
             "Keeps a backup of a course assignment answer while you write it.",
-            "Local storage",
-            "Until the answer is submitted or cleared"
+            "Local storage, until the answer is submitted or cleared"
           ],
           [
             "tpa-guest-order:…",
             "Lets you return to an order you placed without an account.",
-            "Session storage",
-            "Until you close the tab"
+            "Session storage, until you close the tab"
           ],
           [
             "tpa-guest-access",
             "Holds the access code from your purchase link while you view your purchases.",
-            "Session storage",
-            "Until you close the tab"
+            "Session storage, until you close the tab"
           ]
         ]
       },
