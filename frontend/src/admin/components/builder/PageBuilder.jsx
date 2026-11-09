@@ -337,12 +337,16 @@ function Builder({ load, isHome, isSidebar = false }) {
       setDraft((current) => (current ? withIds(current) : current));
     },
   });
-  useEffect(() => {
-    if (!autosave.conflict) return;
-    setConflict(autosave.conflict);
-    setAutosavePaused(true);
-    autosave.clearConflict();
-  }, [autosave]);
+  // An autosave conflict shows the same dialog as a manual one; closing it keeps autosave
+  // paused until the page is reloaded, so it doesn't keep retrying over their changes.
+  const shownConflict = conflict ?? autosave.conflict;
+  const closeConflict = () => {
+    setConflict(null);
+    if (autosave.conflict) {
+      setAutosavePaused(true);
+      autosave.clearConflict();
+    }
+  };
   const autosaving = autosave.status === "saving";
 
   if (loadError) return <ErrorState title="We couldn't load this page" onRetry={reload} />;
@@ -888,17 +892,17 @@ function Builder({ load, isHome, isSidebar = false }) {
         />
       </Modal>
       <Modal
-        open={Boolean(conflict)}
+        open={Boolean(shownConflict)}
         title="Someone else changed this page"
-        onClose={() => setConflict(null)}
+        onClose={closeConflict}
         footer={
           <>
-            <Button variant="outline" onClick={() => setConflict(null)}>
+            <Button variant="outline" onClick={closeConflict}>
               Keep my edits for now
             </Button>
             <Button
               onClick={() => {
-                setConflict(null);
+                closeConflict();
                 reload();
               }}
             >
@@ -908,9 +912,11 @@ function Builder({ load, isHome, isSidebar = false }) {
         }
       >
         <p className="text-sm">
-          {conflict?.updated_by ? `${conflict.updated_by} saved` : "A newer version was saved"}
-          {conflict?.updated_at ? ` at ${formatDateTime(conflict.updated_at)}` : ""}. To avoid
-          overwriting their work, nothing was saved. Copy anything you need, then load their
+          {shownConflict?.updated_by
+            ? `${shownConflict.updated_by} saved`
+            : "A newer version was saved"}
+          {shownConflict?.updated_at ? ` at ${formatDateTime(shownConflict.updated_at)}` : ""}. To
+          avoid overwriting their work, nothing was saved. Copy anything you need, then load their
           version.
         </p>
       </Modal>

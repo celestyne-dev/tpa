@@ -10,7 +10,10 @@ import * as fx from "@/test/fixtures";
 import { createFakeApi, preloadAdminApp, renderApp } from "@/test/utils";
 
 beforeAll(preloadAdminApp);
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  window.localStorage.clear();
+});
 
 const plain = (text) => text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 const main = () => document.querySelector("main");
@@ -40,7 +43,9 @@ describe("built-in legal pages", () => {
     // Two copies of the contents (sidebar on desktop, collapsible on phones); same links.
     const tocs = screen.getAllByRole("navigation", { name: "Table of contents", hidden: true });
     expect(tocs).toHaveLength(2);
-    const links = within(tocs[0]).getAllByRole("link", { hidden: true });
+    const links = within(tocs[0])
+      .getAllByRole("link", { hidden: true })
+      .filter((a) => a.getAttribute("href").startsWith("#"));
     expect(links).toHaveLength(10);
     expect(links[0]).toHaveTextContent("1. Who we are");
     for (const link of links) {
@@ -147,7 +152,9 @@ describe("legal documents managed in the CMS", () => {
       getPage: vi.fn(async () => ({ data: page })),
     });
     renderApp("/privacy-policy", { api });
-    const title = await screen.findByRole("heading", { level: 1, name: "Privacy Policy" });
+    // The built-in page shows until the site settings arrive and name the CMS override.
+    await screen.findByText("everyone");
+    const title = screen.getByRole("heading", { level: 1, name: "Privacy Policy" });
     const doc = title.closest("[data-legal-document]");
     expect(within(doc).getByText("everyone").tagName).toBe("STRONG");
     expect(within(doc).getByText("step").tagName).toBe("EM");
@@ -257,7 +264,7 @@ describe("page builder autosave", () => {
     renderApp("/admin/pages/7", { adminApi });
     const outline = await screen.findByRole("list", { name: "Page sections" });
     await user.click(within(outline).getAllByRole("button", { name: /Edit section 1/ })[0]);
-    const heading = screen.getAllByLabelText(/^Heading/)[0];
+    const heading = screen.getAllByRole("textbox", { name: /^Heading/ })[0];
     await user.clear(heading);
     await user.type(heading, "Autosaved heading");
     expect(adminApi.pages.saveDraft).not.toHaveBeenCalled();
