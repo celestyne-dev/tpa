@@ -83,6 +83,10 @@ export function IconCard({ icon: Icon, title, children, tone = "light", as: Tag 
   );
 }
 
+const measuredLine = (m) =>
+  `Measured ${formatDate(m.measured_on)}${m.period_label ? ` (${m.period_label})` : ""}` +
+  (m.source ? `. Source: ${m.source}.` : ".");
+
 /** Verified audience figures: each with its platform, measurement date and source. */
 export function MetricCards({ metrics, className }) {
   if (!metrics?.length) return null;
@@ -98,11 +102,7 @@ export function MetricCards({ metrics, className }) {
             {m.label}
             {m.platform ? ` · ${m.platform}` : ""}
           </p>
-          <p className="mt-auto pt-3 text-sm text-muted">
-            Measured <time dateTime={m.measured_on}>{formatDate(m.measured_on)}</time>
-            {m.period_label ? ` (${m.period_label})` : ""}
-            {m.source ? `. Source: ${m.source}.` : "."}
-          </p>
+          <p className="mt-auto pt-3 text-sm text-muted">{measuredLine(m)}</p>
         </li>
       ))}
     </ul>
