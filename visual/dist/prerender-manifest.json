@@ -1,0 +1,392 @@
+{
+  "generatedAt": "2026-11-09T07:56:39.550Z",
+  "release": "7e935ace53f9bf6492faaa9c6301878d5a0ba65e",
+  "siteUrl": "https://ci.example.com",
+  "indexing": true,
+  "apiUrl": "http://127.0.0.1:5000/api/v1",
+  "cmsPages": [
+    "/",
+    "/legal-cms-preview"
+  ],
+  "products": [
+    "/shop/the-power-of-starting-again",
+    "/shop/the-30-day-mindset-reset-workbook",
+    "/shop/the-daily-reflection-journal",
+    "/shop/the-confidence-and-self-worth-workbook",
+    "/shop/the-letting-go-and-moving-forward-guide",
+    "/shop/morning-reset-checklist",
+    "/shop/weekly-reflection-worksheet",
+    "/shop/boundaries-starter-guide"
+  ],
+  "courses": [],
+  "pages": [
+    {
+      "path": "/",
+      "file": "index.html"
+    },
+    {
+      "path": "/articles",
+      "file": "articles/index.html"
+    },
+    {
+      "path": "/authors",
+      "file": "authors/index.html"
+    },
+    {
+      "path": "/shop",
+      "file": "shop/index.html"
+    },
+    {
+      "path": "/free-resources",
+      "file": "free-resources/index.html"
+    },
+    {
+      "path": "/resources",
+      "file": "resources/index.html"
+    },
+    {
+      "path": "/courses",
+      "file": "courses/index.html"
+    },
+    {
+      "path": "/membership",
+      "file": "membership/index.html"
+    },
+    {
+      "path": "/newsletter",
+      "file": "newsletter/index.html"
+    },
+    {
+      "path": "/partner-with-us",
+      "file": "partner-with-us/index.html"
+    },
+    {
+      "path": "/advertise",
+      "file": "advertise/index.html"
+    },
+    {
+      "path": "/about",
+      "file": "about/index.html"
+    },
+    {
+      "path": "/contact",
+      "file": "contact/index.html"
+    },
+    {
+      "path": "/privacy-policy",
+      "file": "privacy-policy/index.html"
+    },
+    {
+      "path": "/terms",
+      "file": "terms/index.html"
+    },
+    {
+      "path": "/affiliate-disclosure",
+      "file": "affiliate-disclosure/index.html"
+    },
+    {
+      "path": "/legal-cms-preview",
+      "file": "legal-cms-preview/index.html"
+    },
+    {
+      "path": "/topics/positive-mindset",
+      "file": "topics/positive-mindset/index.html"
+    },
+    {
+      "path": "/topics/personal-growth",
+      "file": "topics/personal-growth/index.html"
+    },
+    {
+      "path": "/topics/confidence-self-worth",
+      "file": "topics/confidence-self-worth/index.html"
+    },
+    {
+      "path": "/topics/resilience-starting-over",
+      "file": "topics/resilience-starting-over/index.html"
+    },
+    {
+      "path": "/topics/relationships-boundaries",
+      "file": "topics/relationships-boundaries/index.html"
+    },
+    {
+      "path": "/topics/habits-intentional-living",
+      "file": "topics/habits-intentional-living/index.html"
+    },
+    {
+      "path": "/topics/motivation-inspiration",
+      "file": "topics/motivation-inspiration/index.html"
+    },
+    {
+      "path": "/topics/emotional-well-being",
+      "file": "topics/emotional-well-being/index.html"
+    },
+    {
+      "path": "/articles/page/2",
+      "file": "articles/page/2/index.html"
+    },
+    {
+      "path": "/articles/page/3",
+      "file": "articles/page/3/index.html"
+    },
+    {
+      "path": "/topics/resilience-starting-over/page/2",
+      "file": "topics/resilience-starting-over/page/2/index.html"
+    },
+    {
+      "path": "/authors/tpa-editorial",
+      "file": "authors/tpa-editorial/index.html"
+    },
+    {
+      "path": "/authors/tpa-editorial/page/2",
+      "file": "authors/tpa-editorial/page/2/index.html"
+    },
+    {
+      "path": "/authors/tpa-editorial/page/3",
+      "file": "authors/tpa-editorial/page/3/index.html"
+    },
+    {
+      "path": "/shop/the-power-of-starting-again",
+      "file": "shop/the-power-of-starting-again/index.html"
+    },
+    {
+      "path": "/shop/the-30-day-mindset-reset-workbook",
+      "file": "shop/the-30-day-mindset-reset-workbook/index.html"
+    },
+    {
+      "path": "/shop/the-daily-reflection-journal",
+      "file": "shop/the-daily-reflection-journal/index.html"
+    },
+    {
+      "path": "/shop/the-confidence-and-self-worth-workbook",
+      "file": "shop/the-confidence-and-self-worth-workbook/index.html"
+    },
+    {
+      "path": "/shop/the-letting-go-and-moving-forward-guide",
+      "file": "shop/the-letting-go-and-moving-forward-guide/index.html"
+    },
+    {
+      "path": "/shop/morning-reset-checklist",
+      "file": "shop/morning-reset-checklist/index.html"
+    },
+    {
+      "path": "/shop/weekly-reflection-worksheet",
+      "file": "shop/weekly-reflection-worksheet/index.html"
+    },
+    {
+      "path": "/shop/boundaries-starter-guide",
+      "file": "shop/boundaries-starter-guide/index.html"
+    },
+    {
+      "path": "/shop/collections/fresh-start",
+      "file": "shop/collections/fresh-start/index.html"
+    },
+    {
+      "path": "/search",
+      "file": "search/index.html"
+    },
+    {
+      "path": "/cart",
+      "file": "cart/index.html"
+    },
+    {
+      "path": "/checkout",
+      "file": "checkout/index.html"
+    },
+    {
+      "path": "/checkout/complete",
+      "file": "checkout/complete/index.html"
+    },
+    {
+      "path": "/purchases",
+      "file": "purchases/index.html"
+    },
+    {
+      "path": "/account",
+      "file": "account/index.html"
+    },
+    {
+      "path": "/account/library",
+      "file": "account/library/index.html"
+    },
+    {
+      "path": "/account/orders",
+      "file": "account/orders/index.html"
+    },
+    {
+      "path": "/account/settings",
+      "file": "account/settings/index.html"
+    },
+    {
+      "path": "/account/membership",
+      "file": "account/membership/index.html"
+    },
+    {
+      "path": "/login",
+      "file": "login/index.html"
+    },
+    {
+      "path": "/register",
+      "file": "register/index.html"
+    },
+    {
+      "path": "/verify-email",
+      "file": "verify-email/index.html"
+    },
+    {
+      "path": "/forgot-password",
+      "file": "forgot-password/index.html"
+    },
+    {
+      "path": "/reset-password",
+      "file": "reset-password/index.html"
+    },
+    {
+      "path": "/account/login",
+      "file": "account/login/index.html"
+    },
+    {
+      "path": "/account/register",
+      "file": "account/register/index.html"
+    },
+    {
+      "path": "/account/verify-email",
+      "file": "account/verify-email/index.html"
+    },
+    {
+      "path": "/account/reset-password",
+      "file": "account/reset-password/index.html"
+    },
+    {
+      "path": "/newsletter/confirm",
+      "file": "newsletter/confirm/index.html"
+    },
+    {
+      "path": "/newsletter/preferences",
+      "file": "newsletter/preferences/index.html"
+    },
+    {
+      "path": "/newsletter/unsubscribe",
+      "file": "newsletter/unsubscribe/index.html"
+    },
+    {
+      "path": "/resources/access",
+      "file": "resources/access/index.html"
+    },
+    {
+      "path": "/account/learning",
+      "file": "account/learning/index.html"
+    },
+    {
+      "path": "/account/learning/notebook",
+      "file": "account/learning/notebook/index.html"
+    },
+    {
+      "path": "/account/learning/history",
+      "file": "account/learning/history/index.html"
+    },
+    {
+      "path": "/articles/small-steps-after-a-hard-season",
+      "file": "articles/small-steps-after-a-hard-season/index.html"
+    },
+    {
+      "path": "/articles/reframing-negative-thoughts",
+      "file": "articles/reframing-negative-thoughts/index.html"
+    },
+    {
+      "path": "/articles/building-quiet-confidence",
+      "file": "articles/building-quiet-confidence/index.html"
+    },
+    {
+      "path": "/articles/setting-boundaries-without-guilt",
+      "file": "articles/setting-boundaries-without-guilt/index.html"
+    },
+    {
+      "path": "/articles/designing-an-intentional-morning",
+      "file": "articles/designing-an-intentional-morning/index.html"
+    },
+    {
+      "path": "/articles/growth-through-weekly-reflection",
+      "file": "articles/growth-through-weekly-reflection/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-20",
+      "file": "articles/ci-fixture-article-20/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-19",
+      "file": "articles/ci-fixture-article-19/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-18",
+      "file": "articles/ci-fixture-article-18/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-17",
+      "file": "articles/ci-fixture-article-17/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-16",
+      "file": "articles/ci-fixture-article-16/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-15",
+      "file": "articles/ci-fixture-article-15/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-14",
+      "file": "articles/ci-fixture-article-14/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-13",
+      "file": "articles/ci-fixture-article-13/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-12",
+      "file": "articles/ci-fixture-article-12/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-11",
+      "file": "articles/ci-fixture-article-11/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-10",
+      "file": "articles/ci-fixture-article-10/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-09",
+      "file": "articles/ci-fixture-article-09/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-08",
+      "file": "articles/ci-fixture-article-08/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-07",
+      "file": "articles/ci-fixture-article-07/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-06",
+      "file": "articles/ci-fixture-article-06/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-05",
+      "file": "articles/ci-fixture-article-05/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-04",
+      "file": "articles/ci-fixture-article-04/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-03",
+      "file": "articles/ci-fixture-article-03/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-02",
+      "file": "articles/ci-fixture-article-02/index.html"
+    },
+    {
+      "path": "/articles/ci-fixture-article-01",
+      "file": "articles/ci-fixture-article-01/index.html"
+    }
+  ]
+}

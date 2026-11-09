@@ -1,0 +1,37 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /purchases
+Disallow: /newsletter/
+Disallow: /resources/access
+Disallow: /learn/
+Disallow: /certificates/
+
+# AI model-training crawlers: not allowed unless approved in Admin > Settings > Technical.
+# Search engines and AI search crawlers follow the rules above.
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+Sitemap: https://ci.example.com/sitemap.xml
