@@ -337,6 +337,7 @@ describe("site-wide settings", () => {
     await waitFor(() =>
       expect(adminApi.settings.save).toHaveBeenCalledWith({ "footer.copyright": "© {year} TPA" }, [
         "Footer",
+        "Privacy choices",
       ]),
     );
   });

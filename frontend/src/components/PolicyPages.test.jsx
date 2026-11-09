@@ -87,6 +87,24 @@ describe("built-in policy pages (drafts)", () => {
     expect(within(legal).getByRole("link", { name: "Privacy Policy" })).toBeInTheDocument();
   });
 
+  it("a published Editorial Policy is linked once, not again as a trust link", async () => {
+    const editorial = { path: "/editorial-policy", title: "Editorial Policy" };
+    renderApp("/about", {
+      api: withSite({
+        cms_overrides: ["/editorial-policy"],
+        trust: { editorial_policy: editorial, corrections_policy: editorial },
+      }),
+    });
+    await screen.findByRole("heading", { level: 1 });
+    await waitFor(() =>
+      expect(within(footer()).getAllByRole("link", { name: "Editorial Policy" })).toHaveLength(1),
+    );
+    const links = within(footer())
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href"));
+    expect(links.filter((href) => href === "/editorial-policy")).toHaveLength(1);
+  });
+
   it("a published CMS page replaces the draft at the same address", async () => {
     const page = {
       ...fx.cmsPages["/spring-reset"],

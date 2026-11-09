@@ -102,10 +102,16 @@ export function SiteFooter({ site }) {
         : group.items,
     }))
     .filter((group) => group.items.length > 0);
-  // Editorial and corrections policies, only while those pages are published.
-  const legalHrefs = new Set(legal.map((item) => item.href));
+  // Editorial and corrections policies, only while those pages are published, and only
+  // once: not when a footer column or the legal links already link them (the Legal column
+  // lists the Editorial Policy once it is published), nor twice when both settings name
+  // the same page.
+  const linkedHrefs = new Set([
+    ...legal.map((item) => item.href),
+    ...columns.flatMap((group) => group.items.map((item) => item.href)),
+  ]);
   const trustLinks = [site?.trust?.editorial_policy, site?.trust?.corrections_policy]
-    .filter((page) => page?.path && !legalHrefs.has(page.path))
+    .filter((page) => page?.path && !linkedHrefs.has(page.path) && linkedHrefs.add(page.path))
     .map((page) => ({ label: page.title, href: page.path }));
   const bottomLinks = [...legal, ...trustLinks];
   return (

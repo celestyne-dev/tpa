@@ -9,7 +9,7 @@ export function FooterPage() {
     <>
       <AdminPageHeader
         title="Footer"
-        description="Footer text, newsletter link, contact details, copyright line and an optional promotion."
+        description="Footer text, newsletter link, contact details, copyright line, an optional promotion and the Cookie settings wording."
         breadcrumbs={[{ label: "Footer" }]}
       />
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
@@ -30,18 +30,13 @@ export function FooterPage() {
           </div>
         ))}
       </div>
-      <SettingsForm groups={["Footer"]} />
-      <section aria-labelledby="cookie-settings-heading" className="mt-10">
-        <h2 id="cookie-settings-heading" className="font-serif text-2xl font-medium">
-          Cookie settings
-        </h2>
-        <p className="mt-1 mb-4 max-w-3xl text-sm text-muted">
-          The wording of the Cookie settings panel and notice, and the consent version. Which
-          technologies are listed, and whether the site asks before counting visits, are set in the
-          application configuration (PRIVACY_STATISTICS_MODE), not here. Plain text only.
-        </p>
-        <SettingsForm groups={["Privacy choices"]} />
-      </section>
+      <p className="mb-4 max-w-3xl text-sm text-muted">
+        <strong className="font-medium text-charcoal">Privacy choices</strong> is the wording of the
+        Cookie settings panel and notice, and the consent version. Which technologies are listed,
+        and whether the website asks before counting visits, are set in the application
+        configuration (PRIVACY_STATISTICS_MODE), not here. Plain text only.
+      </p>
+      <SettingsForm groups={["Footer", "Privacy choices"]} />
     </>
   );
 }
