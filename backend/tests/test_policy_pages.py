@@ -565,32 +565,63 @@ def test_built_in_legal_drafts_are_not_in_the_sitemap(seeded, client):
 # ---- revised Privacy Policy ------------------------------------------------------------
 
 
-def test_revised_privacy_policy_covers_what_the_site_does():
+def test_revised_privacy_policy_is_the_owners_draft():
     doc = LEGAL_DOCUMENTS["privacy_revised"]
+    headings = [b["text"] for b in doc["body"] if b["type"] == "heading" and b["level"] == 2]
+    assert headings == [
+        "1. Introduction",
+        "2. Who We Are",
+        "3. Information We Collect",
+        "4. How We Use Personal Information",
+        "5. Legal Grounds for Processing",
+        "6. Newsletter Subscriptions",
+        "7. Cookies and Website Statistics",
+        "8. Customer Accounts and Digital Products",
+        "9. Information Sharing and Service Providers",
+        "10. International Data Processing",
+        "11. Data Retention",
+        "12. Information Security",
+        "13. Your Privacy Rights",
+        "14. Children's Privacy",
+        "15. External Websites and Third-Party Content",
+        "16. Changes to This Privacy Policy",
+        "17. Contact Us",
+    ]
+    notes = [b["title"] for b in doc["body"] if b["type"] == "callout"]
+    assert notes == ["Review pending"] * 3 + ["Implementation pending"]
     text = json.dumps(doc, ensure_ascii=False)
-    for topic in (
-        "Newsletter",
-        "Partnership inquiries",
-        "Customer accounts",
-        "Paystack",
-        "Usage statistics",
-        "Cookie Policy",
-        "How long we keep information",
-        "Your rights",
-        "International transfers",
-    ):
-        assert topic in text, topic
-    pending = [b["text"] for b in doc["body"] if b["type"] == "callout"]
-    # Entity details, legal bases, retention periods and transfers are left to the owner.
-    for missing in ("legal name", "lawful basis", "how long to keep", "countries involved"):
-        assert any(missing in p for p in pending), missing
-    # The only retention periods stated are the website's own configured defaults.
-    assert {int(n) for n in __import__("re").findall(r"(\d+) (?:days|hours)", text)} <= {
-        90,
-        12,
-        30,
-    }
+    assert "(mailto:contact@thinkpositivealways.com)" in text
+    assert "[Cookie Policy](/cookie-policy)" in text
     assert doc["review_status"] == "pending_review" and doc["effective_date"] == ""
+    assert doc["notice"]["title"] == "Draft — Pending Legal Review"
+
+
+def test_review_and_implementation_notes_block_approval():
+    from app.cms.legal_review import check_approval
+
+    for title in ("Review pending", "Implementation pending", "Decision pending"):
+        errors = {}
+        check_approval(
+            {
+                "review_status": "approved",
+                "effective_date": "2027-01-01",
+                "notice_title": "",
+                "notice": "",
+                "body": [{"type": "callout", "title": title, "text": "Still to do."}],
+            },
+            errors,
+        )
+        assert list(errors) == ["body"], title
+    errors = {}
+    check_approval(
+        {
+            "review_status": "approved",
+            "effective_date": "2027-01-01",
+            "notice_title": "Draft — Pending Legal Review",
+        },
+        errors,
+    )
+    assert "notice" in errors
 
 
 def test_revised_privacy_policy_keeps_the_current_one_until_published(seeded, as_role, client):

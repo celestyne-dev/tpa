@@ -446,17 +446,18 @@ def _legal_template(key: str, slug: str, *, policy: bool = False) -> dict[str, A
 
 
 def _revised_privacy_template() -> dict[str, Any]:
-    """The revised Privacy Policy (Batch 13.1): reflects what the website actually does, with
-    the owner's open decisions marked. The live Privacy Policy is unchanged until a page
+    """The revised Privacy Policy (Batch 13.1, the owner's wording of 9 November 2026), with
+    open points marked. The live Privacy Policy is unchanged until a page
     created from this template is reviewed, approved and published at /privacy-policy."""
     template = _legal_template("privacy_revised", "privacy-policy", policy=True)
     template["label"] = "Privacy Policy, revised draft (legal document)"
     template["description"] = (
-        "A revised Privacy Policy that covers the newsletter, partnership inquiries, customer "
-        "accounts, Paystack purchases, usage statistics, cookies, retention, your rights and "
-        "international transfers. Owner decisions are marked “Decision pending”. It starts "
-        "pending legal review and hidden from search engines; publishing it at "
-        "/privacy-policy replaces the current policy, so publish only after review."
+        "The owner's revised Privacy Policy draft (9 November 2026): newsletter, accounts, "
+        "partnership inquiries, cookies and statistics, hosting, international processing, "
+        "retention, security, rights and children. Open points are marked “Review pending” or "
+        "“Implementation pending”. It starts pending legal review and hidden from search "
+        "engines; publishing it at /privacy-policy replaces the current policy, so publish "
+        "only after review."
     )
     return template
 

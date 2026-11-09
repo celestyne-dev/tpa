@@ -18,7 +18,13 @@ from typing import Any
 PENDING = "pending_review"
 APPROVED = "approved"
 CHOICES = {PENDING: "Pending legal review (draft)", APPROVED: "Approved"}
-DRAFT_MARKERS = ("pending legal review", "decision pending")
+# Wording that marks unfinished drafts: notices and notes containing it block approval.
+DRAFT_MARKERS = (
+    "pending legal review",
+    "decision pending",
+    "review pending",
+    "implementation pending",
+)
 
 
 def pending_legal_review(sections: list[dict[str, Any]] | None) -> bool:
@@ -46,5 +52,8 @@ def check_approval(content: dict[str, Any], errors: dict[str, Any]) -> None:
             m in f"{block.get('title') or ''} {block.get('text') or ''}".lower()
             for m in DRAFT_MARKERS
         ):
-            errors["body"] = ["Remove the “Decision pending” notes before marking it approved."]
+            errors["body"] = [
+                "Remove the “Decision pending”, “Review pending” and “Implementation pending” "
+                "notes before marking it approved."
+            ]
             break

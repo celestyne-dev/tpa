@@ -1346,238 +1346,565 @@
   "privacy_revised": {
     "title": "Privacy Policy",
     "path": "/privacy-policy",
-    "summary": "What personal information this website collects, why, how long we keep it, who we share it with and the rights you have.",
-    "meta_description": "How Think Positive Always collects, uses, shares and protects personal information, and how to exercise your privacy rights.",
+    "summary": "How Think Positive Always collects, uses, stores and protects personal information, and the choices and rights you have.",
+    "meta_description": "How Think Positive Always collects, uses, stores and protects personal information, and how to exercise your privacy rights.",
     "seo_title": "Privacy Policy",
     "effective_date": "",
     "last_updated": "2026-11-09",
     "review_status": "pending_review",
     "notice": {
-      "title": "Draft — pending legal review",
-      "text": "This revised Privacy Policy is a working draft. It has not been reviewed or approved by a legal professional and is not yet in effect. Items marked “Decision pending” are still to be decided by Think Positive Always."
+      "title": "Draft — Pending Legal Review",
+      "text": "This version is not yet approved for publication as the final legal policy."
     },
     "body": [
       {
         "type": "heading",
         "level": 2,
-        "text": "1. Who we are"
+        "text": "1. Introduction"
       },
       {
         "type": "paragraph",
-        "text": "This website, thinkpositivealways.com, is operated by Think Positive Always, a digital publisher based in Kenya (“we”, “us”). We are responsible for the personal information described in this policy."
+        "text": "Welcome to Think Positive Always."
       },
       {
-        "type": "callout",
-        "title": "Decision pending",
-        "text": "Add the full legal name of the business, its registration details, its postal address, a privacy contact email address and, if one is appointed, the data protection officer. Confirm whether Think Positive Always is registered with Kenya's Office of the Data Protection Commissioner."
+        "type": "paragraph",
+        "text": "We respect your privacy and believe you should understand how information about you is collected, used, stored and protected when you visit our website."
+      },
+      {
+        "type": "paragraph",
+        "text": "This Privacy Policy explains our approach to handling personal information when you read our articles, subscribe to our newsletter, create an account, contact us or use other services available through our website."
+      },
+      {
+        "type": "paragraph",
+        "text": "It applies to **https://thinkpositivealways.com**."
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "2. Information we collect"
+        "text": "2. Who We Are"
       },
       {
         "type": "paragraph",
-        "text": "We collect information only when you use a feature that needs it:"
-      },
-      {
-        "type": "table",
-        "header_row": true,
-        "rows": [
-          [
-            "Feature",
-            "What we collect"
-          ],
-          [
-            "Newsletter (The Positive Reset)",
-            "Your email address, your first name if you give it, where you signed up, and a record of your consent (the wording you agreed to, its version, the time and a one-way coded form of your IP address)."
-          ],
-          [
-            "Partnership inquiries",
-            "Your organisation, name, email address, website, the type of collaboration, budget range, objectives and message, the version of the privacy notice shown to you, and a one-way coded form of your IP address."
-          ],
-          [
-            "Customer accounts",
-            "Your email address, display name, a securely hashed password, when your email address was verified and, for each signed-in session, the IP address and browser details."
-          ],
-          [
-            "Purchases",
-            "Your email address, the items, prices and currency, the order and payment status, refunds, and the IP address used when the order was placed. Download records include the IP address and browser details."
-          ],
-          [
-            "Courses (when offered)",
-            "Your progress, notes and the assignment answers you submit."
-          ],
-          [
-            "Usage statistics",
-            "The pages visited and, if you allow statistics, a short daily code made from a shortened IP address and browser details. Your IP address and browser details are not stored. See section 5."
-          ],
-          [
-            "Messages you send us",
-            "Whatever you choose to include, through the contact details on our [contact page](/contact)."
-          ]
-        ]
+        "text": "Think Positive Always is an independently operated digital publishing platform owned and managed by **Celestine Nyamoita**, based in Kenya."
       },
       {
         "type": "paragraph",
-        "text": "We do not collect payment card details: payments are handled by our payment provider. Our hosting provider may also process technical information, such as IP addresses, in server logs to deliver the website securely."
+        "text": "Our platform provides inspirational articles, personal growth information, educational resources and other content designed to encourage positive thinking, confidence and personal development."
       },
       {
-        "type": "heading",
-        "level": 2,
-        "text": "3. How we use your information"
+        "type": "paragraph",
+        "text": "Celestine Nyamoita is responsible for determining the purposes and methods of processing personal information collected through Think Positive Always."
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
-          "To run the newsletter you signed up for. At present the website collects sign-ups; newsletters are sent through an external email service provider.",
-          "To reply to partnership inquiries and manage partnerships.",
-          "To provide your account, deliver your purchases and courses, send order and account emails, and handle refunds and support.",
-          "To keep the website secure, prevent spam and abuse, and keep records of consent.",
-          "To understand, with usage statistics, which pages are useful.",
-          "To meet our legal, tax and accounting obligations."
+          "**Privacy contact:** [contact@thinkpositivealways.com](mailto:contact@thinkpositivealways.com)",
+          "**Country of operation:** Kenya"
         ]
-      },
-      {
-        "type": "callout",
-        "title": "Decision pending",
-        "text": "State the lawful basis for each use (for example consent, contract, legitimate interests or legal obligation) under Kenya's Data Protection Act, 2019 and, where it applies, the EU and UK GDPR. These have not been decided."
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "4. Who we share information with"
+        "text": "3. Information We Collect"
       },
       {
         "type": "paragraph",
-        "text": "We do not sell personal information. We share it only with service providers who help us run the website, and only as needed:"
+        "text": "The information collected depends on how you interact with our website."
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "3.1 Information you provide"
+      },
+      {
+        "type": "paragraph",
+        "text": "We may collect:"
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
-          "**Paystack**, which processes payments and recurring membership payments.",
-          "Our **hosting provider**, which stores the website and its data.",
-          "The **email service providers** that send our emails and newsletters.",
-          "Professional advisers, and authorities where the law requires it."
+          "Your name and email address when you contact us.",
+          "Your email address and subscription preferences when you join our newsletter.",
+          "Account registration and authentication information when you create an account.",
+          "Information you provide through advertising or partnership inquiries.",
+          "Order and access information when purchasing or using digital services, once those services become available.",
+          "Course progress, submitted exercises or assessment information when you use an available learning service."
         ]
       },
       {
-        "type": "callout",
-        "title": "Decision pending",
-        "text": "Name the hosting and email service providers and confirm where each one stores data."
+        "type": "paragraph",
+        "text": "We ask visitors not to submit unnecessary sensitive personal, medical, financial or confidential information through general contact forms."
       },
       {
         "type": "heading",
-        "level": 2,
-        "text": "5. Cookies, browser storage and usage statistics"
+        "level": 3,
+        "text": "3.2 Account information"
       },
       {
         "type": "paragraph",
-        "text": "We use only the cookies needed to keep you signed in and protect your account, and a few entries in your browser's storage for features you choose, such as your cart. We count page visits with our own statistics tool, which uses no cookies and stores nothing on your device. Statistics are optional: you can accept or reject them, and change your mind at any time, in **Cookie settings** at the bottom of every page. Full details are in our [Cookie Policy](/cookie-policy)."
+        "text": "Our website supports customer accounts for accessing features such as purchased resources, downloads and order history."
+      },
+      {
+        "type": "paragraph",
+        "text": "When an account is created, we may process information needed to register the account, authenticate the customer, maintain account security and provide the requested services."
+      },
+      {
+        "type": "paragraph",
+        "text": "Authentication credentials are handled through the website's security systems."
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "3.3 Technical and security information"
+      },
+      {
+        "type": "paragraph",
+        "text": "When you visit our website, our hosting infrastructure and web server may process technical information necessary to deliver pages, maintain security and investigate problems."
+      },
+      {
+        "type": "paragraph",
+        "text": "This may include IP addresses, request times, browser information and server request information."
+      },
+      {
+        "type": "paragraph",
+        "text": "The information retained in security logs may differ from the information used by our website's own visit-counting feature."
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "6. How long we keep information"
+        "text": "4. How We Use Personal Information"
+      },
+      {
+        "type": "paragraph",
+        "text": "We process personal information for purposes that may include:"
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
-          "Usage statistics: by default, individual visit records are deleted after 90 days and daily summaries after about two years.",
-          "Newsletter: until you unsubscribe or ask us to delete your details. When your details are deleted, a one-way coded form of your email address is kept so that we never email you again.",
-          "Customer accounts: until you ask us to delete your account. Deleted accounts are anonymised; billing records are kept.",
-          "Signed-in sessions: they expire after 12 hours, or 30 days if you choose “Keep me signed in” (default settings)."
+          "Operating and maintaining the website.",
+          "Responding to inquiries and support requests.",
+          "Managing newsletter subscriptions and preferences.",
+          "Providing customer accounts and requested services.",
+          "Delivering purchased digital resources when available.",
+          "Supporting educational features and course access.",
+          "Protecting accounts and preventing unauthorised activity.",
+          "Maintaining website security and reliability.",
+          "Understanding website usage where the visitor has permitted optional statistics.",
+          "Meeting applicable legal and regulatory obligations."
         ]
       },
       {
-        "type": "callout",
-        "title": "Decision pending",
-        "text": "Decide how long to keep partnership inquiries, order and billing records (subject to tax and accounting law), course work, emails and server logs."
+        "type": "paragraph",
+        "text": "We do not sell our customer or newsletter subscriber lists to advertisers."
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "7. Your rights"
+        "text": "5. Legal Grounds for Processing"
       },
       {
         "type": "paragraph",
-        "text": "Depending on where you live, you may have the right to be told how your information is used, to see a copy of it, to correct it, to have it deleted, to object to or restrict its use, to move it to another service, and to withdraw consent at any time. Under Kenya's Data Protection Act, 2019 these include the rights to be informed, of access, to object, to correction and to deletion."
+        "text": "Depending on the activity and applicable law, processing may be based on:"
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
-          "You can unsubscribe from the newsletter at any time using the link in our emails, and delete your newsletter details from the newsletter preferences page or by contacting us.",
-          "You can change your Cookie settings at any time.",
-          "For anything else, including deleting your account, please contact us through our [contact page](/contact)."
+          "**Consent:** For optional website usage statistics and newsletter communications where consent is required.",
+          "**Contractual necessity:** Where information is needed to create or manage an account or deliver a service requested by a customer.",
+          "**Legal obligations:** Where records must be maintained to comply with applicable law.",
+          "**Legitimate interests:** Where permitted by applicable law, for activities such as maintaining website security, preventing abuse and protecting our services, provided those interests do not override individuals' rights."
         ]
       },
       {
         "type": "paragraph",
-        "text": "If you are not satisfied with our answer, you can complain to Kenya's Office of the Data Protection Commissioner or to the data protection authority where you live."
+        "text": "We will not rely on consent as the legal basis for every activity simply because someone visits our website."
       },
       {
         "type": "callout",
-        "title": "Decision pending",
-        "text": "Decide how requests are verified and answered, and the time frame we commit to."
+        "title": "Review pending",
+        "text": "The specific legal basis for each processing activity remains subject to final legal review."
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "8. International transfers"
+        "text": "6. Newsletter Subscriptions"
       },
       {
         "type": "paragraph",
-        "text": "Some of our service providers may store or process information outside Kenya and outside the country where you live. Where the law requires it, we will make sure appropriate safeguards are in place."
+        "text": "Think Positive Always offers newsletter subscriptions, including communications associated with *The Positive Reset*."
+      },
+      {
+        "type": "paragraph",
+        "text": "When you subscribe, we may collect your email address, subscription preferences and information needed to maintain a record of your subscription."
+      },
+      {
+        "type": "paragraph",
+        "text": "We use this information to manage subscriptions and, when email delivery is enabled, send the communications requested."
+      },
+      {
+        "type": "paragraph",
+        "text": "You may withdraw your consent or unsubscribe using the methods provided in newsletter communications or by contacting us."
+      },
+      {
+        "type": "paragraph",
+        "text": "Our website currently accepts subscriptions, but live newsletter sending has not yet been enabled."
+      },
+      {
+        "type": "paragraph",
+        "text": "We intend to use Zoho for newsletter delivery. This policy will be updated with verified provider information before that integration becomes operational."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "7. Cookies and Website Statistics"
+      },
+      {
+        "type": "paragraph",
+        "text": "Think Positive Always uses necessary browser storage and cookies to support website functionality."
+      },
+      {
+        "type": "paragraph",
+        "text": "These technologies may help maintain authenticated sessions, protect accounts, remember visitor preferences and support features requested by users."
+      },
+      {
+        "type": "paragraph",
+        "text": "We also offer optional first-party website usage statistics."
+      },
+      {
+        "type": "paragraph",
+        "text": "These statistics help us understand which pages visitors find useful."
+      },
+      {
+        "type": "paragraph",
+        "text": "Optional visit counting requires the visitor's consent under our current website configuration."
+      },
+      {
+        "type": "paragraph",
+        "text": "Visitors can:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Accept optional usage statistics.",
+          "Reject optional usage statistics.",
+          "Customise their preferences.",
+          "Change or withdraw their choice using Cookie Settings."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Rejecting optional statistics does not prevent visitors from reading articles or using essential website functionality."
+      },
+      {
+        "type": "paragraph",
+        "text": "For additional information, please read our [Cookie Policy](/cookie-policy)."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "8. Customer Accounts and Digital Products"
+      },
+      {
+        "type": "paragraph",
+        "text": "Our website includes functionality for customer accounts, digital products and learning resources."
+      },
+      {
+        "type": "paragraph",
+        "text": "If these services are used, we may process information necessary to:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Register and authenticate customers.",
+          "Maintain account details.",
+          "Manage orders and purchase histories.",
+          "Provide access to digital downloads.",
+          "Manage course enrolment and learning progress.",
+          "Handle customer support and service-related inquiries."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "At the time of this draft, no courses or digital resources have been published for purchase."
+      },
+      {
+        "type": "paragraph",
+        "text": "Paystack is not yet connected to the website. Before payment processing is activated, we will update the relevant disclosures to explain the payment provider and the information processed."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "9. Information Sharing and Service Providers"
+      },
+      {
+        "type": "paragraph",
+        "text": "We may share information with service providers where necessary to operate and secure our website or deliver requested services."
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Website hosting"
+      },
+      {
+        "type": "paragraph",
+        "text": "Think Positive Always uses Hostinger VPS hosting infrastructure located in Paris, France."
+      },
+      {
+        "type": "paragraph",
+        "text": "Our website application and PostgreSQL database operate on this infrastructure."
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Newsletter delivery"
+      },
+      {
+        "type": "paragraph",
+        "text": "We plan to integrate Zoho for email delivery. Its role and processing arrangements will be confirmed before activation."
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Payment services"
+      },
+      {
+        "type": "paragraph",
+        "text": "We plan to integrate a payment provider for future digital purchases. Paystack has not yet been connected."
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not describe planned providers as active recipients of visitor information before their integrations are enabled."
+      },
+      {
+        "type": "paragraph",
+        "text": "We may also disclose information where required by applicable law or where necessary to protect lawful rights."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "10. International Data Processing"
+      },
+      {
+        "type": "paragraph",
+        "text": "Think Positive Always is operated from Kenya, while its website infrastructure is hosted in France."
+      },
+      {
+        "type": "paragraph",
+        "text": "Accordingly, personal information submitted through our website may be processed and stored outside Kenya."
+      },
+      {
+        "type": "paragraph",
+        "text": "Additional international processing may occur if other service providers are enabled."
+      },
+      {
+        "type": "paragraph",
+        "text": "Where international data transfers are subject to legal requirements, we will assess and implement the safeguards required by applicable law."
       },
       {
         "type": "callout",
-        "title": "Decision pending",
-        "text": "Confirm the countries involved and the safeguards relied on, as required by Part VI of Kenya's Data Protection Act, 2019 and, for EU and UK visitors, the GDPR."
+        "title": "Review pending",
+        "text": "The contractual and technical safeguards for international data processing require final verification."
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "9. Security"
+        "text": "11. Data Retention"
       },
       {
         "type": "paragraph",
-        "text": "We protect information with measures such as encrypted connections, hashed passwords, protected sign-in cookies and restricted staff access. No method of transmission or storage is completely secure."
-      },
-      {
-        "type": "heading",
-        "level": 2,
-        "text": "10. Children"
+        "text": "We aim to retain personal information only for as long as it is necessary for the purpose for which it was collected, subject to applicable legal requirements."
       },
       {
         "type": "paragraph",
-        "text": "This website is intended for adults and is not directed at children. We do not knowingly collect personal information from children."
+        "text": "Our proposed retention approach is:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "**Newsletter information:** While a subscription remains active, with limited information retained where needed to honour unsubscribing requests or other obligations.",
+          "**Customer accounts:** While the account remains active, subject to applicable account-closure and deletion requirements.",
+          "**Contact inquiries:** Generally up to 12 months after resolution.",
+          "**Partnership inquiries:** Generally up to 24 months after the last meaningful interaction.",
+          "**Website usage statistics:** Target retention of up to 12 months, with aggregation where practical.",
+          "**Course information:** While necessary to provide access and maintain learning records, subject to an established deletion process.",
+          "**Security logs:** A proposed retention period of 30–90 days, unless information is needed for security investigations or legal obligations.",
+          "**Transaction records:** For the period required by applicable tax, accounting and other legal obligations."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Some information may be retained longer where legally necessary."
       },
       {
         "type": "callout",
-        "title": "Decision pending",
-        "text": "Confirm the minimum age for accounts, purchases and newsletter sign-ups."
+        "title": "Review pending",
+        "text": "These periods are proposed policies. Actual application settings, deletion mechanisms, server logs and backup retention must be verified before these periods are treated as fully implemented."
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "11. Changes to this policy"
+        "text": "12. Information Security"
       },
       {
         "type": "paragraph",
-        "text": "We will update this policy when our practices change and show the date of the latest version above."
+        "text": "We use technical and administrative measures intended to protect personal information against unauthorised access, alteration, disclosure or loss."
+      },
+      {
+        "type": "paragraph",
+        "text": "These include access restrictions, authenticated administrative functions, server configuration controls and application backup procedures."
+      },
+      {
+        "type": "paragraph",
+        "text": "Our current backup system creates copies of the PostgreSQL database, uploaded media and premium resource files."
+      },
+      {
+        "type": "paragraph",
+        "text": "The backup service is configured to run automatically each day and performs integrity checks."
+      },
+      {
+        "type": "paragraph",
+        "text": "At present, these application backups are stored on the same VPS. Independent encrypted off-server backup storage has not yet been configured."
+      },
+      {
+        "type": "paragraph",
+        "text": "No internet-based service can guarantee complete security."
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "12. Contact"
+        "text": "13. Your Privacy Rights"
       },
       {
         "type": "paragraph",
-        "text": "Questions about this policy or your information? Please visit our [contact page](/contact)."
+        "text": "Depending on applicable law, you may have rights to:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "Request access to personal information held about you.",
+          "Request correction of inaccurate or incomplete information.",
+          "Request deletion where legally appropriate.",
+          "Object to certain uses of your information.",
+          "Withdraw consent where processing relies on consent.",
+          "Request restriction or portability of information where applicable.",
+          "Lodge a complaint with a relevant data-protection authority."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "To make a request, email [contact@thinkpositivealways.com](mailto:contact@thinkpositivealways.com)."
+      },
+      {
+        "type": "paragraph",
+        "text": "We may take reasonable steps to verify your identity before releasing, changing or deleting personal information."
+      },
+      {
+        "type": "paragraph",
+        "text": "We aim to acknowledge requests within two business days and respond within the deadlines required by applicable law."
+      },
+      {
+        "type": "paragraph",
+        "text": "Some information may need to be retained where necessary to comply with legal obligations or protect lawful rights."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "14. Children's Privacy"
+      },
+      {
+        "type": "paragraph",
+        "text": "Think Positive Always publishes articles and general educational content that may be read by people of different ages."
+      },
+      {
+        "type": "paragraph",
+        "text": "However, newsletter subscriptions, customer accounts, digital purchases and online courses are intended for individuals aged **18 years or older**."
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not knowingly seek personal information from children through these age-restricted services."
+      },
+      {
+        "type": "paragraph",
+        "text": "If we learn that a person under 18 has registered for an age-restricted service, we will review the circumstances and take appropriate action in accordance with applicable law."
+      },
+      {
+        "type": "paragraph",
+        "text": "Parents or guardians who believe a child has submitted personal information may contact us at [contact@thinkpositivealways.com](mailto:contact@thinkpositivealways.com)."
+      },
+      {
+        "type": "callout",
+        "title": "Implementation pending",
+        "text": "The website's registration, newsletter and future checkout processes must be updated to reflect this age policy."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "15. External Websites and Third-Party Content"
+      },
+      {
+        "type": "paragraph",
+        "text": "Our articles and resources may link to websites operated by other organisations."
+      },
+      {
+        "type": "paragraph",
+        "text": "Those websites may have their own privacy practices."
+      },
+      {
+        "type": "paragraph",
+        "text": "We encourage visitors to review the privacy notices of external services before providing personal information."
+      },
+      {
+        "type": "paragraph",
+        "text": "Where embedded third-party content is offered, additional information may be processed by the external provider when the visitor interacts with it."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "16. Changes to This Privacy Policy"
+      },
+      {
+        "type": "paragraph",
+        "text": "We may update this policy when our services, technology, providers or legal obligations change."
+      },
+      {
+        "type": "paragraph",
+        "text": "Material changes will be reflected in the published policy."
+      },
+      {
+        "type": "paragraph",
+        "text": "We will display an appropriate effective or updated date when an approved version is published."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "17. Contact Us"
+      },
+      {
+        "type": "paragraph",
+        "text": "For privacy questions, requests or concerns:"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          "**Think Positive Always**",
+          "Owner: Celestine Nyamoita",
+          "Country: Kenya",
+          "Email: [contact@thinkpositivealways.com](mailto:contact@thinkpositivealways.com)",
+          "Website: https://thinkpositivealways.com"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "You may also contact the relevant data-protection authority if you believe your privacy rights have been infringed."
       }
     ]
   }
