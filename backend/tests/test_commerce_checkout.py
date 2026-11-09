@@ -54,6 +54,7 @@ def _checkout(shopper, product_ids, currency="USD", expected=None, key=None, quo
             "expected_total_minor": expected,
             "idempotency_key": key or _key(),
             "accept_terms": True,
+            "age_confirmed": True,
         },
     )
 
@@ -151,6 +152,7 @@ def test_registration_does_not_reveal_existing_accounts(seeded):
             "password": PASSWORD,
             "display_name": "Someone",
             "accept_terms": True,
+            "age_confirmed": True,
         },
     )
     assert res.status_code == 201 and res.get_json()["data"]["signed_in"] is False
@@ -163,6 +165,7 @@ def test_registration_does_not_reveal_existing_accounts(seeded):
             "password": "short",
             "display_name": "New",
             "accept_terms": True,
+            "age_confirmed": True,
         },
     )
     assert weak.status_code == 400
@@ -1018,6 +1021,7 @@ def test_csrf_and_origin_checks_on_checkout(shop):
         "expected_total_minor": 1500,
         "idempotency_key": _key(),
         "accept_terms": True,
+        "age_confirmed": True,
     }
     assert shopper.c.post("/api/v1/checkout", json=body).status_code == 403
     evil = shopper.c.post(

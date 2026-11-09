@@ -11,6 +11,7 @@ import { InputField } from "@/components/ui/FormField";
 import { routes } from "@/config/navigation";
 import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { customerSignedIn, fetchCustomer } from "@/store/slices/customerSlice";
+import { AGE_MESSAGE, AGE_STATEMENT } from "@/utils/age";
 import { authErrorMessage } from "../authMessages";
 import { fieldErrors, safeNext } from "../hooks";
 import { PasswordField, PasswordRequirements } from "../PasswordField";
@@ -235,6 +236,7 @@ export function RegisterForm({ onRegistered, onBeforeSubmit }) {
     password: "",
     password_confirm: "",
     accept_terms: false,
+    age_confirmed: false,
     newsletter_opt_in: false,
   });
   const [newsletter, setNewsletter] = useState(null);
@@ -262,6 +264,7 @@ export function RegisterForm({ onRegistered, onBeforeSubmit }) {
     if (form.password !== form.password_confirm)
       problems.password_confirm = "The passwords don't match.";
     if (!form.accept_terms) problems.accept_terms = "Please accept the terms and privacy policy.";
+    if (!form.age_confirmed) problems.age_confirmed = AGE_MESSAGE;
     setLocal(problems);
     if (Object.keys(problems).length) return;
     setState({ busy: true, error: null, done: false });
@@ -358,6 +361,17 @@ export function RegisterForm({ onRegistered, onBeforeSubmit }) {
         </span>
       </label>
       {errors.accept_terms && <Alert>{errors.accept_terms}</Alert>}
+      <label className="flex items-start gap-3 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 size-4 accent-sage-700"
+          checked={form.age_confirmed}
+          aria-invalid={errors.age_confirmed ? true : undefined}
+          onChange={(e) => setForm({ ...form, age_confirmed: e.target.checked })}
+        />
+        <span>{AGE_STATEMENT}</span>
+      </label>
+      {errors.age_confirmed && <Alert>{errors.age_confirmed}</Alert>}
       {state.error && !Object.keys(fieldErrors(state.error)).length && (
         <Alert>{authErrorMessage(state.error)}</Alert>
       )}

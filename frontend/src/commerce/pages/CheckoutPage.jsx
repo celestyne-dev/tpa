@@ -9,6 +9,7 @@ import { InputField } from "@/components/ui/FormField";
 import { Notice } from "@/components/ui/Notice";
 import { routes } from "@/config/navigation";
 import { useCart, useCustomer, useDisplayCurrency } from "@/hooks/useShop";
+import { AGE_STATEMENT } from "@/utils/age";
 import { guestOrders } from "../guestOrders";
 import { newKey, redirectTo } from "../hooks";
 import { OrderSummary } from "../OrderSummary";
@@ -149,6 +150,7 @@ export function CheckoutPage() {
   const { quote, error: quoteError, reload, empty } = useQuote(items, currency);
   const navigate = useNavigate();
   const [accepted, setAccepted] = useState(false);
+  const [adult, setAdult] = useState(false);
   const [mode, setMode] = useState("guest");
   const [guest, setGuest] = useState({ email: "", name: "" });
   const [state, setState] = useState({ busy: false, error: null, notice: "", orderId: null });
@@ -176,6 +178,7 @@ export function CheckoutPage() {
       expected_total_minor: quote.total.amount_minor,
       idempotency_key: key,
       accept_terms: accepted,
+      age_confirmed: adult,
     };
     try {
       const res = asGuest
@@ -218,6 +221,7 @@ export function CheckoutPage() {
     status?.open &&
     (guestReady || (customer && !unverified)) &&
     accepted &&
+    adult &&
     !state.busy;
 
   return (
@@ -306,6 +310,15 @@ export function CheckoutPage() {
                       </Link>{" "}
                       and understand that digital downloads are available immediately after payment.
                     </span>
+                  </label>
+                  <label className="mt-3 flex items-start gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1 size-4 accent-sage-700"
+                      checked={adult}
+                      onChange={(e) => setAdult(e.target.checked)}
+                    />
+                    <span>{AGE_STATEMENT}</span>
                   </label>
                 </>
               ) : (

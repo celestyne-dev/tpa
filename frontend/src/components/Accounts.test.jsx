@@ -5,7 +5,7 @@ import { safeNext } from "@/commerce/hooks";
 import { legacyTarget } from "@/routes/legacyTarget";
 import { ApiError } from "@/services/apiClient";
 import { createFakeShopApi, customerProfile } from "@/test/commerceFake";
-import { preloadCommerce, renderApp } from "@/test/utils";
+import { confirmAge, preloadCommerce, renderApp } from "@/test/utils";
 
 beforeAll(preloadCommerce);
 
@@ -78,6 +78,7 @@ describe("registration", () => {
     expect(within(rules).getByText(/At least 12 characters/)).toHaveTextContent("(met)");
     await user.type(screen.getByLabelText(/^Confirm password/), "Correct-Horse-Battery-8");
     await user.click(screen.getByRole("checkbox", { name: /I agree/ }));
+    await confirmAge(user, document.body);
     await user.click(screen.getByRole("button", { name: "Create account" }));
     expect(screen.getByText("The passwords don't match.")).toBeInTheDocument();
 

@@ -6,7 +6,14 @@ import { ApiError } from "@/services/apiClient";
 import { createFakeShopApi } from "@/test/commerceFake";
 import * as fx from "@/test/fixtures";
 import { createFakeAdminApi } from "@/test/adminFake";
-import { createFakeApi, preloadAdminApp, preloadCommerce, renderApp } from "@/test/utils";
+import {
+  confirmAge,
+  createFakeApi,
+  preloadAdminApp,
+  preloadCommerce,
+  renderApp,
+  tickAll,
+} from "@/test/utils";
 
 beforeAll(async () => {
   await preloadCommerce();
@@ -82,6 +89,7 @@ describe("public signup", () => {
     expect(shopApi.subscribe).not.toHaveBeenCalled();
     await user.type(email, "reader@example.com");
     await user.click(consent);
+    await confirmAge(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     await waitFor(() => expect(shopApi.subscribe).toHaveBeenCalled());
     const body = shopApi.subscribe.mock.calls[0][0];
@@ -108,7 +116,7 @@ describe("public signup", () => {
     });
     const form = (await screen.findAllByRole("form", { name: /Subscribe/ }))[0];
     await user.type(within(form).getByLabelText(/Email address/), "reader@example.com");
-    await user.click(within(form).getByRole("checkbox"));
+    await tickAll(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     expect(await within(form).findByRole("alert")).toHaveTextContent(/Too many attempts/);
   });

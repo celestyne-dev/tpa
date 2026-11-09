@@ -52,7 +52,14 @@ def newsletter(seeded):
 
 
 def _signup(client, email="reader@example.com", **extra):
-    payload = {"email": email, "first_name": "Ada", "consent": True, "source": "footer", **extra}
+    payload = {
+        "email": email,
+        "first_name": "Ada",
+        "consent": True,
+        "age_confirmed": True,
+        "source": "footer",
+        **extra,
+    }
     return client.post(SUB, json=payload)
 
 
@@ -597,7 +604,7 @@ def test_lead_magnet_optional_newsletter_uses_double_opt_in(newsletter, client, 
     magnet = _lead_magnet(admin)
     client.post(
         f"/api/v1/lead-magnets/{magnet['slug']}/claim",
-        json={"email": "fan@example.com", "newsletter_consent": True},
+        json={"email": "fan@example.com", "newsletter_consent": True, "age_confirmed": True},
     )
     subscriber = _subscriber(newsletter, "fan@example.com")
     assert subscriber.status == "pending" and subscriber.source == "lead_magnet"

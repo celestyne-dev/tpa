@@ -182,6 +182,7 @@ def claim(slug: str, data: dict[str, Any], *, ip: str | None = None) -> None:
                 "email": email,
                 "first_name": data.get("first_name"),
                 "consent": True,
+                "age_confirmed": data.get("age_confirmed"),
                 "consent_version": data.get("consent_version"),
                 "source": "lead_magnet",
                 "source_detail": magnet.slug,

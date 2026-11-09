@@ -5,7 +5,7 @@ import { cartStore } from "@/commerce/cartStore";
 import { guestOrders } from "@/commerce/guestOrders";
 import { redirectTo } from "@/commerce/hooks";
 import { createFakeShopApi, customerProfile, guestOrderFor } from "@/test/commerceFake";
-import { preloadAdminApp, preloadCommerce, renderApp } from "@/test/utils";
+import { confirmAge, preloadAdminApp, preloadCommerce, renderApp } from "@/test/utils";
 
 const CALM = "a1a1a1a1a1a1a1a1";
 const ORDER = "order0000000000000000000000000001";
@@ -34,6 +34,7 @@ describe("guest checkout", () => {
     renderApp("/checkout", { shopApi });
     const pay = await screen.findByRole("button", { name: /Pay USD 15.00/ });
     await user.click(screen.getByRole("checkbox", { name: /terms of sale/ }));
+    await confirmAge(user, document.body);
     expect(pay).toBeDisabled(); // no email yet
     await user.type(screen.getByLabelText(/Email address/), "not-an-email");
     expect(pay).toBeDisabled();
@@ -73,6 +74,7 @@ describe("guest checkout", () => {
     await user.click(screen.getByRole("button", { name: "Log in" }));
     expect(await screen.findByText(/Receipt and download instructions go to/)).toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", { name: /terms of sale/ }));
+    await confirmAge(user, document.body);
     await user.click(screen.getByRole("button", { name: /Pay USD 15.00/ }));
     await waitFor(() => expect(shopApi.checkout).toHaveBeenCalled());
     expect(shopApi.guestCheckout).not.toHaveBeenCalled();

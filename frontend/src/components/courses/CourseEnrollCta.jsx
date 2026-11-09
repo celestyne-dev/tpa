@@ -7,7 +7,8 @@ import { useShopApi } from "@/components/products/shopApiContext";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { routes } from "@/config/navigation";
 import { useAccountStatus } from "@/hooks/useAccountStatus";
-import { useCart } from "@/hooks/useShop";
+import { PurchasesClosed } from "@/components/products/PurchasesClosed";
+import { useCart, usePurchasesOpen } from "@/hooks/useShop";
 import { priceable } from "./courseFormat";
 
 /**
@@ -20,6 +21,7 @@ export function CourseEnrollCta({ course, currency }) {
   const shopApi = useShopApi();
   const navigate = useNavigate();
   const cart = useCart();
+  const purchasesOpen = usePurchasesOpen();
   const [learner, setLearner] = useState(null);
   const [action, setAction] = useState({ busy: false, error: "" });
   const here = routes.course(course.slug);
@@ -110,6 +112,7 @@ export function CourseEnrollCta({ course, currency }) {
   if (!course.purchasable || !course.product) {
     return <p className="text-sm text-muted">This course can't be bought right now.</p>;
   }
+  if (!purchasesOpen) return <PurchasesClosed />;
   const price = priceIn(priceable(course), currency);
   if (!price) {
     return (

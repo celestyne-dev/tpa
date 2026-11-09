@@ -26,6 +26,8 @@ from ...models import (
     Entitlement,
     Order,
 )
+from ...utils.age import FIELD as AGE_FIELD
+from ...utils.age import age_problem
 from ...utils.errors import APIError, AuthenticationError, ConflictError, ValidationError
 from ...utils.validation import is_email, plain_text_problem
 from .. import audit_service
@@ -113,6 +115,8 @@ def register(data: dict[str, Any]) -> tuple[Customer | None, bool]:
         errors["newsletter_opt_in"] = ["Must be true or false."]
     if data.get("accept_terms") is not True:
         errors["accept_terms"] = ["Please accept the terms and privacy policy."]
+    if problem := age_problem(data):
+        errors[AGE_FIELD] = problem
     if errors:
         raise ValidationError("Please check the highlighted fields.", details=errors)
     existing = db.session.scalar(select(Customer).where(Customer.email == email))
@@ -264,6 +268,8 @@ def subscribe_to_newsletter(email: str, name: str, data: dict[str, Any], ip: str
             "email": email,
             "first_name": name.split(" ")[0] if name else "",
             "consent": True,
+            # Account holders confirmed they are 18 or older when they registered.
+            AGE_FIELD: True,
             "consent_version": data.get("newsletter_consent_version"),
             "source": "account",
         },

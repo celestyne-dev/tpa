@@ -46,3 +46,9 @@ export function useCustomer({ load = true } = {}) {
     refresh,
   };
 }
+
+/** Whether purchases can be made (false while no payment provider is set up). */
+export function usePurchasesOpen() {
+  const site = useSelector(selectSite)?.data;
+  return site?.shop?.purchases_open !== false;
+}

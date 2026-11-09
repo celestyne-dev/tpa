@@ -588,7 +588,8 @@ def test_revised_privacy_policy_is_the_owners_draft():
         "17. Contact Us",
     ]
     notes = [b["title"] for b in doc["body"] if b["type"] == "callout"]
-    assert notes == ["Review pending"] * 3 + ["Implementation pending"]
+    # The age policy's "Implementation pending" note went once age confirmation shipped.
+    assert notes == ["Review pending"] * 3
     text = json.dumps(doc, ensure_ascii=False)
     assert "(mailto:contact@thinkpositivealways.com)" in text
     assert "[Cookie Policy](/cookie-policy)" in text

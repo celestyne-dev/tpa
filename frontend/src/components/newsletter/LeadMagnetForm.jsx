@@ -5,6 +5,7 @@ import { useShopApi } from "@/components/products/shopApiContext";
 import { Button } from "@/components/ui/Button";
 import { useSite } from "@/hooks/useContent";
 import { cn } from "@/utils/format";
+import { AGE_MESSAGE, AGE_STATEMENT } from "@/utils/age";
 import { ConsentCheckbox, Honeypot, SignupInput } from "./SignupFields";
 import { EMAIL_PATTERN, signupErrorMessage, toneClasses } from "./signupUtils";
 
@@ -18,7 +19,13 @@ export function LeadMagnetForm({ leadMagnet, showFirstName = false, tone = "ligh
   const { data: site } = useSite();
   const newsletter = site?.newsletter;
   const required = leadMagnet.newsletter_optin === "required";
-  const [form, setForm] = useState({ email: "", first_name: "", newsletter: false, website: "" });
+  const [form, setForm] = useState({
+    email: "",
+    first_name: "",
+    newsletter: false,
+    age_confirmed: false,
+    website: "",
+  });
   const [errors, setErrors] = useState({});
   const [state, setState] = useState({ phase: "idle", message: "" });
   const started = useRef(0);
@@ -38,6 +45,8 @@ export function LeadMagnetForm({ leadMagnet, showFirstName = false, tone = "ligh
     if (!EMAIL_PATTERN.test(form.email.trim())) next.email = "Enter a valid email address.";
     if (required && !form.newsletter)
       next.newsletter = "Tick the box to subscribe and get the resource.";
+    // Newsletter subscriptions are for people aged 18 or older.
+    if (form.newsletter && !form.age_confirmed) next.age_confirmed = AGE_MESSAGE;
     setErrors(next);
     if (Object.keys(next).length) return;
     setState({ phase: "sending", message: "" });
@@ -47,6 +56,7 @@ export function LeadMagnetForm({ leadMagnet, showFirstName = false, tone = "ligh
         first_name: form.first_name.trim(),
         newsletter_consent: form.newsletter,
         consent_version: form.newsletter ? newsletter?.consent_version : undefined,
+        age_confirmed: form.newsletter ? form.age_confirmed : undefined,
         website: form.website,
         elapsed_ms: Date.now() - started.current,
       });
@@ -55,6 +65,7 @@ export function LeadMagnetForm({ leadMagnet, showFirstName = false, tone = "ligh
       setErrors({
         email: error?.details?.email?.join?.(" "),
         newsletter: error?.details?.newsletter_consent?.join?.(" "),
+        age_confirmed: error?.details?.age_confirmed?.join?.(" "),
       });
       setState({ phase: "error", message: signupErrorMessage(error) });
     }
@@ -121,6 +132,16 @@ export function LeadMagnetForm({ leadMagnet, showFirstName = false, tone = "ligh
           checked={form.newsletter}
           error={errors.newsletter}
           onChange={(value) => setForm({ ...form, newsletter: value })}
+        />
+      )}
+      {canSubscribe && (form.newsletter || required) && (
+        <ConsentCheckbox
+          tone={tone}
+          required
+          text={AGE_STATEMENT}
+          checked={form.age_confirmed}
+          error={errors.age_confirmed}
+          onChange={(age_confirmed) => setForm({ ...form, age_confirmed })}
         />
       )}
       <Honeypot value={form.website} onChange={(website) => setForm({ ...form, website })} />

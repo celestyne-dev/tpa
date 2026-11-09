@@ -5,7 +5,8 @@ import { cartStore } from "@/commerce/cartStore";
 import { priceIn } from "@/commerce/currency";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { routes } from "@/config/navigation";
-import { useCart } from "@/hooks/useShop";
+import { useCart, usePurchasesOpen } from "@/hooks/useShop";
+import { PurchasesClosed } from "./PurchasesClosed";
 import { useShopApi } from "./shopApiContext";
 
 /**
@@ -18,6 +19,7 @@ export function ProductActions({ product, currency }) {
   const shopApi = useShopApi();
   const [claim, setClaim] = useState({ status: "idle", message: "" });
   const inCart = cart.some((item) => item.id === product.id);
+  const purchasesOpen = usePurchasesOpen();
 
   if (product.availability === "coming-soon") {
     return (
@@ -62,6 +64,7 @@ export function ProductActions({ product, currency }) {
       </div>
     );
   }
+  if (!purchasesOpen) return <PurchasesClosed />;
   const price = priceIn(product, currency);
   if (!price) {
     return (

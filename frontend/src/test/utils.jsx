@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
 import { preloadAdminScreens } from "@/admin/screens";
@@ -126,4 +126,16 @@ export function renderApp(
     </MemoryRouter>,
   );
   return { ...utils, store, api, adminApi, shopApi };
+}
+
+/** Ticks every unticked checkbox in a form (consent and the 18+ confirmation). */
+export async function tickAll(user, container) {
+  for (const box of within(container).getAllByRole("checkbox")) {
+    if (!box.checked) await user.click(box);
+  }
+}
+
+/** Ticks the "I confirm that I am 18 or older." box. */
+export async function confirmAge(user, container) {
+  await user.click(within(container).getByRole("checkbox", { name: /18 or older/ }));
 }

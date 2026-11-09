@@ -448,7 +448,7 @@
           "Visits are not recorded on private pages, such as your account, checkout or the admin area.",
           "We respect your browser's Do Not Track and Global Privacy Control signals: when either is on, no visit is counted.",
           "The statistics are not used for advertising, are not sold or shared, and are not combined with your account.",
-          "By default, individual visit records are deleted after 90 days and summary figures after about two years."
+          "Individual visit records are deleted after 90 days, and daily totals after 12 months."
         ]
       },
       {
@@ -465,7 +465,7 @@
         "ordered": false,
         "items": [
           "**Videos.** Some articles include YouTube or Vimeo videos. They load only when you press play, using YouTube's privacy-enhanced mode and Vimeo's do-not-track option. Once a video loads, the provider may use cookies or similar technologies under its own privacy policy.",
-          "**Payments.** When you pay for a purchase, you are taken to the secure payment page of our payment provider, Paystack. Paystack may use cookies on its own website under its own policies.",
+          "**Payments (planned).** Online payments are not available yet, and no payment provider is connected to this website. We plan to use Paystack; when payments start, you will be taken to the provider's secure payment page, which may use cookies under its own policies. We will update this policy before then.",
           "**Links to other websites.** Other websites you visit from our links have their own cookie and privacy policies."
         ]
       },
@@ -499,7 +499,7 @@
       },
       {
         "type": "paragraph",
-        "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us."
+        "text": "Questions about this policy? Please visit our [contact page](/contact) for the current ways to reach us. For privacy requests, email [contact@thinkpositivealways.com](mailto:contact@thinkpositivealways.com)."
       }
     ],
     "review_status": "pending_review"
@@ -891,13 +891,22 @@
         "text": "This policy applies to purchases made on thinkpositivealways.com, such as digital products, downloadable resources and courses, and to paid memberships if they are offered."
       },
       {
+        "type": "callout",
+        "title": "Not yet in operation",
+        "text": "Online purchases are not available yet: no payment provider is connected to this website and no payments are being taken. This policy describes how purchases are planned to work once they open."
+      },
+      {
+        "type": "paragraph",
+        "text": "Digital purchases are intended for people aged 18 or older."
+      },
+      {
         "type": "heading",
         "level": 2,
         "text": "2. Digital product purchases"
       },
       {
         "type": "paragraph",
-        "text": "The price and currency are shown before you pay. Your order is confirmed only after our system has checked with our payment provider that the payment was successful."
+        "text": "Once purchases open, the price and currency will be shown before you pay, and an order will be confirmed only after our system has checked with the payment provider that the payment was successful."
       },
       {
         "type": "heading",
@@ -906,7 +915,7 @@
       },
       {
         "type": "paragraph",
-        "text": "Once your payment is confirmed, your purchase is available in your account or through the access link we email to you if you bought without an account. If you cannot find or open your purchase, please contact us before requesting a refund: we can usually restore access."
+        "text": "Once a payment is confirmed, the purchase will be available in your account or through the access link we email to you if you bought without an account. If you cannot find or open a purchase, please contact us before requesting a refund: we can usually restore access."
       },
       {
         "type": "heading",
@@ -965,7 +974,7 @@
       },
       {
         "type": "paragraph",
-        "text": "Payments are processed by Paystack. We do not receive or store your full card details. Any approved refund is returned through Paystack to the original payment method; how long it takes to appear depends on your bank or payment provider."
+        "text": "Online payments are not yet available. We plan to use Paystack to process payments, and this policy will name the confirmed provider before payments start. When they do, we will not receive or store your full card details, and any approved refund will be returned through the payment provider to the original payment method; how long it takes to appear will depend on your bank or payment provider."
       },
       {
         "type": "heading",
@@ -1413,17 +1422,17 @@
         "type": "list",
         "ordered": false,
         "items": [
-          "Your name and email address when you contact us.",
+          "Your name, email address and message when you email us.",
           "Your email address and subscription preferences when you join our newsletter.",
           "Account registration and authentication information when you create an account.",
-          "Information you provide through advertising or partnership inquiries.",
+          "Information you provide through our partnership inquiry form, such as your organisation, contact details, website, the kind of collaboration you are interested in, your budget range and your message.",
           "Order and access information when purchasing or using digital services, once those services become available.",
           "Course progress, submitted exercises or assessment information when you use an available learning service."
         ]
       },
       {
         "type": "paragraph",
-        "text": "We ask visitors not to submit unnecessary sensitive personal, medical, financial or confidential information through general contact forms."
+        "text": "We ask visitors not to send unnecessary sensitive personal, medical, financial or confidential information by email or through our partnership inquiry form."
       },
       {
         "type": "heading",
@@ -1443,6 +1452,10 @@
         "text": "Authentication credentials are handled through the website's security systems."
       },
       {
+        "type": "paragraph",
+        "text": "When you sign in, we keep a record of each signed-in session, including when it started, your IP address and basic information about your browser and device. This helps us keep your account secure. Session records end when you sign out or the session expires."
+      },
+      {
         "type": "heading",
         "level": 3,
         "text": "3.3 Technical and security information"
@@ -1453,7 +1466,7 @@
       },
       {
         "type": "paragraph",
-        "text": "This may include IP addresses, request times, browser information and server request information."
+        "text": "This may include IP addresses, request times, browser information and server request information. Our web server records this in access and security logs, which are used to keep the website running, protect it from misuse and investigate problems."
       },
       {
         "type": "paragraph",
@@ -1527,7 +1540,11 @@
       },
       {
         "type": "paragraph",
-        "text": "When you subscribe, we may collect your email address, subscription preferences and information needed to maintain a record of your subscription."
+        "text": "When you subscribe, we collect your email address and, if you choose to give it, your first name, together with your subscription preferences and where on the website you signed up."
+      },
+      {
+        "type": "paragraph",
+        "text": "We also keep a record of your consent: the wording you agreed to (including your confirmation that you are 18 or older), its version, the date and time, and a coded form of your IP address that cannot be turned back into the address. This record shows when and how you agreed to receive our emails."
       },
       {
         "type": "paragraph",
@@ -1616,6 +1633,14 @@
           "Manage course enrolment and learning progress.",
           "Handle customer support and service-related inquiries."
         ]
+      },
+      {
+        "type": "paragraph",
+        "text": "When purchases are available, each order will record what was bought, the price and currency, your email address, the order and payment status, any refunds, and the IP address used to place the order, to help prevent fraud and resolve disputes."
+      },
+      {
+        "type": "paragraph",
+        "text": "When you download a resource, we record the time of the download, your IP address and basic browser information, to protect download links from misuse and to help with support requests."
       },
       {
         "type": "paragraph",
@@ -1718,9 +1743,9 @@
         "items": [
           "**Newsletter information:** While a subscription remains active, with limited information retained where needed to honour unsubscribing requests or other obligations.",
           "**Customer accounts:** While the account remains active, subject to applicable account-closure and deletion requirements.",
-          "**Contact inquiries:** Generally up to 12 months after resolution.",
+          "**Emails you send us:** Generally up to 12 months after resolution.",
           "**Partnership inquiries:** Generally up to 24 months after the last meaningful interaction.",
-          "**Website usage statistics:** Target retention of up to 12 months, with aggregation where practical.",
+          "**Website usage statistics:** Individual visit records up to 90 days; daily totals up to 12 months.",
           "**Course information:** While necessary to provide access and maintain learning records, subject to an established deletion process.",
           "**Security logs:** A proposed retention period of 30–90 days, unless information is needed for security investigations or legal obligations.",
           "**Transaction records:** For the period required by applicable tax, accounting and other legal obligations."
@@ -1828,9 +1853,8 @@
         "text": "Parents or guardians who believe a child has submitted personal information may contact us at [contact@thinkpositivealways.com](mailto:contact@thinkpositivealways.com)."
       },
       {
-        "type": "callout",
-        "title": "Implementation pending",
-        "text": "The website's registration, newsletter and future checkout processes must be updated to reflect this age policy."
+        "type": "paragraph",
+        "text": "When you subscribe to our newsletter, create an account or place an order, we ask you to confirm that you are 18 or older. We do not ask for or store your date of birth."
       },
       {
         "type": "heading",

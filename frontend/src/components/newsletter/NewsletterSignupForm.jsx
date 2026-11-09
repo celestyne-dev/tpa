@@ -4,10 +4,11 @@ import { useShopApi } from "@/components/products/shopApiContext";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/utils/format";
 import { ConsentCheckbox, Honeypot, SignupInput } from "./SignupFields";
+import { AGE_MESSAGE, AGE_STATEMENT } from "@/utils/age";
 import { EMAIL_PATTERN, signupErrorMessage, toneClasses } from "./signupUtils";
 import { useNewsletterStatus } from "./useNewsletterStatus";
 
-const EMPTY = { email: "", first_name: "", consent: false, website: "" };
+const EMPTY = { email: "", first_name: "", consent: false, age_confirmed: false, website: "" };
 
 /**
  * The Positive Reset signup form (double opt-in). Every form on the site uses this one
@@ -63,6 +64,7 @@ export function NewsletterSignupForm({
     const next = {};
     if (!EMAIL_PATTERN.test(form.email.trim())) next.email = "Enter a valid email address.";
     if (!form.consent) next.consent = "Please tick the box to agree to receive emails.";
+    if (!form.age_confirmed) next.age_confirmed = AGE_MESSAGE;
     setErrors(next);
     if (Object.keys(next).length) {
       setState({ phase: "idle", message: "" });
@@ -75,6 +77,7 @@ export function NewsletterSignupForm({
         email: form.email.trim(),
         first_name: showFirstName && !compact ? form.first_name.trim() : "",
         consent: true,
+        age_confirmed: true,
         consent_version: status.consent_version,
         source,
         source_detail: sourceDetail,
@@ -100,9 +103,11 @@ export function NewsletterSignupForm({
       setErrors({
         email: fieldErrors.email?.join?.(" "),
         consent: fieldErrors.consent?.join?.(" "),
+        age_confirmed: fieldErrors.age_confirmed?.join?.(" "),
       });
       setState({ phase: "error", message: signupErrorMessage(error) });
-      if (fieldErrors.email || fieldErrors.consent) focusFirstInvalid();
+      if (fieldErrors.email || fieldErrors.consent || fieldErrors.age_confirmed)
+        focusFirstInvalid();
     }
   };
 
@@ -191,6 +196,14 @@ export function NewsletterSignupForm({
         error={errors.consent}
         required
         onChange={(consent) => setForm({ ...form, consent })}
+      />
+      <ConsentCheckbox
+        tone={tone}
+        text={AGE_STATEMENT}
+        checked={form.age_confirmed}
+        error={errors.age_confirmed}
+        required
+        onChange={(age_confirmed) => setForm({ ...form, age_confirmed })}
       />
       <Honeypot value={form.website} onChange={(website) => setForm({ ...form, website })} />
       {state.phase === "error" && (

@@ -97,7 +97,14 @@ off. `PRIVACY_STATISTICS_MODE` decides the default:
   Data (Use and Access) Act 2025, in force since 5 February 2026), which needs clear
   information and a simple, free way to object. Use it only after legal advice.
 
-`flask deploy check` warns when the variable isn't set, so a deployment never changes the
+Retention matches the Privacy and Cookie Policy drafts: individual visit records 90 days,
+daily totals 365 days (`ANALYTICS_RAW_RETENTION_DAYS=90`,
+`ANALYTICS_AGGREGATE_RETENTION_DAYS=365`, set explicitly in the deploy templates). The
+hourly `tpa-analytics-maintain.timer` deletes older rows (visit records only once their day
+is totalled), and the overview no longer compares with periods that are already deleted.
+`flask deploy check` warns if either value is longer than that.
+
+`flask deploy check` also warns when the variable isn't set, so a deployment never changes the
 visitor-facing behaviour without someone noticing. Sign-in and other necessary cookies
 never depend on this setting.
 
@@ -113,7 +120,7 @@ uses).
 | `ANALYTICS_RESPECT_DNT` | `true` | Ignore `DNT: 1` / `Sec-GPC: 1` requests |
 | `PRIVACY_STATISTICS_MODE` | `consent` | `consent` asks before counting visits; `objection` counts unless switched off (see Consent) |
 | `ANALYTICS_RAW_RETENTION_DAYS` | `90` (7–400) | Raw page views, deleted only after their day is rolled up |
-| `ANALYTICS_AGGREGATE_RETENTION_DAYS` | `760` (30–3650) | Daily rollups |
+| `ANALYTICS_AGGREGATE_RETENTION_DAYS` | `365` (30–3650) | Daily rollups (12-month target in the Privacy and Cookie Policies) |
 | `RATELIMIT_ANALYTICS_COLLECT` | `60 per minute;1000 per hour` | Per client address (Flask-Limiter; use Redis in production as for other limits) |
 
 nginx must forward the client address (`X-Forwarded-For`, already used with `ProxyFix`).

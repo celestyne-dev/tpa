@@ -171,6 +171,17 @@ def _privacy(cfg) -> list[dict[str, str]]:
                 "after legal advice).",
             )
         ]
+    raw = cfg.get("ANALYTICS_RAW_RETENTION_DAYS", 90)
+    aggregate = cfg.get("ANALYTICS_AGGREGATE_RETENTION_DAYS", 365)
+    if raw > 90 or aggregate > 365:
+        return [
+            _result(
+                "privacy_statistics",
+                WARNING,
+                f"Statistics are kept longer than the policies say (visit records {raw} days, "
+                f"daily totals {aggregate} days; the policies say 90 and 365).",
+            )
+        ]
     if mode == "objection":
         return [
             _result(

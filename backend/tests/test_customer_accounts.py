@@ -23,6 +23,7 @@ def _form(**extra):
         "password": PASSWORD,
         "password_confirm": PASSWORD,
         "accept_terms": True,
+        "age_confirmed": True,
         **extra,
     }
 

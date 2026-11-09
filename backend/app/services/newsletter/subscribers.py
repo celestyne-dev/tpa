@@ -32,6 +32,9 @@ from ...models import (
     SubscriberTag,
 )
 from ...models.newsletter import SIGNUP_SOURCES, SUBSCRIBER_STATUSES
+from ...utils.age import FIELD as AGE_FIELD
+from ...utils.age import STATEMENT as AGE_STATEMENT
+from ...utils.age import age_problem
 from ...utils.csv_safe import safe_cell
 from ...utils.errors import ConflictError, NotFoundError, ValidationError
 from .. import audit_service
@@ -253,11 +256,16 @@ def subscribe(
     if 0 < elapsed < 1200:
         return None
     email = clean_email(data.get("email"))
+    errors = {}
     if data.get("consent") is not True:
-        raise ValidationError(
-            details={"consent": ["Please tick the box to agree to receive emails."]}
-        )
+        errors["consent"] = ["Please tick the box to agree to receive emails."]
+    if problem := age_problem(data):
+        errors[AGE_FIELD] = problem
+    if errors:
+        raise ValidationError(details=errors)
     consent_text, consent_version = config.consent()
+    # The age confirmation is part of what the subscriber agreed to (no birth date stored).
+    consent_text = f"{consent_text}\n\n{AGE_STATEMENT}"[:1000]
     collecting = config.collection_only()
     shown_version = data.get("consent_version")
     if shown_version is not None and shown_version != consent_version:

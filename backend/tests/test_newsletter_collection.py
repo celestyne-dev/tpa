@@ -39,6 +39,7 @@ def _signup(client, email="reader@example.com", **extra):
         "email": email,
         "first_name": "Ada",
         "consent": True,
+        "age_confirmed": True,
         "consent_version": "2026-11-collection",
         "source": "article",
         "source_detail": "/articles/a-story",
@@ -349,7 +350,13 @@ def test_switching_to_double_opt_in_later_asks_collected_contacts_to_confirm(see
     _set(seeded, **{"email.sending_mode": "live", "email.signup_mode": "double_opt_in"})
     limiter.reset()
     res = client.post(
-        SUB, json={"email": "reader@example.com", "consent": True, "consent_version": "2026-11"}
+        SUB,
+        json={
+            "email": "reader@example.com",
+            "consent": True,
+            "age_confirmed": True,
+            "consent_version": "2026-11",
+        },
     )
     assert res.status_code == 202 and res.get_json()["data"]["status"] == "check_email"
     sub = _subscriber(seeded)

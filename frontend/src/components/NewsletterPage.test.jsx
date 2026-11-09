@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { createFakeShopApi } from "@/test/commerceFake";
 import * as fx from "@/test/fixtures";
-import { createFakeApi, renderApp } from "@/test/utils";
+import { createFakeApi, renderApp, tickAll } from "@/test/utils";
 
 const CONSENT =
   "Yes, send me The Positive Reset, the daily email newsletter from Think Positive Always. " +
@@ -82,7 +82,7 @@ describe("The Positive Reset page", () => {
     const shopApi = renderPage();
     const form = await screen.findByRole("form", { name: /Subscribe to The Positive Reset/ });
     await user.type(within(form).getByLabelText(/Email address/), "reader@example.com");
-    await user.click(within(form).getByRole("checkbox"));
+    await tickAll(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     await waitFor(() => expect(shopApi.subscribe).toHaveBeenCalledTimes(1));
     expect(shopApi.subscribe.mock.calls[0][0]).toMatchObject({

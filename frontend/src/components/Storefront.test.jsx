@@ -5,7 +5,7 @@ import { redirectTo } from "@/commerce/hooks";
 import { cartStore } from "@/commerce/cartStore";
 import { ApiError } from "@/services/apiClient";
 import { createFakeShopApi, customerProfile, orderFor } from "@/test/commerceFake";
-import { preloadCommerce, renderApp } from "@/test/utils";
+import { confirmAge, preloadCommerce, renderApp } from "@/test/utils";
 
 const CALM = "a1a1a1a1a1a1a1a1";
 const SOON = "b2b2b2b2b2b2b2b2";
@@ -153,6 +153,7 @@ describe("cart and checkout", () => {
     const pay = await screen.findByRole("button", { name: /Pay USD 15.00/ });
     expect(pay).toBeDisabled(); // terms not accepted yet
     await user.click(screen.getByRole("checkbox", { name: /terms of sale/ }));
+    await confirmAge(user, document.body);
     await user.click(pay);
     await waitFor(() =>
       expect(redirectTo.go).toHaveBeenCalledWith("https://checkout.paystack.com/test-usd"),
@@ -181,6 +182,7 @@ describe("cart and checkout", () => {
     );
     renderApp("/checkout", { shopApi });
     await user.click(await screen.findByRole("checkbox", { name: /terms of sale/ }));
+    await confirmAge(user, document.body);
     await user.click(screen.getByRole("button", { name: /Pay USD 15.00/ }));
     expect(await screen.findByText(/price has changed/)).toBeInTheDocument();
     expect(redirectTo.go).not.toHaveBeenCalled();

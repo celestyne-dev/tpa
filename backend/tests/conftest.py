@@ -447,6 +447,7 @@ def register_customer(app, email="reader@example.com", *, verify=True, test_acco
             "password": PASSWORD,
             "display_name": "Reader",
             "accept_terms": True,
+            "age_confirmed": True,
         },
     )
     assert res.status_code == 201, res.get_json()

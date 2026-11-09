@@ -180,6 +180,10 @@ def get_site_settings() -> dict[str, Any]:
             "intro": v["shop.intro"],
             "notice": v["shop.notice"],
             "display_currencies": _display_currencies(v),
+            # False while no payment provider is set up (Paystack isn't connected yet): the
+            # shop shows products but offers no buy buttons, so nobody starts a payment that
+            # can't be taken. Opens by itself once checkout is configured.
+            "purchases_open": _purchases_open(),
         },
         "privacy": _privacy(v),
         "navigation": public_navigation(),
@@ -188,6 +192,12 @@ def get_site_settings() -> dict[str, Any]:
         "generated_at": iso(datetime.now(UTC)),
         "cms_overrides": overridden_builtin_paths(),
     }
+
+
+def _purchases_open() -> bool:
+    from ..payments.config import effective_mode
+
+    return effective_mode() != "disabled"
 
 
 def _newsletter() -> dict:

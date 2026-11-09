@@ -45,6 +45,7 @@ def _guest_checkout(client, store, email="Buyer@Example.com ", key=None, expecte
             "expected_total_minor": expected,
             "idempotency_key": key or _key(),
             "accept_terms": True,
+            "age_confirmed": True,
             **extra,
         },
     )
@@ -479,7 +480,13 @@ def _register(app, email, name="Buyer"):
     shopper = Shopper(app.test_client())
     res = shopper.c.post(
         "/api/v1/account/register",
-        json={"email": email, "password": PASSWORD, "display_name": name, "accept_terms": True},
+        json={
+            "email": email,
+            "password": PASSWORD,
+            "display_name": name,
+            "accept_terms": True,
+            "age_confirmed": True,
+        },
     )
     return shopper, res
 

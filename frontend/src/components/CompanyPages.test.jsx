@@ -149,7 +149,7 @@ describe("Partner With Us", () => {
     buttons.forEach((b) => expect(b).toHaveAttribute("href", "#partnership-inquiry"));
     const form = document.getElementById("partnership-inquiry");
     expect(within(form).getByRole("button", { name: "Send inquiry" })).toBeInTheDocument();
-    expect(within(form).getByRole("checkbox")).not.toBeChecked();
+    expect(within(form).getAllByRole("checkbox")[0]).not.toBeChecked();
     for (const name of [
       "A community that values growth",
       "Ways we can work together",

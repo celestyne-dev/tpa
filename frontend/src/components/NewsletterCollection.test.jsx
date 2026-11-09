@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createFakeShopApi } from "@/test/commerceFake";
 import { createFakeAdminApi } from "@/test/adminFake";
 import * as fx from "@/test/fixtures";
-import { createFakeApi, preloadAdminApp, renderApp } from "@/test/utils";
+import { createFakeApi, preloadAdminApp, renderApp, tickAll } from "@/test/utils";
 
 beforeAll(async () => {
   await preloadAdminApp();
@@ -85,7 +85,7 @@ describe("collection-only sign-up", () => {
     const [form] = await screen.findAllByRole("form", { name: /Subscribe/ });
     await user.type(within(form).getByLabelText(/First name/), "Ada");
     await user.type(within(form).getByLabelText(/Email address/), "reader@example.com");
-    await user.click(within(form).getByRole("checkbox"));
+    await tickAll(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     await waitFor(() => expect(shopApi.subscribe).toHaveBeenCalledTimes(1));
     expect(shopApi.subscribe.mock.calls[0][0]).toMatchObject({

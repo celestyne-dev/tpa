@@ -8,7 +8,7 @@ import { ApiError } from "@/services/apiClient";
 import { createAppStore } from "@/store";
 import { createFakeShopApi } from "@/test/commerceFake";
 import * as fx from "@/test/fixtures";
-import { createFakeApi, notFound, renderApp } from "@/test/utils";
+import { createFakeApi, notFound, renderApp, tickAll } from "@/test/utils";
 
 const [, a2, a3] = fx.articles;
 const CONSENT = "Yes, email me The Positive Reset every day. I can unsubscribe at any time.";
@@ -338,7 +338,7 @@ describe("subscribing", () => {
     const form = await endForm(shopApi);
     await user.type(within(form).getByLabelText(/First name/), "Ada");
     await user.type(within(form).getByLabelText(/Email address/), " reader@example.com ");
-    await user.click(within(form).getByRole("checkbox"));
+    await tickAll(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     const busy = within(form).getByRole("button", { name: "Subscribing…" });
     expect(busy).toBeDisabled();
@@ -385,7 +385,7 @@ describe("subscribing", () => {
     });
     const form = await endForm(shopApi);
     await user.type(within(form).getByLabelText(/Email address/), "reader@example.com");
-    await user.click(within(form).getByRole("checkbox"));
+    await tickAll(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     expect(await within(form).findByRole("alert")).toHaveTextContent(/consent wording/);
     const fresh = await within(form).findByRole("checkbox", { name: NEW });
@@ -414,7 +414,7 @@ describe("subscribing", () => {
     });
     const form = await endForm(shopApi);
     await user.type(within(form).getByLabelText(/Email address/), "reader@example.com");
-    await user.click(within(form).getByRole("checkbox"));
+    await tickAll(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     await waitFor(() => expect(endPanel()).toBeNull());
     expect(screen.queryByRole("form", { name: /Subscribe/ })).not.toBeInTheDocument();
@@ -430,7 +430,7 @@ describe("subscribing", () => {
     const form = await endForm(shopApi);
     const email = within(form).getByLabelText(/Email address/);
     await user.type(email, "reader@example.com");
-    await user.click(within(form).getByRole("checkbox"));
+    await tickAll(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     expect(await within(form).findByRole("alert")).toHaveTextContent(/Something went wrong/);
     expect(email).toHaveValue("reader@example.com");
@@ -452,7 +452,7 @@ describe("subscribing", () => {
     const form = await endForm(shopApi);
     const email = within(form).getByLabelText(/Email address/);
     await user.type(email, "reader@example.co");
-    await user.click(within(form).getByRole("checkbox"));
+    await tickAll(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     await waitFor(() => expect(email).toHaveAttribute("aria-invalid", "true"));
     await waitFor(() => expect(email).toHaveFocus());

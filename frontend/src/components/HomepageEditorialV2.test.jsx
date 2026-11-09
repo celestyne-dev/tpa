@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { createFakeShopApi } from "@/test/commerceFake";
 import * as fx from "@/test/fixtures";
-import { createFakeApi, renderApp } from "@/test/utils";
+import { confirmAge, createFakeApi, renderApp } from "@/test/utils";
 import { shortExcerpt } from "@/utils/format";
 
 const [a1, a2, a3, a4, a5] = fx.articles.concat(fx.articles).map((a, i) => ({
@@ -209,6 +209,7 @@ describe("editorial homepage sections", () => {
     expect(within(form).queryByText(/email you to confirm/i)).not.toBeInTheDocument();
     await user.type(within(form).getByLabelText(/Email address/), "reader@example.com");
     await user.click(box);
+    await confirmAge(user, form);
     await user.click(within(form).getByRole("button", { name: "Subscribe" }));
     await waitFor(() => expect(shopApi.subscribe).toHaveBeenCalledTimes(1));
     expect(shopApi.subscribe.mock.calls[0][0]).toMatchObject({

@@ -537,6 +537,7 @@ def test_guest_course_purchase_is_claimed_only_after_email_verification(seeded, 
             "expected_total_minor": 4900,
             "idempotency_key": _key(),
             "accept_terms": True,
+            "age_confirmed": True,
         },
     )
     assert res.status_code == 201, res.get_json()

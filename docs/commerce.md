@@ -135,6 +135,18 @@ Revoked or refunded entitlements are refused immediately.
 
 ## 5. Customer accounts
 
+**Age (Batch 13.2).** Accounts, purchases, courses and memberships are for people aged 18 or
+older; free articles are open to everyone. Registration and checkout (signed-in and guest)
+require `age_confirmed: true` (an "I confirm that I am 18 or older." checkbox) and the
+server rejects requests without it. Courses and memberships need an account, so they are
+covered by registration. No date of birth is asked for or stored.
+
+**Purchases before payments are connected.** While no payment provider is configured
+(`PAYSTACK_SECRET_KEY` unset, so the checkout mode is effectively "disabled"), the site
+payload reports `shop.purchases_open: false`: product and course pages show "Purchases
+aren't open yet" instead of buy buttons, and the checkout API refuses orders. Products,
+prices and free downloads keep working; buying opens by itself once checkout is set up.
+
 Customers are completely separate from administrators.
 
 - They have their own table, an opaque session cookie (`tpa_customer`, HttpOnly, SameSite=Lax, Secure in production) and a CSRF token cookie that must be echoed in the `X-Customer-CSRF` header.

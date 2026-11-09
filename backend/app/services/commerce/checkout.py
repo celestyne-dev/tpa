@@ -32,6 +32,8 @@ from ...payments.config import (
     public_status,
 )
 from ...payments.paystack import get_provider
+from ...utils.age import FIELD as AGE_FIELD
+from ...utils.age import age_problem
 from ...utils.errors import APIError, ConflictError, NotFoundError, ValidationError
 from .. import audit_service
 from ..serializers import iso
@@ -253,8 +255,13 @@ def create_order(
         raise ValidationError(
             details={"idempotency_key": ["Missing checkout key; refresh the page."]}
         )
+    errors = {}
     if data.get("accept_terms") is not True:
-        raise ValidationError(details={"accept_terms": ["Please accept the terms to continue."]})
+        errors["accept_terms"] = ["Please accept the terms to continue."]
+    if problem := age_problem(data):
+        errors[AGE_FIELD] = problem  # purchases are for people aged 18 or older
+    if errors:
+        raise ValidationError(details=errors)
     product_ids = _parse_items(data.get("items"))
     currency = str(data.get("currency") or "").upper()
     if currency not in checkout_currencies():

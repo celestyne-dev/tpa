@@ -15,6 +15,12 @@ Backend code lives in `app/services/newsletter/`, `app/api/newsletter.py` and `a
 
 ## Consent and safeguards
 
+- **18 or older (Batch 13.2).** Every sign-up form (and the lead-magnet form when the
+  newsletter box is ticked) asks people to confirm "I confirm that I am 18 or older."; the
+  API rejects sign-ups without `age_confirmed: true`. The confirmation is appended to the
+  stored consent wording, so the consent record shows it. No date of birth is stored.
+  Sign-ups from the account page rely on the confirmation given at registration.
+
 - **Double opt-in.** Every signup is `pending` until the person clicks the confirmation link. Only `subscribed` and confirmed people receive marketing.
 - **Consent evidence.** Each subscription records the time, the exact consent wording and version, the source, and a hashed IP address. Changing the wording requires a new consent version.
 - **Separate from accounts.** Registering or buying never subscribes anyone. Product announcements go only to subscribers who chose "New digital products".

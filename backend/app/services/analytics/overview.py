@@ -97,7 +97,14 @@ def _money_compare(
 
 def _website(cur_args, prev_args) -> dict[str, Any]:
     now = traffic.traffic_report(cur_args)
-    before = traffic.traffic_totals(prev_args)  # only the totals are compared
+    # Statistics older than the retention period are deleted: a previous period that
+    # starts before it would look like a fall in traffic, so it is not compared.
+    retention = current_app.config["ANALYTICS_AGGREGATE_RETENTION_DAYS"]
+    kept_from = datetime.now(UTC).date() - timedelta(days=retention)
+    if date.fromisoformat(prev_args["date_from"]) < kept_from:
+        before = {"views": None, "visitors_daily_sum": None}
+    else:
+        before = traffic.traffic_totals(prev_args)  # only the totals are compared
     return {
         "page_views": compare(now["totals"]["views"], before["views"]),
         "visitors_daily_sum": compare(
