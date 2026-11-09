@@ -160,7 +160,7 @@ describe("legal documents managed in the CMS", () => {
     expect(within(doc).getByText("step").tagName).toBe("EM");
     expect(within(doc).getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
     expect(within(doc).getByRole("columnheader", { name: "Purpose" })).toBeInTheDocument();
-    expect(doc.querySelector("ol li")).toHaveTextContent("First step");
+    expect(doc.querySelector(".prose-legal ol li")).toHaveTextContent("First step");
     expect(within(doc).getByText("Effective date")).toBeInTheDocument();
     const [toc] = screen.getAllByRole("navigation", { name: "Table of contents", hidden: true });
     expect(
@@ -262,9 +262,8 @@ describe("page builder autosave", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const adminApi = createFakeAdminApi();
     renderApp("/admin/pages/7", { adminApi });
-    const outline = await screen.findByRole("list", { name: "Page sections" });
-    await user.click(within(outline).getAllByRole("button", { name: /Edit section 1/ })[0]);
-    const heading = screen.getAllByRole("textbox", { name: /^Heading/ })[0];
+    await screen.findByRole("heading", { level: 1, name: "Spring Reset" });
+    const heading = screen.getByLabelText(/^Headline/);
     await user.clear(heading);
     await user.type(heading, "Autosaved heading");
     expect(adminApi.pages.saveDraft).not.toHaveBeenCalled();
