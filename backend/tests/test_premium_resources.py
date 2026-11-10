@@ -134,10 +134,20 @@ def test_access_period_and_download_limit_apply_to_purchases(shop, client):  # n
     item, version = _library_file(shopper)
     assert item["expires_at"] and item["status"] == "active"
     url = f"/api/v1/account/library/{item['id']}/downloads"
-    assert shopper.post(url, {"version_id": version["version_id"]}).status_code == 200
-    link = shopper.post(url, {"version_id": version["version_id"]}).get_json()["data"]["url"]
+    # Two downloads on different days (the allowance is used on delivery, Batch 15).
+    for _ in range(2):
+        first = shopper.post(url, {"version_id": version["version_id"]}).get_json()["data"]
+        assert shopper.get(first["url"]).status_code == 200
+        with shop["app"].app_context():
+            for event in db.session.scalars(db.select(DownloadEvent)):
+                event.created_at = datetime.now(UTC) - timedelta(hours=2)
+            db.session.commit()
     third = shopper.post(url, {"version_id": version["version_id"]})
     assert third.status_code == 403  # the resource's own limit, not the store default
+    with shop["app"].app_context():  # a link issued while access was still open
+        db.session.get(Entitlement, ent.id).download_limit = 3
+        db.session.commit()
+    link = shopper.post(url, {"version_id": version["version_id"]}).get_json()["data"]["url"]
     # When the access period ends, new and already issued links stop working.
     _expire(shop["app"], ent.id)
     assert shopper.get(link).status_code == 403

@@ -12,6 +12,8 @@ from __future__ import annotations
 import threading
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from app.extensions import db
 from app.models import DownloadEvent, DownloadGrant, Entitlement, ProductFileVersion, SiteSetting
 from app.services.commerce.downloads import _is_continuation
@@ -267,8 +269,13 @@ def test_revoked_entitlement_blocks_issued_links_without_using_the_allowance(
 
 
 def test_concurrent_requests_count_one_delivery(shop, client):  # noqa: F811
-    shopper, item, version = _bought(shop, client, limit=3)
     app = shop["app"]
+    with app.app_context():
+        if db.engine.dialect.name != "postgresql":
+            # The in-memory SQLite of quick runs shares one connection between threads, so
+            # it cannot model concurrent transactions; CI runs this on PostgreSQL.
+            pytest.skip("needs PostgreSQL (TEST_DATABASE_URL)")
+    shopper, item, version = _bought(shop, client, limit=3)
     url = _link(shopper, item, version)
     with app.app_context():
         db.session.scalar(db.select(DownloadGrant)).guest = True  # no session to share
@@ -287,10 +294,7 @@ def test_concurrent_requests_count_one_delivery(shop, client):  # noqa: F811
     for t in threads:
         t.join()
     assert sorted(results) == [200, 200, 200, 206, 206], results
-    with app.app_context():
-        postgres = db.engine.dialect.name == "postgresql"
-    count = _count(app, item)
-    # PostgreSQL locks the entitlement row: exactly one delivery is counted. The in-memory
-    # SQLite used by quick local runs shares one connection between threads, so only the
-    # hard guarantee is checked there: never more than the allowance.
-    assert count == 1 if postgres else 1 <= count <= 3
+    # The entitlement row is locked while a delivery is counted: parallel requests (as
+    # from a browser's parallel download) use one download, never more.
+    assert _count(app, item) == 1
+    assert _served(app).count("counted") == 1
