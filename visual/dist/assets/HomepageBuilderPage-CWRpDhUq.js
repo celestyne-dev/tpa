@@ -1,0 +1,1 @@
+import{A as e,D as t,s as n}from"./navigation-TNQ0gwXu.js";import{t as r}from"./PageBuilder-BxyZMMEk.js";import{yt as i}from"./index-B2Zc_2sM.js";var a=e(t(),1),o=n();function s(){let e=i(),t=(0,a.useCallback)(()=>e.pages.homepage(),[e]);return(0,o.jsx)(r,{load:t,isHome:!0})}export{s as HomepageBuilderPage};
