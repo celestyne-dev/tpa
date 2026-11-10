@@ -16,7 +16,17 @@ with each version.
 Uploads are received into ``UPLOAD_TEMP_ROOT`` (validated there), then moved into
 place atomically. Permissions are owner-only, except that the group may read when
 Nginx delivers the files (``PRODUCT_FILES_ACCEL_REDIRECT_PREFIX`` is set): the
-Nginx worker runs in the group (``www-data``) and must be able to open them.
+Nginx worker must be able to open them, never write them, and other users get nothing.
+
+How the Nginx worker gets read access (Batch 15.1): the server grants it on the storage
+folder, either with a default ACL (``setfacl -d -m u:www-data:rX``) or by giving the
+folder the Nginx group with the setgid bit. Both only apply to files *created* in that
+folder. A file renamed into place from the temp area keeps the temp area's (empty) ACL
+and group, which is how an upload ended up ``0640 tpa-staging:tpa-staging`` and
+unreadable by ``www-data``. So when Nginx delivers files, ``commit`` always writes the
+final file inside its destination folder (then renames it within that folder), and the
+file inherits the folder's ACL and group; ``chmod 0640`` then sets the ACL mask to read
+only. Nothing is ever world-readable and Nginx never gets write access.
 
 ``local`` is used in development and on the VPS. ``s3`` remains an adapter slot
 that is not activated; primary storage stays on the server's own disk.
@@ -76,9 +86,15 @@ class LocalPrivateFileStorage:
         self.dir_mode = 0o750 if group_readable else 0o700
         self.file_mode = 0o640 if group_readable else 0o600
 
+    def _chmod_dir(self, path: Path) -> None:
+        """Set the folder mode, keeping a setgid bit the server set (new files then get
+        the folder's group, e.g. the Nginx group)."""
+        keep = path.stat().st_mode & 0o2000 if self.group_readable else 0
+        os.chmod(path, self.dir_mode | keep)
+
     def _ensure_root(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
-        os.chmod(self.root, self.dir_mode)
+        self._chmod_dir(self.root)
 
     def _ensure_temp(self) -> None:
         self.temp_root.mkdir(parents=True, exist_ok=True)
@@ -92,7 +108,7 @@ class LocalPrivateFileStorage:
         for name in CATEGORIES:
             folder = self.root / name
             folder.mkdir(exist_ok=True)
-            os.chmod(folder, self.dir_mode)
+            self._chmod_dir(folder)
             created.append(folder)
         return [self.root, self.temp_root, *created]
 
@@ -149,34 +165,76 @@ class LocalPrivateFileStorage:
     def commit(self, tmp: Path, key: str) -> None:
         """Move a validated temporary file to its final key, atomically.
 
-        Same filesystem: one rename. Otherwise (temp area on another disk) the file is
-        copied next to its destination first and then renamed, so a partial file is
-        never visible under the final key.
+        Owner-only storage on the same filesystem: one rename. When Nginx delivers the
+        files (``group_readable``), or the temp area is on another disk, the file is
+        copied into a new file next to its destination and then renamed, so it inherits
+        the destination folder's default ACL and group, and a partial file is never
+        visible under the final key.
         """
         final = self.path(key)
         final.parent.mkdir(parents=True, exist_ok=True)
         for parent in [final.parent, *final.parent.parents]:
             if parent == self.root:
                 break
-            os.chmod(parent, self.dir_mode)
+            self._chmod_dir(parent)
         os.chmod(tmp, self.file_mode)
+        if self.group_readable:
+            # Must be created in its folder to get the Nginx reader's access (see above).
+            self._copy_into_place(tmp, final)
+            return
         try:
             os.replace(tmp, final)
         except OSError as exc:
             if exc.errno != errno.EXDEV:
                 raise
-            fd, staging = tempfile.mkstemp(dir=final.parent, prefix=".commit-")
+            self._copy_into_place(tmp, final)
+
+    def _copy_into_place(self, tmp: Path, final: Path) -> None:
+        """Copy into a new file in the destination folder, then rename it over the key.
+
+        A file created in the folder inherits its default ACL and (setgid) group; the
+        rename within the folder keeps them and is atomic."""
+        fd, staging = tempfile.mkstemp(dir=final.parent, prefix=".commit-")
+        try:
+            with os.fdopen(fd, "wb") as out, open(tmp, "rb") as src:
+                shutil.copyfileobj(src, out, CHUNK)
+                out.flush()
+                os.fsync(out.fileno())
+            os.chmod(staging, self.file_mode)  # 0640: the ACL mask becomes read-only
+            os.replace(staging, final)
+        except BaseException:
+            Path(staging).unlink(missing_ok=True)
+            raise
+        Path(tmp).unlink(missing_ok=True)
+
+    def files_without_folder_access(self, limit: int = 1000) -> list[str]:
+        """Stored files that did not get the access the storage folder grants new files.
+
+        When the root has a default ACL, every file should carry an access ACL; when the
+        root is setgid, every file should have the root's group. Files committed before
+        Batch 15.1 (renamed in from the temp area) can miss both, and Nginx cannot read
+        them. Returns their keys (an empty list when the folder grants nothing, or on
+        systems without ACL support)."""
+        try:
+            root_stat = self.root.stat()
+        except OSError:
+            return []
+        default_acl = _has_xattr(self.root, "system.posix_acl_default")
+        setgid = bool(root_stat.st_mode & 0o2000)
+        if not default_acl and not setgid:
+            return []
+        found = []
+        for key in self.iter_keys(limit):
+            path = self.root / key
             try:
-                with os.fdopen(fd, "wb") as out, open(tmp, "rb") as src:
-                    shutil.copyfileobj(src, out, CHUNK)
-                    out.flush()
-                    os.fsync(out.fileno())
-                os.chmod(staging, self.file_mode)
-                os.replace(staging, final)
-            except BaseException:
-                Path(staging).unlink(missing_ok=True)
-                raise
-            Path(tmp).unlink(missing_ok=True)
+                st = path.stat()
+            except OSError:
+                continue
+            if (default_acl and not _has_xattr(path, "system.posix_acl_access")) or (
+                setgid and st.st_gid != root_stat.st_gid
+            ):
+                found.append(key)
+        return found
 
     @staticmethod
     def discard(tmp: Path) -> None:
@@ -239,6 +297,14 @@ class LocalPrivateFileStorage:
             except OSError:
                 continue
         return removed
+
+
+def _has_xattr(path: Path, name: str) -> bool:
+    try:
+        os.getxattr(path, name)
+        return True
+    except (OSError, AttributeError):  # no such attribute, no ACL support, not Linux
+        return False
 
 
 class S3PrivateFileStorage:  # pragma: no cover - adapter slot, not activated

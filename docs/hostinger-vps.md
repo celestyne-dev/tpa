@@ -121,6 +121,16 @@ All paths come from environment variables; this is the recommended layout:
   the Nginx group (`www-data`) and by nobody else. When
   `PRODUCT_FILES_ACCEL_REDIRECT_PREFIX` is set the app creates files `0640` and folders
   `0750`; otherwise `0600`/`0700`.
+- **How Nginx gets read access (Batch 15.1).** Give the Nginx user read access on the
+  storage folder with a default ACL (`setfacl -R -m u:www-data:rX` and
+  `setfacl -R -d -m u:www-data:rX` on `PRODUCT_FILES_ROOT`), or give the folder the Nginx
+  group with the setgid bit. Either applies only to files *created* in the folder, so the
+  app writes every new file inside its destination folder (not renamed in from the temp
+  area) and it inherits that access; `0640` keeps the ACL read-only, and the app keeps a
+  setgid bit when it sets folder modes. Nothing is world-readable and Nginx never gets
+  write access. Files stored before this change may lack the access: **Storage health**
+  (`/admin/storage`, `flask storage check`) lists them as `resources_files_unreadable`,
+  and `setfacl -m u:www-data:r <file>` fixes each.
 - **Temporary uploads** must be on the same disk as the storage folders so finished
   files are moved into place with an atomic rename (the code also handles a different
   disk safely, by copying next to the destination first).

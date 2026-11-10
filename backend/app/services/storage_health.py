@@ -279,6 +279,18 @@ def report(*, integrity: bool = True) -> dict[str, Any]:
                     f"{area['label']} are stored.",
                 )
 
+    if accel and hasattr(private, "files_without_folder_access"):
+        unreadable = private.files_without_folder_access()
+        if unreadable:
+            warn(
+                "critical",
+                "resources_files_unreadable",
+                f"{len(unreadable)} premium file(s) did not get the read access the storage "
+                "folder gives Nginx (its default ACL or group), so their downloads fail. "
+                "Grant read access to each, e.g. `setfacl -m u:www-data:r <file>` "
+                f"(first: {unreadable[0]}). Files uploaded from now on get it automatically.",
+            )
+
     stale = private.stale_temp_files(cfg["UPLOAD_TEMP_MAX_AGE_HOURS"])
     if stale:
         warn(
