@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { byline } from "@/components/articles/ArticleCard";
+import { withoutRepeats } from "@/components/layout/MobileNav";
 import { groupIsActive } from "@/components/layout/NavDropdown";
 import { resourceLinks } from "@/components/products/ResourcesNav";
 import { SectionList } from "@/components/sections/SectionList";
@@ -98,6 +99,18 @@ describe("navigation helpers", () => {
       "/free-resources",
       "/account/library",
     ]);
+  });
+
+  it("shows a link repeated across groups once in the mobile menu", () => {
+    const all = href("All articles", "/articles");
+    const items = withoutRepeats([
+      { label: "Mindset", children: [href("Positive", "/topics/positive-mindset"), all] },
+      { label: "Wellbeing", children: [href("Calm", "/topics/calm"), all] },
+      href("Newsletter", "/newsletter"),
+    ]);
+    expect(items[0].children.map((c) => c.label)).toEqual(["Positive", "All articles"]);
+    expect(items[1].children.map((c) => c.label)).toEqual(["Calm"]);
+    expect(items[2]).toEqual(href("Newsletter", "/newsletter"));
   });
 
   it("names the writer on cards, but not the site-name fallback", () => {

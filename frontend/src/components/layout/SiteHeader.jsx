@@ -21,7 +21,9 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-charcoal/[0.07] bg-ivory/90 backdrop-blur-md supports-[backdrop-filter]:bg-ivory/80">
       <Container size="wide" className="flex h-20 items-center justify-between gap-6">
-        <Logo />
+        <div className="xl:shrink-0">
+          <Logo />
+        </div>
         {/* Full menu from 1280px; narrower screens use the menu button, so the topic groups,
             search, account and newsletter button never crowd or wrap. */}
         <nav aria-label="Main" className="hidden xl:block">

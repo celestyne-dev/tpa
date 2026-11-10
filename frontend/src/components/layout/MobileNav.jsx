@@ -10,12 +10,30 @@ import { MobileAccountLinks } from "./MobileAccountLinks";
 import { fetchTopics } from "@/store/slices/topicsSlice";
 import { NavItem } from "./NavItem";
 
+/**
+ * In the long, fully expanded mobile list a link repeated in several groups (each topic
+ * group's "All articles") is shown once, in the first group that has it.
+ */
+export function withoutRepeats(items) {
+  const seen = new Set();
+  return items.map((item) => {
+    if (!item.children) return item;
+    const children = item.children.filter((child) => {
+      const key = `${child.href}|${child.label}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return { ...item, children };
+  });
+}
+
 /** Accessible mobile navigation dialog: focus trap, Escape to close, focus restore, scroll lock. */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const { mobile } = useNavigation();
   const cta = useHeaderCta();
-  const items = mobile.filter((item) => item.visibility !== "desktop");
+  const items = withoutRepeats(mobile.filter((item) => item.visibility !== "desktop"));
   const { pathname } = useLocation();
   const panelId = useId();
   const triggerRef = useRef(null);

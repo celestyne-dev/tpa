@@ -80,7 +80,7 @@ export function NavDropdown({ item }) {
           setOpen((v) => !v);
         }}
         className={cn(
-          "inline-flex items-center gap-1 rounded-md px-1 py-2 text-[0.95rem] font-medium text-ink transition-colors hover:text-sage-700",
+          "inline-flex items-center gap-1 rounded-md px-1 py-2 text-[0.95rem] font-medium whitespace-nowrap text-ink transition-colors hover:text-sage-700",
           active &&
             "text-sage-800 underline decoration-gold-400 decoration-2 underline-offset-[10px]",
         )}
@@ -94,7 +94,7 @@ export function NavDropdown({ item }) {
       <ul
         id={id}
         hidden={!open}
-        className="absolute top-full left-1/2 z-50 mt-3 min-w-56 -translate-x-1/2 rounded-2xl border border-charcoal/[0.08] bg-ivory p-2 shadow-lift"
+        className="absolute top-full left-1/2 z-50 mt-3 w-max max-w-xs min-w-56 -translate-x-1/2 rounded-2xl border border-charcoal/[0.08] bg-ivory p-2 shadow-lift"
       >
         {item.children.map((child) => (
           <li key={`${child.href}-${child.label}`}>
