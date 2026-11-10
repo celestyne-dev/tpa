@@ -7,11 +7,11 @@ Flask-Migrate==4.1.0
 Flask-JWT-Extended==4.7.4
 PyJWT==2.15.1
 Flask-Limiter==4.1.1
-SQLAlchemy==2.1.6
+SQLAlchemy==2.1.8
 alembic==1.20.1
-marshmallow==4.3.1
+marshmallow==4.4.0
 python-dotenv==1.2.4
-psycopg[binary]==3.3.6
+psycopg[binary]==3.3.8
 gunicorn==26.2.0
 pillow==13.0.0
 redis==6.2.0  # shared rate-limit storage for several Gunicorn workers (RATELIMIT_STORAGE_URI)
