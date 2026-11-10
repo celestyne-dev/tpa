@@ -295,7 +295,7 @@ def test_navigation_management(seeded, as_role, client):
     assert [g["title"] for g in nav["footer"]] == [
         "Explore",
         "Resources",
-        "Company",
+        "About",
         "Legal",
     ]
     assert api.put("/api/v1/admin/navigation/sidebar", {"items": []}).status_code == 404

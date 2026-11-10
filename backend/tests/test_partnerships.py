@@ -557,8 +557,13 @@ def test_affiliate_disclosure_is_enforced_and_rendered_with_recommendations(seed
         assert (
             data["links"][0]["sponsored"] is True and data["links"][0]["note"] == "We use it daily"
         )
+        # A section with no live link is allowed (a page template starts that way) and is
+        # simply hidden: nothing is rendered without a link.
         _, errors, _ = check_section("affiliate_recommendations", "cards", {"links": []})
-        assert any("links" in k for k in errors)
+        assert not errors
+        empty = {"links": []}
+        _computed(_Loader(), "affiliate_recommendations", empty, empty, {})
+        assert empty["links"] == []
 
 
 def test_commission_import_detects_duplicates_and_validates(seeded, as_role):

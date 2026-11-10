@@ -350,7 +350,7 @@ def public_links(ids: list[int]) -> list[dict[str, Any]]:
         {
             "id": link.id,
             "name": link.name,
-            "merchant": link.merchant,
+            "merchant": link.merchant or (link.program.merchant if link.program else ""),
             "href": f"/api/v1/go/{link.slug}",
             "sponsored": True,
         }

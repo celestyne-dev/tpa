@@ -6,14 +6,20 @@ from typing import Any
 
 from sqlalchemy import select
 
-from ..cms.defaults import DEFAULT_MENUS
+from ..cms.defaults import DEFAULT_MENUS, TOPIC_GROUPS, TOPICS_PER_GROUP
 from ..extensions import db
 from ..models import NavigationItem, NavigationMenu, User
 from ..utils.errors import NotFoundError, ValidationError
 from ..utils.validation import is_https_url, is_internal_path, plain_text_problem
 from . import audit_service
 from .publication_service import record_public_change
-from .topic_links import TopicLinkResolver, default_topic_links, topic_slug
+from .topic_links import (
+    TopicLinkResolver,
+    default_topic_links,
+    group_anchor,
+    grouped_topic_links,
+    topic_slug,
+)
 
 MAX_ITEMS = 40
 VISIBILITY = ("all", "desktop", "mobile")
@@ -48,6 +54,9 @@ def _tree_from_db(menu: NavigationMenu, *, visible_only: bool) -> list[dict[str,
     return build(None)
 
 
+ALL_ARTICLES = {"label": "All articles", "url": "/articles"}
+
+
 def _tree_from_defaults(key: str) -> list[dict[str, Any]]:
     def norm(item: dict[str, Any], top: bool) -> dict[str, Any]:
         node = {
@@ -62,10 +71,25 @@ def _tree_from_defaults(key: str) -> list[dict[str, Any]]:
             children = list(item.get("children", []))
             if item.get("topic_links"):
                 children += default_topic_links(item["topic_links"])
+            if item.get("topic_group") and groups[item["topic_group"]]:
+                children += [*groups[item["topic_group"]], ALL_ARTICLES]
+            if item.get("group_links"):
+                children += [
+                    {"label": label, "url": f"/topics#{group_anchor(label)}"}
+                    for label, _k in TOPIC_GROUPS
+                    if groups[label]
+                ]
             node["children"] = [norm(c, False) for c in children]
         return node
 
-    return [norm(i, True) for i in DEFAULT_MENUS[key]["items"]]
+    groups = grouped_topic_links(TOPIC_GROUPS, TOPICS_PER_GROUP)
+    items = [norm(i, True) for i in DEFAULT_MENUS[key]["items"]]
+    # A topic group with no matching topics is left out rather than shown empty.
+    return [
+        i
+        for i, spec in zip(items, DEFAULT_MENUS[key]["items"], strict=True)
+        if not (spec.get("topic_group") and not i["children"])
+    ]
 
 
 def menu_tree(key: str, *, visible_only: bool = True) -> list[dict[str, Any]]:
@@ -117,10 +141,48 @@ def _path_only(url: str | None) -> str | None:
     return url.split("#", 1)[0].split("?", 1)[0].rstrip("/") or "/"
 
 
+# App pages that answer without a CMS record (and aren't in the sitemap), so links to them
+# are never treated as missing.
+APP_PREFIXES = (
+    "/search",
+    "/articles/page/",
+    "/authors/",
+    "/account",
+    "/learn",
+    "/certificates/",
+    "/newsletter/",
+    "/resources/access",
+    "/checkout",
+    "/verify-email",
+    "/forgot-password",
+    "/reset-password",
+    "/admin",
+)
+
+
+def _unavailable_paths():
+    """A check for internal menu links that lead nowhere yet (an unpublished CMS page, a
+    removed article); links into the app's own pages always count as available."""
+    from .seo_service import _known_paths, broken_links
+
+    known = _known_paths()
+
+    def check(url: str | None) -> bool:
+        path = _path_only(url)
+        if path is None or path == "/" or topic_slug(url):
+            return False  # external, home, or a topic link (handled by the topic resolver)
+        if any(path == p.rstrip("/") or path.startswith(p) for p in APP_PREFIXES):
+            return False
+        return bool(broken_links([path], known))
+
+    return check
+
+
 def public_navigation() -> dict[str, Any]:
     hidden = hidden_prefixes()
     topics = TopicLinkResolver()
     drafts = unpublished_policy_paths()
+    unavailable = _unavailable_paths()
 
     def shown(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         out = []
@@ -129,6 +191,9 @@ def public_navigation() -> dict[str, Any]:
                 continue
             if _path_only(n.get("url")) in drafts:
                 # A policy that is still a built-in draft is not advertised in the menus.
+                continue
+            if n["link_type"] == "internal" and unavailable(n.get("url")):
+                # Only valid destinations: e.g. a page that hasn't been published yet.
                 continue
             if n["link_type"] == "internal" and topic_slug(n.get("url")):
                 # A topic that was renamed is linked at its new address; a topic that does
@@ -228,6 +293,9 @@ def admin_menus() -> list[dict[str, Any]]:
                 "is_default": _menu(key) is None,
                 "allows_groups": spec.get("allows_groups", False),
                 "items": items,
+                # The recommended structure from the defaults, built from today's topics:
+                # the editor can load it for review; nothing changes until it is saved.
+                "recommended": _tree_from_defaults(key),
                 "warnings": link_warnings(items),
             }
         )

@@ -462,6 +462,90 @@ def _revised_privacy_template() -> dict[str, Any]:
     return template
 
 
+def _recommended_template() -> dict[str, Any]:
+    """Recommended Books & Tools (Batch 14): external affiliate recommendations, grouped by
+    category. Each group is an "Affiliate recommendations" section that uses the affiliate
+    links managed in Admin › Partnerships, so links always go through /go/<slug>, are marked
+    rel="sponsored" and carry the affiliate disclosure. Nothing here is downloadable, and a
+    group with no live link is hidden."""
+
+    def group(name: str, heading: str, description: str, background: str) -> dict[str, Any]:
+        return _s(
+            "affiliate_recommendations",
+            name,
+            "cards",
+            {"heading": heading, "description": description, "links": [], "items": []},
+            {"background": background, "spacing": "md"},
+        )
+
+    return {
+        "label": "Recommended Books & Tools",
+        "description": (
+            "External books and tools we recommend, grouped by category, with product images, "
+            "notes, the merchant and the affiliate disclosure. Choose links from Admin › "
+            "Partnerships › Affiliate links in each group; empty groups stay hidden. Publish "
+            "it at /recommended to show it in the Resources menu."
+        ),
+        "slug": "recommended",
+        "meta_description": (
+            "Books, journals and tools we recommend for a calmer, more positive life, with a "
+            "clear note on how affiliate links support Think Positive Always."
+        ),
+        "sections": [
+            _s(
+                "page_header",
+                "Page header",
+                "default",
+                {
+                    "eyebrow": "Resources",
+                    "intro": (
+                        "Books, journals and tools we have found genuinely helpful. These are "
+                        "external products sold by other companies, not downloads from this "
+                        "website."
+                    ),
+                },
+            ),
+            group(
+                "Books",
+                "Books",
+                "Reads on mindset, wellbeing, relationships and growth.",
+                "ivory",
+            ),
+            group(
+                "Journals & planners",
+                "Journals & planners",
+                "Paper tools for reflection, gratitude and planning.",
+                "cream",
+            ),
+            group(
+                "Apps & tools",
+                "Apps & tools",
+                "Apps and everyday tools that support healthy routines.",
+                "ivory",
+            ),
+            _s(
+                "rich_text",
+                "How we choose",
+                "narrow",
+                {
+                    "body": [
+                        {"type": "heading", "level": 2, "text": "How we choose"},
+                        {
+                            "type": "paragraph",
+                            "text": (
+                                "We only recommend things we believe are useful. Some links "
+                                "are affiliate links: if you buy through them we may earn a "
+                                "commission, at no extra cost to you. Read our "
+                                "[Affiliate Disclosure](/affiliate-disclosure)."
+                            ),
+                        },
+                    ]
+                },
+            ),
+        ],
+    }
+
+
 PAGE_TEMPLATES: dict[str, dict[str, Any]] = {
     "standard": {
         "label": "Standard content page",
@@ -703,4 +787,5 @@ PAGE_TEMPLATES: dict[str, dict[str, Any]] = {
     "contact": _contact_template(),
     "partner_with_us": _partner_template(),
     "advertise": _advertise_template(),
+    "recommended_books_tools": _recommended_template(),
 }

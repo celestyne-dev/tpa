@@ -169,3 +169,43 @@ def fix_topic_slug(old_slug: str, new_slug: str, actor: User | None = None) -> d
         "redirect_added": added,
         "links_updated": links,
     }
+
+
+# ---- topic groups for the recommended navigation (Batch 14) -----------------------------
+
+
+def group_anchor(label: str) -> str:
+    """The anchor of a navigation group on /topics: "Career & Growth" -> "career-growth"."""
+    return re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+
+
+def _normalise(text: str) -> str:
+    return " " + re.sub(r"[^a-z0-9]+", " ", text.lower()).strip() + " "
+
+
+def grouped_topic_links(
+    groups: list[tuple[str, tuple[str, ...]]], limit: int
+) -> dict[str, list[dict[str, Any]]]:
+    """Sort the existing active topics into the navigation groups by name.
+
+    Each topic goes into the first group with a matching keyword (so it is listed once),
+    featured topics first, then the admin's order. Only topics with published articles are
+    placed, so the menus never lead to an empty topic. Nothing is created: a topic that
+    matches no group is simply not placed (the admin can add it), and a group with no
+    matching topic stays empty.
+    """
+    from .topic_service import list_topics
+
+    topics = sorted(
+        (t for t in list_topics() if t.get("article_count")),
+        key=lambda t: not t.get("featured"),
+    )
+    out: dict[str, list[dict[str, Any]]] = {label: [] for label, _ in groups}
+    for topic in topics:
+        text = _normalise(f"{topic['name']} {topic['slug']}")
+        for label, keywords in groups:
+            if any(_normalise(k) in text for k in keywords):
+                if len(out[label]) < limit:
+                    out[label].append({"label": topic["name"], "url": topic_path(topic["slug"])})
+                break
+    return out

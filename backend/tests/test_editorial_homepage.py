@@ -17,15 +17,18 @@ from app.models import AnalyticsDailyPage, Article
 from .test_commerce_catalogue import PRODUCTS, _create, _sellable, _upload
 from .test_page_builder import HOMEPAGE, PAGES, _public_home, _save, _sections_payload
 
+# The content-first homepage (Batch 14). "Featured digital products" (product_previews)
+# is in the layout too but stays off the live site while the shop is switched off.
 EDITORIAL_ORDER = [
+    "hero",
     "featured_articles",
-    "latest_articles",
     "topics_grid",
-    "newsletter_cta",
     "popular_articles",
+    "newsletter_cta",
+    "latest_articles",
     "resource_showcase",
-    "article_collection",
-    "quote",
+    "topic_articles",
+    "brand_intro",
 ]
 
 
@@ -77,6 +80,10 @@ def test_default_homepage_is_the_editorial_layout_without_duplicates(seeded, cli
     sections = _public_home(client)["sections"]
     assert [s["type"] for s in sections] == EDITORIAL_ORDER
     by_type = {s["type"]: s for s in sections}
+    # A compact introduction that keeps the headline.
+    intro = by_type["hero"]
+    assert intro["data"]["heading"] == "A Better Mindset. A Brighter Life."
+    assert intro["design"]["spacing"] == "sm"
     featured = by_type["featured_articles"]
     assert featured["variant"] == "lead_with_two"
     assert 1 <= len(featured["data"]["articles"]) <= 3  # a lead and two stories alongside
@@ -95,14 +102,15 @@ def test_default_homepage_is_the_editorial_layout_without_duplicates(seeded, cli
     if popular["articles"]:
         assert popular["fallback"] is True and popular["heading"] == "Editor's picks"
     else:
-        assert popular["heading"] == "Most read"
-    # Nothing hardcoded: empty good-news picks and no available resources are empty
-    # (the website hides empty sections).
-    assert by_type["article_collection"]["data"]["articles"] == []
-    assert by_type["article_collection"]["data"]["heading"] == "Real stories of hope and change"
+        assert popular["heading"] == "Trending this month"
+    # Nothing hardcoded: no available resources is an empty list (the website hides it).
     assert by_type["resource_showcase"]["data"]["resources"] == []
-    reflection = by_type["quote"]["data"]
-    assert reflection["quote"] and not reflection.get("attribution")  # not a quotation
+    # Topics: only topics with published articles; rows by topic never repeat a story.
+    assert all(t["article_count"] > 0 for t in by_type["topics_grid"]["data"]["topics"])
+    for group in by_type["topic_articles"]["data"]["groups"]:
+        assert group["articles"] and not set(_slugs(group["articles"])) & set(shown)
+    # The community section never shows an unverified figure.
+    assert by_type["brand_intro"]["data"]["heading"] == "Encouragement for real life"
 
 
 def test_latest_articles_keep_their_old_behaviour_unless_deduplication_is_on(
@@ -120,6 +128,19 @@ def test_latest_articles_keep_their_old_behaviour_unless_deduplication_is_on(
 
 def test_editors_picks_follow_the_chosen_order_and_skip_unpublished(seeded, as_role, client):
     api = as_role("website_manager")
+    # A "good news" collection is no longer in the default layout: add one, as an editor would.
+    home = api.get(HOMEPAGE).get_json()["data"]
+    _publish_home(
+        api,
+        _sections_payload(home)
+        + [
+            {
+                "section_type": "article_collection",
+                "variant": "grid_3",
+                "content": {"heading": "Real stories of hope and change", "articles": []},
+            }
+        ],
+    )
     with seeded.app_context():
         a, b, c = list(
             db.session.scalars(
@@ -127,7 +148,8 @@ def test_editors_picks_follow_the_chosen_order_and_skip_unpublished(seeded, as_r
             )
         )[:3]
         picks, expected = [c.id, a.id, b.id], [c.slug, a.slug]
-    _edit_section(api, "good-news", articles=picks)
+    good_news = api.get(HOMEPAGE).get_json()["data"]["sections"][-1]["key"]
+    _edit_section(api, good_news, articles=picks)
     with seeded.app_context():
         db.session.get(Article, picks[2]).status = "draft"  # unpublished after being picked
         db.session.commit()
@@ -167,7 +189,8 @@ def test_popular_articles_come_from_aggregate_statistics_only(seeded, as_role, c
         db.session.commit()
     manager = as_role("website_manager")
     section = _by_type(client)["popular_articles"]
-    assert section["data"]["fallback"] is False and section["data"]["heading"] == "Most read"
+    assert section["data"]["fallback"] is False
+    assert section["data"]["heading"] == "Trending this month"
     assert _slugs(section["data"]["articles"]) == expected
     assert "views" not in str(section) and "visitors" not in str(section)
     _edit_section(manager, "most-read", period="90")
@@ -271,16 +294,10 @@ def test_shop_and_courses_are_left_out_until_switched_on(seeded, as_role, client
     urls = _nav_urls(client)
     assert "/free-resources" in urls and "/resources" in urls
     assert not [u for u in urls if re.match(r"^/(shop|cart|courses)(/|$)", u)]
-    # A shop promotion section is hidden on the website (shown in previews with a note).
+    # The homepage's digital-products section is hidden on the website (shown in
+    # previews with a note).
     home = api.get(HOMEPAGE).get_json()["data"]
-    sections = _sections_payload(home) + [
-        {
-            "section_type": "product_previews",
-            "variant": "grid",
-            "content": {"heading": "From the shop", "count": 3},
-        }
-    ]
-    _publish_home(api, sections)
+    assert "product_previews" in [s["section_type"] for s in home["sections"]]
     assert "product_previews" not in _by_type(client)
     preview = api.post(f"{PAGES}/{home['id']}/preview").get_json()["data"]["page"]
     [promo] = [s for s in preview["sections"] if s["type"] == "product_previews"]
@@ -384,11 +401,12 @@ def test_most_read_falls_back_to_named_featured_articles_without_statistics(
     home = _by_type(client)
     section = home["popular_articles"]["data"]
     assert section["fallback"] is True and section["heading"] == "Editor's picks"
-    # The fallback never repeats a story shown above it.
-    above = _slugs(home["featured_articles"]["data"]["articles"]) + _slugs(
-        home["latest_articles"]["data"]["articles"]
-    )
+    # The fallback never repeats a story shown above it, and the latest articles below
+    # leave out what it shows.
+    above = _slugs(home["featured_articles"]["data"]["articles"])
     assert not set(_slugs(section["articles"])) & set(above)
+    below = _slugs(home["latest_articles"]["data"]["articles"])
+    assert not set(_slugs(section["articles"])) & set(below)
     with seeded.app_context():
         featured = set(
             db.session.scalars(
@@ -398,4 +416,4 @@ def test_most_read_falls_back_to_named_featured_articles_without_statistics(
     assert section["articles"] and set(_slugs(section["articles"])) <= featured
     _edit_section(manager, "most-read", fallback="none")
     section = _by_type(client)["popular_articles"]["data"]
-    assert section["articles"] == [] and section["heading"] == "Most read"
+    assert section["articles"] == [] and section["heading"] == "Trending this month"

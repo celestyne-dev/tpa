@@ -860,15 +860,24 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "links": _f(
                 "affiliate_links",
                 "Affiliate links",
-                required=True,
                 max_items=8,
-                help="Only active, unexpired links are shown, in this order.",
+                help=(
+                    "Only active, unexpired links are shown, in this order. The section is "
+                    "hidden while it has no live link."
+                ),
             ),
             "items": _f(
                 "items",
-                "Notes per recommendation (optional, same order)",
+                "Details per recommendation (optional, same order)",
                 max_items=8,
-                fields={"note": textarea("Why we recommend it", 300)},
+                fields={
+                    "category": text("Category label", 60, help="For example: Book, Journal, App."),
+                    "note": textarea("Why we recommend it", 300),
+                    "image": media(
+                        "Product image",
+                        help="A cover or product photo you have the right to use.",
+                    ),
+                },
             ),
         },
         "design": ["background", "spacing"],

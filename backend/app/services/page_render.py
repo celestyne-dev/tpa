@@ -501,10 +501,12 @@ def _computed(
         from .topic_service import list_topics
 
         mode = content.get("mode")
+        # Featured / all: only topics with published articles (an empty topic isn't
+        # promoted); a hand-picked selection is shown as chosen.
         if mode == "featured":
-            data["topics"] = list_topics(featured=True)
+            data["topics"] = [t for t in list_topics(featured=True) if t["article_count"]]
         elif mode == "all":
-            data["topics"] = list_topics()
+            data["topics"] = [t for t in list_topics() if t["article_count"]]
     elif section_type == "product_previews":
         from .commerce.catalogue import products_for_section
 
@@ -547,13 +549,17 @@ def _computed(
         from .partnerships.affiliates import disclosure_text, public_links
 
         links = public_links(content.get("links") or [])
-        notes = {
-            link_id: (item or {}).get("note") or ""
-            for link_id, item in zip(
-                content.get("links") or [], content.get("items") or [], strict=False
-            )
-        }
-        data["links"] = [{**link, "note": notes.get(link["id"], "")} for link in links]
+        details = dict(zip(content.get("links") or [], data.get("items") or [], strict=False))
+        data["links"] = [
+            {
+                **link,
+                "note": (details.get(link["id"]) or {}).get("note") or "",
+                "category": (details.get(link["id"]) or {}).get("category") or "",
+                # Always an external affiliate link (/go/…), never a download.
+                "image": (details.get(link["id"]) or {}).get("image"),
+            }
+            for link in links
+        ]
         data["disclosure"] = disclosure_text()
         data.pop("items", None)
     elif section_type == "media_kit_summary":

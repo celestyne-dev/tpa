@@ -1,9 +1,21 @@
+/** The /topics anchor of a menu group: "Career & Growth" -> "career-growth" (mirrors
+ * topic_links.group_anchor on the server). */
+export function topicGroupAnchor(label) {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export const routes = {
   home: "/",
   articles: "/articles",
   /** Archive page N (page 1 is /articles itself: one URL per page). */
   articlesPage: (page) => (page > 1 ? `/articles/page/${page}` : "/articles"),
   article: (slug) => `/articles/${slug}`,
+  /** All topics, grouped as in the header menu (anchors: topicGroup). */
+  topics: "/topics",
+  topicGroup: (label) => `/topics#${topicGroupAnchor(label)}`,
   topic: (slug) => `/topics/${slug}`,
   topicPage: (slug, page) => (page > 1 ? `/topics/${slug}/page/${page}` : `/topics/${slug}`),
   authors: "/authors",
@@ -173,6 +185,7 @@ export const staticRoutes = [
   { path: routes.home, priority: 1, changefreq: "weekly" },
   { path: routes.articles, priority: 0.9, changefreq: "daily" },
   { path: routes.authors, priority: 0.5, changefreq: "weekly" },
+  { path: routes.topics, priority: 0.7, changefreq: "weekly" },
   { path: routes.shop, priority: 0.8, changefreq: "weekly" },
   { path: routes.freeResources, priority: 0.8, changefreq: "monthly" },
   { path: routes.resources, priority: 0.8, changefreq: "weekly" },

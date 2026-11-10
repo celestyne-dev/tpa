@@ -1,24 +1,112 @@
 """Default navigation, homepage and article-sidebar sections.
 
-HOME_SECTIONS is the editorial homepage (lead story with two featured stories, latest,
-topics, newsletter, most read, resources, good news, a short reflection): editable CMS
-sections that read live articles, topics and resources. Nothing is hardcoded content.
+HOME_SECTIONS is the content-first homepage (Batch 14): a compact introduction, featured
+stories, topics, trending (real reading statistics, or editor's picks), the newsletter,
+latest articles, free resources, digital products, articles by topic and a community
+section. All are editable CMS sections that read live articles, topics and products.
 """
 
-# A default menu group with "topic_links": N lists up to N real topics after its own links
-# (featured topics first, then the admin's display order).
+# The recommended, content-first navigation (Batch 14). Nothing here is a topic: each
+# group lists the site's own active topics whose names match its keywords
+# (topic_links.grouped_topic_links), so it follows whatever topics the editors create and
+# rename. Saved menus are never changed; Admin › Navigation offers this structure as
+# "Use the recommended structure", which loads it into the editor for review.
+TOPIC_GROUPS: list[tuple[str, tuple[str, ...]]] = [
+    (
+        "Mindset",
+        (
+            "mindset",
+            "positive",
+            "positivity",
+            "confidence",
+            "self worth",
+            "affirmation",
+            "affirmations",
+            "motivation",
+            "inspiration",
+            "personal growth",
+            "gratitude",
+            "optimism",
+        ),
+    ),
+    (
+        "Wellbeing",
+        (
+            "wellbeing",
+            "well being",
+            "mental",
+            "resilience",
+            "hard days",
+            "self care",
+            "emotional",
+            "balance",
+            "mindfulness",
+            "calm",
+            "starting over",
+            "healing",
+        ),
+    ),
+    (
+        "Relationships",
+        (
+            "relationships",
+            "relationship",
+            "connection",
+            "boundaries",
+            "communication",
+            "love",
+            "friendship",
+            "family",
+        ),
+    ),
+    (
+        "Career & Growth",
+        (
+            "career",
+            "purpose",
+            "work",
+            "workplace",
+            "productivity",
+            "routines",
+            "habits",
+            "personal development",
+            "leadership",
+            "goals",
+            "intentional living",
+        ),
+    ),
+]
+TOPICS_PER_GROUP = 6
+
+# A group with "topic_group": label lists the matching topics, then "All articles" (and is
+# left out when no topic matches); "group_links": True lists a link to each topic group on
+# /topics. These are only starting points: Admin › Navigation saves editable copies.
 DEFAULT_MENUS = {
     "primary": {
         "name": "Header navigation",
         "allows_groups": True,
         "items": [
-            {"label": "Articles", "url": "/articles"},
-            # Topic links come from the topics that exist (see TOPIC_LINKS below), never
-            # from slugs written here: topics are created and renamed in the admin.
-            {"label": "Topics", "link_type": "heading", "topic_links": 3, "children": []},
-            {"label": "Resources", "url": "/resources"},
+            # Each topic group ends with an "All articles" link, so the archive is one
+            # click away from every menu.
+            *[
+                {"label": label, "link_type": "heading", "topic_group": label, "children": []}
+                for label, _keywords in TOPIC_GROUPS
+            ],
+            {
+                "label": "Resources",
+                "link_type": "heading",
+                "children": [
+                    {"label": "All Resources", "url": "/resources"},
+                    {"label": "Free Downloads", "url": "/free-resources"},
+                    # Left out while "Show the shop" is off (Settings › Website sections).
+                    {"label": "Premium Resources", "url": "/shop"},
+                    # Shown once the Recommended Books & Tools page is published.
+                    {"label": "Recommended Books & Tools", "url": "/recommended"},
+                    {"label": "My Library", "url": "/account/library"},
+                ],
+            },
+            # On wide screens the header's Newsletter button stands in for this link.
             {"label": "Newsletter", "url": "/newsletter"},
-            {"label": "About", "url": "/about"},
         ],
     },
     "mobile": {
@@ -35,33 +123,27 @@ DEFAULT_MENUS = {
             {
                 "label": "Explore",
                 "link_type": "heading",
-                "children": [
-                    {"label": "Home", "url": "/"},
-                    {"label": "Articles", "url": "/articles"},
-                    {"label": "Authors", "url": "/authors"},
-                    {"label": "Search", "url": "/search"},
-                ],
-                "topic_links": 3,
+                "children": [{"label": "Articles", "url": "/articles"}],
+                "group_links": True,
             },
             {
                 "label": "Resources",
                 "link_type": "heading",
                 "children": [
-                    {"label": "Free Resources", "url": "/free-resources"},
                     {"label": "Resource Library", "url": "/resources"},
-                    # Left out of the website while "Show the shop/courses" are off.
-                    {"label": "Shop", "url": "/shop"},
-                    {"label": "Courses", "url": "/courses"},
-                    {"label": "The Positive Reset Newsletter", "url": "/newsletter"},
+                    {"label": "Free Resources", "url": "/free-resources"},
+                    {"label": "Premium Resources", "url": "/shop"},
+                    {"label": "Recommended Books & Tools", "url": "/recommended"},
                 ],
             },
             {
-                "label": "Company",
+                "label": "About",
                 "link_type": "heading",
                 "children": [
-                    {"label": "About", "url": "/about"},
+                    {"label": "Our Story", "url": "/about"},
                     {"label": "Partner With Us", "url": "/partner-with-us"},
                     {"label": "Contact", "url": "/contact"},
+                    {"label": "Newsletter", "url": "/newsletter"},
                 ],
             },
             {
@@ -70,10 +152,10 @@ DEFAULT_MENUS = {
                 "children": [
                     {"label": "Privacy Policy", "url": "/privacy-policy"},
                     {"label": "Terms of Use", "url": "/terms"},
+                    {"label": "Cookie Policy", "url": "/cookie-policy"},
                     {"label": "Affiliate Disclosure", "url": "/affiliate-disclosure"},
                     # Policy pages: each link shows only once its page is published in the
                     # CMS (navigation_service.public_navigation).
-                    {"label": "Cookie Policy", "url": "/cookie-policy"},
                     {"label": "Editorial Policy", "url": "/editorial-policy"},
                     {"label": "Disclaimer", "url": "/disclaimer"},
                     {"label": "Advertising Policy", "url": "/advertising-policy"},
@@ -103,6 +185,28 @@ def _cta(label: str, url: str, style: str = "") -> dict:
 
 HOME_SECTIONS = [
     {
+        # A compact brand introduction: the headline and two ways in, so readers reach the
+        # stories quickly (small spacing and a smaller heading keep it short).
+        "key": "intro",
+        "name": "Introduction",
+        "section_type": "hero",
+        "variant": "centered",
+        "design": {
+            "background": "ivory",
+            "spacing": "sm",
+            "align": "center",
+            "heading_size": "small",
+        },
+        "content": {
+            "eyebrow": "Think Positive Always",
+            "heading": "A Better Mindset. A Brighter Life.",
+            "body": "Practical, encouraging reading on mindset, wellbeing, relationships and "
+            "growth, for real life.",
+            "primary_cta": _cta("Start reading", "/articles"),
+            "secondary_cta": _cta("Explore topics", "/topics", "outline"),
+        },
+    },
+    {
         "key": "featured",
         "name": "Featured stories",
         "section_type": "featured_articles",
@@ -117,19 +221,6 @@ HOME_SECTIONS = [
         },
     },
     {
-        "key": "latest",
-        "name": "Latest articles",
-        "section_type": "latest_articles",
-        "variant": "grid_3",
-        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
-        "content": {
-            "heading": "Latest articles",
-            "count": 6,
-            "exclude_shown": True,
-            "cta": _cta("View all articles", "/articles", "outline"),
-        },
-    },
-    {
         "key": "topics",
         "name": "Explore by topic",
         "section_type": "topics_grid",
@@ -138,7 +229,28 @@ HOME_SECTIONS = [
         "content": {
             "heading": "Explore by topic",
             "description": "Find encouragement for the part of life you are working on now.",
-            "mode": "all",
+            # Featured topics with published articles (empty topics are left out).
+            "mode": "featured",
+            "cta": _cta("All topics", "/topics", "outline"),
+        },
+    },
+    {
+        "key": "most-read",
+        "name": "Trending articles",
+        "section_type": "popular_articles",
+        "variant": "grid_4",
+        "design": {"background": "ivory", "spacing": "sm", "align": "left"},
+        "content": {
+            # From the site's own reading statistics only; never invented.
+            "heading": "Trending this month",
+            "period": "30",
+            "count": 4,
+            # Real popularity may include a story shown above; the fallback never does.
+            "exclude_shown": False,
+            # Until the site has reading statistics: featured articles, named as such
+            # (never presented as trending).
+            "fallback": "featured",
+            "fallback_heading": "Editor's picks",
         },
     },
     {
@@ -156,60 +268,81 @@ HOME_SECTIONS = [
         },
     },
     {
-        "key": "most-read",
-        "name": "Most read",
-        "section_type": "popular_articles",
-        "variant": "grid_4",
+        "key": "latest",
+        "name": "Latest articles",
+        "section_type": "latest_articles",
+        "variant": "grid_3",
         "design": {"background": "ivory", "spacing": "sm", "align": "left"},
         "content": {
-            "heading": "Most read",
-            "period": "30",
-            "count": 4,
-            # Real popularity may include a story shown above; the fallback never does.
-            "exclude_shown": False,
-            # Until the site has reading statistics: featured articles, named as such.
-            "fallback": "featured",
-            "fallback_heading": "Editor's picks",
+            "heading": "Latest articles",
+            "count": 6,
+            "exclude_shown": True,
+            "cta": _cta("View all articles", "/articles", "outline"),
         },
     },
     {
         "key": "resources",
-        "name": "Resources for your growth",
+        "name": "Free resources",
         "section_type": "resource_showcase",
         "variant": "cards_3",
         "design": {"background": "cream", "spacing": "sm", "align": "left"},
         "content": {
-            "heading": "Resources for your growth",
-            "description": "Practical tools to help you reflect, plan and take the next step.",
-            # Free and premium; premium only while the shop is switched on.
-            "mode": "all",
+            "heading": "Free resources",
+            "description": "Worksheets, guides and planners you can download and use today.",
+            "mode": "free",
             "count": 3,
-            "cta": _cta("Browse all resources", "/resources", "outline"),
+            "cta": _cta("All free resources", "/free-resources", "outline"),
         },
     },
     {
-        "key": "good-news",
-        "name": "Good news & real stories",
-        "section_type": "article_collection",
-        "variant": "grid_3",
+        # Shown only while the shop is switched on and products are published.
+        "key": "products",
+        "name": "Featured digital products",
+        "section_type": "product_previews",
+        "variant": "grid",
         "design": {"background": "ivory", "spacing": "sm", "align": "left"},
-        # Chosen by the editors (hidden until stories are picked): never filled
-        # automatically, so nothing is labelled "good news" or "real" without a person
-        # deciding it is.
         "content": {
-            "eyebrow": "Good news",
-            "heading": "Real stories of hope and change",
-            "articles": [],
+            "heading": "Digital products",
+            "description": "Workbooks, journals and planners to go deeper.",
+            "mode": "featured",
+            "count": 3,
+            "show_prices": True,
+            "cta": _cta("Browse premium resources", "/shop", "outline"),
         },
     },
     {
-        "key": "reflection",
-        "name": "Reflection",
-        "section_type": "quote",
-        "variant": "minimal",
-        "design": {"background": "cream", "spacing": "sm", "align": "center"},
-        # Unattributed: a reflection in Think Positive Always' own words, not a quotation.
-        "content": {"quote": "Small steps, taken consistently, change everything."},
+        # The latest articles from the featured topics, one row per topic with a link to
+        # the topic page; topics without articles are left out.
+        "key": "by-topic",
+        "name": "Articles by topic",
+        "section_type": "topic_articles",
+        "variant": "rows",
+        "design": {"background": "ivory", "spacing": "sm"},
+        "content": {
+            "heading": "More to read by topic",
+            "mode": "featured",
+            "topic_count": 4,
+            "per_topic": 3,
+            "exclude_shown": True,
+        },
+    },
+    {
+        # The community figure comes only from Settings (verified); without it the
+        # section shows the text alone.
+        "key": "community",
+        "name": "Community and about",
+        "section_type": "brand_intro",
+        "variant": "with_stat",
+        "design": {"background": "cream", "spacing": "sm"},
+        "content": {
+            "eyebrow": "Our community",
+            "heading": "Encouragement for real life",
+            "body": "Think Positive Always is an independent publication sharing practical, "
+            "hopeful ideas for thinking clearly, caring for yourself and growing at your own "
+            "pace.",
+            "cta": _cta("Our story", "/about", "outline"),
+            "stat_caption": "people follow Think Positive Always on LinkedIn.",
+        },
     },
 ]
 
