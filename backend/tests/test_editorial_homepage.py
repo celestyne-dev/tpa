@@ -307,6 +307,13 @@ def test_shop_and_courses_are_left_out_until_switched_on(seeded, as_role, client
     assert client.get("/api/v1/site").get_json()["data"]["features"]["shop"] is True
     assert "/shop" in _nav_urls(client) and "/courses" not in _nav_urls(client)
     assert "product_previews" in _by_type(client)
+    # Courses are not in the default menus; an editor's link to them shows only once
+    # courses are switched on.
+    footer = api.get("/api/v1/admin/navigation").get_json()["data"]
+    footer = next(m for m in footer if m["key"] == "footer")["items"]
+    footer[0]["children"].append({"label": "Courses", "url": "/courses"})
+    assert api.put("/api/v1/admin/navigation/footer", {"items": footer}).status_code == 200
+    assert "/courses" not in _nav_urls(client)
     _settings(api, **{"visibility.courses_public": True})
     assert "/courses" in _nav_urls(client)
 

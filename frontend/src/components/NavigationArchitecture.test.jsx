@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { byline } from "@/components/articles/ArticleCard";
@@ -9,6 +10,7 @@ import { SectionList } from "@/components/sections/SectionList";
 import { routes, topicGroupAnchor } from "@/config/navigation";
 import { groupTopics, MORE_TOPICS } from "@/pages/TopicsPage";
 import { routeTable } from "@/routes/routeConfig";
+import { createAppStore } from "@/store";
 import { createFakeAdminApi } from "@/test/adminFake";
 import * as fx from "@/test/fixtures";
 import { createFakeApi, renderApp } from "@/test/utils";
@@ -233,26 +235,33 @@ describe("resources", () => {
     expect(screen.getByText(data.disclosure)).toBeInTheDocument();
   });
 
-  it("hides an empty digital products section on the website", () => {
-    const { container } = render(
-      <MemoryRouter>
-        <SectionList
-          page={{
-            title: "Home",
-            sections: [
-              {
-                key: "p",
-                type: "product_previews",
-                variant: "grid",
-                design: {},
-                data: { heading: "Digital products", products: [] },
-              },
-            ],
-          }}
-        />
-      </MemoryRouter>,
-    );
+  it("hides an empty digital products section on the website, explains it in previews", () => {
+    const page = {
+      title: "Home",
+      sections: [
+        {
+          key: "p",
+          type: "product_previews",
+          variant: "grid",
+          design: {},
+          data: { heading: "Digital products", products: [] },
+        },
+      ],
+    };
+    const store = createAppStore({ api: createFakeApi() });
+    const view = (preview) =>
+      render(
+        <Provider store={store}>
+          <MemoryRouter>
+            <SectionList page={page} preview={preview} />
+          </MemoryRouter>
+        </Provider>,
+      );
+    const { container, unmount } = view(false);
     expect(container.querySelector('[data-section="product_previews"]')).toBeNull();
+    unmount();
+    view(true);
+    expect(screen.getByRole("note")).toHaveTextContent("No published products to show yet.");
   });
 });
 

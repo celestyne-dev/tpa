@@ -420,14 +420,9 @@ def test_collections_categories_and_homepage_showcase(seeded, as_role, client):
 
     home = api.get("/api/v1/admin/homepage").get_json()["data"]
     sections = home["sections"]
-    # The editorial homepage has no shop section by default: add one (previews show it
-    # even while the shop is switched off).
-    showcase = {
-        "section_type": "product_previews",
-        "variant": "grid",
-        "content": {"heading": "Shop"},
-    }
-    sections.append(showcase)
+    # The homepage's "Featured digital products" section (previews show it even while the
+    # shop is switched off).
+    showcase = next(s for s in sections if s["section_type"] == "product_previews")
     showcase["content"].update(mode="manual", products=[second["id"], first["id"]], count=3)
     res = api.put(
         f"/api/v1/admin/pages/{home['id']}/draft",

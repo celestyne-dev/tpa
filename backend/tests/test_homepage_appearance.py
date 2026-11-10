@@ -19,7 +19,7 @@ def _change_appearance(api):
     keys = [s["key"] for s in home["sections"]]
     featured = sections[keys.index("featured")]
     newsletter = sections[keys.index("newsletter")]
-    quote = sections[keys.index("reflection")]
+    quote = sections[keys.index("intro")]
     featured["design"] = {
         **featured["design"],
         "background": "sage_dark",
@@ -49,14 +49,14 @@ def test_appearance_survives_save_and_reload(seeded, as_role, client):
             "align": "center",
         }
         assert _by_key(detail["sections"], "newsletter")["design"]["background"] == "charcoal"
-        quote = _by_key(detail["sections"], "reflection")
+        quote = _by_key(detail["sections"], "intro")
         assert quote["design"]["align"] == "left" and quote["design"]["background"] == "beige"
         assert quote["visibility"]["devices"] == "desktop"
     # Order, content and the other sections' appearance are untouched.
     assert [s["key"] for s in reloaded["sections"]] == [s["key"] for s in before["sections"]]
     for old, new in zip(before["sections"], reloaded["sections"], strict=True):
         assert new["content"] == old["content"] and new["variant"] == old["variant"]
-        if old["key"] not in ("featured", "newsletter", "reflection"):
+        if old["key"] not in ("featured", "newsletter", "intro"):
             assert new["design"] == old["design"]
     # A draft is private: the live homepage keeps its published appearance.
     live = _by_key(_public_home(client)["sections"], "featured")
@@ -73,7 +73,7 @@ def test_preview_and_publish_honour_stored_appearance(seeded, as_role, client):
     assert _by_key(preview, "featured")["design"]["background"] == "sage_dark"
     assert _by_key(preview, "featured")["design"]["card_style"] == "outline"
     assert _by_key(preview, "newsletter")["design"]["background"] == "charcoal"
-    assert _by_key(preview, "reflection")["devices"] == "desktop"
+    assert _by_key(preview, "intro")["devices"] == "desktop"
 
     published = api.post(f"{PAGES}/{home['id']}/publish", {"lock_version": saved["lock_version"]})
     assert published.status_code == 200, published.get_json()
@@ -89,7 +89,7 @@ def test_preview_and_publish_honour_stored_appearance(seeded, as_role, client):
         "align": "center",
     }
     assert _by_key(public, "newsletter")["design"]["background"] == "charcoal"
-    quote = _by_key(public, "reflection")
+    quote = _by_key(public, "intro")
     assert quote["design"]["align"] == "left" and quote["devices"] == "desktop"
     assert [s["key"] for s in public] == [s["key"] for s in preview]
 

@@ -4239,21 +4239,33 @@
         "name": "links",
         "type": "affiliate_links",
         "label": "Affiliate links",
-        "required": true,
         "max_items": 8,
-        "help": "Only active, unexpired links are shown, in this order."
+        "help": "Only active, unexpired links are shown, in this order. The section is hidden while it has no live link."
       },
       {
         "name": "items",
         "type": "items",
-        "label": "Notes per recommendation (optional, same order)",
+        "label": "Details per recommendation (optional, same order)",
         "max_items": 8,
         "fields": [
+          {
+            "name": "category",
+            "type": "text",
+            "label": "Category label",
+            "max": 60,
+            "help": "For example: Book, Journal, App."
+          },
           {
             "name": "note",
             "type": "textarea",
             "label": "Why we recommend it",
             "max": 300
+          },
+          {
+            "name": "image",
+            "type": "media",
+            "label": "Product image",
+            "help": "A cover or product photo you have the right to use."
           }
         ]
       }

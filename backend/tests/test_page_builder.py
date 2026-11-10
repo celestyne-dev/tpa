@@ -24,6 +24,10 @@ def _pending_reasons(app) -> list[str]:
         return [r for job in jobs for r in (job.reasons or [])]
 
 
+# The homepage's introduction (Batch 14): the first section of the default homepage.
+INTRO = "A Better Mindset. A Brighter Life."
+
+
 def _public_home(client):
     return client.get("/api/v1/pages/resolve?path=/").get_json()["data"]
 
@@ -61,12 +65,9 @@ def test_homepage_draft_is_private_until_published(seeded, as_role, client):
     api = as_role("website_manager")
     home = api.get(HOMEPAGE).get_json()["data"]
     assert home["is_home"] and home["status"] == "published" and not home["has_unpublished_changes"]
-    assert [s["section_type"] for s in home["sections"]][:2] == [
-        "featured_articles",
-        "latest_articles",
-    ]
+    assert [s["section_type"] for s in home["sections"]][:2] == ["hero", "featured_articles"]
     public = _public_home(client)
-    assert public["sections"][0]["data"]["heading"] == "Featured stories"
+    assert public["sections"][0]["data"]["heading"] == INTRO
     jobs = _jobs(seeded)
 
     sections = _sections_payload(home)
@@ -76,7 +77,7 @@ def test_homepage_draft_is_private_until_published(seeded, as_role, client):
     draft = saved.get_json()["data"]
     assert draft["has_unpublished_changes"] and draft["lock_version"] == home["lock_version"] + 1
     # Saving a draft changes nothing publicly and queues no rebuild.
-    assert _public_home(client)["sections"][0]["data"]["heading"] == "Featured stories"
+    assert _public_home(client)["sections"][0]["data"]["heading"] == INTRO
     assert _jobs(seeded) == jobs
 
     preview = api.post(f"{PAGES}/{home['id']}/preview").get_json()["data"]["page"]
@@ -101,7 +102,7 @@ def test_unsaved_changes_preview_never_writes(seeded, as_role):
     assert data["page"]["sections"][0]["data"]["heading"] == "Only in the preview"
     again = api.get(HOMEPAGE).get_json()["data"]
     assert again["lock_version"] == home["lock_version"]
-    assert again["sections"][0]["content"]["heading"] == "Featured stories"
+    assert again["sections"][0]["content"]["heading"] == INTRO
 
 
 def test_concurrent_edits_conflict_instead_of_overwriting(seeded, as_role):
@@ -146,7 +147,8 @@ def test_reorder_add_duplicate_hide_and_validation(seeded, as_role, client):
     saved = _save(api, home, sections)
     assert saved.status_code == 200, saved.get_json()
     detail = saved.get_json()["data"]
-    assert detail["sections"][0]["section_type"] == "quote"  # the last default, reversed
+    # The last default section (the community section), now first.
+    assert detail["sections"][0]["section_type"] == "brand_intro"
     assert [s["section_type"] for s in detail["sections"][-2:]] == ["quote", "quote"]
     assert len({s["key"] for s in detail["sections"]}) == len(detail["sections"])
     hidden_key = detail["sections"][1]["key"]
@@ -224,17 +226,17 @@ def test_revisions_restore_into_draft(seeded, as_role, client):
     assert [r["number"] for r in revisions] == [2, 1]
     first = revisions[-1]
     shown = api.get(f"{PAGES}/{home['id']}/revisions/{first['id']}").get_json()["data"]
-    assert shown["sections"][0]["heading"] == "Featured stories"
+    assert shown["sections"][0]["heading"] == INTRO
 
     restored = api.post(
         f"{PAGES}/{home['id']}/revisions/{first['id']}/restore",
         {"lock_version": detail["lock_version"]},
     ).get_json()["data"]
-    assert restored["sections"][0]["content"]["heading"] == "Featured stories"
+    assert restored["sections"][0]["content"]["heading"] == INTRO
     assert restored["has_unpublished_changes"]
     assert _public_home(client)["sections"][0]["data"]["heading"] == "Version two"
     api.post(f"{PAGES}/{home['id']}/publish", {"lock_version": restored["lock_version"]})
-    assert _public_home(client)["sections"][0]["data"]["heading"] == "Featured stories"
+    assert _public_home(client)["sections"][0]["data"]["heading"] == INTRO
 
 
 def test_discard_draft_returns_to_live_version(seeded, as_role):
@@ -244,13 +246,16 @@ def test_discard_draft_returns_to_live_version(seeded, as_role):
     detail = _save(api, home, sections).get_json()["data"]
     assert len(detail["sections"]) == 2
     back = api.post(f"{PAGES}/{home['id']}/discard").get_json()["data"]
-    assert len(back["sections"]) == 8 and not back["has_unpublished_changes"]
+    assert len(back["sections"]) == 10 and not back["has_unpublished_changes"]
 
 
 def test_fresh_install_serves_default_homepage(app, client):
     page = client.get("/api/v1/pages/resolve?path=/")
     assert page.status_code == 200
-    assert [s["type"] for s in page.get_json()["data"]["sections"]][0] == "featured_articles"
+    assert [s["type"] for s in page.get_json()["data"]["sections"]][:2] == [
+        "hero",
+        "featured_articles",
+    ]
 
 
 # ---- CMS pages -----------------------------------------------------------------------------------
@@ -507,14 +512,13 @@ def test_global_cta_used_by_sections(seeded, as_role, client):
     )
     home = api.get(HOMEPAGE).get_json()["data"]
     sections = _sections_payload(home)
-    sections.insert(
-        0,
-        {
-            "section_type": "hero",
-            "variant": "centered",
-            "content": {"heading": "Welcome", "primary_cta": {"cta_id": cta["id"]}},
-        },
-    )
+    # The homepage opens with its introduction (a hero, used once per page).
+    assert sections[0]["section_type"] == "hero"
+    sections[0]["content"] = {
+        **sections[0]["content"],
+        "heading": "Welcome",
+        "primary_cta": {"cta_id": cta["id"]},
+    }
     home = _save(api, home, sections).get_json()["data"]
     api.post(f"{PAGES}/{home['id']}/publish", {"lock_version": home["lock_version"]})
     assert (
