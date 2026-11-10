@@ -192,8 +192,16 @@ class BaseConfig:
     # Written by deploy/backup/tpa-backup.sh after every run (read-only for the app).
     BACKUP_STATUS_FILE = os.environ.get("BACKUP_STATUS_FILE", "")
     BACKUP_MAX_AGE_HOURS = _int("BACKUP_MAX_AGE_HOURS", 36)
+    # Download links (app/services/commerce/downloads.py). A link is short-lived and can
+    # start the download from the first byte DOWNLOAD_LINK_MAX_USES times; requests that
+    # resume or split a download (HTTP Range from a later byte) are capped separately.
     DOWNLOAD_LINK_TTL_SECONDS = _int("DOWNLOAD_LINK_TTL_SECONDS", 300)
     DOWNLOAD_LINK_MAX_USES = _int("DOWNLOAD_LINK_MAX_USES", 5)
+    DOWNLOAD_LINK_MAX_RANGE_REQUESTS = _int("DOWNLOAD_LINK_MAX_RANGE_REQUESTS", 50)
+    # A purchase's download allowance is used when a file is first delivered, not when a
+    # link is created. Further deliveries of the same file version within this many
+    # minutes (retries, failed or interrupted downloads, new links) do not use it again.
+    DOWNLOAD_RETRY_WINDOW_MINUTES = _int("DOWNLOAD_RETRY_WINDOW_MINUTES", 60)
     RATELIMIT_DOWNLOADS = os.environ.get("RATELIMIT_DOWNLOADS", "30 per minute;300 per day")
     MAX_CONTENT_LENGTH = (
         (max(_int("MEDIA_MAX_UPLOAD_MB", 20), _int("PRODUCT_FILE_MAX_MB", 300)) + 1) * 1024 * 1024

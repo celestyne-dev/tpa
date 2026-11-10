@@ -246,8 +246,10 @@ function LibraryList() {
     <>
       <p className="mb-6 max-w-2xl text-sm text-muted">
         Each download link is created when you press Download and expires after a few minutes, so
-        please download from here rather than sharing links. You always get the latest version of
-        each file, plus the edition you originally received.
+        please download from here rather than sharing links. If a download fails, press Download
+        again: a download only counts once the file is sent, and retrying within an hour doesn't
+        count again. You always get the latest version of each file, plus the edition you originally
+        received.
       </p>
       <LibraryItems
         learner

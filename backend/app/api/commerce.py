@@ -487,7 +487,14 @@ class DownloadResource(Resource):
     method_decorators = {"get": [limiter.limit(lambda: current_app.config["RATELIMIT_DOWNLOADS"])]}
 
     def get(self, token: str):
-        return downloads.serve(token, current_customer())
+        try:
+            return downloads.serve(token, current_customer())
+        except APIError as err:
+            # The browser went to the link itself: show a readable page, not JSON.
+            if downloads.wants_page():
+                db.session.rollback()
+                return downloads.browser_error_page(err, guest=downloads.grant_is_guest(token))
+            raise
 
 
 # ---- checkout ---------------------------------------------------------------------------

@@ -16,6 +16,20 @@ function formatSize(bytes) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+const STARTED =
+  "Your download should start in a moment. If it doesn't start or stops partway, press Download again: trying again within an hour doesn't use another download.";
+
+/** Short titles for refused downloads, so a used-up allowance is never mistaken for an
+ * expired link (the server's message follows). */
+const PROBLEMS = {
+  download_limit_reached: "Download limit reached",
+  download_link_expired: "The download link expired",
+  download_link_used_up: "The download link was used up",
+  download_file_unavailable: "File temporarily unavailable",
+  not_entitled: "No access",
+  network_error: "No connection",
+};
+
 /**
  * Library items with their download buttons. ``authorize(item, version)`` asks the
  * server for a short-lived download link (account session, guest order token or guest
@@ -33,8 +47,14 @@ export function LibraryItems({ items, authorize, headingLevel = 2, learner = fal
     try {
       const res = await authorize(item, version);
       redirectTo.go(res.data.url);
+      setMessage({ id: item.id, ok: true, text: STARTED });
     } catch (err) {
-      setMessage({ id: item.id, text: err.message });
+      setMessage({
+        id: item.id,
+        title: PROBLEMS[err.code] ?? "The download could not start",
+        text: err.message,
+        contact: err.code === "download_limit_reached" || err.code === "download_file_unavailable",
+      });
     } finally {
       setBusy(null);
     }
@@ -138,11 +158,27 @@ export function LibraryItems({ items, authorize, headingLevel = 2, learner = fal
                 ))}
               </ul>
             )}
-            {message?.id === item.id && (
-              <p role="alert" className="mt-3 text-sm text-red-800">
-                {message.text}
-              </p>
-            )}
+            {message?.id === item.id &&
+              (message.ok ? (
+                <p role="status" className="mt-3 text-sm text-sage-800">
+                  {message.text}
+                </p>
+              ) : (
+                <div role="alert" className="mt-3 text-sm text-red-800">
+                  <p className="font-medium">{message.title}</p>
+                  <p>
+                    {message.text}
+                    {message.contact && (
+                      <>
+                        {" "}
+                        <Link to={routes.contact} className="underline underline-offset-4">
+                          Contact us
+                        </Link>
+                      </>
+                    )}
+                  </p>
+                </div>
+              ))}
           </div>
         </li>
       ))}

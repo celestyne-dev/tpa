@@ -301,4 +301,33 @@ describe("customer account", () => {
     expect(await screen.findByText("Access to this item has ended.")).toBeInTheDocument();
     expect(redirectTo.go).not.toHaveBeenCalled();
   });
+
+  it("tells a used-up allowance apart from an expired link, and says retrying is free", async () => {
+    const user = userEvent.setup();
+    const shopApi = createFakeShopApi({ customer: customerProfile() });
+    shopApi.authorizeDownload.mockRejectedValueOnce(
+      new ApiError({
+        status: 403,
+        code: "download_limit_reached",
+        message: "You've reached the download limit for this file.",
+      }),
+    );
+    renderApp("/account/library", { shopApi });
+    const button = await screen.findByRole("button", { name: /Download Workbook latest version/ });
+    await user.click(button);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Download limit reached");
+    expect(alert).not.toHaveTextContent("expired");
+    expect(within(alert).getByRole("link", { name: "Contact us" })).toHaveAttribute(
+      "href",
+      "/contact",
+    );
+    // The next attempt works and explains what to do if the download fails.
+    await user.click(button);
+    await waitFor(() => expect(redirectTo.go).toHaveBeenCalledWith("/api/v1/downloads/token-22"));
+    expect(
+      await screen.findByText(/trying again within an hour doesn't use another download/),
+    ).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

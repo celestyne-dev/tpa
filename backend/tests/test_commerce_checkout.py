@@ -654,12 +654,13 @@ def test_download_limits_when_configured(shop, client):
     shopper = shop["shopper"]
     item, version = _library_file(shopper)
     url = f"/api/v1/account/library/{item['id']}/downloads"
-    assert shopper.post(url, {"version_id": version["version_id"]}).status_code == 200
-    assert shopper.post(url, {"version_id": version["version_id"]}).status_code == 200
-    third = shopper.post(url, {"version_id": version["version_id"]})
-    assert (
-        third.status_code == 403 and third.get_json()["error"]["code"] == "download_limit_reached"
-    )
+    # Creating links does not use the allowance (Batch 15): only delivering the file does,
+    # once per retry window. See test_download_delivery.py for the limit itself.
+    for _ in range(3):
+        assert shopper.post(url, {"version_id": version["version_id"]}).status_code == 200
+    with shop["app"].app_context():
+        ent = db.session.get(Entitlement, item["id"])
+        assert ent.download_limit == 2 and ent.download_count == 0
 
 
 # ---- free products and bundles --------------------------------------------------------------
