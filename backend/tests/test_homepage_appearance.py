@@ -91,7 +91,9 @@ def test_preview_and_publish_honour_stored_appearance(seeded, as_role, client):
     assert _by_key(public, "newsletter")["design"]["background"] == "charcoal"
     quote = _by_key(public, "intro")
     assert quote["design"]["align"] == "left" and quote["devices"] == "desktop"
-    assert [s["key"] for s in public] == [s["key"] for s in preview]
+    # The same sections, except the digital-products section, which previews show while
+    # the shop is switched off but the website leaves out.
+    assert [s["key"] for s in public] == [s["key"] for s in preview if s["key"] != "products"]
 
     # Publishing adds a revision; the earlier ones are kept unchanged.
     revisions = api.get(f"{PAGES}/{home['id']}/revisions").get_json()["data"]

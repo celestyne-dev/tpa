@@ -162,7 +162,8 @@ def test_reorder_add_duplicate_hide_and_validation(seeded, as_role, client):
     }
 
     detail = api.get(HOMEPAGE).get_json()["data"]
-    bad = _sections_payload(detail)
+    # Without the homepage's own introduction (a hero), to test the one-hero rule below.
+    bad = [s for s in _sections_payload(detail) if s["section_type"] != "hero"]
     bad[0]["variant"] = "spinning-3d"
     bad[0]["design"] = {"background": "#ff00ff"}
     bad[1]["design"] = {"background": "ivory"}  # partnership sections have no background option
