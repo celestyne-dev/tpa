@@ -11,6 +11,7 @@ import { routes } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { ContentImage } from "@/components/ui/ContentImage";
 import { cn } from "@/utils/format";
+import { EmptyPreviewNote } from "./ArticleSections";
 import { ASPECT, BACKGROUNDS, isDark } from "./design";
 import { CtaButton, Eyebrow, Heading, Paragraphs, SectionHeader, SectionShell } from "./primitives";
 import { SectionContext, useSectionContext } from "./sectionContext";
@@ -232,10 +233,12 @@ export function LeadMagnetSection({ section }) {
  */
 export function ProductsSection({ section }) {
   const { data, key } = section;
-  const { dark } = useSectionContext();
+  const { dark, preview } = useSectionContext();
   const { currency } = useDisplayCurrency();
   const id = `${key}-heading`;
   const products = data.products ?? [];
+  // Nothing published to promote yet: hidden on the website, explained in previews.
+  if (products.length === 0 && !preview) return null;
   return (
     <SectionShell section={section} labelledBy={id}>
       <SectionHeader
@@ -243,6 +246,11 @@ export function ProductsSection({ section }) {
         data={data}
         action={data.cta && <CtaButton cta={data.cta} fallback="outline" arrow />}
       />
+      {products.length === 0 && (
+        <div className="mt-8">
+          <EmptyPreviewNote>No published products to show yet.</EmptyPreviewNote>
+        </div>
+      )}
       <ul
         className={cn(
           "mt-12 grid gap-8 sm:grid-cols-2",

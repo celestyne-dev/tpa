@@ -33,6 +33,7 @@ import { SearchPage } from "@/pages/SearchPage";
 import { ShopPage } from "@/pages/ShopPage";
 import { TermsPage } from "@/pages/TermsPage";
 import { TopicPage } from "@/pages/TopicPage";
+import { TopicsPage } from "@/pages/TopicsPage";
 import { withCmsOverride } from "@/routes/cmsOverride";
 import { LegacyAuthRedirect } from "@/routes/LegacyAuthRedirect";
 import * as commerce from "@/routes/commerceRoutes";
@@ -78,6 +79,8 @@ export const routeTable = [
     Component: ArticleDetailPage,
     load: ({ slug }) => [fetchArticle({ slug })],
   },
+  // All topics, grouped as in the header menu (/topics#mindset, …).
+  { path: routes.topics, Component: TopicsPage, load: () => [fetchTopics()] },
   {
     path: "/topics/:slug",
     Component: TopicPage,

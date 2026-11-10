@@ -800,7 +800,7 @@ function Builder({ load, isHome, isSidebar = false }) {
       <ConfirmDialog
         open={confirm === "editorial"}
         title="Load the editorial layout into the draft?"
-        message="The draft's sections are replaced with the editorial layout: featured stories, latest articles, topics, Editor's Picks, popular articles, the newsletter, free resources, articles by topic and About. Nothing is published, and the page's title and SEO settings are kept. The current draft is saved in History first."
+        message="The draft's sections are replaced with the editorial layout: a short introduction, featured stories, topics, trending articles, the newsletter, latest articles, free resources, digital products, articles by topic and the community section. Nothing is published, and the page's title and SEO settings are kept. The current draft is saved in History first."
         confirmLabel="Load the layout"
         busy={busy}
         onConfirm={async () => {

@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { CurrencySwitcher } from "@/components/products/CurrencySwitcher";
 import { ProductCard } from "@/components/products/ProductCard";
+import { ResourcesNav } from "@/components/products/ResourcesNav";
 import { Seo } from "@/components/seo/Seo";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -77,6 +78,7 @@ export function ResourceLibraryPage() {
         path={routes.resources}
         jsonLd={[breadcrumbJsonLd(crumbs)]}
       />
+      <ResourcesNav />
       <PageHeader
         eyebrow="Resource library"
         title="Written resources for your growth"

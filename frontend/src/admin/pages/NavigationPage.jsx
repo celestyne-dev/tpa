@@ -12,6 +12,10 @@ import { useNotify } from "../components/notifyContext";
 import { SettingsForm } from "../components/SettingsForm";
 import { useAdminQuery } from "../hooks/useAdminQuery";
 
+/** Labels, addresses and nesting only: what "Use the recommended structure" would change. */
+const sameShape = (items) =>
+  items.map((item) => [item.label, item.url ?? "", sameShape(item.children ?? [])]);
+
 const blankLink = () => ({
   label: "",
   link_type: "internal",
@@ -152,12 +156,18 @@ function MenuEditor({ menu, onSaved }) {
   const [items, setItems] = useState(menu.items);
   const [errors, setErrors] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [suggested, setSuggested] = useState(false);
+  const recommended = menu.recommended ?? [];
+  const canSuggest =
+    recommended.length > 0 &&
+    JSON.stringify(sameShape(items)) !== JSON.stringify(sameShape(recommended));
 
   const save = async () => {
     setBusy(true);
     setErrors(null);
     try {
       const res = await api.navigation.save(menu.key, items);
+      setSuggested(false);
       onSaved(res.data);
       notify(`${menu.name} saved. The static site updates after the next build.`);
     } catch (err) {
@@ -190,6 +200,12 @@ function MenuEditor({ menu, onSaved }) {
           {busy ? "Saving…" : "Save and publish"}
         </Button>
       </div>
+      {suggested && (
+        <p role="status" className="mb-3 rounded-lg bg-sage-50 px-4 py-2 text-sm text-charcoal">
+          The recommended structure is loaded below. Review it, then choose “Save and publish”:
+          nothing changes on the website until you save.
+        </p>
+      )}
       {menu.warnings?.length > 0 && (
         <ul className="mb-3 space-y-1 rounded-lg bg-gold-100/70 px-4 py-2 text-sm text-charcoal">
           {menu.warnings.map((w) => (
@@ -268,6 +284,19 @@ function MenuEditor({ menu, onSaved }) {
           >
             <Plus aria-hidden />
             {menu.key === "footer" ? "Add column" : "Add dropdown group"}
+          </Button>
+        )}
+        {canSuggest && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setItems(JSON.parse(JSON.stringify(recommended)));
+              setErrors(null);
+              setSuggested(true);
+            }}
+          >
+            Use the recommended structure
           </Button>
         )}
       </div>

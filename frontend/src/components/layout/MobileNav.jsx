@@ -67,7 +67,7 @@ export function MobileNav() {
       }
     };
     const onResize = () => {
-      if (window.matchMedia?.("(min-width: 1024px)").matches) setOpen(false);
+      if (window.matchMedia?.("(min-width: 1280px)").matches) setOpen(false);
     };
 
     document.addEventListener("keydown", onKeyDown);
@@ -80,7 +80,7 @@ export function MobileNav() {
   }, [open, close]);
 
   return (
-    <div className="lg:hidden">
+    <div className="xl:hidden">
       <button
         ref={triggerRef}
         type="button"

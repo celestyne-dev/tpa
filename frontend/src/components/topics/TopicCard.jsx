@@ -12,7 +12,7 @@ const LINK =
  * A topic card. `compact`: a small card with the icon beside the name and a short excerpt
  * (the first sentence of the topic's description) for the homepage's "Explore by topic".
  */
-export function TopicCard({ topic, compact = false }) {
+export function TopicCard({ topic, compact = false, showCount = false }) {
   if (compact) {
     return (
       <Card interactive className="group flex h-full items-start gap-4 p-5">
@@ -28,6 +28,11 @@ export function TopicCard({ topic, compact = false }) {
           {topic.description && (
             <p className="mt-1 text-sm leading-relaxed text-muted">
               {shortExcerpt(topic.description, 72)}
+            </p>
+          )}
+          {showCount && topic.article_count > 0 && (
+            <p className="mt-2 text-xs font-semibold tracking-wide text-sage-700">
+              {topic.article_count} {topic.article_count === 1 ? "article" : "articles"}
             </p>
           )}
         </div>

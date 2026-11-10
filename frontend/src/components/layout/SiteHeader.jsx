@@ -22,8 +22,10 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-charcoal/[0.07] bg-ivory/90 backdrop-blur-md supports-[backdrop-filter]:bg-ivory/80">
       <Container size="wide" className="flex h-20 items-center justify-between gap-6">
         <Logo />
-        <nav aria-label="Main" className="hidden lg:block">
-          <ul className="flex items-center gap-6 xl:gap-8">
+        {/* Full menu from 1280px; narrower screens use the menu button, so the topic groups,
+            search, account and newsletter button never crowd or wrap. */}
+        <nav aria-label="Main" className="hidden xl:block">
+          <ul className="flex items-center gap-5 2xl:gap-7">
             {desktopItems.map((item) => (
               <li key={`${item.label}-${item.href}`}>
                 {item.children ? (
@@ -42,7 +44,7 @@ export function SiteHeader() {
           {cta && (
             // Visibility lives on a wrapper: on the button itself "hidden" lost to the
             // button's own "inline-flex", so it showed on phones and pushed the menu off-screen.
-            <span className="hidden lg:inline-flex">
+            <span className="hidden xl:inline-flex">
               <ButtonLink to={cta.href} size="sm">
                 {cta.label}
               </ButtonLink>

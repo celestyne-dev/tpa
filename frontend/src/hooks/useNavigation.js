@@ -86,18 +86,26 @@ function fallbackFooter(topics, overrides) {
   }));
 }
 
+const isTopicGroup = (item) =>
+  item.children?.length > 0 && item.children.every((child) => child.href?.startsWith(TOPIC_PREFIX));
+
 /**
- * A menu group made only of topic links (the header's "Topics") also lists the other
- * published topics that have articles, after the editor's own links and in the site's
- * topic order, so every category can be reached. Nothing is removed or renamed, and only
- * real topic pages are linked.
+ * A single menu group made only of topic links (the classic "Topics" menu) also lists the
+ * other published topics that have articles, after the editor's own links and in the
+ * site's topic order, so every category can be reached. A menu with several topic groups
+ * (Mindset, Wellbeing, …) is shown exactly as the editor arranged it. Nothing is removed
+ * or renamed, and only real topic pages are linked.
  */
-function withAllTopics(item, topics) {
-  const isTopicGroup =
-    item.children?.length > 0 &&
-    item.children.every((child) => child.href?.startsWith(TOPIC_PREFIX));
-  if (!isTopicGroup)
-    return item.children ? { ...item, children: liveLinks(item.children, topics) } : item;
+function withAllTopics(item, topics, expand) {
+  if (!expand || !isTopicGroup(item))
+    return item.children
+      ? {
+          ...item,
+          // Groups that list topics load the topic list when opened (see NavDropdown).
+          ...(item.children.some((child) => topicSlugOf(child.href)) && { topicGroup: true }),
+          children: liveLinks(item.children, topics),
+        }
+      : item;
   // The menu loads topics when first opened (see NavDropdown), not on every page view.
   item = { ...item, topicGroup: true, children: liveLinks(item.children, topics) };
   if (!topics?.length) return item;
@@ -115,11 +123,13 @@ export function useNavigation() {
   // Only a loaded list says which topics exist (it is empty, not missing, before loading).
   const topics = topicList?.status === Status.succeeded ? topicList.items : undefined;
   const nav = site?.navigation;
-  const upgrade = (item) => withAllTopics(readerLabels(item), topics);
-  const menu = (items) =>
-    liveLinks(items, topics)
-      .map(upgrade)
+  const menu = (items) => {
+    const readable = liveLinks(items, topics).map(readerLabels);
+    const expand = readable.filter(isTopicGroup).length === 1;
+    return readable
+      .map((item) => withAllTopics(item, topics, expand))
       .filter((item) => !item.children || item.children.length > 0);
+  };
   const primary = menu(nav?.primary?.length ? nav.primary.map(fromApi) : mainNav.map(fromConfig));
   return {
     primary,

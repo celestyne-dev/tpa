@@ -50,6 +50,12 @@ function CompactArticleCard({ article, headingLevel: Heading = "h3", showImage =
   );
 }
 
+/** The writer's name for a card; the site-name fallback for unattributed articles is left out. */
+export function byline(article) {
+  const author = article.author;
+  return author?.name && author.slug !== "tpa" ? author.name : null;
+}
+
 /**
  * A horizontal story with its excerpt: archives, search results and author pages. The
  * thumbnail sits on the left (above on very small screens it stays a small square), and
@@ -84,6 +90,7 @@ function RowArticleCard({ article, headingLevel: Heading = "h3", title, excerpt,
           <p className="mt-2 hidden text-muted sm:line-clamp-2">{excerpt ?? article.excerpt}</p>
         )}
         <ArticleMeta
+          author={byline(article)}
           publishedAt={article.published_at}
           updatedAt={article.content_modified_at}
           readingTimeMinutes={article.reading_time_minutes}
@@ -212,6 +219,7 @@ export function ArticleCard({
           {article.excerpt}
         </p>
         <ArticleMeta
+          author={byline(article)}
           publishedAt={article.published_at}
           readingTimeMinutes={article.reading_time_minutes}
           className="mt-6"

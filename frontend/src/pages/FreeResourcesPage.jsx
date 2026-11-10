@@ -1,5 +1,6 @@
 import { ArticleGrid } from "@/components/articles/ArticleGrid";
 import { ProductCard } from "@/components/products/ProductCard";
+import { ResourcesNav } from "@/components/products/ResourcesNav";
 import { Seo } from "@/components/seo/Seo";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -22,6 +23,7 @@ export function FreeResourcesPage() {
         description="Discover the free reflection sheets, mindset exercises, and downloadable guides Think Positive Always is preparing, plus free articles you can read today."
         path={routes.freeResources}
       />
+      <ResourcesNav />
       <PageHeader
         eyebrow="Free resources"
         title="Free Tools to Support Your Growth"

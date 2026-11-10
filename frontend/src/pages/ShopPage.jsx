@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 import { NewsletterPanel } from "@/components/newsletter/NewsletterPanel";
 import { CurrencySwitcher } from "@/components/products/CurrencySwitcher";
 import { ProductCard } from "@/components/products/ProductCard";
+import { ResourcesNav } from "@/components/products/ResourcesNav";
 import { Seo } from "@/components/seo/Seo";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -70,6 +71,7 @@ export function ShopPage() {
         path={routes.shop}
         jsonLd={[breadcrumbJsonLd(crumbs)]}
       />
+      <ResourcesNav />
       <PageHeader
         eyebrow="The shop"
         title={shop.title || "Tools for Your Growth Journey"}

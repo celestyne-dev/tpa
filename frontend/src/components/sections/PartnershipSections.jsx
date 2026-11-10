@@ -190,17 +190,39 @@ export function AffiliateRecommendationsSection({ section }) {
       </p>
       <ul className={cn("mt-8 grid gap-4", variant === "cards" && "sm:grid-cols-2 lg:grid-cols-3")}>
         {data.links.map((link) => (
-          <li key={link.id} className="rounded-2xl bg-ivory p-6 shadow-soft">
-            <p className="font-medium">{link.name}</p>
-            {link.merchant && <p className="text-sm text-muted">{link.merchant}</p>}
-            {link.note && <p className="mt-3 text-muted">{link.note}</p>}
-            <SponsoredAnchor
-              href={link.href}
-              className="mt-4 inline-flex items-center gap-2 font-semibold text-sage-700 underline underline-offset-4"
-            >
-              View <span className="sr-only">{link.name}</span> (affiliate link)
-              <ArrowRight aria-hidden className="size-4" />
-            </SponsoredAnchor>
+          <li
+            key={link.id}
+            className="flex flex-col overflow-hidden rounded-2xl bg-ivory shadow-soft"
+          >
+            {link.image && (
+              // A product or cover image (Media library): external products are never
+              // downloads, so the only action is the affiliate link below.
+              <div className="relative aspect-[4/3] bg-beige">
+                <ContentImage
+                  image={link.image}
+                  fill
+                  sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
+                  className="object-contain p-4"
+                />
+              </div>
+            )}
+            <div className="flex flex-1 flex-col p-6">
+              {link.category && (
+                <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
+                  {link.category}
+                </p>
+              )}
+              <p className={cn("font-medium", link.category && "mt-1.5")}>{link.name}</p>
+              {link.merchant && <p className="text-sm text-muted">From {link.merchant}</p>}
+              {link.note && <p className="mt-3 flex-1 text-muted">{link.note}</p>}
+              <SponsoredAnchor
+                href={link.href}
+                className="mt-4 inline-flex min-h-11 items-center gap-2 self-start font-semibold text-sage-700 underline underline-offset-4"
+              >
+                View <span className="sr-only">{link.name}</span> (affiliate link)
+                <ArrowRight aria-hidden className="size-4" />
+              </SponsoredAnchor>
+            </div>
           </li>
         ))}
       </ul>

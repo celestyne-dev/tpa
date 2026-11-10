@@ -108,6 +108,24 @@ Site name, tagline, wordmark subline, logo (and a light version for dark backgro
 - **Footer** (`/admin/footer`): footer text, the newsletter link, whether to show the contact email and social links, the copyright line and an optional promotion (text and link).
 - **Cookie settings** (also on `/admin/footer`): the wording of the Cookie settings panel and notice (link text, introduction, notice text, category names and descriptions, Cookie Policy link) and the **consent version**. Change the version after a material change so visitors are asked again where consent is required. Which technologies are listed, and whether the website asks before counting visits (by default it asks), are set in the application configuration (`PRIVACY_STATISTICS_MODE`), never in these fields, and the fields accept plain text only.
 
+### Content-first navigation (Batch 14)
+
+The recommended header menu is **Mindset, Wellbeing, Relationships, Career & Growth, Resources, Newsletter**. About, Partner With Us and Contact live in the footer's **About** column.
+
+- **Recommended structure.** On a menu, **Use the recommended structure** loads the suggested menu into the editor. Nothing changes on the website until you choose **Save and publish**, so you can review it, rename groups, reorder links or remove any first. Your current menus stay as they are until you do this.
+- **Topic groups** are made from your existing topics; no new categories are created. Each topic is placed once, by its name (for example "Positive Mindset" goes under Mindset, "Relationships & Boundaries" under Relationships). Only topics with published articles are suggested, a group with no matching topic is left out, and each group ends with **All articles**. You can move a topic to another group by editing the links.
+- **Resources** lists All Resources, Free Downloads, Premium Resources (the shop), Recommended Books & Tools and My Library. The same links appear as tabs at the top of the Resource Library, Free Resources and shop pages.
+- **Only working links are shown.** Menu links to the shop are hidden while the shop is switched off; links to a page that has not been published yet (such as Recommended Books & Tools), a hidden topic or a draft policy are hidden until it is live. The editor still warns about them.
+- **The topics page** (`/topics`) lists the topics under the same groups as the header menu, with a jump link to each group (`/topics#mindset`, `/topics#career-growth`, …). The footer's Explore column links these groups.
+
+### Recommended Books & Tools (Batch 14)
+
+Create a page from the **Recommended Books & Tools** template (**Pages › New page**). It suggests the address `/recommended` and has three groups (Books, Journals & planners, Apps & tools), each an **Affiliate recommendations** section. In each group, choose links from **Partnerships › Affiliate links**; under **Details per recommendation**, in the same order, you can add a category label, a short note and a product image you have the right to use. The merchant comes from the link (or its programme). Every link goes through `/go/…`, is marked as sponsored and sits beside the affiliate disclosure; these products are sold elsewhere and are never downloads. A group with no live link is hidden. Publish the page to show it in the menus.
+
+### Homepage layout (Batch 14)
+
+**Load the editorial layout…** (in the homepage builder's menu) loads the content-first homepage into the draft: a short introduction ("A Better Mindset. A Brighter Life."), featured stories, explore by topic, trending this month, the newsletter, latest articles, free resources, digital products, articles by topic, and the community section. "Trending this month" uses the site's own reading statistics only; until there are any it shows featured articles under the heading "Editor's picks". Empty sections (no products, no free resources, topics without articles) are hidden on the website. Your current homepage is unchanged until you publish.
+
 ## 7. Announcements (`/admin/announcements`)
 
 A slim bar above the header. It is never a popup. Each announcement has a message, an optional link, a colour, optional start and end times, and a target (every page, homepage only, or chosen pages). It can be dismissible, in which case a reader's choice is remembered on their device. Only the first matching announcement is shown, so use the arrows to set priority. Saving an enabled announcement queues a rebuild.
