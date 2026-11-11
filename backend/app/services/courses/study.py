@@ -87,13 +87,12 @@ def _lesson_for(customer: Customer, course: Course, lesson_slug: str):
 def access_by_course(customer: Customer) -> dict[int, bool]:
     """Which of the customer's courses they can open right now."""
     learning = _learning()
-    verified = customer.email_verified_at is not None and customer.status == "active"
     out = {}
     for enrollment in db.session.scalars(
         select(CourseEnrollment).where(CourseEnrollment.customer_id == customer.id)
     ):
         out[enrollment.course_id] = (
-            verified
+            learning.may_open(customer, enrollment.course)
             and enrollment.course.status in ("published", "archived")
             and learning.access_state(enrollment, customer) == "active"
         )

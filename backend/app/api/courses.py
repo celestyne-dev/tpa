@@ -74,14 +74,15 @@ class LearningStatusResource(Resource):
     def get(self, slug: str):
         customer = current_customer()
         course = public.published_by_slug(slug)
-        if customer.email_verified_at is not None and course.access_type == "premium":
-            learning.sync(customer)
+        if course.access_type == "premium":
+            learning.sync(customer)  # before email confirmation: own signed-in purchases only
         enrollment = learning.enrollment_for(customer, course)
         state = learning.access_state(enrollment, customer) if enrollment else None
         db.session.commit()
         return success(
             {
                 "verified": customer.email_verified_at is not None,
+                "can_open": learning.may_open(customer, course),
                 "enrolled": enrollment is not None,
                 "access": state,
                 "progress": enrollment.progress_percent if enrollment else 0,

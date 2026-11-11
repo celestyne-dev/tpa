@@ -195,6 +195,8 @@ describe("cart and checkout", () => {
     renderApp("/checkout", { shopApi });
     const note = (await screen.findByText(/You can pay now/)).closest('[role="note"]');
     expect(note).not.toBeNull();
+    expect(note).toHaveTextContent("downloads and courses you buy appear in this account");
+    expect(note).toHaveTextContent("needed to join a membership");
     expect(within(note).getByRole("button", { name: "Resend confirmation email" })).toBeVisible();
     const pay = screen.getByRole("button", { name: /Pay USD 15.00/ });
     expect(pay).toBeDisabled(); // terms and age still required

@@ -280,9 +280,11 @@ export function CheckoutPage() {
                 {unverified && (
                   <div role="note" className="mt-4 rounded-xl bg-gold-100/60 p-4 text-sm">
                     <p>
-                      You can pay now: your purchase goes straight into this account's library.
-                      Please also confirm your email address with the link we sent, so your receipt
-                      reaches you and you can recover your account.
+                      You can pay now: downloads and courses you buy appear in this account as soon
+                      as Paystack confirms the payment. Please also confirm your email address with
+                      the link we sent, so receipts reach you and you can recover your account. A
+                      confirmed email is also needed to join a membership, take free courses and see
+                      anything bought earlier with guest checkout.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-3">
                       <Button size="sm" variant="outline" onClick={resend}>

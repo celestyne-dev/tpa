@@ -254,7 +254,18 @@ export function studyNotebook() {
   };
 }
 
-export function createCourseShopApi({ enrolled = true, verified = true, study = {} } = {}) {
+/**
+ * ``verified: false`` is an account whose email isn't confirmed; ``purchased: true`` means
+ * the course was bought while signed in, which opens it before confirmation (as the server
+ * does).
+ */
+export function createCourseShopApi({
+  enrolled = true,
+  verified = true,
+  purchased = false,
+  study = {},
+} = {}) {
+  const canOpen = verified || purchased;
   const state = { acknowledged: [], responses: {}, completed: false, attempts: [], enrolled };
   const studyState = {
     notes: [],
@@ -265,7 +276,7 @@ export function createCourseShopApi({ enrolled = true, verified = true, study = 
     ...study,
   };
   const guard = () => {
-    if (!verified)
+    if (!canOpen)
       return fail(
         403,
         "email_verification_required",
@@ -369,11 +380,11 @@ export function createCourseShopApi({ enrolled = true, verified = true, study = 
     progress: progress(),
   });
   return {
-    learning: vi.fn(
-      () =>
-        guard() ??
-        ok({
-          enrollments: state.enrolled
+    learning: vi.fn(() =>
+      ok({
+        verified,
+        enrollments:
+          state.enrolled && canOpen
             ? [
                 {
                   course: {
@@ -397,11 +408,12 @@ export function createCourseShopApi({ enrolled = true, verified = true, study = 
                 },
               ]
             : [],
-        }),
+      }),
     ),
     learningStatus: vi.fn(() =>
       ok({
         verified,
+        can_open: canOpen,
         enrolled: state.enrolled,
         access: state.enrolled ? "active" : null,
         progress: 0,

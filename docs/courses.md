@@ -101,6 +101,14 @@ flow); repeated webhooks and retries never create a second entitlement or enrolm
 Refunds that revoke access, revoked entitlements and expired access periods end course
 access immediately: every learner request re-checks it.
 
+**Buying before confirming the email.** A customer who buys a premium course while signed
+in can open it straight away, even before confirming their email address: the course is
+backed by a `purchase` (or `bundle`) entitlement from their own paid, non-guest order, which
+only exists after Paystack verified the payment (`learning.own_purchase_scope`). Until the
+email is confirmed, everything else still needs confirmation: free courses, courses added
+by staff, membership courses and guest-checkout purchases. My learning lists only the
+bought courses in the meantime, and `…/status` returns `can_open` for the course page.
+
 **Worksheets.** Upload PDF workbooks, eBooks, worksheets, templates, planners or learning
 packs (the approved formats from Batch 08) to the course product, then add _Worksheet
 download_ blocks to lessons. Files stay in private storage; learners get short-lived,
@@ -401,7 +409,8 @@ permission on the server.
   assessment.
 - **Limits and secrecy:** started attempts count against `max_attempts`. Answer keys and
   explanations are never sent before submission; afterwards `show_answers` decides as before.
-  Every learner route re-checks email verification, enrolment and entitlement.
+  Every learner route re-checks email verification (or an own signed-in purchase),
+  enrolment and entitlement.
 - **History:** `GET …/assessments/<id>/history` and `GET …/assessment-history` (whole
   course) for learners; `GET /admin/courses/<id>/assessments/<id>/attempts` for staff with
   `courses.view_enrollments` (scores and timing, no answers).

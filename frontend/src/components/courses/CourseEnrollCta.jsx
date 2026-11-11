@@ -38,6 +38,16 @@ export function CourseEnrollCta({ course, currency }) {
     };
   }, [status, shopApi, course.slug]);
 
+  if (learner?.enrolled && learner.access === "active" && learner.can_open === false) {
+    return (
+      <p role="status" className="rounded-xl bg-sage-50 p-3 text-sm">
+        You're enrolled. Confirm your email address to open this course.{" "}
+        <Link to={routes.accountSettings} className="underline underline-offset-4">
+          Resend the confirmation email
+        </Link>
+      </p>
+    );
+  }
   if (learner?.enrolled && learner.access === "active") {
     return (
       <div className="space-y-3">

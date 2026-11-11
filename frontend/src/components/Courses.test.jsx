@@ -180,10 +180,43 @@ describe("learning", () => {
     expect(await screen.findByText("You're not enrolled in this course yet")).toBeVisible();
   });
 
-  it("asks unverified accounts to confirm their email", async () => {
+  it("asks unverified accounts to confirm their email for courses they didn't buy", async () => {
+    signIn();
+    renderApp("/learn/calm-foundations", { shopApi: learner({ verified: false }) });
+    expect(await screen.findByText("Confirm your email to start learning")).toBeVisible();
+    expect(screen.getByText(/Courses you bought while signed in open straight away/)).toBeVisible();
+  });
+
+  it("lists only bought courses in My learning until the email is confirmed", async () => {
     signIn();
     renderApp("/account/learning", { shopApi: learner({ verified: false }) });
-    expect(await screen.findByText("Confirm your email to start learning")).toBeVisible();
+    expect(await screen.findByText(/Showing the courses you bought while signed in/)).toBeVisible();
+    expect(screen.getByText("No courses yet")).toBeVisible();
+  });
+
+  it("opens a course bought while signed in before the email is confirmed", async () => {
+    signIn();
+    const shopApi = learner({ verified: false, purchased: true });
+    renderApp("/account/learning", { shopApi });
+    expect(await screen.findByRole("link", { name: /Start/ })).toBeVisible();
+    expect(screen.getByText(/Showing the courses you bought while signed in/)).toBeVisible();
+  });
+
+  it("offers Continue learning to an unverified buyer and asks others to confirm", async () => {
+    signIn();
+    renderApp("/courses/calm-foundations", {
+      shopApi: learner({ enrolled: true, verified: false, purchased: true }),
+    });
+    expect(await screen.findByRole("link", { name: /Continue learning/ })).toBeVisible();
+  });
+
+  it("asks an enrolled but unverified learner to confirm when the course isn't a purchase", async () => {
+    signIn();
+    renderApp("/courses/calm-foundations", {
+      shopApi: learner({ enrolled: true, verified: false }),
+    });
+    expect(await screen.findByText(/Confirm your email address to open this course/)).toBeVisible();
+    expect(screen.queryByRole("link", { name: /Continue learning/ })).not.toBeInTheDocument();
   });
 
   it("shows free preview lessons to visitors", async () => {

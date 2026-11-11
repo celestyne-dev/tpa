@@ -106,7 +106,7 @@ function AccessProblem({ error, courseSlug }) {
       <EmptyState
         icon={ShieldAlert}
         title="Confirm your email to start learning"
-        description="We need to know this account's email address is yours before saving progress or opening purchased courses. Check your inbox for the confirmation link."
+        description="Courses you bought while signed in open straight away. Free courses, membership courses and courses bought with guest checkout open once you confirm this account's email address. Check your inbox for the confirmation link."
         action={
           <ButtonLink to={routes.accountSettings} variant="outline">
             Resend the confirmation email
@@ -220,6 +220,15 @@ function LearningList() {
   if (state.status === "loading") return <p role="status">Loading your courses…</p>;
   if (state.status === "error") return <AccessProblem error={state.error} />;
   const items = state.data.enrollments;
+  const unverifiedNote = state.data.verified === false && (
+    <p role="note" className="mb-6 rounded-2xl bg-gold-100/60 p-5 text-sm">
+      Showing the courses you bought while signed in. Confirm your email address to also see free
+      courses, membership courses and anything bought with guest checkout.{" "}
+      <Link to={routes.accountSettings} className="underline underline-offset-4">
+        Resend the confirmation email
+      </Link>
+    </p>
+  );
   const tools = (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="sm:w-96">
@@ -235,16 +244,20 @@ function LearningList() {
   );
   if (!items.length) {
     return (
-      <EmptyState
-        icon={GraduationCap}
-        title="No courses yet"
-        description="Courses you enrol in or buy appear here, with your progress."
-        action={<ButtonLink to={routes.courses}>Browse courses</ButtonLink>}
-      />
+      <>
+        {unverifiedNote}
+        <EmptyState
+          icon={GraduationCap}
+          title="No courses yet"
+          description="Courses you enrol in or buy appear here, with your progress."
+          action={<ButtonLink to={routes.courses}>Browse courses</ButtonLink>}
+        />
+      </>
     );
   }
   return (
     <>
+      {unverifiedNote}
       {tools}
       <ul className="grid gap-5 md:grid-cols-2">
         {items.map((item) => (

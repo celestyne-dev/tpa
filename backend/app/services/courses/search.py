@@ -89,7 +89,7 @@ def snippet(text: str, terms: list[str], width: int = 180) -> str:
 
 
 def accessible_course_ids(customer: Customer | None) -> set[int]:
-    if customer is None or customer.email_verified_at is None or customer.status != "active":
+    if customer is None or customer.status != "active":
         return set()
     from . import learning
 
@@ -98,8 +98,10 @@ def accessible_course_ids(customer: Customer | None) -> set[int]:
     for enrollment in db.session.scalars(
         select(CourseEnrollment).where(CourseEnrollment.customer_id == customer.id)
     ):
-        if enrollment.course.status in ("published", "archived") and (
-            learning.access_state(enrollment, customer) == "active"
+        if (
+            enrollment.course.status in ("published", "archived")
+            and learning.may_open(customer, enrollment.course)
+            and learning.access_state(enrollment, customer) == "active"
         ):
             ids.add(enrollment.course_id)
     return ids

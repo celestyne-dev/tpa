@@ -556,7 +556,8 @@ def test_guest_course_purchase_is_claimed_only_after_email_verification(seeded, 
         blocked.status_code == 403
         and blocked.get_json()["error"]["code"] == "email_verification_required"
     )
-    assert claimant.get(LEARN).status_code == 403
+    # The guest purchase isn't listed either until the email is confirmed.
+    assert claimant.get(LEARN).get_json()["data"] == {"verified": False, "enrollments": []}
     with seeded.app_context():
         assert db.session.scalar(db.select(db.func.count(CourseEnrollment.id))) == 0
     # After confirming the address the course appears and opens.

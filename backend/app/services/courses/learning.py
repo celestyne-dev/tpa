@@ -2,8 +2,14 @@
 
 Access rules (checked on every learner request, server-side):
 
-- Learning needs a signed-in customer whose email address is confirmed, so progress and
-  assessment results belong to someone who proved they own the mailbox.
+- Learning needs a signed-in, active customer whose email address is confirmed, so
+  progress and assessment results belong to someone who proved they own the mailbox.
+  One exception: a premium course the customer **bought themselves while signed in**
+  (a ``purchase`` or ``bundle`` entitlement from a paid, non-guest order of their own
+  account; see ``own_purchase_scope``) opens before the email is confirmed. Those
+  entitlements exist only after Paystack verified the payment and end on refund. Free
+  courses, membership courses, courses added by staff and claimed guest purchases still
+  need a confirmed email.
 - The enrolment must be active (staff can end it).
 - Free courses: the enrolment's own access period (if any) must not have ended.
 - Premium courses: the customer must hold a usable entitlement to the course product in
@@ -13,7 +19,7 @@ Access rules (checked on every learner request, server-side):
   how a guest purchase is claimed securely: knowing the purchase email isn't enough.
 
 Enrolments for premium courses are created from those entitlements (``sync``) when the
-learner opens their learning area, after payment for verified accounts, and when staff
+learner opens their learning area, right after payment, and when staff
 enrol someone. Completion is computed from stored records only.
 """
 
@@ -36,6 +42,7 @@ from ...models import (
     Customer,
     Entitlement,
     LessonProgress,
+    Order,
 )
 from ...utils.errors import APIError, ConflictError, NotFoundError, ValidationError
 from ...utils.validation import plain_text_problem
@@ -70,7 +77,58 @@ def _now() -> datetime:
 
 
 def _require_verified(customer: Customer) -> None:
-    if customer.status != "active" or customer.email_verified_at is None:
+    if not is_verified(customer):
+        raise EmailVerificationRequired()
+
+
+# Entitlement sources created by a paid order (``entitlements.grant_for_order``).
+PURCHASE_SOURCES = ("purchase", "bundle")
+_PAID_ORDER_STATUSES = ("paid", "partially_refunded")
+
+
+def is_verified(customer: Customer) -> bool:
+    return customer.status == "active" and customer.email_verified_at is not None
+
+
+def own_purchase_scope(customer: Customer):
+    """Entitlements from this customer's own paid, signed-in (non-guest) orders.
+
+    Entitlements are only created once Paystack has verified the payment, and refunds
+    revoke them; the order checks here are a second guard, not the only one.
+    """
+    paid_own_orders = select(Order.id).where(
+        Order.customer_id == customer.id,
+        Order.is_guest.is_(False),
+        Order.status.in_(_PAID_ORDER_STATUSES),
+        Order.paid_at.is_not(None),
+    )
+    return (
+        (Entitlement.customer_id == customer.id)
+        & Entitlement.source.in_(PURCHASE_SOURCES)
+        & Entitlement.order_id.in_(paid_own_orders)
+    )
+
+
+def learner_scope(customer: Customer):
+    """Entitlements that open courses: everything in the account once the email is
+    confirmed; before that, only the customer's own signed-in purchases."""
+    if is_verified(customer):
+        return ent_service.account_scope(customer)
+    return own_purchase_scope(customer)
+
+
+def may_open(customer: Customer, course: Course) -> bool:
+    """Whether the email requirement lets this customer into this course (enrolment and
+    access are checked separately)."""
+    if customer.status != "active":
+        return False
+    if customer.email_verified_at is not None:
+        return True
+    return course.access_type == "premium" and product_entitlement(customer, course) is not None
+
+
+def _require_may_open(customer: Customer, course: Course) -> None:
+    if not may_open(customer, course):
         raise EmailVerificationRequired()
 
 
@@ -91,7 +149,7 @@ def product_entitlement(customer: Customer, course: Course) -> Entitlement | Non
         return None
     rows = db.session.scalars(
         select(Entitlement).where(
-            ent_service.account_scope(customer),
+            learner_scope(customer),
             Entitlement.product_id == course.product_id,
             Entitlement.status == "active",
             ent_service.not_expired(),
@@ -146,15 +204,16 @@ def _create_enrollment(
 
 
 def sync(customer: Customer) -> int:
-    """Create enrolments for premium courses the customer has (verified) access to."""
-    if customer.status != "active" or customer.email_verified_at is None:
+    """Create enrolments for premium courses the customer has access to (before the email
+    is confirmed: only courses they bought themselves while signed in)."""
+    if customer.status != "active":
         return 0
     rows = db.session.execute(
         select(Course, Entitlement)
         .join(Entitlement, Entitlement.product_id == Course.product_id)
         .where(
             Course.status.in_(("published", "archived")),
-            ent_service.account_scope(customer),
+            learner_scope(customer),
             Entitlement.status == "active",
             ent_service.not_expired(),
         )
@@ -183,7 +242,7 @@ def sync(customer: Customer) -> int:
 
 
 def sync_for_order(order) -> int:
-    """After a verified payment: enrol registered, verified buyers straight away."""
+    """After a verified payment: enrol registered buyers straight away."""
     customer = order.customer
     if customer is None or order.is_guest:
         return 0  # guest purchases are claimed after the account email is confirmed
@@ -262,7 +321,7 @@ def enrollment_for(customer: Customer, course: Course) -> CourseEnrollment | Non
 
 
 def require_access(customer: Customer, course: Course) -> CourseEnrollment:
-    _require_verified(customer)
+    _require_may_open(customer, course)
     enrollment = enrollment_for(customer, course)
     if enrollment is None and course.access_type == "premium":
         sync(customer)
@@ -700,7 +759,8 @@ def enrollment_card(enrollment: CourseEnrollment, customer: Customer) -> dict[st
 
 
 def my_learning(customer: Customer) -> dict[str, Any]:
-    _require_verified(customer)
+    if customer.status != "active":
+        raise EmailVerificationRequired()
     sync(customer)
     enrollments = db.session.scalars(
         select(CourseEnrollment)
@@ -709,7 +769,13 @@ def my_learning(customer: Customer) -> dict[str, Any]:
             func.coalesce(CourseEnrollment.last_activity_at, CourseEnrollment.enrolled_at).desc()
         )
     ).all()
-    return {"enrollments": [enrollment_card(e, customer) for e in enrollments]}
+    verified = is_verified(customer)
+    if not verified:  # only courses they bought while signed in, until the email is confirmed
+        enrollments = [e for e in enrollments if may_open(customer, e.course)]
+    return {
+        "verified": verified,
+        "enrollments": [enrollment_card(e, customer) for e in enrollments],
+    }
 
 
 def course_outline(customer: Customer, course: Course) -> dict[str, Any]:
