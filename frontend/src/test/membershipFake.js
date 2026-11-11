@@ -68,6 +68,8 @@ export function makePlan(overrides = {}) {
     tagline: "Calmer days, together",
     tier_rank: 1,
     status: "draft",
+    // The currency new prices are set in (the server sends the shop's charge currency).
+    price_currency: "USD",
     prices: { month: price("pm1", "month", 999) },
     included_count: 1,
     published_at: null,
