@@ -88,10 +88,11 @@ enrolments exist.
 Checkout stays closed (`coming_soon` / `unavailable`) unless **all** of these hold:
 
 1. `MEMBERSHIP_BILLING_MODE=test` is set. This is an operator attestation that recurring
-   USD charges were verified on the Paystack test account. `live` is never accepted in
+   KES charges were verified on the Paystack test account. `live` is never accepted in
    this phase.
-2. The payment mode is `test`, the configured key is a test key, and USD is an enabled
-   checkout currency.
+2. The payment mode is `test`, the configured key is a test key, the charge currency
+   (KES, `CHARGE_CURRENCIES`) is an enabled checkout currency, and card payments are
+   allowed (Batch 17).
 3. The customer passes the existing test-checkout rule: test accounts only, unless
    `PAYMENTS_TEST_CHECKOUT_PUBLIC` is set.
 4. The price has a verified Paystack test plan. An admin runs **Sync with Paystack
@@ -263,6 +264,35 @@ Email templates: `membership_renewed`, `membership_payment_failed`,
 `membership_cancelled` and `membership_ended`. They are sent through the existing email
 infrastructure and recorded in `email_deliveries`.
 
+## KES and card-only renewal (Batch 17)
+
+- **Prices.** Plans are priced in the shop's charge currency (KES). Set them in the plan
+  editor, for example KES 650 monthly and KES 6,500 yearly (a yearly saving of about
+  16.7%, which the membership page works out from the two prices). Prices stay immutable
+  versions. Older active prices in another currency (USD) stay in the history but are never
+  shown, synced or charged; retire them from the history when convenient.
+- **Paystack plans.** **Sync with Paystack (test)** creates a KES `monthly` or `annually`
+  plan for each current price and checks amount, currency and interval before every
+  checkout.
+- **Card only.** Membership checkout sends `channels: ["card"]` to Paystack. One-time
+  purchases keep every method in Payment settings (M-Pesa included).
+- **Automatic renewal is confirmed, not assumed.** After the first payment is verified
+  (amount, currency, plan code, mode and reference), the membership starts for the paid
+  period. Renewal shows as **automatic** only when that payment was a card payment whose
+  authorisation Paystack marks `reusable` *and* Paystack's subscription is linked
+  (`subscription.create`, re-fetched from Paystack). Until then it shows **setting up**.
+- **When it can't be set up.** If the first payment cannot be reused (not a card, or
+  `reusable: false`), or Paystack has not created the subscription within
+  `MEMBERSHIP_LINK_TIMEOUT_HOURS` (default 24; checked by the reconcile job), the paid
+  period is honoured, the membership is set to end with it, nothing more is charged (a
+  subscription Paystack creates later is disabled at once), the order is flagged for
+  review (refund or contact the customer) and the customer gets the
+  `membership_recurring_unavailable` email and a notice in their account.
+- **Accounts.** Joining needs a signed-in customer with a confirmed email address; guest
+  checkout is for one-time purchases only.
+- **USD.** The membership page and account show approximate USD amounts only when Settings
+  › Shop has a rate; the charge is always the KES price.
+
 ## Not confirmed without a real Paystack test merchant
 
 These behaviours follow Paystack's public documentation, but the tests use the in-memory
@@ -283,6 +313,11 @@ fake. Check each against the test dashboard before relying on it:
   `transaction.reference` field.
 - **Customer codes:** that they are stable per customer email, since renewals are matched
   by customer code plus plan code.
+- **KES subscriptions (Batch 17):** that the merchant account can create KES plans and
+  card subscriptions in test mode, that `transaction/verify` reports
+  `authorization.reusable` and `channel` for the first charge, that `channels: ["card"]`
+  hides M-Pesa on the hosted page while a `plan` is set, and how long `subscription.create`
+  takes to arrive after the first charge.
 
 Live billing stays disabled: `MEMBERSHIP_BILLING_MODE` only accepts `test`, and any
 live-mode charge is a mismatch.

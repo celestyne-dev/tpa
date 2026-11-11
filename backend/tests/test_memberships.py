@@ -122,7 +122,7 @@ def test_plan_lifecycle_publication_and_public_api(seeded, as_role, client):
     assert res.status_code == 409
 
 
-def test_prices_are_immutable_server_side_and_usd_only(seeded, as_role):
+def test_prices_are_immutable_server_side_and_in_a_charge_currency(seeded, as_role):
     admin = as_role("administrator")
     plan = _plan(admin)
     pid = plan["id"]
@@ -131,7 +131,8 @@ def test_prices_are_immutable_server_side_and_usd_only(seeded, as_role):
         ({"interval": "month", "amount": "abc"}, "amount"),
         ({"interval": "month", "amount": "9.999"}, "amount"),
         ({"interval": "month", "amount": "0.50"}, "amount"),
-        ({"interval": "month", "amount": "9.99", "currency": "KES"}, "currency"),
+        # Only the shop's charge currencies (KES in production; see test_membership_kes).
+        ({"interval": "month", "amount": "9.99", "currency": "EUR"}, "currency"),
         ({"interval": "month", "amount_minor": "999"}, "amount"),
     ):
         res = admin.post(f"{PLANS}/{pid}/prices", {**body, "lock_version": plan["lock_version"]})

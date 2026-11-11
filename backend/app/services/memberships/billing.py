@@ -375,10 +375,13 @@ def _clean_checkout(data: Any) -> dict[str, Any]:
     amount = data.get("expected_amount_minor")
     if not isinstance(amount, int) or isinstance(amount, bool):
         errors["expected_amount_minor"] = ["Send the amount you were shown."]
-    if not isinstance(data.get("currency"), str) or not plan_currency_open(data["currency"]):
-        errors["currency"] = [
-            f"Memberships are billed in {', '.join(checkout_currencies()) or 'KES'}."
-        ]
+    # Whether that currency is open right now is checked with the price (a closed
+    # checkout answers "unavailable", not a form error).
+    if not isinstance(data.get("currency"), str) or (
+        data["currency"] not in plan_service.plan_currencies()
+    ):
+        billed = ", ".join(plan_service.plan_currencies())
+        errors["currency"] = [f"Memberships are billed in {billed}."]
     if data.get("accept_terms") is not True:
         errors["accept_terms"] = ["Accept the membership terms to continue."]
     if errors:

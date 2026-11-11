@@ -210,7 +210,7 @@ def test_membership_needs_a_confirmed_account(kclub, client):
     )
     assert res.status_code == 403
     assert res.get_json()["error"]["code"] == "email_verification_required"
-    assert client.post(f"{ACCOUNT}/checkout", {}).status_code == 401
+    assert client.post(f"{ACCOUNT}/checkout", json={}).status_code == 401
 
 
 # ---- first payment and automatic renewal ---------------------------------------------------
