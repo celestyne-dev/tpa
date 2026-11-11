@@ -689,6 +689,7 @@ def reconcile(now: datetime | None = None, *, check_provider: bool = True) -> di
         "cancelled_at_provider": 0,
         "provider_errors": 0,
         "events_retried": 0,
+        "recurring_unavailable": 0,
     }
     for sub in db.session.scalars(
         select(CustomerSubscription).where(CustomerSubscription.status == "pending")
@@ -721,6 +722,7 @@ def _reconcile_one(sub: CustomerSubscription, now: datetime, check_provider: boo
     if sub.status not in RENEWABLE:
         return
     sub.last_reconciled_at = now
+    _check_recurring_setup(sub, now, counts)
     period_end = _aware(sub.current_period_end)
     access_until = _aware(sub.access_until)
     if sub.cancel_at_period_end:
@@ -752,6 +754,21 @@ def _reconcile_one(sub: CustomerSubscription, now: datetime, check_provider: boo
             counts["provider_errors"] += 1  # fall through: grace still starts on time
     start_grace(sub, "job")
     counts["grace" if sub.status != "ended" else "ended"] += 1
+
+
+def _check_recurring_setup(sub: CustomerSubscription, now: datetime, counts) -> None:
+    """Batch 17: Paystack creates the subscription shortly after the first card payment
+    (subscription.create webhook). If it never arrives, automatic renewal is not set up:
+    the paid period is honoured and the membership is set to end with it."""
+    if sub.cancel_at_period_end or sub.provider_subscription_code or sub.activated_at is None:
+        return
+    limit = timedelta(hours=current_app.config["MEMBERSHIP_LINK_TIMEOUT_HOURS"])
+    if now - _aware(sub.activated_at) < limit:
+        return
+    billing.mark_recurring_unavailable(
+        sub, "Paystack didn't confirm the subscription for automatic renewal", "job"
+    )
+    counts["recurring_unavailable"] += 1
 
 
 def _retry_deferred_events() -> int:

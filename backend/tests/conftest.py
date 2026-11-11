@@ -262,6 +262,8 @@ class FakePaystack:
                 "channel": "card",
                 "paid_at": None,
                 "email": body["email"],
+                # Paystack's authorisation summary (only the reusable flag is read).
+                "authorization": {"channel": "card", "reusable": True},
             }
             if body.get("plan"):  # subscription checkout: Paystack charges the plan amount
                 plan = self.plans[body["plan"]]
@@ -335,13 +337,28 @@ class FakePaystack:
             return dict(self.refunds[path.rsplit("/", 1)[1]])
         raise AssertionError(f"unexpected Paystack call {method} {path}")
 
-    def pay(self, reference, *, status="success", amount=None, currency=None, domain="test"):
+    def pay(
+        self,
+        reference,
+        *,
+        status="success",
+        amount=None,
+        currency=None,
+        domain="test",
+        channel=None,
+        reusable=None,
+    ):
         tx = self.transactions[reference]
         tx.update(status=status, domain=domain, paid_at=self.first_paid_at)
         if amount is not None:
             tx["amount"] = amount
         if currency is not None:
             tx["currency"] = currency
+        if channel is not None:  # e.g. "mobile_money" (M-Pesa)
+            tx["channel"] = channel
+            tx["authorization"] = {"channel": channel, "reusable": False}
+        if reusable is not None:
+            tx["authorization"] = {**tx.get("authorization", {}), "reusable": reusable}
         return tx
 
     def subscribe(self, reference, *, email, domain="test"):
@@ -357,6 +374,7 @@ class FakePaystack:
             "plan": {"plan_code": tx["plan"]},
             "customer": {"customer_code": tx["customer"]["customer_code"], "email": email},
             "next_payment_date": self.next_payment_date,
+            "authorization": {"channel": "card", "reusable": True},
         }
         return dict(self.subscriptions[code])
 

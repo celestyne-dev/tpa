@@ -77,6 +77,13 @@ _KEEP = (
 )
 
 
+def _reusable(authorization: Any) -> bool | None:
+    """Paystack's authorization.reusable flag only (codes and card details are not kept)."""
+    if not isinstance(authorization, dict) or "reusable" not in authorization:
+        return None
+    return authorization.get("reusable") is True
+
+
 # Paystack's interval names <-> ours.
 PLAN_INTERVALS = {"month": "monthly", "year": "annually"}
 _INTERVALS_BACK = {v: k for k, v in PLAN_INTERVALS.items()}
@@ -237,6 +244,7 @@ class PaystackProvider:
                 _code(data.get("plan"), "plan_code") or _code(data.get("plan_object"), "plan_code")
             )[:60],
             customer_code=_code(data.get("customer"), "customer_code")[:60],
+            authorization_reusable=_reusable(data.get("authorization")),
         )
 
     # ---- recurring plans and subscriptions ------------------------------------------------
@@ -294,6 +302,7 @@ class PaystackProvider:
             email_token=str(data.get("email_token") or "")[:100],
             next_payment_at=_parse_time(data.get("next_payment_date")),
             mode=("live" if domain == "live" else "test") if domain else None,
+            authorization_reusable=_reusable(data.get("authorization")),
         )
 
     def disable_subscription(self, subscription_code: str, email_token: str) -> None:

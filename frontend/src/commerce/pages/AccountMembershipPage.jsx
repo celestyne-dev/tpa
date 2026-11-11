@@ -2,6 +2,7 @@ import { Crown, FileText, GraduationCap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useShopApi } from "@/components/products/shopApiContext";
+import { UsdEstimate } from "@/components/products/UsdEstimate";
 import { ButtonLink } from "@/components/ui/Button";
 import { buttonStyles } from "@/components/ui/buttonStyles";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -170,6 +171,18 @@ function Included({ items }) {
 }
 
 function BillingNotice({ sub }) {
+  if (sub.renewal === "unavailable")
+    return (
+      <Notice title="Automatic renewal couldn't be set up">
+        Your membership is active until {formatDate(sub.access_until)}, but it won&apos;t renew: the
+        payment couldn&apos;t be set up for automatic card renewal. You won&apos;t be charged again.
+        To continue after that date,{" "}
+        <Link to={routes.membership} className="underline underline-offset-4">
+          join again with a debit or credit card
+        </Link>
+        .
+      </Notice>
+    );
   if (sub.cancel_at_period_end && sub.status !== "ended")
     return (
       <Notice title="Your membership is cancelled">
@@ -183,6 +196,24 @@ function BillingNotice({ sub }) {
         Paystack will try again. Update your card to keep your membership; otherwise access ends on{" "}
         {formatDate(sub.access_until)}.
       </Notice>
+    );
+  return null;
+}
+
+/** Whether and when the membership renews (Batch 17: card renewal confirmed by Paystack). */
+function RenewalLine({ sub }) {
+  if (sub.renewal === "automatic" && sub.renews_on)
+    return (
+      <p className="mt-2" data-renewal="automatic">
+        Renews automatically on <strong>{formatDate(sub.renews_on)}</strong> by card for{" "}
+        {sub.price.formatted}. You can cancel any time before then.
+      </p>
+    );
+  if (sub.renewal === "setting_up")
+    return (
+      <p className="mt-2 text-muted" data-renewal="setting_up">
+        Paystack is confirming automatic renewal for your card. This usually takes a few minutes.
+      </p>
     );
   return null;
 }
@@ -345,6 +376,7 @@ function CurrentMembership({ data, onChanged }) {
         {INTERVAL[sub.interval]} · {sub.price.formatted}
         {sub.test_mode && " · Test mode (no real money)"}
       </p>
+      <UsdEstimate money={sub.price} className="block" />
       <div className="mt-4">
         <BillingNotice sub={sub} />
       </div>
@@ -354,6 +386,7 @@ function CurrentMembership({ data, onChanged }) {
           {formatDate(sub.current_period_end)}
         </p>
       )}
+      <RenewalLine sub={sub} />
       {sub.status === "pending" && (
         <div className="mt-4 space-y-3">
           <p>

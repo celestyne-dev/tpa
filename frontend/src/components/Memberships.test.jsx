@@ -208,7 +208,9 @@ describe("public membership page", () => {
     const prices = screen.getByRole("list", { name: "Positive Circle prices" });
     expect(within(prices).getByText("USD 10.00")).toBeInTheDocument();
     expect(within(prices).getByText("USD 100.00")).toBeInTheDocument();
-    expect(within(prices).getByText("Save 17% compared with monthly")).toBeInTheDocument();
+    expect(
+      within(prices).getByText("Save USD 20 a year (about 16.7%) compared with monthly"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Member-only workbooks")).toBeInTheDocument();
     expect(screen.getByText("New resources every month.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Calm Foundations" })).toHaveAttribute(
@@ -245,10 +247,16 @@ describe("public membership page", () => {
 });
 
 describe("joining in test mode", () => {
-  it("sends signed-out visitors to log in first", async () => {
+  it("asks signed-out visitors to create an account (or log in) first", async () => {
     const user = userEvent.setup();
     renderApp("/membership", { api: createFakeApi(openMembershipContentApi()) });
-    await user.click(await screen.findByRole("button", { name: "Join monthly · USD 10.00" }));
+    const create = await screen.findByRole("link", { name: "Create an account to join" });
+    expect(create).toHaveAttribute("href", "/register?next=%2Fmembership");
+    const card = screen.getByRole("article", { name: "Positive Circle" });
+    const login = within(card).getByRole("link", { name: "Log in" });
+    expect(login).toHaveAttribute("href", "/login?next=%2Fmembership");
+    expect(screen.queryByRole("button", { name: /Join monthly/ })).toBeNull();
+    await user.click(login);
     expect(await screen.findByRole("heading", { level: 1, name: /log in/i })).toBeVisible();
   });
 

@@ -165,6 +165,8 @@ function PricesSection({ plan, canManage, onSaved }) {
       return false;
     }
   };
+  // The shop's charge currency (KES): membership prices are set and charged in it.
+  const currency = plan.price_currency ?? "KES";
   const addPrice = async (event, interval) => {
     event.preventDefault();
     const ok = await run(
@@ -172,7 +174,7 @@ function PricesSection({ plan, canManage, onSaved }) {
         api.memberships.addPrice(plan.id, {
           interval,
           amount: amounts[interval],
-          currency: "USD",
+          currency,
           lock_version: plan.lock_version,
         }),
       "Price saved.",
@@ -190,7 +192,7 @@ function PricesSection({ plan, canManage, onSaved }) {
   return (
     <section aria-labelledby="prices-heading" className="space-y-4">
       <h2 id="prices-heading" className="text-lg font-medium">
-        Prices (USD)
+        Prices ({currency})
       </h2>
       <p className="text-sm text-muted">
         Prices are never edited: a new price replaces the current one, and earlier prices are kept
@@ -215,9 +217,9 @@ function PricesSection({ plan, canManage, onSaved }) {
               {editable && (
                 <>
                   <TextField
-                    label={`New ${label.toLowerCase()} price (USD)`}
+                    label={`New ${label.toLowerCase()} price (${currency})`}
                     inputMode="decimal"
-                    placeholder="9.99"
+                    placeholder={currency === "KES" ? (value === "year" ? "6500" : "650") : "9.99"}
                     value={amounts[value]}
                     onChange={(e) => setAmounts((a) => ({ ...a, [value]: e.target.value }))}
                   />

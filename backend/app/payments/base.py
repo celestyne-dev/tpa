@@ -41,6 +41,10 @@ class VerifiedTransaction:
     # customer record. Empty for one-time payments.
     plan_code: str = ""
     customer_code: str = ""
+    # Whether the payment's card authorisation can be charged again (Paystack's
+    # authorization.reusable); None when the provider did not say. Membership renewals
+    # need a reusable card authorisation (Batch 17).
+    authorization_reusable: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +68,7 @@ class ProviderSubscription:
     email_token: str
     next_payment_at: datetime | None
     mode: str | None
+    authorization_reusable: bool | None = None
 
 
 @dataclass(frozen=True)

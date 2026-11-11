@@ -437,7 +437,10 @@ def start_payment(
             currency=order.currency,
             reference=attempt.reference,
             callback_url=back,
-            channels=list(settings["payments.channels"] or []),
+            # Memberships renew automatically, which Paystack can only do with a card:
+            # their checkout offers card only (Batch 17). One-time purchases keep every
+            # configured method (M-Pesa included).
+            channels=["card"] if plan_code else list(settings["payments.channels"] or []),
             metadata={
                 "order_number": order.number,
                 "cancel_action": f"{back}&cancelled=1",

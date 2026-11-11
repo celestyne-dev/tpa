@@ -21,6 +21,21 @@ Reuses the commerce payment infrastructure instead of a second engine:
 
 Renewals, failed payments, grace, cancellation and reconciliation: ``lifecycle`` (10.3).
 Live payments remain disabled.
+
+Batch 17 (KES and card-only renewals):
+
+- Memberships are priced and charged in the shop's charge currency (KES, see
+  ``CHARGE_CURRENCIES``); nothing here names a currency. Approximate USD amounts are a
+  display-only addition on the website.
+- The checkout offers **card only** (Paystack renews subscriptions with a reusable card
+  authorisation; M-Pesa cannot be charged automatically). One-time purchases keep every
+  payment method.
+- Automatic renewal counts as set up only when the first charge was a card payment with a
+  reusable authorisation *and* Paystack's subscription is linked. If the first payment
+  cannot be reused, or Paystack never creates the subscription within
+  ``MEMBERSHIP_LINK_TIMEOUT_HOURS``, the paid period is honoured, the membership is set
+  not to renew (no further charge is ever attempted), the order is flagged for review and
+  the customer is told how to continue.
 """
 
 from __future__ import annotations
@@ -103,9 +118,10 @@ def add_period(start: datetime, interval: str) -> datetime:
 def billing_status(customer: Customer | None = None) -> dict[str, Any]:
     """Whether membership checkout is open. Test mode only; live is always refused.
 
-    Requires MEMBERSHIP_BILLING_MODE=test (the deployment's assertion that recurring USD
-    plans and charges were verified in the Paystack test dashboard), test-mode checkout in
-    force with a test-mode Paystack key, and USD enabled for checkout.
+    Requires MEMBERSHIP_BILLING_MODE=test (the deployment's assertion that recurring plans
+    and charges were verified in the Paystack test dashboard), test-mode checkout in force
+    with a test-mode Paystack key, a charge currency (KES) open for checkout and card
+    payments allowed (renewals are card-only).
     """
     closed = {
         "available": False,
@@ -115,8 +131,13 @@ def billing_status(customer: Customer | None = None) -> dict[str, Any]:
     if current_app.config.get("MEMBERSHIP_BILLING_MODE") != "test":
         return closed
     provider = get_provider()
-    if effective_mode() != "test" or provider.mode != "test" or "USD" not in checkout_currencies():
+    if effective_mode() != "test" or provider.mode != "test" or not checkout_currencies():
         return closed | {"status": "unavailable"}
+    if not card_payments_allowed():
+        return closed | {
+            "status": "unavailable",
+            "message": "Memberships renew by card, and card payments are switched off.",
+        }
     status = {
         "available": True,
         "status": "test",
@@ -127,6 +148,18 @@ def billing_status(customer: Customer | None = None) -> dict[str, Any]:
         if not allowed:
             return {"available": False, "status": "unavailable", "message": reason}
     return status
+
+
+def card_payments_allowed() -> bool:
+    """Payment settings › Methods: none ticked means all methods, card included."""
+    from ...payments.config import get_settings
+
+    channels = get_settings()["payments.channels"] or []
+    return not channels or "card" in channels
+
+
+def plan_currency_open(currency: str) -> bool:
+    return currency in checkout_currencies()
 
 
 # ---- provider plans (admin) ---------------------------------------------------------------------
@@ -188,7 +221,7 @@ def sync_provider_plans(plan: MembershipPlan, data: Any, actor: User) -> Members
     ensure_backing_product(plan)
     results = []
     try:
-        for price in plan.active_prices:
+        for price in plan_service.current_prices(plan):
             pp = provider_plan_for(price, mode)
             if pp is None:
                 remote = provider.create_plan(
@@ -342,8 +375,10 @@ def _clean_checkout(data: Any) -> dict[str, Any]:
     amount = data.get("expected_amount_minor")
     if not isinstance(amount, int) or isinstance(amount, bool):
         errors["expected_amount_minor"] = ["Send the amount you were shown."]
-    if data.get("currency") != "USD":
-        errors["currency"] = ["Memberships are billed in USD."]
+    if not isinstance(data.get("currency"), str) or not plan_currency_open(data["currency"]):
+        errors["currency"] = [
+            f"Memberships are billed in {', '.join(checkout_currencies()) or 'KES'}."
+        ]
     if data.get("accept_terms") is not True:
         errors["accept_terms"] = ["Accept the membership terms to continue."]
     if errors:
@@ -370,7 +405,8 @@ def start_checkout(customer: Customer, data: Any) -> dict[str, Any]:
         price is None
         or price.status != "active"
         or price.plan.status != "published"
-        or price.currency != "USD"
+        or not plan_currency_open(price.currency)
+        or data["currency"] != price.currency
     ):
         raise NotFoundError("This membership price isn't available.")
     plan = price.plan
@@ -639,6 +675,8 @@ def activate_from_order(order: Order, tx: VerifiedTransaction, source: str) -> i
         to_status="active",
         details={"order": order.number, "reference": tx.reference, "entitlements": granted},
     )
+    # Automatic renewal needs a reusable card authorisation (and Paystack's subscription).
+    _first_payment_recurring(sub, order, tx, event_source)
     sync(customer)  # membership course access (enrolments with source "membership")
     audit_service.record(
         "membership.activated",
@@ -647,6 +685,111 @@ def activate_from_order(order: Order, tx: VerifiedTransaction, source: str) -> i
         details={"customer_id": customer.id, "entitlements": granted, "via": source},
     )
     return granted
+
+
+# ---- automatic renewal: card authorisation and Paystack subscription (Batch 17) -------------
+
+REUSABLE_CARD = "card_authorization_reusable"
+RECURRING_CONFIRMED = "recurring_confirmed"
+RECURRING_UNAVAILABLE = "recurring_unavailable"
+
+
+def _has_event(sub: CustomerSubscription, type_: str) -> bool:
+    return (
+        db.session.scalar(
+            select(SubscriptionEvent.id)
+            .where(SubscriptionEvent.subscription_id == sub.id, SubscriptionEvent.type == type_)
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def recurring_problem(tx: VerifiedTransaction) -> str | None:
+    """Why a verified first payment cannot be renewed automatically (None when it can)."""
+    if tx.channel != "card":
+        return f"paid by {tx.channel or 'a method'} that can't be charged automatically"
+    if tx.authorization_reusable is not True:
+        return "the card can't be charged again automatically"
+    return None
+
+
+def renewal_state(sub: CustomerSubscription) -> str | None:
+    """automatic | setting_up | cancelled | unavailable, or None when not running."""
+    if sub.status not in ("active", "past_due", "grace"):
+        return None
+    if _has_event(sub, RECURRING_UNAVAILABLE):
+        return "unavailable"
+    if sub.cancel_at_period_end:
+        return "cancelled"
+    linked = bool(sub.provider_subscription_code and sub.provider_email_token)
+    if linked and _has_event(sub, RECURRING_CONFIRMED):
+        return "automatic"
+    return "setting_up"
+
+
+def confirm_recurring(sub: CustomerSubscription, source: str, **details: Any) -> bool:
+    """Record that automatic renewal is set up: a reusable card authorisation from the
+    first payment and Paystack's subscription linked. Idempotent."""
+    if not (sub.provider_subscription_code and sub.provider_email_token):
+        return False
+    if not _has_event(sub, REUSABLE_CARD) or _has_event(sub, RECURRING_UNAVAILABLE):
+        return False
+    if _has_event(sub, RECURRING_CONFIRMED):
+        return True
+    _event(sub, RECURRING_CONFIRMED, source, details=details or None)
+    return True
+
+
+def mark_recurring_unavailable(
+    sub: CustomerSubscription, reason: str, source: str, *, order: Order | None = None
+) -> None:
+    """Automatic renewal could not be set up. The paid period is honoured; nothing more is
+    ever charged (Paystack's subscription is disabled if it exists), the order is flagged
+    for review and the customer is told. Idempotent."""
+    from . import lifecycle
+
+    if _has_event(sub, RECURRING_UNAVAILABLE):
+        return
+    now = _now()
+    paid_until = _aware(sub.current_period_end) or now
+    sub.cancel_at_period_end = True
+    sub.cancel_requested_at = sub.cancel_requested_at or now
+    sub.access_until = paid_until
+    sub.lock_version += 1
+    _event(sub, RECURRING_UNAVAILABLE, source, details={"reason": reason[:200]})
+    order = order or (db.session.get(Order, sub.order_id) if sub.order_id else None)
+    if order is not None:
+        order.needs_review = True
+        order.review_reason = (
+            f"Membership can't renew automatically ({reason}). Paid period honoured; "
+            "contact the customer or refund."
+        )[:255]
+    if sub.provider_subscription_code:
+        lifecycle._stop_provider_charges(sub)
+    audit_service.record(
+        "membership.recurring_unavailable",
+        "customer_subscription",
+        sub.id,
+        details={"reason": reason[:200], "via": source},
+    )
+    lifecycle._notify(
+        sub,
+        "membership_recurring_unavailable",
+        access_until=lifecycle._fmt(paid_until),
+        reason=reason,
+    )
+
+
+def _first_payment_recurring(
+    sub: CustomerSubscription, order: Order, tx: VerifiedTransaction, source: str
+) -> None:
+    problem = recurring_problem(tx)
+    if problem:
+        mark_recurring_unavailable(sub, problem, source, order=order)
+        return
+    _event(sub, REUSABLE_CARD, source, details={"channel": tx.channel})
+    confirm_recurring(sub, source)
 
 
 def membership_email(order: Order) -> tuple[str, dict[str, Any]] | None:
@@ -722,6 +865,17 @@ def process_subscription_created(record: PaymentEvent) -> tuple[str, str]:
         details={"status": remote.status},
         payment_event_id=record.id,
     )
+    if _has_event(match, RECURRING_UNAVAILABLE):
+        # The customer was told it won't renew: make sure Paystack never charges.
+        from .lifecycle import _stop_provider_charges
+
+        _stop_provider_charges(match)
+    elif remote.authorization_reusable is False:
+        mark_recurring_unavailable(
+            match, "the card can't be charged again automatically", "webhook"
+        )
+    elif match.status in ("active", "past_due", "grace"):
+        confirm_recurring(match, "webhook", subscription=match.provider_subscription_code)
     return "processed", f"Linked to subscription {match.public_id}."
 
 
@@ -762,6 +916,9 @@ def subscription_dict(sub: CustomerSubscription) -> dict[str, Any]:
         "checkout_url": checkout_url,
         "receipt_order": order.public_id if order is not None and order.status == "paid" else None,
         "cancel_at_period_end": sub.cancel_at_period_end,
+        # Batch 17: automatic | setting_up | cancelled | unavailable (None when not running)
+        "renewal": renewal_state(sub),
+        "renews_on": (iso(sub.current_period_end) if renewal_state(sub) == "automatic" else None),
         "cancel_requested_at": iso(sub.cancel_requested_at),
         "past_due_since": iso(sub.past_due_since),
         "ended_at": iso(sub.ended_at),

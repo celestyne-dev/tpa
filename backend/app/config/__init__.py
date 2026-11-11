@@ -252,6 +252,12 @@ class BaseConfig:
     # Days a member keeps access after an unpaid renewal date (counted from the end of the
     # paid period, never from "now"), while Paystack retries the charge. 0-14.
     MEMBERSHIP_GRACE_DAYS = max(0, min(14, int(os.environ.get("MEMBERSHIP_GRACE_DAYS", "3"))))
+    # Batch 17: how long after the first payment Paystack may take to create the
+    # subscription (subscription.create webhook) before automatic renewal is treated as
+    # not set up and the membership is set to end with its paid period.
+    MEMBERSHIP_LINK_TIMEOUT_HOURS = max(
+        1, min(168, int(os.environ.get("MEMBERSHIP_LINK_TIMEOUT_HOURS", "24")))
+    )
 
     # ---- Newsletter & email marketing (The Positive Reset) ----
     # Delivery backend for newsletter mail: none | console (development) | memory (tests) |

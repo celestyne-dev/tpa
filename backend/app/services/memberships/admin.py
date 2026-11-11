@@ -169,6 +169,7 @@ def summary(sub: CustomerSubscription) -> dict[str, Any]:
         "current_period_end": iso(sub.current_period_end),
         "access_until": iso(sub.access_until),
         "cancel_at_period_end": sub.cancel_at_period_end,
+        "renewal": billing.renewal_state(sub),
         "past_due_since": iso(sub.past_due_since),
         "activated_at": iso(sub.activated_at),
         "ended_at": iso(sub.ended_at),

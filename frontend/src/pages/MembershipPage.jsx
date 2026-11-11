@@ -3,7 +3,9 @@ import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { newKey, redirectTo } from "@/commerce/hooks";
 import { useShopApi } from "@/components/products/shopApiContext";
+import { UsdEstimate, UsdEstimateNote } from "@/components/products/UsdEstimate";
 import { Seo } from "@/components/seo/Seo";
+import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -28,14 +30,21 @@ function Prose({ text }) {
     ));
 }
 
-/** "Save 17%" when the yearly price is cheaper than twelve monthly payments. */
-function yearlySaving(prices) {
+/** The yearly saving against twelve monthly payments: percent (one decimal when it isn't
+ * a whole number, e.g. 16.7) and the amount, or null when yearly isn't cheaper. */
+export function yearlySaving(prices) {
   const month = prices.find((p) => p.interval === "month")?.price;
   const year = prices.find((p) => p.interval === "year")?.price;
   if (!month || !year || month.currency !== year.currency) return null;
   const full = month.amount_minor * 12;
-  const saving = Math.round(((full - year.amount_minor) / full) * 100);
-  return saving > 0 ? saving : null;
+  const savedMinor = full - year.amount_minor;
+  if (savedMinor <= 0) return null;
+  const percent = Math.round((savedMinor / full) * 1000) / 10;
+  const amount = (savedMinor / 100).toLocaleString("en-US", {
+    minimumFractionDigits: savedMinor % 100 ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+  return { percent, amount: `${year.currency} ${amount}`, currency: year.currency };
 }
 
 function IncludedItem({ item }) {
@@ -63,6 +72,8 @@ function IncludedItem({ item }) {
 }
 
 const JOIN_ERRORS = {
+  email_verification_required:
+    "Please confirm your email address first: open the link we emailed you, then come back to join.",
   already_member: "You're already a member.",
   price_changed: "This price has just changed. Please check the new price and try again.",
   subscription_pending: "Your last payment is still being confirmed. Please check back shortly.",
@@ -79,10 +90,6 @@ function JoinButtons({ plan, describedBy }) {
   const keys = useRef({});
   const [state, setState] = useState({ busy: null, error: "" });
   const join = async (price) => {
-    if (status !== "signed_in") {
-      navigate(`${routes.signIn}?next=${encodeURIComponent(routes.membership)}`);
-      return;
-    }
     // One key per price for this visit, so a double click or retry resumes the same checkout.
     keys.current[price.id] ??= newKey();
     setState({ busy: price.id, error: "" });
@@ -98,7 +105,7 @@ function JoinButtons({ plan, describedBy }) {
       if (url) redirectTo.go(url);
       else navigate(routes.accountMembership);
     } catch (err) {
-      const code = err?.details?.code;
+      const code = err?.details?.code ?? err?.code;
       if (code === "already_member" || code === "subscription_pending") {
         navigate(routes.accountMembership);
         return;
@@ -113,9 +120,10 @@ function JoinButtons({ plan, describedBy }) {
       });
     }
   };
+  if (status !== "signed_in") return <AccountFirst describedBy={describedBy} />;
   return (
     <div>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {plan.prices.map((p) => (
           <button
             key={p.interval}
@@ -123,7 +131,7 @@ function JoinButtons({ plan, describedBy }) {
             onClick={() => join(p)}
             disabled={state.busy !== null}
             aria-describedby={describedBy}
-            className="rounded-full bg-charcoal px-6 py-3 font-medium text-ivory hover:bg-charcoal/90 disabled:opacity-60"
+            className="min-h-12 w-full rounded-full bg-charcoal px-6 py-3 font-medium text-ivory hover:bg-charcoal/90 disabled:opacity-60 sm:w-auto"
           >
             {state.busy === p.id
               ? "Starting checkout…"
@@ -133,13 +141,87 @@ function JoinButtons({ plan, describedBy }) {
       </div>
       {state.error && (
         <p role="alert" className="mt-2 text-sm text-red-800">
-          {state.error}
+          {state.error}{" "}
+          {state.error === JOIN_ERRORS.email_verification_required && (
+            <Link to={routes.account} className="underline underline-offset-4">
+              Resend the email
+            </Link>
+          )}
         </p>
       )}
       <p className="mt-2 text-sm text-muted">
-        By joining you agree to the terms of sale. Renews automatically until cancelled.
+        You&apos;ll pay by debit or credit card on Paystack&apos;s secure page. By joining you agree
+        to the{" "}
+        <Link to={routes.terms} className="underline underline-offset-4">
+          terms
+        </Link>{" "}
+        and the membership renews automatically until you cancel.
       </p>
     </div>
+  );
+}
+
+/** Signed-out visitors: memberships need an account (to renew, cancel and reach the
+ * included courses and resources), so joining starts with one. */
+function AccountFirst({ describedBy }) {
+  const next = encodeURIComponent(routes.membership);
+  return (
+    <div aria-describedby={describedBy}>
+      <ol className="space-y-2 text-sm">
+        <li>
+          <span className="font-semibold">1.</span> Create your free account and confirm your email
+          address.
+        </li>
+        <li>
+          <span className="font-semibold">2.</span> Come back here, choose monthly or yearly and pay
+          by card.
+        </li>
+      </ol>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <ButtonLink to={`${routes.register}?next=${next}`} className="w-full sm:w-auto">
+          Create an account to join
+        </ButtonLink>
+        <ButtonLink
+          to={`${routes.signIn}?next=${next}`}
+          variant="outline"
+          className="w-full sm:w-auto"
+        >
+          Log in
+        </ButtonLink>
+      </div>
+    </div>
+  );
+}
+
+/** How billing works: KES charge, card-only automatic renewal and cancellation terms. */
+function BillingTerms({ prices }) {
+  const currency = prices[0]?.price.currency ?? "KES";
+  return (
+    <section aria-labelledby="billing-terms" className="mt-8 rounded-2xl bg-cream p-5 sm:p-6">
+      <h3 id="billing-terms" className="text-lg font-medium">
+        How billing works
+      </h3>
+      <ul className="mt-3 space-y-2 text-sm leading-relaxed">
+        <li>
+          You are charged in {currency === "KES" ? "Kenyan shillings (KES)" : currency}, the price
+          shown above. Any US dollar amount is an estimate; your bank or card provider converts the
+          charge at its own rate and may add a fee.
+        </li>
+        <li>
+          Memberships are paid by debit or credit card and renew automatically each month or year at
+          the same price until you cancel. M-Pesa can&apos;t be used for automatic renewals; you can
+          still use it to buy individual resources.
+        </li>
+        <li>
+          Cancel any time from your account. You keep access until the end of the period you&apos;ve
+          paid for and won&apos;t be charged again. See our{" "}
+          <Link to={routes.refundPolicy} className="underline underline-offset-4">
+            refund policy
+          </Link>
+          .
+        </li>
+      </ul>
+    </section>
   );
 }
 
@@ -169,9 +251,16 @@ function PlanCard({ plan, billing }) {
                   {INTERVAL_LABEL[p.interval]}
                 </span>
               </p>
+              <UsdEstimate money={p.price} className="mt-1 block" />
               {p.interval === "year" && saving && (
-                <p className="mt-1 text-sm text-sage-800">Save {saving}% compared with monthly</p>
+                <p className="mt-1 text-sm font-medium text-sage-800">
+                  Save {saving.amount} a year (about {saving.percent}%) compared with monthly
+                </p>
               )}
+              <p className="mt-2 text-xs text-muted">
+                Renews automatically {p.interval === "month" ? "every month" : "every year"} ·
+                cancel any time
+              </p>
             </li>
           ))}
         </ul>
@@ -214,6 +303,8 @@ function PlanCard({ plan, billing }) {
           </section>
         )}
 
+        <UsdEstimateNote className="mt-3" />
+
         {plan.included.length > 0 && (
           <section aria-label="Included courses and resources" className="mt-8">
             <h3 className="text-lg font-medium">Included courses and resources</h3>
@@ -224,6 +315,7 @@ function PlanCard({ plan, billing }) {
             </ul>
           </section>
         )}
+        {plan.prices.length > 0 && <BillingTerms prices={plan.prices} />}
       </article>
     </Card>
   );

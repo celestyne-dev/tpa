@@ -10,8 +10,8 @@ Authorisation is checked here, never only in the admin UI:
 Rules:
 - Prices are append-only. A price is never edited; a new price for the same interval
   replaces it and the old row is retired. A price that has been public (``shown_at``)
-  can never be deleted. Amounts are integers in minor units; only USD is offered for now
-  and nothing is ever converted.
+  can never be deleted. Amounts are integers in minor units in the shop's charge currency
+  (KES, ``CHARGE_CURRENCIES``; Batch 17) and nothing is ever converted.
 - Only products marked ``membership_eligible`` (premium resources and course products,
   never bundles, free items or membership products) can be included.
 - At most ``MAX_PUBLISHED_PLANS`` plans are published at once (one paid tier initially).
@@ -40,7 +40,22 @@ from ..admin.common import resolve_slug
 from ..commerce import catalogue
 from ..serializers import iso
 
-PLAN_CURRENCIES = ("USD",)
+
+def plan_currencies() -> tuple[str, ...]:
+    """Currencies a membership price may be set in: the shop's charge currencies (KES)."""
+    from ...payments.config import charge_currencies
+
+    return charge_currencies()
+
+
+def current_prices(plan: MembershipPlan) -> list[MembershipPlanPrice]:
+    """The plan's active prices in a charge currency. Older active prices in another
+    currency (e.g. USD before Batch 17) stay in the history but are never shown, synced
+    or charged."""
+    allowed = plan_currencies()
+    return [p for p in plan.active_prices if p.currency in allowed]
+
+
 INTERVALS = ("month", "year")
 MAX_PUBLISHED_PLANS = 1
 MAX_BENEFITS = 12
@@ -135,7 +150,7 @@ def _product_item(product: Product) -> dict[str, Any]:
 
 
 def plan_summary(plan: MembershipPlan) -> dict[str, Any]:
-    active = {p.interval: price_dict(p) for p in plan.active_prices}
+    active = {p.interval: price_dict(p) for p in current_prices(plan)}
     return {
         "id": plan.public_id,
         "slug": plan.slug,
@@ -158,8 +173,8 @@ def readiness(plan: MembershipPlan) -> list[str]:
         problems.append("Add a description.")
     if not plan.benefits:
         problems.append("Add at least one benefit.")
-    if not plan.active_prices:
-        problems.append("Add a monthly or yearly price.")
+    if not current_prices(plan):
+        problems.append(f"Add a monthly or yearly price in {', '.join(plan_currencies())}.")
     published = [
         a
         for a in plan.access
@@ -186,6 +201,8 @@ def plan_detail(plan: MembershipPlan, actor: User) -> dict[str, Any]:
         "readiness": readiness(plan),
         "billing": billing_status(),
         "provider_plans": _provider_plans(plan),
+        # The currency new prices are set in (KES): the editor labels its fields with it.
+        "price_currency": plan_currencies()[0],
     }
 
 
@@ -378,9 +395,10 @@ def set_status(plan: MembershipPlan, status: Any, data: Any, actor: User) -> Mem
 
 
 def _amount(data: dict, errors: dict) -> tuple[int | None, str]:
-    currency = str(data.get("currency") or "USD").upper()
-    if currency not in PLAN_CURRENCIES:
-        errors["currency"] = [f"Membership prices are offered in {', '.join(PLAN_CURRENCIES)}."]
+    allowed = plan_currencies()
+    currency = str(data.get("currency") or allowed[0]).upper()
+    if currency not in allowed:
+        errors["currency"] = [f"Membership prices are offered in {', '.join(allowed)}."]
         return None, currency
     if "amount_minor" in data:
         amount = data["amount_minor"]
@@ -473,7 +491,8 @@ def remove_price(plan: MembershipPlan, price_id: str, data: Any, actor: User) ->
     _editable(plan)
     _check_lock(plan, data)
     price = _get_price(plan, price_id)
-    if price.status == "active" and plan.status == "published" and len(plan.active_prices) == 1:
+    current = current_prices(plan)
+    if plan.status == "published" and price in current and len(current) == 1:
         raise ConflictError("A published plan needs a price. Add the new price first.")
     if price.shown_at is None:
         db.session.delete(price)
@@ -568,7 +587,7 @@ def public_plan(plan: MembershipPlan) -> dict[str, Any]:
         "tier_rank": plan.tier_rank,
         "prices": [
             {"id": p.public_id, "interval": p.interval, "price": money(p.amount_minor, p.currency)}
-            for p in sorted(plan.active_prices, key=lambda p: INTERVALS.index(p.interval))
+            for p in sorted(current_prices(plan), key=lambda p: INTERVALS.index(p.interval))
         ],
         "included": [
             {k: v for k, v in item.items() if k not in ("status", "product_id")}

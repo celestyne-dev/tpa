@@ -175,6 +175,15 @@ def render(template: str, context: dict[str, Any]) -> tuple[str, str]:
             f"keep access until {context['access_until']}. You can resume before then from "
             f"your membership page:\n\n{_site()}/account/membership" + test_note + _signature(),
         )
+    if template == "membership_recurring_unavailable":
+        return (
+            f"Your {context['plan_name']} membership won't renew automatically",
+            f"Hello {name},\n\nThank you for joining. Your membership is active until "
+            f"{context['access_until']}, but automatic renewal couldn't be set up "
+            f"({context.get('reason') or 'Paystack could not confirm it'}). You won't be "
+            "charged again. To continue after that date, join again from the membership page "
+            f"with a debit or credit card:\n\n{_site()}/membership" + test_note + _signature(),
+        )
     if template == "membership_ended":
         why = {
             "payment_failed": "because the renewal payment didn't go through",
@@ -214,6 +223,7 @@ TEMPLATES = (
     "membership_payment_failed",
     "membership_cancelled",
     "membership_ended",
+    "membership_recurring_unavailable",
 )
 
 
