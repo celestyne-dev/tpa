@@ -24,6 +24,7 @@ from pypdf.generic import (
     FloatObject,
     NameObject,
     NumberObject,
+    TextStringObject,
 )
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
@@ -105,6 +106,22 @@ def edit(data: bytes, change) -> bytes:
     out = io.BytesIO()
     writer.write(out)
     return out.getvalue()
+
+
+def add_document_js(writer: PdfWriter, code: str) -> None:
+    """A document-level script in the /Names /JavaScript tree (what Acrobat writes)."""
+    action = writer._add_object(
+        DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Action"),
+                NameObject("/S"): NameObject("/JavaScript"),
+                NameObject("/JS"): _stream(writer, code.encode()),
+            }
+        )
+    )
+    tree = DictionaryObject({NameObject("/Names"): ArrayObject([TextStringObject("init"), action])})
+    names = DictionaryObject({NameObject("/JavaScript"): writer._add_object(tree)})
+    writer._root_object[NameObject("/Names")] = writer._add_object(names)
 
 
 def raw_pdf(*bodies: bytes, after_eof: bytes = b"") -> bytes:
@@ -235,7 +252,7 @@ def test_open_action_destination_is_accepted(tmp_path):
 
 
 def test_document_javascript_name_tree_is_refused(tmp_path):
-    data = edit(reportlab_pdf(), lambda w: w.add_js("app.alert('hi');"))
+    data = edit(reportlab_pdf(), lambda w: add_document_js(w, "app.alert('hi');"))
     assert "JavaScript" in rejected(tmp_path, data)
 
 
@@ -474,7 +491,7 @@ def test_product_upload_accepts_real_workbooks_and_refuses_scripts(seeded, as_ro
     ok = api.upload(url, workbook, "Gratitude Journal.pdf")
     assert ok.status_code == 201, ok.get_json()
 
-    scripted = edit(workbook, lambda w: w.add_js("app.alert(1)"))
+    scripted = edit(workbook, lambda w: add_document_js(w, "app.alert(1)"))
     res = api.upload(url, scripted, "scripted.pdf")
     assert res.status_code == 400 and "JavaScript" in str(res.get_json())
     attached = edit(workbook, lambda w: w.add_attachment("a.txt", b"x"))
