@@ -224,6 +224,10 @@ class BaseConfig:
     # How long the buyer's browser can open a guest order with its order token, and how long
     # after payment it can download from the order page (after that: the emailed link).
     GUEST_ORDER_ACCESS_HOURS = _int("GUEST_ORDER_ACCESS_HOURS", 168)
+    # The currencies the shop may charge in (Batch 16). TPA's Paystack account takes KES
+    # only, so prices, orders and charges are in KES; US dollar amounts on the site are
+    # display-only estimates (Settings › Shop) and are never sent to Paystack.
+    CHARGE_CURRENCIES = ("KES",)
     GUEST_ORDER_DOWNLOAD_HOURS = _int("GUEST_ORDER_DOWNLOAD_HOURS", 24)
     RATELIMIT_GUEST_ACCESS = os.environ.get("RATELIMIT_GUEST_ACCESS", "3 per minute;10 per hour")
 
@@ -378,6 +382,9 @@ class TestingConfig(BaseConfig):
     MEDIA_ROOT = str(INSTANCE_DIR / "test-media")  # tests override with a temp dir
     PRODUCT_FILES_ROOT = str(INSTANCE_DIR / "test-product-files")  # overridden in tests
     PAYSTACK_SECRET_KEY = ""
+    # The older test suite prices and pays in USD as well as KES; the KES-only policy that
+    # production uses is tested in tests/test_kes_pricing_and_guest_checkout.py.
+    CHARGE_CURRENCIES = ("USD", "KES")
     PAYSTACK_PUBLIC_KEY = ""
     PAYSTACK_API_BASE = "https://api.paystack.co"
     PAYMENTS_LIVE_ALLOWED = False

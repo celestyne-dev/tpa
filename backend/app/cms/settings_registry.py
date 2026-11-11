@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from flask import current_app
@@ -50,6 +51,7 @@ class SettingDef:
     label: str
     group: str
     # string | text | email | https_url | path_or_https | boolean | media | choice | path_list
+    # | exchange_rate
     type: str
     default: Callable[[], Any]
     max_length: int = 200
@@ -418,15 +420,35 @@ SETTINGS += [
         300,
         "Optional short notice at the top of the shop (e.g. about a launch). Leave empty to hide.",
     ),
+    # Batch 16. Prices, orders and Paystack charges are always in KES (CHARGE_CURRENCIES);
+    # these only add an approximate US dollar figure next to KES prices.
     SettingDef(
-        "shop.display_currencies",
-        "Display currencies",
+        "shop.guest_checkout",
+        "Allow guest checkout",
         "Shop",
-        "string",
-        _const("USD,KES"),
-        60,
-        "Comma-separated ISO codes shown in the shop, e.g. USD,KES. Products only show prices "
-        "set in these currencies; nothing is converted.",
+        "boolean",
+        _const(True),
+        help="Let people buy without creating an account: they enter an email address, pay, "
+        "and get their receipt and a private access link by email. Signed-in checkout is "
+        "always available.",
+    ),
+    SettingDef(
+        "shop.usd_estimate",
+        "Show approximate US dollar prices",
+        "Shop",
+        "boolean",
+        _const(False),
+        help="Adds an approximate USD amount next to KES prices for international visitors. "
+        "Customers are always charged the KES price; nothing is shown without a valid rate.",
+    ),
+    SettingDef(
+        "shop.usd_rate",
+        "Kenyan shillings per US dollar (display only)",
+        "Shop",
+        "exchange_rate",
+        _const(""),
+        12,
+        "For example 129.50. Used only to show approximate USD amounts; never used to charge.",
     ),
     SettingDef(
         "seo.allow_indexing",
@@ -587,6 +609,25 @@ SETTINGS_BY_KEY = {s.key: s for s in SETTINGS}
 MEDIA_SETTINGS = tuple(s.key for s in SETTINGS if s.type == "media")
 
 
+MAX_EXCHANGE_RATE = Decimal("100000")
+
+
+def parse_exchange_rate(value: Any) -> Decimal | None:
+    """A positive KES-per-USD rate with at most 4 decimal places, or None."""
+    text = str(value if value is not None else "").strip().replace(",", "")
+    if not text or len(text) > 12:
+        return None
+    try:
+        rate = Decimal(text)
+    except InvalidOperation:
+        return None
+    if not rate.is_finite() or rate <= 0 or rate > MAX_EXCHANGE_RATE:
+        return None
+    if rate.as_tuple().exponent < -4:
+        return None
+    return rate.normalize() if rate == rate.to_integral_value() else rate
+
+
 def validate_setting(definition: SettingDef, value: Any) -> tuple[Any, str | None]:
     """Return (clean_value, error)."""
     if definition.type == "boolean":
@@ -629,14 +670,11 @@ def validate_setting(definition: SettingDef, value: Any) -> tuple[Any, str | Non
         if len(lines) > 50:
             return None, "At most 50 paths."
         return "\n".join(dict.fromkeys(lines)), None
-    if definition.key == "shop.display_currencies":
-        from ..commerce.currency import CURRENCIES
-
-        codes = [c.strip().upper() for c in value.split(",") if c.strip()]
-        bad = [c for c in codes if c not in CURRENCIES]
-        if bad or not codes:
-            return None, f"Use supported currency codes ({', '.join(CURRENCIES)})."
-        return ",".join(dict.fromkeys(codes)), None
+    if definition.type == "exchange_rate":
+        rate = parse_exchange_rate(value)
+        if rate is None:
+            return None, "Enter a number of shillings per US dollar, e.g. 129.50."
+        return format(rate, "f"), None
     if definition.type == "https_url" and definition.key == "seo.canonical_site_url":
         from urllib.parse import urlparse
 

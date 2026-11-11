@@ -90,21 +90,32 @@ def provider_status() -> dict[str, Any]:
         ),
         "api_base_is_official": cfg.get("PAYSTACK_API_BASE") == "https://api.paystack.co",
         "live_allowed_by_deployment": bool(cfg.get("PAYMENTS_LIVE_ALLOWED")),
-        "supported_currencies": sorted(provider.supported_currencies),
+        "supported_currencies": sorted(
+            c for c in provider.supported_currencies if c in charge_currencies()
+        ),
         "supported_channels": list(provider.supported_channels),
         "webhook_url": f"{current_app.config['SITE_URL']}/api/v1/payments/paystack/webhook",
         "callback_url": f"{current_app.config['SITE_URL']}/checkout/complete",
     }
 
 
+def charge_currencies() -> tuple[str, ...]:
+    """The currencies this shop may charge in at all (KES for TPA; see config)."""
+    return tuple(current_app.config.get("CHARGE_CURRENCIES") or ("KES",))
+
+
 def checkout_currencies() -> list[str]:
-    """Currencies a shopper can actually pay in right now (empty when checkout is closed)."""
+    """Currencies a shopper can actually pay in right now (empty when checkout is closed).
+
+    Only charge currencies (KES), whatever else is ticked in the payment settings, so no
+    other currency is ever sent to Paystack."""
     settings = get_settings()
     provider = get_provider()
+    allowed = charge_currencies()
     return [
         c
         for c in settings["payments.currencies"]
-        if c in provider.supported_currencies and c in CURRENCIES
+        if c in provider.supported_currencies and c in CURRENCIES and c in allowed
     ]
 
 
@@ -149,7 +160,14 @@ def public_status(customer=None) -> dict[str, Any]:
         "channels": list(get_settings()["payments.channels"] or []) if mode != "disabled" else [],
         "message": reason,
         "provider": "Paystack" if mode != "disabled" else None,
+        "guest_checkout": _guest_checkout_enabled(),
     }
+
+
+def _guest_checkout_enabled() -> bool:
+    from ..services.commerce.guest import guest_checkout_enabled
+
+    return guest_checkout_enabled()
 
 
 # ---- readiness -------------------------------------------------------------------------
@@ -291,6 +309,13 @@ def update_settings(changes: dict[str, Any], actor) -> dict[str, Any]:
             ]
             if bad:
                 errors[key] = [f"Not supported for checkout: {', '.join(bad)}."]
+                continue
+            other = [c for c in value if c not in charge_currencies()]
+            if other:
+                errors[key] = [
+                    f"Payments are taken in {', '.join(charge_currencies())} only "
+                    f"(not {', '.join(other)})."
+                ]
                 continue
         elif key == "channels":
             if not isinstance(value, list) or not value:

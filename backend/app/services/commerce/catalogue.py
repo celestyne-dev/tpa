@@ -359,11 +359,11 @@ def _price_list(prices: dict[str, dict[str, Any]], currencies: list[str]) -> lis
 
 
 def display_currencies() -> list[str]:
-    from ..settings_service import get_values
+    """The currencies prices are shown in: the charge currencies (KES). Approximate US
+    dollar amounts are added by the website from Settings › Shop, never as prices."""
+    from ...payments.config import charge_currencies
 
-    raw = get_values().get("shop.display_currencies") or "USD,KES"
-    codes = [c.strip().upper() for c in str(raw).split(",") if c.strip()]
-    return [c for c in dict.fromkeys(codes) if c in CURRENCIES] or ["USD"]
+    return [c for c in charge_currencies() if c in CURRENCIES]
 
 
 def effective_download_limit(product: Product) -> int | None:

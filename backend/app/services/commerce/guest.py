@@ -58,6 +58,19 @@ class GuestCheckoutUnavailable(APIError):
     message = "We can't take this order online. Please contact us and we'll help."
 
 
+class GuestCheckoutDisabled(APIError):
+    status_code = 403
+    code = "guest_checkout_disabled"
+    message = "Please log in or create an account to buy. Guest checkout is switched off."
+
+
+def guest_checkout_enabled() -> bool:
+    """Settings › Shop › "Allow guest checkout" (on by default)."""
+    from ..settings_service import get_values
+
+    return bool(get_values().get("shop.guest_checkout", True))
+
+
 def _now() -> datetime:
     return datetime.now(UTC)
 
@@ -125,6 +138,8 @@ def buyer_for_email(email: str, name: str = "") -> Customer:
 
 def create_order(data: dict[str, Any]) -> tuple[Order, str | None, str]:
     """Create (or resume) a guest order. Returns (order, authorization_url, order_token)."""
+    if not guest_checkout_enabled():
+        raise GuestCheckoutDisabled()
     email = _clean_email(data.get("email"))
     name = _clean_name(data.get("name"))
     allowed, reason = checkout.checkout_available_for(None)
