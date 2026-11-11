@@ -237,7 +237,7 @@ export function CheckoutPage() {
   const canPay =
     quote?.can_checkout &&
     status?.open &&
-    (guestReady || (customer && !unverified)) &&
+    (guestReady || Boolean(customer)) &&
     accepted &&
     adult &&
     !state.busy;
@@ -278,9 +278,11 @@ export function CheckoutPage() {
                   Receipt and download instructions go to <strong>{customer.email}</strong>.
                 </p>
                 {unverified && (
-                  <div className="mt-4 rounded-xl bg-gold-100/60 p-4 text-sm">
+                  <div role="note" className="mt-4 rounded-xl bg-gold-100/60 p-4 text-sm">
                     <p>
-                      Please confirm your email address before paying, so your receipt reaches you.
+                      You can pay now: your purchase goes straight into this account's library.
+                      Please also confirm your email address with the link we sent, so your receipt
+                      reaches you and you can recover your account.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-3">
                       <Button size="sm" variant="outline" onClick={resend}>

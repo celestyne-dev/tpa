@@ -244,12 +244,11 @@ def create_order(
     allowed, reason = checkout_available_for(None if guest else customer)
     if not allowed:
         raise CheckoutClosedError(reason)
-    if not guest and customer.email_verified_at is None:
-        raise ConflictError(
-            "Please confirm your email address before paying, so your receipt and downloads "
-            "reach you.",
-            details={"code": "email_unverified"},
-        )
+    # A confirmed email is not needed to buy. The order belongs to the signed-in account
+    # (``customer.id``, never the typed or looked-up email), access is granted only after
+    # Paystack verifies the payment, and downloads need this account's session; nothing
+    # usable is emailed for an account order. What still needs a confirmed email: claiming
+    # guest-checkout purchases (``entitlements.account_scope``), memberships and courses.
     key = data.get("idempotency_key")
     if not isinstance(key, str) or not _KEY.match(key):
         raise ValidationError(

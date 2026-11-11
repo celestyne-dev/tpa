@@ -211,15 +211,15 @@ def test_checkout_is_closed_by_default(seeded, as_role, paystack):
     assert not paystack.calls  # nothing was sent to the provider
 
 
-def test_test_mode_checkout_is_limited_to_test_accounts_and_verified_emails(shop):
+def test_test_mode_checkout_is_limited_to_test_accounts(shop):
     app = shop["app"]
     stranger = register_customer(app, "stranger@example.com", test_account=False)
     res = _checkout(stranger, [shop["public_id"]], expected=1500)
     assert res.status_code == 409 and res.get_json()["error"]["code"] == "checkout_closed"
+    # A confirmed email is not needed to buy (see test_unverified_checkout.py).
     unverified = register_customer(app, "new@example.com", verify=False)
     res = _checkout(unverified, [shop["public_id"]], expected=1500)
-    assert res.status_code == 409
-    assert res.get_json()["error"]["details"]["code"] == "email_unverified"
+    assert res.status_code == 201, res.get_json()
 
 
 # ---- order creation -------------------------------------------------------------------------

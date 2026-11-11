@@ -188,14 +188,35 @@ describe("cart and checkout", () => {
     expect(redirectTo.go).not.toHaveBeenCalled();
   });
 
-  it("requires a confirmed email before paying", async () => {
+  it("lets a signed-in customer pay before confirming their email", async () => {
+    const user = userEvent.setup();
     cartStore.add({ id: CALM, slug: "calm-mornings-workbook", title: "Calm" });
     const shopApi = createFakeShopApi({ customer: customerProfile({ email_verified: false }) });
     renderApp("/checkout", { shopApi });
-    expect(
-      await screen.findByRole("button", { name: "Resend confirmation email" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Pay USD 15.00/ })).toBeDisabled();
+    const note = (await screen.findByText(/You can pay now/)).closest('[role="note"]');
+    expect(note).not.toBeNull();
+    expect(within(note).getByRole("button", { name: "Resend confirmation email" })).toBeVisible();
+    const pay = screen.getByRole("button", { name: /Pay USD 15.00/ });
+    expect(pay).toBeDisabled(); // terms and age still required
+    await user.click(screen.getByRole("checkbox", { name: /terms of sale/ }));
+    await confirmAge(user, document.body);
+    expect(pay).toBeEnabled();
+    await user.click(pay);
+    await waitFor(() =>
+      expect(redirectTo.go).toHaveBeenCalledWith("https://checkout.paystack.com/test-usd"),
+    );
+    // The signed-in checkout, not guest checkout: the order belongs to this account.
+    expect(shopApi.checkout).toHaveBeenCalledTimes(1);
+    expect(shopApi.guestCheckout).not.toHaveBeenCalled();
+    expect(shopApi.checkout.mock.calls[0][0]).not.toHaveProperty("email");
+  });
+
+  it("shows no confirmation note to confirmed customers", async () => {
+    cartStore.add({ id: CALM, slug: "calm-mornings-workbook", title: "Calm" });
+    renderApp("/checkout", { shopApi: createFakeShopApi({ customer: customerProfile() }) });
+    await screen.findByRole("button", { name: /Pay USD 15.00/ });
+    expect(screen.queryByText(/You can pay now/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Resend confirmation email" })).toBeNull();
   });
 });
 
