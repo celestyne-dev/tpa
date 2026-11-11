@@ -44,8 +44,9 @@ The storefront never shows Add to cart or Buy now otherwise, and the server re-c
 
 **Money.** Amounts are stored as integers in minor units with an explicit ISO currency code (`app/commerce/currency.py`). USD and KES are configured, and more can be added there.
 
-- There is **no currency conversion**: each price is entered per currency.
-- Shoppers choose which currency prices are shown in (the display currencies are set in Site settings → Shop).
+- There is **no currency conversion** in pricing or charging: each price is entered per currency.
+- **KES only (Batch 16).** TPA's Paystack account takes Kenyan shillings, so `CHARGE_CURRENCIES` is `("KES",)`: prices are shown in KES, orders are created in KES, Paystack is only ever asked for the KES amount, and the payment settings refuse other currencies. Other prices kept in the CMS (e.g. older USD prices) are not shown or charged.
+- **Approximate US dollars (display only).** Site settings → Shop → **Show approximate US dollar prices** and **Kenyan shillings per US dollar** (e.g. `129.50`; the screen shows when it was last changed) add "≈ US$15.06 (approx.)" next to KES prices, cart lines and the total, with a note that the customer pays in KES and their bank converts at its own rate. Without a valid rate, the site shows KES only. The checkout always states the final KES charge before payment.
 - An order is charged in one currency.
 - Each order item stores a price snapshot (currency, unit amount, compare-at amount and title) that never changes afterwards.
 - Compare-at prices are shown only when higher than the price. Promotional prices can carry a start and end time.
@@ -210,6 +211,8 @@ There is one public way in, but **two separate authentication systems**: custome
 ### Guest checkout (Batch 07.6)
 
 Customers can buy without an account. At checkout, signed-out shoppers choose **Continue as guest** (email address, optional name) or **Log in** (or create an account). Signed-in customers check out as before.
+
+**Switch (Batch 16).** Site settings → Shop → **Allow guest checkout** (on by default). When it is off, signed-out shoppers are asked to log in or create an account, and `POST /api/v1/checkout/guest` answers `403 guest_checkout_disabled`. Orders already placed as a guest, their access links and downloads keep working.
 
 **Same payment path.** `POST /api/v1/checkout/guest` validates and normalises the email, then reuses the account checkout code. Prices and totals come from the server (`expected_total_minor` must match), the idempotency key resumes rather than duplicates, and orders become paid only through Paystack verification or a signed webhook (`payments.apply_verified`). Nothing is downloadable before that. Card data never reaches the site.
 

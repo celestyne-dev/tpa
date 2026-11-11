@@ -16,7 +16,7 @@ export function ProductPricingPanel({ product, options, canPrice, onChanged }) {
   const currencies = options.currencies ?? [];
   const exponentOf = (code) => currencies.find((c) => c.code === code)?.exponent ?? 2;
   const empty = {
-    currency: options.display_currencies?.[0] ?? "USD",
+    currency: options.display_currencies?.[0] ?? "KES",
     kind: "regular",
     amount: "",
     compare: "",

@@ -22,11 +22,23 @@ export function useDisplayCurrency() {
   const site = useSelector(selectSite)?.data;
   const currencies = site?.shop?.display_currencies?.length
     ? site.shop.display_currencies
-    : ["USD"];
+    : ["KES"];
   const stored = useSyncExternalStore(currencyStore.subscribe, currencyStore.read, noStored);
   const currency = stored && currencies.includes(stored) ? stored : currencies[0];
   const setCurrency = useCallback((code) => currencyStore.set(code), []);
   return { currency, setCurrency, currencies };
+}
+
+/** The display-only KES→USD rate from Settings › Shop, or null (show KES only). */
+export function useUsdEstimate() {
+  const site = useSelector(selectSite)?.data;
+  return site?.shop?.usd_estimate ?? null;
+}
+
+/** Whether people may buy without an account (Settings › Shop; on unless switched off). */
+export function useGuestCheckout() {
+  const site = useSelector(selectSite)?.data;
+  return site?.shop?.guest_checkout !== false;
 }
 
 /** The signed-in customer, loaded in the browser only. */

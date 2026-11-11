@@ -1,5 +1,6 @@
 import { priceIn } from "@/commerce/currency";
 import { cn } from "@/utils/format";
+import { UsdEstimate } from "./UsdEstimate";
 
 /**
  * The price in the shopper's display currency, always with its ISO code
@@ -39,6 +40,7 @@ export function PriceTag({ product, currency, size = "md", className }) {
       {price.promotional && (
         <span className="text-xs font-semibold tracking-wide text-gold-700 uppercase">Offer</span>
       )}
+      <UsdEstimate money={price} className="basis-full" />
     </p>
   );
 }

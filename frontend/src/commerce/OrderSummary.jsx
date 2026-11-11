@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { Link } from "react-router";
 import { ProductCover } from "@/components/products/ProductCover";
+import { UsdEstimate, UsdEstimateNote } from "@/components/products/UsdEstimate";
 import { routes } from "@/config/navigation";
 
 /** Server-quoted cart lines with explicit currency labels. */
@@ -33,6 +34,7 @@ export function OrderSummary({ quote, onRemove, compact = false }) {
             </div>
             <div className="text-right">
               {line.unit && <p className="font-semibold">{line.unit.formatted}</p>}
+              {line.unit && <UsdEstimate money={line.unit} className="block text-xs" />}
               {line.compare_at && (
                 <p className="text-sm text-muted line-through">{line.compare_at.formatted}</p>
               )}
@@ -61,10 +63,14 @@ export function OrderSummary({ quote, onRemove, compact = false }) {
         </div>
         <div className="flex justify-between text-lg font-semibold">
           <dt>Total</dt>
-          <dd>{quote.total.formatted}</dd>
+          <dd className="text-right">
+            {quote.total.formatted}
+            <UsdEstimate money={quote.total} className="block font-normal" />
+          </dd>
         </div>
       </dl>
       <p className="mt-2 text-xs text-muted">{quote.tax_note}</p>
+      <UsdEstimateNote className="mt-1" />
     </div>
   );
 }

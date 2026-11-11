@@ -2,13 +2,20 @@ import { Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useShopApi } from "@/components/products/shopApiContext";
+import { UsdEstimate } from "@/components/products/UsdEstimate";
 import { Seo } from "@/components/seo/Seo";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { InputField } from "@/components/ui/FormField";
 import { Notice } from "@/components/ui/Notice";
 import { routes } from "@/config/navigation";
-import { useCart, useCustomer, useDisplayCurrency } from "@/hooks/useShop";
+import {
+  useCart,
+  useCustomer,
+  useDisplayCurrency,
+  useGuestCheckout,
+  useUsdEstimate,
+} from "@/hooks/useShop";
 import { AGE_STATEMENT } from "@/utils/age";
 import { guestOrders } from "../guestOrders";
 import { newKey, redirectTo } from "../hooks";
@@ -51,8 +58,9 @@ function ChoiceCard({ id, checked, onChange, title, description }) {
   );
 }
 
-/** Signed-out shoppers choose: buy as a guest (email only) or use an account. */
-function CheckoutAsStep({ mode, setMode, guest, setGuest }) {
+/** Signed-out shoppers choose: buy as a guest (email only) or use an account. With guest
+ * checkout switched off (Settings › Shop) only the account options are offered. */
+function CheckoutAsStep({ mode, setMode, guest, setGuest, guestAllowed }) {
   return (
     <section
       aria-labelledby="account-step"
@@ -61,25 +69,32 @@ function CheckoutAsStep({ mode, setMode, guest, setGuest }) {
       <h2 id="account-step" className="text-xl font-medium">
         1. How would you like to check out?
       </h2>
-      <fieldset className="mt-5">
-        <legend className="sr-only">Check out as</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ChoiceCard
-            id="checkout-as-guest"
-            checked={mode === "guest"}
-            onChange={() => setMode("guest")}
-            title="Continue as guest"
-            description="No account needed. We'll email your receipt and a private download link."
-          />
-          <ChoiceCard
-            id="checkout-as-account"
-            checked={mode !== "guest"}
-            onChange={() => setMode("signin")}
-            title="Log in"
-            description="Purchases are saved in your library to download again any time."
-          />
-        </div>
-      </fieldset>
+      {!guestAllowed && (
+        <p className="mt-2 text-sm text-muted">
+          Please log in or create an account to buy. Your purchases are saved in your library.
+        </p>
+      )}
+      {guestAllowed && (
+        <fieldset className="mt-5">
+          <legend className="sr-only">Check out as</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ChoiceCard
+              id="checkout-as-guest"
+              checked={mode === "guest"}
+              onChange={() => setMode("guest")}
+              title="Continue as guest"
+              description="No account needed. We'll email your receipt and a private download link."
+            />
+            <ChoiceCard
+              id="checkout-as-account"
+              checked={mode !== "guest"}
+              onChange={() => setMode("signin")}
+              title="Log in"
+              description="Purchases are saved in your library to download again any time."
+            />
+          </div>
+        </fieldset>
+      )}
       <div className="mt-6">
         {mode === "guest" ? (
           <div className="space-y-4">
@@ -148,10 +163,13 @@ export function CheckoutPage() {
   const { customer, isLoading: customerLoading, refresh } = useCustomer();
   const { currency } = useDisplayCurrency();
   const { quote, error: quoteError, reload, empty } = useQuote(items, currency);
+  const estimate = useUsdEstimate();
   const navigate = useNavigate();
   const [accepted, setAccepted] = useState(false);
   const [adult, setAdult] = useState(false);
-  const [mode, setMode] = useState("guest");
+  const guestAllowed = useGuestCheckout();
+  const [chosenMode, setMode] = useState("guest");
+  const mode = !guestAllowed && chosenMode === "guest" ? "signin" : chosenMode;
   const [guest, setGuest] = useState({ email: "", name: "" });
   const [state, setState] = useState({ busy: false, error: null, notice: "", orderId: null });
   // One checkout key per visit: retries of the same request never create a second order.
@@ -241,7 +259,13 @@ export function CheckoutPage() {
                 Checking your account…
               </p>
             ) : !customer ? (
-              <CheckoutAsStep mode={mode} setMode={setMode} guest={guest} setGuest={setGuest} />
+              <CheckoutAsStep
+                mode={mode}
+                setMode={setMode}
+                guest={guest}
+                setGuest={setGuest}
+                guestAllowed={guestAllowed}
+              />
             ) : (
               <section
                 aria-labelledby="account-step"
@@ -280,8 +304,8 @@ export function CheckoutPage() {
               {!status ? null : status.open ? (
                 <>
                   <p className="mt-2 text-sm text-muted">
-                    You'll pay {quote.total.formatted} on Paystack's secure page. We never see or
-                    store card details.{" "}
+                    You'll be charged <strong>{quote.total.formatted}</strong> on Paystack's secure
+                    page. We never see or store card details.{" "}
                     {customer
                       ? "Your library updates as soon as Paystack confirms the payment to us."
                       : "Your downloads are ready as soon as Paystack confirms the payment to us."}
@@ -289,6 +313,13 @@ export function CheckoutPage() {
                   {status.currencies?.length > 0 && (
                     <p className="mt-2 text-sm text-muted">
                       Payment currency: <strong>{quote.currency}</strong>
+                      {estimate && quote.currency === "KES" && (
+                        <>
+                          {" "}
+                          (<UsdEstimate money={quote.total} className="text-sm" />; your bank
+                          converts the KES charge at its own rate)
+                        </>
+                      )}
                     </p>
                   )}
                   {status.channels?.length > 0 && (

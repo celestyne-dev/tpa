@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { cn } from "@/utils/format";
+import { cn, formatDateTime } from "@/utils/format";
 import { useAdminApi } from "../adminApiContext";
 import { useAdminQuery } from "../hooks/useAdminQuery";
 import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
@@ -61,6 +61,26 @@ function SettingField({ setting, value, onChange, error }) {
             </p>
           )}
         </div>
+      );
+    case "exchange_rate":
+      return (
+        <TextField
+          {...common}
+          hint={
+            <>
+              {setting.help}
+              {setting.updated_at && !setting.is_default && (
+                <span className="mt-1 block">
+                  Last updated {formatDateTime(setting.updated_at)}.
+                </span>
+              )}
+            </>
+          }
+          inputMode="decimal"
+          maxLength={setting.max_length}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
       );
     default:
       return (
