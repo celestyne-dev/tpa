@@ -5,9 +5,12 @@ browser's declared type: the content is sniffed, the extension must agree with
 it, and each format gets structural checks. ZIP-based formats are inspected
 entry by entry with hard limits on entry count, total uncompressed size and
 compression ratio (decompression bombs), and with path traversal, symlink,
-encryption and executable checks. PDFs containing JavaScript or launch actions
-are refused. Word and Excel files (Office Open XML) must have their required
-parts and may not contain macros, ActiveX controls or embedded objects. Which
+encryption and executable checks. PDFs are parsed (``pypdf``) and every object
+is inspected: scripts, launch and other unsafe actions, attachments, rich media
+and encryption are refused, while fonts, images and other ordinary content are
+not misread as active content (see ``pdf_safety``). Word and Excel files (Office
+Open XML) must have their required parts and may not contain macros, ActiveX
+controls or embedded objects. Which
 formats are accepted is configurable (``RESOURCE_FILE_FORMATS``). A malware
 scanner can additionally be configured (see
 ``PRODUCT_FILES_SCAN_COMMAND``); it runs in the background worker, never in a
@@ -22,6 +25,8 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
+
+from .pdf_safety import PdfUnreadable, PdfUnsafe, inspect_pdf
 
 
 @dataclass(frozen=True)
@@ -89,7 +94,6 @@ ZIP_ENTRY_EXTENSIONS = frozenset(
     }
 )
 _EXECUTABLE_MAGIC = (b"MZ", b"\x7fELF", b"#!", b"\xca\xfe\xba\xbe", b"\xcf\xfa\xed\xfe")
-_PDF_DANGER = re.compile(rb"/(JavaScript|JS|Launch|EmbeddedFile|RichMedia)\b")
 
 
 class FileRejected(ValueError):
@@ -131,20 +135,25 @@ def _check_pdf(path: Path, limits: dict[str, int]) -> dict[str, Any]:
         tail = handle.read()
     if b"%%EOF" not in tail:
         raise FileRejected("The PDF appears to be truncated or damaged (no end-of-file marker).")
-    # Scan the whole file in overlapping windows for active content markers.
-    overlap = 32
-    with path.open("rb") as handle:
-        previous = b""
-        while chunk := handle.read(1024 * 1024):
-            window = previous + chunk
-            match = _PDF_DANGER.search(window)
-            if match:
-                kind = match.group(1).decode()
-                raise FileRejected(
-                    f"PDFs with active content ({kind}) are not accepted. Export the PDF again "
-                    "without scripts, launch actions or embedded files."
-                )
-            previous = window[-overlap:]
+    # Structural inspection of every object (not a byte search, which misread fonts and
+    # images as scripts). Anything that can't be inspected completely is refused.
+    try:
+        inspect_pdf(path)
+    except PdfUnsafe as exc:
+        raise FileRejected(
+            f"PDFs with active or embedded content ({exc.label}) are not accepted. Export or "
+            "print the PDF again without scripts, actions, attachments or media."
+        ) from exc
+    except PdfUnreadable as exc:
+        if exc.encrypted:
+            raise FileRejected(
+                "Password-protected or encrypted PDFs are not accepted. Save an unprotected "
+                "copy and upload that."
+            ) from exc
+        raise FileRejected(
+            "This PDF couldn't be checked safely (it may be damaged or unusually built). "
+            "Export or print it to PDF again and upload the new file."
+        ) from exc
     return {"pdf_version": head[5:8].decode("ascii", "replace")}
 
 

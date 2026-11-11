@@ -414,8 +414,31 @@ def paystack(app):
     return fake
 
 
-def minimal_pdf(extra=b""):
-    return b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n" + extra + b"trailer\n<< >>\n%%EOF\n"
+def minimal_pdf(extra=b"", catalog=b""):
+    """A small, structurally valid one-page PDF (catalogue, page tree, xref, trailer).
+
+    ``extra`` is placed between the objects and the xref (for example a ``%`` comment
+    that makes the bytes distinct); ``catalog`` adds entries to the document catalogue.
+    """
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R " + catalog + b" >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+    ]
+    out = b"%PDF-1.4\n"
+    offsets = []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n%s\nendobj\n" % (number, body)
+    out += extra
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    out += b"".join(b"%010d 00000 n \n" % offset for offset in offsets)
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
+        len(objects) + 1,
+        xref,
+    )
+    return out
 
 
 def make_zip(entries, *, epub=False):

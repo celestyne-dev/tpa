@@ -56,8 +56,9 @@ downloads", "365-day access · 5 downloads") and related resources.
 PDF, EPUB, **DOCX** and **XLSX** (new), and ZIP resource packs, configurable with
 `RESOURCE_FILE_FORMATS`. Every upload is checked by content, not by name:
 
-- PDFs with JavaScript, launch actions, embedded files or rich media are refused;
-  truncated PDFs are refused.
+- PDFs are parsed and every object inspected: JavaScript, launch and other unsafe
+  actions, attachments, rich media, encrypted and truncated or unreadable PDFs are
+  refused; embedded fonts, images, links and plain printable forms are accepted.
 - DOCX/XLSX must have their required parts; macros (`vbaProject.bin`, macro-enabled
   content types), ActiveX controls and embedded OLE objects are refused, even if a
   `.docm` is renamed `.docx`.

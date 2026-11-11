@@ -14,4 +14,5 @@ python-dotenv==1.2.4
 psycopg[binary]==3.3.6
 gunicorn==26.2.0
 pillow==13.0.0
+pypdf==6.17.0  # structural PDF safety inspection of uploads (app/commerce/pdf_safety.py)
 redis==6.2.0  # shared rate-limit storage for several Gunicorn workers (RATELIMIT_STORAGE_URI)

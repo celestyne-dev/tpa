@@ -354,7 +354,7 @@ def test_supporting_documents_are_validated_private_and_access_controlled(seeded
     rejected = [
         (ooxml(extra={"word/vbaProject.bin": "macro"}), "essay.docx"),
         (b"MZ\x90\x00 fake executable", "essay.pdf"),
-        (minimal_pdf(b"/JavaScript (app.alert(1))\n"), "essay.pdf"),
+        (minimal_pdf(catalog=b"/OpenAction << /S /JavaScript /JS (app.alert(1)) >>"), "essay.pdf"),
         (minimal_pdf(), "essay.docx"),
         (b"plain text", "notes.txt"),
         (ooxml("xlsx"), "sheet.xlsx"),  # not an approved submission format

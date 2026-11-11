@@ -281,8 +281,11 @@ def test_private_file_uploads_are_validated(seeded, as_role, app):
 
     rejected = [
         (b"MZ\x90\x00 fake executable", "workbook.pdf"),
-        (minimal_pdf(b"/JavaScript (app.alert(1))\n"), "workbook.pdf"),
-        (minimal_pdf(b"/Launch << /F (cmd.exe) >>\n"), "workbook.pdf"),
+        (
+            minimal_pdf(catalog=b"/OpenAction << /S /JavaScript /JS (app.alert(1)) >>"),
+            "workbook.pdf",
+        ),
+        (minimal_pdf(catalog=b"/OpenAction << /S /Launch /F (cmd.exe) >>"), "workbook.pdf"),
         (b"%PDF-1.4\nno end marker", "workbook.pdf"),
         (minimal_pdf(), "workbook.exe"),
         (minimal_pdf(), "workbook.zip"),

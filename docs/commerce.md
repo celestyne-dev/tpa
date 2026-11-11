@@ -77,7 +77,7 @@ Product files are **never** stored in the public media library, the Git reposito
 
 - the real content type, sniffed from the bytes (the extension and declared type must agree with it);
 - the size limit (`PRODUCT_FILE_MAX_MB`) and a sanitised display filename;
-- **PDF:** structure check; PDFs containing JavaScript, launch actions or embedded files are rejected;
+- **PDF:** parsed with `pypdf` and every object inspected (not a byte search, so fonts and images are never mistaken for scripts). Refused: JavaScript (actions, name tree, XFA), launch and other non-allow-listed actions, automatic actions other than page moves, non-http(s)/mailto links, attachments and associated files, rich media/multimedia/3D, encrypted files, and anything that can't be inspected completely (fails closed). Objects left out of the cross-reference table are inspected too. Fonts, JPEG images, links, bookmarks and plain printable forms are accepted (`app/commerce/pdf_safety.py`);
 - **EPUB:** the `mimetype` entry and container structure;
 - **ZIP:** entry count, total uncompressed size and compression ratio (`PRODUCT_ZIP_MAX_*`); rejects path traversal, absolute paths, symlinks, encrypted entries and any entry whose file type is not on the allowlist (documents, images, audio and video);
 - a SHA-256 checksum stored for integrity;

@@ -165,7 +165,7 @@ Write only what is true: no invented page counts, testimonials, reviews or resul
 **Files.** Upload PDF, EPUB or ZIP files on the **Files** tab.
 
 - They go to private storage, never the media library, and customers only get them through their library after a confirmed payment.
-- A file can be refused, with the reason shown (for example a PDF containing JavaScript, or a ZIP with unsafe contents).
+- A file can be refused, with the reason shown (for example a PDF containing JavaScript or an attachment, a password-protected PDF, or a ZIP with unsafe contents). If an ordinary PDF is refused as damaged, export or print it to PDF again and upload the new file.
 - **Upload a new version** to correct a file. New buyers get the latest version, and earlier buyers get both the latest version and the one they bought.
 - **Deactivate** stops offering a file to new buyers.
 
