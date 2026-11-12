@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { routes } from "@/config/navigation";
 import { cn, formatDate, slugify } from "@/utils/format";
-import { parseInlineLinks } from "@/utils/inlineLinks";
+import { parseInline } from "@/utils/inlineLinks";
 
 const calloutStyles = {
   info: { icon: Info, className: "border-sage-200 bg-sage-50" },
@@ -38,28 +38,47 @@ function SmartLink({ href, className, children }) {
   );
 }
 
-/**
- * Text with inline [label](href) links (safe targets only). Lesson blocks (with a uid)
- * stay exactly as written: the reader's highlights are stored against that plain text.
- */
-function InlineText({ text, block }) {
-  if (block?.uid) return text;
-  const parts = parseInlineLinks(text);
-  if (!parts.some((p) => p.href)) return text;
+/** Parsed inline parts (see parseInline) as React elements: never raw HTML. */
+function InlineParts({ parts }) {
   return parts.map((part, i) => {
+    if (part.strong)
+      return (
+        <strong key={i}>
+          <InlineParts parts={part.strong} />
+        </strong>
+      );
+    if (part.em)
+      return (
+        <em key={i}>
+          <InlineParts parts={part.em} />
+        </em>
+      );
     if (!part.href) return part.text;
+    const label = <InlineParts parts={part.children} />;
     if (part.href.toLowerCase().startsWith("mailto:"))
       return (
         <a key={i} href={part.href}>
-          {part.label}
+          {label}
         </a>
       );
     return (
       <SmartLink key={i} href={part.href}>
-        {part.label}
+        {label}
       </SmartLink>
     );
   });
+}
+
+/**
+ * Text with inline [label](href) links (safe targets only) and **bold** / *italic*. Lesson
+ * blocks (with a uid) stay exactly as written: the reader's highlights are stored against
+ * that plain text.
+ */
+function InlineText({ text, block }) {
+  if (block?.uid) return text;
+  const parts = parseInline(text);
+  if (parts.length === 1 && parts[0].text !== undefined) return text;
+  return <InlineParts parts={parts} />;
 }
 
 /** An article's sources: titled links (and publisher/access date when given). */
@@ -212,6 +231,7 @@ function ArticleBlocks({ blocks }) {
             return (
               <List
                 key={index}
+                start={block.ordered && block.start > 1 ? block.start : undefined}
                 data-block-uid={block.uid}
                 data-highlightable={block.uid ? "" : undefined}
               >

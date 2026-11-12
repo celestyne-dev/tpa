@@ -178,6 +178,50 @@ def _unavailable_paths():
     return check
 
 
+def _with_featured_topics(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Add featured topics that aren't linked anywhere in this header menu.
+
+    Header topic groups are editor-arranged (or, by default, filled by keyword), so a new
+    topic would otherwise never reach the header. A topic marked **Featured** in Admin ›
+    Topics, active and with published articles, is added to the matching topic group
+    (by the group's keywords; otherwise the group with the fewest topics), after the
+    group's topic links and in the topics' display order. Other topics are not added, and
+    a topic already linked anywhere in the menu is not repeated.
+    """
+    from .topic_links import _normalise, topic_path
+    from .topic_service import list_topics
+
+    groups = [i for i in items if any(topic_slug(c.get("url")) for c in i.get("children") or [])]
+    if not groups:
+        return items
+    linked = {
+        topic_slug(node.get("url")) for i in items for node in [i, *(i.get("children") or [])]
+    }
+    keywords = dict(TOPIC_GROUPS)
+    for topic in list_topics(featured=True):
+        if not topic.get("article_count") or topic["slug"] in linked:
+            continue
+        text = _normalise(f"{topic['name']} {topic['slug']}")
+        target = next(
+            (g for g in groups if any(_normalise(k) in text for k in keywords.get(g["label"], ()))),
+            None,
+        ) or min(groups, key=lambda g: sum(1 for c in g["children"] if topic_slug(c["url"])))
+        children = target["children"]
+        after = max(i for i, c in enumerate(children) if topic_slug(c["url"])) + 1
+        children.insert(
+            after,
+            {
+                "label": topic["name"],
+                "url": topic_path(topic["slug"]),
+                "external": False,
+                "open_in_new_tab": False,
+                "visibility": "all",
+            },
+        )
+        linked.add(topic["slug"])
+    return items
+
+
 def public_navigation() -> dict[str, Any]:
     hidden = hidden_prefixes()
     topics = TopicLinkResolver()
@@ -232,8 +276,8 @@ def public_navigation() -> dict[str, Any]:
                 out.append(link(n))
         return out
 
-    primary = header_items("primary")
-    mobile = header_items("mobile") if _menu("mobile") is not None else []
+    primary = _with_featured_topics(header_items("primary"))
+    mobile = _with_featured_topics(header_items("mobile")) if _menu("mobile") is not None else []
     footer = [
         {
             "title": n["label"],

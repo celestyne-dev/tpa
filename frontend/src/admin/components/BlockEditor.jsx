@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { useAdminApi } from "../adminApiContext";
 import { BLOCK_TEMPLATES, LESSON_BLOCK_TYPES, blockLabel, videoUrl } from "./blocks";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "./Fields";
+import { inlineFormattingProps } from "./inlineFormatting";
 import { LessonBlockFields } from "./LessonBlockFields";
 import { ImageChooser, MediaThumb } from "./media/ImageChooser";
 import { rememberMedia } from "./media/mediaCache";
@@ -200,7 +201,19 @@ function TableEditor({ block, set, n }) {
 
 const LINK_HINT = "A site path such as /topics/confidence, or a full https:// address.";
 const INLINE_LINK_HINT =
-  "To add a link, write [link text](/topics/confidence) or [link text](https://example.org/page).";
+  "Bold: **text** (Ctrl/⌘+B). Italic: *text* (Ctrl/⌘+I). Link: [link text](/topics/confidence) or [link text](https://example.org/page). Bold, italic and links pasted from Google Docs or Word are kept.";
+
+/** The number a numbered list continues from: the end of the closest earlier one. */
+export function continuedStart(previous) {
+  for (let i = previous.length - 1; i >= 0; i -= 1) {
+    const b = previous[i];
+    if (b.type === "list" && b.ordered) {
+      const items = (b.items ?? []).filter((item) => item.trim()).length;
+      return (b.start ?? 1) + items;
+    }
+  }
+  return null;
+}
 
 /** Cited sources: title and https address, with an optional publisher and access date. */
 function SourcesEditor({ block, set, n, error }) {
@@ -273,7 +286,7 @@ function SourcesEditor({ block, set, n, error }) {
   );
 }
 
-function BlockFields({ block, index, onChange, errors, files }) {
+function BlockFields({ block, index, onChange, errors, files, previous = [] }) {
   const n = index + 1;
   const set = (patch) => onChange({ ...block, ...patch });
   const error = errors?.join(" ");
@@ -289,6 +302,7 @@ function BlockFields({ block, index, onChange, errors, files }) {
           value={block.text}
           error={error}
           onChange={(e) => set({ text: e.target.value })}
+          {...inlineFormattingProps((text) => set({ text }))}
         />
       );
     case "heading":
@@ -311,17 +325,49 @@ function BlockFields({ block, index, onChange, errors, files }) {
           />
         </div>
       );
-    case "list":
+    case "list": {
+      const continues = block.ordered ? continuedStart(previous) : null;
       return (
-        <TextAreaField
-          label={`List ${n} items`}
-          hint={`One item per line. ${INLINE_LINK_HINT}`}
-          rows={4}
-          error={error}
-          value={block.items.join("\n")}
-          onChange={(e) => set({ items: e.target.value.split("\n") })}
-        />
+        <div className="grid gap-3">
+          <TextAreaField
+            label={`List ${n} items`}
+            hint={`One item per line. ${INLINE_LINK_HINT}`}
+            rows={4}
+            error={error}
+            value={block.items.join("\n")}
+            onChange={(e) => set({ items: e.target.value.split("\n") })}
+            {...inlineFormattingProps((text) => set({ items: text.split("\n") }))}
+          />
+          {block.ordered && (
+            <div className="flex flex-wrap items-end gap-3">
+              <TextField
+                label={`List ${n} starts at`}
+                hint="Leave at 1 for a new list."
+                type="number"
+                min={1}
+                max={10000}
+                className="w-40"
+                value={String(block.start ?? 1)}
+                onChange={(e) => {
+                  const start = Math.trunc(Number(e.target.value));
+                  set({ start: Number.isFinite(start) && start > 1 ? start : undefined });
+                }}
+              />
+              {continues > 1 && (block.start ?? 1) !== continues && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => set({ start: continues })}
+                >
+                  Continue numbering from {continues}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       );
+    }
     case "quote":
     case "pullquote":
       return (
@@ -656,6 +702,7 @@ export function BlockEditor({
             <BlockFields
               block={block}
               index={index}
+              previous={blocks.slice(0, index)}
               onChange={(b) => update(index, b)}
               errors={errors?.[String(index)]}
               files={files}

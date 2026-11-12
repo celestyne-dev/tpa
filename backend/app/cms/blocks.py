@@ -48,7 +48,7 @@ _TEXT_FIELDS: dict[str, dict[str, tuple[bool, int]]] = {
 }
 _EXTRA_FIELDS = {
     "heading": {"level"},
-    "list": {"items", "ordered"},
+    "list": {"items", "ordered", "start"},
     "callout": {"tone"},
     "image": {"media_id", "align"},
     "gallery": {"items", "columns"},
@@ -63,6 +63,14 @@ _EXTRA_FIELDS = {
 # Text fields that may contain inline [label](href) links.
 INLINE_LINK_BLOCKS = ("paragraph", "callout", "list", "table")
 INLINE_LINK = re.compile(r"\[([^\[\]\n]{1,200})\]\(([^()\s]{1,500})\)")
+# Inline emphasis written as **bold** and *italic* (or _italic_); mirrors
+# frontend/src/utils/inlineLinks.js. Rendered as <strong>/<em> elements, never as HTML.
+_BOLD = re.compile(r"\*\*(?=\S)([^\n]*?\S)\*\*")
+_ITALIC = re.compile(
+    r"(?<![*\w])\*(?=[^\s*])([^*\n]*?[^\s*])\*(?![*\w])"  # *italic*
+    r"|(?<![\w])_(?=\S)([^_\n]*?\S)_(?!\w)"  # _italic_ (not snake_case)
+)
+MAX_LIST_START = 10000
 _MAILTO = re.compile(r"^mailto:[^@\s/?#]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$")
 MAX_SOURCES = 30
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -107,8 +115,10 @@ def inline_links(text: str) -> list[tuple[str, str]]:
 
 
 def strip_inline_links(text: str) -> str:
-    """The text as read: [label](href) becomes label."""
-    return INLINE_LINK.sub(lambda m: m.group(1), text or "")
+    """The text as read: [label](href) becomes label, **bold**/*italic* lose the markers."""
+    text = INLINE_LINK.sub(lambda m: m.group(1), text or "")
+    text = _BOLD.sub(lambda m: m.group(1), text)
+    return _ITALIC.sub(lambda m: m.group(1) or m.group(2), text)
 
 
 _LINK_SCHEME = re.compile(r"\]\(\s*([A-Za-z][A-Za-z0-9+.-]*):")
@@ -197,6 +207,17 @@ def _validate_extras(kind: str, block: dict[str, Any], out: dict[str, Any], erro
         if not isinstance(ordered, bool):
             errors.append("Ordered must be true or false.")
         out["ordered"] = bool(ordered)
+        # A numbered list can continue an earlier one (1-10, a paragraph, then 11-20).
+        start = block.get("start")
+        if start is not None:
+            if (
+                not isinstance(start, int)
+                or isinstance(start, bool)
+                or not 1 <= start <= MAX_LIST_START
+            ):
+                errors.append(f"Start number must be a whole number from 1 to {MAX_LIST_START}.")
+            elif out["ordered"] and start > 1:
+                out["start"] = start
         for i, item in enumerate(out["items"]):
             _check_inline_links(item, f"Item {i + 1}", errors)
     elif kind == "sources":

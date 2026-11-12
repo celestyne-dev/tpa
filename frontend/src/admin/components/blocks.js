@@ -162,7 +162,11 @@ const REQUIRED_TEXT = {
 export function cleanBlocks(blocks) {
   return blocks.map((block) => {
     const out = { ...block };
-    if (out.type === "list") out.items = out.items.map((i) => i.trim()).filter(Boolean);
+    if (out.type === "list") {
+      out.items = out.items.map((i) => i.trim()).filter(Boolean);
+      // Only a numbered list continuing an earlier one keeps a start number.
+      if (!out.ordered || !(out.start > 1)) delete out.start;
+    }
     OPTIONAL_TEXT.forEach((k) => {
       if (REQUIRED_TEXT[out.type]?.includes(k)) return;
       if (k in out && !String(out[k] ?? "").trim()) delete out[k];
