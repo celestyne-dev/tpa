@@ -30,6 +30,33 @@ const REASONS = {
 };
 const reason = (r) => REASONS[r] ?? r.replaceAll("_", " ");
 
+/** Job statuses in the words editors use: Queued → Building → Published / Failed. */
+const JOB_LABELS = {
+  pending: "Queued",
+  running: "Building",
+  succeeded: "Published",
+  failed: "Failed",
+  cancelled: "Cancelled",
+};
+const STATE = {
+  saved: { label: "Saved", tone: "draft", text: "Changes are saved; nothing has been built yet." },
+  queued: { label: "Queued", tone: "pending", text: "A rebuild is waiting to start." },
+  building: { label: "Building", tone: "running", text: "The site is being rebuilt." },
+  published: { label: "Published", tone: "published", text: "The live site is up to date." },
+  failed: {
+    label: "Failed",
+    tone: "failed",
+    text: "The latest rebuild failed. Your changes are saved and the previous release stays live.",
+  },
+};
+const FAILURES = {
+  permission: "Folder permissions on the server",
+  dependencies: "Missing build dependencies on the server",
+  configuration: "Publishing configuration on the server",
+  build: "Build error",
+  unexpected: "Unexpected error",
+};
+
 /** Static site builds: queue, history, retries. Builds run in a separate worker process. */
 export function PublishingPage() {
   const api = useAdminApi();
@@ -78,6 +105,13 @@ export function PublishingPage() {
           )
         }
       />
+      {summary?.state && STATE[summary.state] && (
+        <p role="status" className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium">Publishing status:</span>
+          <StatusBadge status={STATE[summary.state].tone} label={STATE[summary.state].label} />
+          <span className="text-muted">{STATE[summary.state].text}</span>
+        </p>
+      )}
       {summary && (
         <section aria-label="Current state" className="mb-5 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-charcoal/10 bg-white p-4 text-sm">
@@ -94,7 +128,7 @@ export function PublishingPage() {
               {summary.running
                 ? `Building job #${summary.running.id}…`
                 : summary.pending
-                  ? `Job #${summary.pending.id} waiting (starts after ${formatDateTime(summary.pending.not_before)})`
+                  ? `Job #${summary.pending.id} queued (starts after ${formatDateTime(summary.pending.not_before)})`
                   : "Idle"}
             </p>
           </div>
@@ -105,6 +139,13 @@ export function PublishingPage() {
                 ? `#${summary.last_failure.id}: ${summary.last_failure.error}`
                 : "None since the last success"}
             </p>
+            {summary.last_failure?.details?.failure && (
+              <p className="mt-1 text-xs text-muted">
+                {FAILURES[summary.last_failure.details.failure.category] ?? FAILURES.build}
+                {summary.last_failure.details.failure.retry === false &&
+                  " · won't retry automatically until it's fixed"}
+              </p>
+            )}
           </div>
         </section>
       )}
@@ -118,9 +159,9 @@ export function PublishingPage() {
           }}
           options={[
             { value: "", label: "All jobs" },
-            { value: "pending", label: "Pending" },
-            { value: "running", label: "Running" },
-            { value: "succeeded", label: "Succeeded" },
+            { value: "pending", label: "Queued" },
+            { value: "running", label: "Building" },
+            { value: "succeeded", label: "Published" },
             { value: "failed", label: "Failed" },
             { value: "cancelled", label: "Cancelled" },
           ]}
@@ -140,7 +181,10 @@ export function PublishingPage() {
               key: "status",
               header: "Status",
               render: (j) => (
-                <StatusBadge status={j.status === "succeeded" ? "published" : j.status} />
+                <StatusBadge
+                  status={j.status === "succeeded" ? "published" : j.status}
+                  label={JOB_LABELS[j.status] ?? j.status}
+                />
               ),
             },
             {

@@ -15,7 +15,7 @@ const tones = {
   cancelled: "bg-charcoal/10 text-muted",
 };
 
-export function StatusBadge({ status, className }) {
+export function StatusBadge({ status, label, className }) {
   return (
     <span
       className={cn(
@@ -24,7 +24,7 @@ export function StatusBadge({ status, className }) {
         className,
       )}
     >
-      {status}
+      {label ?? status}
     </span>
   );
 }

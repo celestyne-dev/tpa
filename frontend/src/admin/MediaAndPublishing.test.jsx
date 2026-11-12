@@ -188,6 +188,19 @@ describe("publishing jobs", () => {
     await waitFor(() => expect(adminApi.publishing.request).toHaveBeenCalled());
   });
 
+  it("shows the publishing status and why the last build failed", async () => {
+    renderApp("/admin/publishing");
+    const status = (await screen.findByText("Publishing status:")).closest('[role="status"]');
+    expect(status).toHaveTextContent("Failed");
+    expect(status).toHaveTextContent("the previous release stays live");
+    expect(
+      screen.getByText(/Folder permissions on the server · won't retry automatically/),
+    ).toBeVisible();
+    const table = screen.getByRole("table", { name: "Publishing jobs" });
+    expect(within(table).getByText("Published")).toBeVisible();
+    expect(within(table).getByText("Failed")).toBeVisible();
+  });
+
   it("is view-only without publishing.manage", async () => {
     renderApp("/admin/publishing", { adminApi: createFakeAdminApi({ role: "editor" }) });
     await screen.findByRole("table", { name: "Publishing jobs" });

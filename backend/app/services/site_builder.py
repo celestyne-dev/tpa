@@ -1,5 +1,8 @@
 """Build the static site and release it atomically.
 
+0. Preflight: check the frontend folder, build dependencies and every folder the build
+   writes to, and fail at once with a clear, permanent error (no retries) when the
+   worker can't build, instead of a generic build failure on every attempt.
 1. Take an exclusive file lock (no concurrent builds, even across processes).
 2. Run the configured build command (default ``npm run build``: Vite client +
    SSR bundle + prerender from the Flask API) without a shell.
@@ -30,13 +33,61 @@ from typing import Any
 from flask import current_app
 
 REQUIRED_FILES = ("index.html", "404.html", "sitemap.xml", "prerender-manifest.json")
+NODE_TOOLS = ("npm", "npx", "node", "pnpm", "yarn")
+
+# Failure categories (recorded on the job). Permission, dependency and configuration
+# problems are permanent: retrying the same job can't fix them.
+PERMISSION = "permission"
+DEPENDENCIES = "dependencies"
+CONFIGURATION = "configuration"
+BUILD = "build"
+
+_PERMISSION_LOG = re.compile(
+    r"\bE(?:ACCES|PERM|ROFS)\b|permission denied|read-only file system", re.IGNORECASE
+)
+_MISSING_LOG = re.compile(
+    r"Cannot find (?:module|package)|ERR_MODULE_NOT_FOUND|command not found|: not found\b",
+    re.IGNORECASE,
+)
+PERMISSION_MESSAGE = (
+    "The build couldn't write to the frontend build folders (permission denied). The "
+    "publishing worker needs write access to the frontend folder, node_modules/.vite-temp, "
+    ".ssr and dist. Retrying won't help until that is fixed; the live site is unchanged."
+)
+MISSING_MESSAGE = (
+    "The build couldn't find a module or command it needs: the frontend dependencies look "
+    "incomplete. Retrying won't help until they are installed; the live site is unchanged."
+)
 
 
 class BuildError(RuntimeError):
-    def __init__(self, message: str, log: str = "", *, transient: bool = True):
+    def __init__(
+        self,
+        message: str,
+        log: str = "",
+        *,
+        transient: bool = True,
+        category: str = BUILD,
+    ):
         super().__init__(message)
         self.log = log
         self.transient = transient
+        self.category = category
+
+
+def _writable(path: Path) -> bool:
+    return os.access(path, os.W_OK | os.X_OK)
+
+
+def _writable_x(path: str) -> bool:
+    return os.access(path, os.X_OK)
+
+
+def _existing(path: Path) -> Path:
+    """The path itself or its nearest existing parent (where it would be created)."""
+    while not path.exists() and path != path.parent:
+        path = path.parent
+    return path
 
 
 @dataclass
@@ -102,6 +153,14 @@ class LocalReleaseBuilder:
                 stderr=subprocess.STDOUT,
                 text=True,
             )
+        except FileNotFoundError:
+            raise BuildError(
+                f"The build command “{Path(argv[0]).name}” isn't installed or isn't on the PATH.",
+                transient=False,
+                category=DEPENDENCIES,
+            ) from None
+        except PermissionError:
+            raise BuildError(PERMISSION_MESSAGE, transient=False, category=PERMISSION) from None
         except OSError as exc:
             raise BuildError(f"Could not start the build command ({exc.strerror}).") from None
         deadline = time.monotonic() + self.timeout
@@ -120,8 +179,90 @@ class LocalReleaseBuilder:
         output = [out or ""]
         log = sanitise("".join(output))
         if proc.returncode != 0:
+            # Permission and missing-dependency failures are permanent: say so and stop.
+            if _PERMISSION_LOG.search(log):
+                raise BuildError(PERMISSION_MESSAGE, log, transient=False, category=PERMISSION)
+            if _MISSING_LOG.search(log):
+                raise BuildError(MISSING_MESSAGE, log, transient=False, category=DEPENDENCIES)
             raise BuildError(f"The build command failed (exit code {proc.returncode}).", log)
         return log
+
+    def _label(self, path: Path) -> str:
+        """A path for messages, relative to the frontend or releases folder (no absolutes)."""
+        for root, name in ((self.frontend, "frontend"), (self.releases, "releases")):
+            try:
+                rel = path.relative_to(root)
+            except ValueError:
+                continue
+            return name if str(rel) == "." else f"{name}/{rel}"
+        return path.name or "the publishing folder"
+
+    def problems(self) -> list[tuple[str, str]]:
+        """Everything that would stop a build, as ``(category, message)`` pairs."""
+        found: list[tuple[str, str]] = []
+
+        def must_write(path: Path, what: str | None = None) -> None:
+            target = _existing(path)
+            if not _writable(target):
+                suffix = "" if target == path else f" (needed to create {self._label(path)})"
+                found.append(
+                    (
+                        PERMISSION,
+                        f"The publishing worker can't write to {what or self._label(target)}"
+                        f"{suffix}.",
+                    )
+                )
+
+        if not self.frontend.is_dir():
+            return [(CONFIGURATION, "The frontend folder doesn't exist.")]
+        tool = self.command[0] if self.command else ""
+        if not tool or not (shutil.which(tool) or (Path(tool).is_absolute() and _writable_x(tool))):
+            found.append(
+                (
+                    DEPENDENCIES,
+                    f"The build command “{Path(tool).name}” isn't installed or isn't on the PATH.",
+                )
+            )
+        if Path(tool).name in NODE_TOOLS:
+            modules = self.frontend / "node_modules"
+            if not (self.frontend / "package.json").is_file():
+                found.append((CONFIGURATION, "frontend/package.json is missing."))
+            if not modules.is_dir():
+                found.append(
+                    (DEPENDENCIES, "frontend/node_modules is missing (dependencies not installed).")
+                )
+            else:
+                if not (modules / ".bin" / "vite").exists():
+                    found.append((DEPENDENCIES, "Vite isn't installed in frontend/node_modules."))
+                must_write(modules / ".vite-temp")
+            must_write(self.frontend / ".ssr")
+        must_write(self.dist)
+        if self.dist.is_dir():  # Vite empties dist, so its folders must be writable too
+            for sub in sorted(p for p in self.dist.iterdir() if p.is_dir() and not p.is_symlink()):
+                must_write(sub)
+        must_write(self.releases)
+        lock = self.releases / ".build.lock"
+        if lock.exists() and not os.access(lock, os.W_OK):
+            found.append((PERMISSION, "The publishing worker can't write to releases/.build.lock."))
+        must_write(self.current.parent, "the folder of the live-release link")
+        return list(dict.fromkeys(found))  # unique, in order
+
+    def preflight(self) -> None:
+        found = self.problems()
+        if not found:
+            return
+        category = next(
+            c for c in (PERMISSION, DEPENDENCIES, CONFIGURATION) if any(f[0] == c for f in found)
+        )
+        lines = [message for _, message in found]
+        raise BuildError(
+            "Publishing can't start: "
+            + " ".join(lines)
+            + " Retrying won't help until this is fixed; the live site is unchanged.",
+            "Preflight check failed before building:\n" + "\n".join(f"- {x}" for x in lines),
+            transient=False,
+            category=category,
+        )
 
     def _verify(self, started: datetime) -> dict[str, Any]:
         missing = [f for f in REQUIRED_FILES if not (self.dist / f).is_file()]
@@ -169,6 +310,19 @@ class LocalReleaseBuilder:
     def run(self, job, heartbeat: Callable[[], None]) -> BuildOutcome:
         from . import redirect_service
 
+        self.preflight()
+        try:
+            return self._build(job, heartbeat, redirect_service)
+        except PermissionError as exc:  # a folder changed under us: permanent, not "unexpected"
+            where = self._label(Path(exc.filename)) if exc.filename else "a publishing folder"
+            raise BuildError(
+                f"Permission denied while publishing ({where}). Retrying won't help until that "
+                "is fixed; the live site is unchanged.",
+                transient=False,
+                category=PERMISSION,
+            ) from None
+
+    def _build(self, job, heartbeat: Callable[[], None], redirect_service) -> BuildOutcome:
         self.releases.mkdir(parents=True, exist_ok=True)
         lock_path = self.releases / ".build.lock"
         with open(lock_path, "w") as lock:

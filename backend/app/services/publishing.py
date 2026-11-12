@@ -143,13 +143,23 @@ def summary() -> dict[str, Any]:
 
     last_success, last_failure = latest("succeeded"), latest("failed")
     running, pending = latest("running"), latest("pending")
+    failed_since = last_failure and (not last_success or last_failure.id > last_success.id)
+    if running:
+        state = "building"
+    elif pending:
+        state = "queued"
+    elif failed_since:
+        state = "failed"
+    elif last_success:
+        state = "published"
+    else:
+        state = "saved"  # changes are saved; nothing has been built yet
     return {
+        "state": state,
         "running": job_dict(running) if running else None,
         "pending": job_dict(pending) if pending else None,
         "last_success": job_dict(last_success) if last_success else None,
-        "last_failure": job_dict(last_failure)
-        if last_failure and (not last_success or last_failure.id > last_success.id)
-        else None,
+        "last_failure": job_dict(last_failure) if failed_since else None,
         "worker_hint": "Run `flask --app wsgi publish worker` (systemd: tpa-publish-worker).",
     }
 
@@ -218,11 +228,16 @@ def heartbeat(job_id: int) -> None:
     db.session.commit()
 
 
-def _finish_failure(job: PublishJob, error: str, log: str, *, transient: bool) -> None:
+def _finish_failure(
+    job: PublishJob, error: str, log: str, *, transient: bool, category: str = "build"
+) -> None:
     job.finished_at = _now()
     job.error = error[:500]
     job.log_tail = log[-8000:] if log else job.log_tail
-    if transient and job.attempts < job.max_attempts:
+    retrying = transient and job.attempts < job.max_attempts
+    # Shown in the admin: what went wrong and whether the worker will try again.
+    job.details = {**(job.details or {}), "failure": {"category": category, "retry": retrying}}
+    if retrying:
         # Exponential backoff: 1, 2, 4 ... minutes.
         job.status = "pending"
         job.not_before = _now() + timedelta(minutes=2 ** max(job.attempts - 1, 0))
@@ -246,14 +261,15 @@ def run_job(job: PublishJob, builder) -> PublishJob:
     except BuildError as exc:
         db.session.rollback()
         job = db.session.get(PublishJob, job.id)
-        _finish_failure(job, str(exc), exc.log, transient=exc.transient)
+        _finish_failure(job, str(exc), exc.log, transient=exc.transient, category=exc.category)
         db.session.commit()
         return job
     except Exception as exc:  # unexpected: record safely, never crash the worker loop
         db.session.rollback()
         job = db.session.get(PublishJob, job.id)
         current_app.logger.exception("Publishing job %s crashed", job.id)
-        _finish_failure(job, f"Unexpected error: {type(exc).__name__}", "", transient=True)
+        error = f"Unexpected error: {type(exc).__name__}"
+        _finish_failure(job, error, "", transient=True, category="unexpected")
         db.session.commit()
         return job
     job = db.session.get(PublishJob, job.id)
@@ -261,7 +277,7 @@ def run_job(job: PublishJob, builder) -> PublishJob:
     job.finished_at = _now()
     job.release = outcome.release
     job.log_tail = outcome.log[-8000:]
-    job.details = outcome.details
+    job.details = outcome.details  # replaces any failure note from earlier attempts
     audit_service.record(
         "publish.succeeded",
         "publish_job",

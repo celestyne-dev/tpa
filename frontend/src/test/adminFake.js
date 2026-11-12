@@ -535,6 +535,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
       error: "The build command failed (exit code 1).",
       log_tail: "vite build failed",
       release: null,
+      details: { failure: { category: "permission", retry: false } },
     },
     {
       id: 1,
@@ -1086,6 +1087,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
         ok(jobs, {
           pagination: { page: 1, page_size: 20, total: jobs.length, total_pages: 1 },
           summary: {
+            state: jobs[0]?.status === "failed" ? "failed" : "published",
             running: null,
             pending: null,
             last_success: jobs.find((j) => j.status === "succeeded") ?? null,
