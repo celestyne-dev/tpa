@@ -41,10 +41,8 @@ def _header_topics(client):
     }
 
 
-@pytest.mark.parametrize("saved_menus", [True, False], ids=["saved-menus", "default-menus"])
-def test_featured_topics_reach_the_header_once(seeded, app, client, saved_menus):
-    if not saved_menus:
-        _drop_saved_menus(app)
+def test_featured_topics_reach_the_default_header_once(seeded, app, client):
+    _drop_saved_menus(app)
     before = _header_topics(client)
     _topic(app, "faith-and-hope", "Faith and Hope", featured=True)  # matches no group keyword
     _topic(app, "gratitude-practice", "Gratitude Practice", featured=True)  # "gratitude"
@@ -58,14 +56,18 @@ def test_featured_topics_reach_the_header_once(seeded, app, client, saved_menus)
     # Existing links are kept, nothing is listed twice and "All articles" stays last.
     assert set(before) <= set(after)
     nav = _nav(client)["primary"]
-    urls = [c["url"] for g in nav for c in g.get("children") or []]
-    assert len([u for u in urls if u.startswith("/topics/")]) == len(
-        {u for u in urls if u.startswith("/topics/")}
-    )
+    urls = [c["url"] for g in nav for c in g.get("children") or [] if c["url"] != "/articles"]
+    assert len(urls) == len(set(urls))
     for group in nav:
         children = group.get("children") or []
         if any(c["url"] == "/articles" for c in children):
             assert children[-1]["url"] == "/articles"
+
+
+def test_a_header_saved_in_admin_navigation_is_shown_as_arranged(seeded, app, client):
+    before = _header_topics(client)
+    _topic(app, "faith-and-hope", "Faith and Hope", featured=True)
+    assert _header_topics(client) == before  # the editor adds it in Admin › Navigation
 
 
 def test_a_featured_topic_already_in_the_menu_is_not_repeated(seeded, app, client):

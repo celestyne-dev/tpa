@@ -179,11 +179,12 @@ def _unavailable_paths():
 
 
 def _with_featured_topics(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Add featured topics that aren't linked anywhere in this header menu.
+    """Add featured topics that aren't linked anywhere in the default header menu.
 
-    Header topic groups are editor-arranged (or, by default, filled by keyword), so a new
-    topic would otherwise never reach the header. A topic marked **Featured** in Admin ›
-    Topics, active and with published articles, is added to the matching topic group
+    The default topic groups are filled by keyword (at most a few per group), so a new
+    topic whose name matches no keyword never reached the header. A topic marked
+    **Featured** in Admin › Topics, active and with published articles, is added to the
+    matching topic group
     (by the group's keywords; otherwise the group with the fewest topics), after the
     group's topic links and in the topics' display order. Other topics are not added, and
     a topic already linked anywhere in the menu is not repeated.
@@ -276,8 +277,10 @@ def public_navigation() -> dict[str, Any]:
                 out.append(link(n))
         return out
 
-    primary = _with_featured_topics(header_items("primary"))
-    mobile = _with_featured_topics(header_items("mobile")) if _menu("mobile") is not None else []
+    primary = header_items("primary")
+    if _menu("primary") is None:  # a menu saved in Admin › Navigation is shown as arranged
+        primary = _with_featured_topics(primary)
+    mobile = header_items("mobile") if _menu("mobile") is not None else []
     footer = [
         {
             "title": n["label"],
