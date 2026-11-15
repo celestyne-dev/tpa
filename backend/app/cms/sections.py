@@ -244,6 +244,63 @@ SECTION_TYPES: dict[str, dict[str, Any]] = {
             "content": {"heading": "Recommended reading"},
         },
     },
+    "quote_collections": {
+        "label": "Quote collections",
+        "category": "Articles",
+        "description": (
+            "Cards linking to quote collections (Admin › Quotes): the latest, a hand-picked "
+            "selection, or (in the article sidebar) collections on the article's topic. "
+            "Hidden until there is a published collection to show."
+        ),
+        "variants": {
+            "grid_3": "Three-column cards",
+            "grid_4": "Four-column cards",
+            "carousel": "Horizontal scrolling row",
+        },
+        "fields": {
+            "eyebrow": EYEBROW,
+            "heading": HEADING,
+            "description": DESCRIPTION,
+            "mode": _f(
+                "select",
+                "Which collections",
+                choices={
+                    "latest": "Latest published collections",
+                    "manual": "Choose collections",
+                    "related": "On the article's topic (article sidebar; else the latest)",
+                },
+                default="latest",
+            ),
+            "collections": _f(
+                "articles",
+                "Quote collections",
+                max_items=12,
+                show_for_mode="manual",
+                content_type="quotes",
+                help="In this order.",
+            ),
+            "topic": _f(
+                "topics",
+                "Only from this topic",
+                max_items=1,
+                show_for_mode="latest",
+                help="Optional.",
+            ),
+            "count": _f("number", "Number of collections", min=1, max=12, default=3),
+            "cta": cta("Link button"),
+        },
+        "design": ["background", "spacing", "card_style", "align"],
+        "defaults": {
+            "variant": "grid_3",
+            "design": {"background": "cream", "spacing": "md"},
+            "content": {
+                "heading": "Quote collections",
+                "mode": "latest",
+                "count": 3,
+                "cta": {"label": "All quote collections", "url": "/quotes", "style": "secondary"},
+            },
+        },
+    },
     "topics_grid": {
         "label": "Topic cards",
         "category": "Articles",
@@ -1229,6 +1286,7 @@ SIDEBAR_TYPES = (
     "featured_articles",
     "article_collection",
     "latest_articles",
+    "quote_collections",
     "topics_grid",
     "sponsored_banner",
     "brand_spotlight",

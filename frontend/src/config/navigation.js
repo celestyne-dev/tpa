@@ -13,6 +13,12 @@ export const routes = {
   /** Archive page N (page 1 is /articles itself: one URL per page). */
   articlesPage: (page) => (page > 1 ? `/articles/page/${page}` : "/articles"),
   article: (slug) => `/articles/${slug}`,
+  quotes: "/quotes",
+  quotesPage: (page) => (page > 1 ? `/quotes/page/${page}` : "/quotes"),
+  quote: (slug) => `/quotes/${slug}`,
+  /** An article or quote collection summary's own page (by its content_type). */
+  content: (item) =>
+    item?.content_type === "quotes" ? `/quotes/${item.slug}` : `/articles/${item?.slug}`,
   /** All topics, grouped as in the header menu (anchors: topicGroup). */
   topics: "/topics",
   topicGroup: (label) => `/topics#${topicGroupAnchor(label)}`,

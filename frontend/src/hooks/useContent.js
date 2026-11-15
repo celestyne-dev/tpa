@@ -20,6 +20,12 @@ import {
 } from "@/store/slices/coursesSlice";
 import { fetchPage, selectPage } from "@/store/slices/pagesSlice";
 import {
+  fetchQuoteCollection,
+  fetchQuoteCollections,
+  selectQuoteCollection,
+  selectQuoteList,
+} from "@/store/slices/quotesSlice";
+import {
   fetchCollection,
   fetchProduct,
   fetchProducts,
@@ -104,12 +110,30 @@ export function useArticles({ topic, featured, page = 1, pageSize = 12 } = {}) {
   return { ...result, pagination: entry?.pagination ?? null };
 }
 
+export function useQuoteCollections({ topic, q, featured, page = 1, pageSize = 12 } = {}) {
+  const query = { topic, q, featured, page, pageSize };
+  const entry = useSelector(selectQuoteList(query));
+  const load = useCallback(
+    (force) => fetchQuoteCollections({ topic, q, featured, page, pageSize, force }),
+    [topic, q, featured, page, pageSize],
+  );
+  const result = useResource(entry, load, [load], (s) => s.items);
+  return { ...result, pagination: entry?.pagination ?? null, topics: entry?.topics ?? [] };
+}
+
+export function useQuoteCollection(slug) {
+  const entry = useSelector(selectQuoteCollection(slug));
+  const load = useCallback((force) => fetchQuoteCollection({ slug, force }), [slug]);
+  return useResource(entry, load, [load], (s) => s.data);
+}
+
 export function useArticle(slug) {
   const entry = useSelector(selectArticle(slug));
   const load = useCallback((force) => fetchArticle({ slug, force }), [slug]);
   return useResource(entry, load, [load], (s) => ({
     article: s.article,
     related: s.related,
+    relatedQuotes: s.relatedQuotes ?? [],
     adjacent: s.adjacent ?? null,
     sidebar: s.sidebar ?? [],
   }));

@@ -5,6 +5,7 @@ import { ArticleMeta } from "@/components/articles/ArticleMeta";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ArticleSkeleton } from "@/components/ui/Skeleton";
+import { QuoteCollectionView } from "@/pages/QuoteCollectionPage";
 import { useAdminApi } from "../adminApiContext";
 import { useAdminQuery } from "../hooks/useAdminQuery";
 
@@ -23,6 +24,7 @@ export function ArticlePreviewPage() {
     );
   if (loading && !data) return <ArticleSkeleton />;
   const { article, status, has_pending_changes: pending } = data;
+  const quotes = article.content_type === "quotes";
 
   return (
     <div className="-mx-4 sm:-mx-6 lg:-mx-8">
@@ -35,50 +37,59 @@ export function ArticlePreviewPage() {
           Private preview · {status}
           {pending ? " · includes unpublished changes" : ""} · not public, not indexed
         </span>
-        <Link to={`/admin/articles/${id}/edit`} className="underline">
+        <Link to={`/admin/${quotes ? "quotes" : "articles"}/${id}/edit`} className="underline">
           Back to the editor
         </Link>
       </div>
-      <article className="bg-ivory pb-16">
-        <header className="bg-cream">
-          <div className="mx-auto max-w-3xl px-4 pt-10 pb-10 sm:px-6">
-            {article.topic && (
-              <p className="text-sm font-semibold tracking-[0.14em] text-sage-700 uppercase">
-                {article.topic.name}
-              </p>
-            )}
-            <h1 className="mt-4 text-4xl leading-[1.1] font-medium sm:text-5xl">{article.title}</h1>
-            {article.subtitle && (
-              <p className="mt-5 font-serif text-xl text-muted italic">{article.subtitle}</p>
-            )}
-            <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-charcoal/10 pt-5">
-              <p className="text-sm font-medium">By {article.author?.name}</p>
-              {article.published_at && (
-                <ArticleMeta
-                  publishedAt={article.published_at}
-                  readingTimeMinutes={article.reading_time_minutes}
-                />
-              )}
-            </div>
-          </div>
-        </header>
-        {article.image && (
-          <div className="mx-auto mt-6 max-w-4xl px-4 sm:px-6">
-            <div className="relative aspect-[16/10] overflow-hidden rounded-[var(--radius-card)] bg-beige">
-              <ContentImage
-                image={article.image}
-                fill
-                priority
-                sizes={IMAGE_SIZES.hero}
-                className="object-cover"
-              />
-            </div>
-          </div>
-        )}
-        <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-          <ArticleBody blocks={article.body} />
+      {quotes ? (
+        // The collection exactly as its public page lays it out.
+        <div className="bg-ivory">
+          <QuoteCollectionView collection={article} />
         </div>
-      </article>
+      ) : (
+        <article className="bg-ivory pb-16">
+          <header className="bg-cream">
+            <div className="mx-auto max-w-3xl px-4 pt-10 pb-10 sm:px-6">
+              {article.topic && (
+                <p className="text-sm font-semibold tracking-[0.14em] text-sage-700 uppercase">
+                  {article.topic.name}
+                </p>
+              )}
+              <h1 className="mt-4 text-4xl leading-[1.1] font-medium sm:text-5xl">
+                {article.title}
+              </h1>
+              {article.subtitle && (
+                <p className="mt-5 font-serif text-xl text-muted italic">{article.subtitle}</p>
+              )}
+              <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-charcoal/10 pt-5">
+                <p className="text-sm font-medium">By {article.author?.name}</p>
+                {article.published_at && (
+                  <ArticleMeta
+                    publishedAt={article.published_at}
+                    readingTimeMinutes={article.reading_time_minutes}
+                  />
+                )}
+              </div>
+            </div>
+          </header>
+          {article.image && (
+            <div className="mx-auto mt-6 max-w-4xl px-4 sm:px-6">
+              <div className="relative aspect-[16/10] overflow-hidden rounded-[var(--radius-card)] bg-beige">
+                <ContentImage
+                  image={article.image}
+                  fill
+                  priority
+                  sizes={IMAGE_SIZES.hero}
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          )}
+          <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+            <ArticleBody blocks={article.body} />
+          </div>
+        </article>
+      )}
     </div>
   );
 }

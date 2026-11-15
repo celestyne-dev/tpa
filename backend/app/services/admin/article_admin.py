@@ -114,6 +114,7 @@ def get_article_for(article_id: int, user: User) -> Article:
 def admin_summary(a: Article) -> dict[str, Any]:
     return {
         "id": a.id,
+        "content_type": a.content_type,
         "title": a.title,
         "slug": a.slug,
         "status": a.status,
@@ -168,7 +169,7 @@ def admin_detail(a: Article, user: User | None = None) -> dict[str, Any]:
 
 
 def list_articles(args: dict[str, Any], user: User) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    stmt = select(Article)
+    stmt = select(Article).where(Article.content_type == args.get("content_type", "article"))
     if (scope := scope_filter(user)) is not None:
         stmt = stmt.where(scope)
     if args.get("q"):
@@ -354,9 +355,15 @@ def _change_slug(article: Article, requested: str | None, actor: User) -> None:
 
 
 def create_article(data: dict[str, Any], actor: User) -> Article:
+    data = dict(data)
+    content_type = data.pop("content_type", "article")
+    if content_type == "quotes":
+        # Not indexed until an editor has reviewed it (Admin › Quotes quality checks).
+        data.setdefault("noindex", True)
     data = _clean(None, data, actor)
     refs = _load_refs(data, None)
     article = Article(
+        content_type=content_type,
         title=data["title"],
         slug=resolve_slug(Article, data.get("slug"), data["title"]),
         status="draft",
@@ -588,6 +595,7 @@ def preview_article(article: Article) -> dict[str, Any]:
     w = revisions.working_values(article)
     draft = Article(
         id=article.id,
+        content_type=article.content_type,
         title=w["title"],
         slug=w["slug"],
         subtitle=w["subtitle"],
@@ -645,6 +653,8 @@ def publish_readiness(article: Article) -> dict[str, list[str]]:
         "primary_topic_id": article.primary_topic_id,
         "featured_image_id": article.featured_image_id,
     }
+    if article.content_type == "quotes":
+        checks.pop("author_id")  # collections may be credited to Think Positive Always
     for field, value in checks.items():
         if not value:
             problems[field] = ["Required before publishing."]
@@ -679,9 +689,10 @@ def publish(article: Article, when: datetime | None, actor: User) -> Article:
         article.first_published_at = article.first_published_at or now
         action = "article.published"
         record_public_change("article", article.id, "article_published", actor)
-        from ..newsletter.automations import record_event
+        if article.content_type == "article":  # newsletter automations are for articles
+            from ..newsletter.automations import record_event
 
-        record_event("article_published", f"article:{article.id}", {"article_id": article.id})
+            record_event("article_published", f"article:{article.id}", {"article_id": article.id})
     article.updated_by_id = actor.id
     audit_service.record(
         action,
@@ -766,8 +777,12 @@ def delete_article(article: Article, actor: User) -> None:
     db.session.delete(article)
 
 
-def status_counts(user: User | None = None) -> dict[str, int]:
-    stmt = select(Article.status, func.count(Article.id)).group_by(Article.status)
+def status_counts(user: User | None = None, content_type: str = "article") -> dict[str, int]:
+    stmt = (
+        select(Article.status, func.count(Article.id))
+        .where(Article.content_type == content_type)
+        .group_by(Article.status)
+    )
     if user is not None and (scope := scope_filter(user)) is not None:
         stmt = stmt.where(scope)
     rows = db.session.execute(stmt)

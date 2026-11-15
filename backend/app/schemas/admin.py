@@ -122,6 +122,10 @@ class ArticleQuerySchema(PageQuerySchema):
     )
     has_pending = fields.Boolean(load_default=None)
     mine = fields.Boolean(load_default=None)
+    # Articles and quote collections are listed separately (Admin › Articles / Quotes).
+    content_type = fields.String(
+        load_default="article", validate=validate.OneOf(["article", "quotes"])
+    )
 
 
 class ArticleWriteSchema(StrictSchema):
@@ -147,6 +151,14 @@ class ArticleWriteSchema(StrictSchema):
         allow_none=True, validate=[validate.Length(max=500), _http_or_https]
     )
     original_slug = Text(200, allow_none=True)
+
+
+class ArticleCreateSchema(ArticleWriteSchema):
+    """POST payload: also chooses article or quote collection (fixed once created)."""
+
+    content_type = fields.String(
+        load_default="article", validate=validate.OneOf(["article", "quotes"])
+    )
 
 
 class ArticleSaveSchema(ArticleWriteSchema):

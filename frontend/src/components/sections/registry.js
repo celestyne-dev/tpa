@@ -3,6 +3,7 @@ import {
   FeaturedArticlesSection,
   LatestArticlesSection,
   PopularArticlesSection,
+  QuoteCollectionsSection,
   TopicArticlesSection,
   TopicsSection,
 } from "./ArticleSections";
@@ -54,6 +55,7 @@ export const SECTION_COMPONENTS = {
   featured_articles: FeaturedArticlesSection,
   latest_articles: LatestArticlesSection,
   article_collection: ArticleCollectionSection,
+  quote_collections: QuoteCollectionsSection,
   popular_articles: PopularArticlesSection,
   // Sidebar-only (Admin › Article sidebar renders it compactly); the backend refuses it
   // on ordinary pages, so this is only a safe fallback.

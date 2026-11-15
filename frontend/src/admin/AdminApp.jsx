@@ -321,6 +321,26 @@ export default function AdminApp() {
             path="articles/:id/preview"
             element={guarded("articles.preview", <ArticlePreviewPage />)}
           />
+          {/* Quote collections: the article tools with content_type "quotes". */}
+          <Route
+            path="quotes"
+            element={guarded(ARTICLE_ACCESS, <ArticlesPage key="quotes" contentType="quotes" />)}
+          />
+          <Route
+            path="quotes/new"
+            element={guarded(
+              "articles.create",
+              <ArticleEditorPage key="quotes-new" contentType="quotes" />,
+            )}
+          />
+          <Route
+            path="quotes/:id/edit"
+            element={guarded(ARTICLE_ACCESS, <ArticleEditorPage contentType="quotes" />)}
+          />
+          <Route
+            path="quotes/:id/preview"
+            element={guarded("articles.preview", <ArticlePreviewPage />)}
+          />
           <Route path="workflow" element={guarded(ARTICLE_ACCESS, <WorkflowPage />)} />
           <Route path="media" element={guarded("media.view", <MediaLibraryPage />)} />
           <Route path="seo" element={guarded(SEO_READ, <SeoPage />)} />

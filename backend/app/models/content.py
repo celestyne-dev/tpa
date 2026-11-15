@@ -25,6 +25,9 @@ from .types import JSONType, UTCDateTime, utcnow
 
 ARTICLE_STATUSES = ("draft", "scheduled", "published", "archived")
 ARTICLE_SOURCES = ("sample", "original", "migrated")
+# "quotes": a quote collection (/quotes/<slug>), edited with the article tools but listed
+# separately; everything article-facing filters on content_type == "article".
+CONTENT_TYPES = ("article", "quotes")
 REVIEW_STATUSES = ("none", "submitted", "approved")
 AUTHOR_STATUSES = ("active", "archived")
 TOPIC_STATUSES = ("active", "hidden", "archived")
@@ -269,6 +272,9 @@ class Article(TimestampMixin, db.Model):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    content_type: Mapped[str] = mapped_column(
+        String(20), default="article", server_default="article", index=True, nullable=False
+    )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     subtitle: Mapped[str | None] = mapped_column(String(300), nullable=True)

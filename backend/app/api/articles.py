@@ -6,7 +6,12 @@ from ..schemas.content import (
     article_summaries_schema,
     article_summary_schema,
 )
-from ..schemas.queries import ArticleListQuerySchema, PageQuerySchema, SearchQuerySchema
+from ..schemas.queries import (
+    ArticleListQuerySchema,
+    PageQuerySchema,
+    QuoteListQuerySchema,
+    SearchQuerySchema,
+)
 from ..services import article_service, page_render, topic_service
 from ..utils.responses import success
 from ._validation import load_query, require_slug
@@ -44,6 +49,10 @@ class ArticleDetailResource(Resource):
             {
                 "article": article_detail_schema.dump(article),
                 "related": article_summaries_schema.dump(related),
+                # Quote collections on the same topic (none when nothing matches).
+                "related_quotes": article_summaries_schema.dump(
+                    article_service.quote_collections_for_article(slug)
+                ),
                 "adjacent": {
                     key: article_summary_schema.dump(value) if value else None
                     for key, value in adjacent.items()
@@ -96,3 +105,35 @@ class SearchResource(Resource):
              "results": article_summaries_schema.dump(data["results"])},
             {"pagination": data["pagination"]},
         )  # fmt: skip
+
+
+class QuoteListResource(Resource):
+    """Published quote collections (newest first), optionally by topic or search text."""
+
+    def get(self):
+        args = load_query(QuoteListQuerySchema())
+        if args["topic"]:
+            topic_service.get_topic(args["topic"])
+        items, pagination = article_service.list_quote_collections(
+            topic=args["topic"],
+            featured=args["featured"],
+            q=args["q"],
+            page=args["page"],
+            page_size=args["page_size"],
+        )
+        return success(
+            article_summaries_schema.dump(items),
+            {"pagination": pagination, "topics": article_service.quote_topics()},
+        )
+
+
+class QuoteDetailResource(Resource):
+    def get(self, slug: str):
+        data = article_service.get_quote_collection(require_slug(slug, "Quote collection"))
+        return success(
+            {
+                "collection": article_detail_schema.dump(data["collection"]),
+                "related_articles": article_summaries_schema.dump(data["related_articles"]),
+                "related_collections": article_summaries_schema.dump(data["related_collections"]),
+            }
+        )

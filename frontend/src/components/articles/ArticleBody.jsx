@@ -1,9 +1,20 @@
-import { ArrowRight, CircleCheck, Info, Lightbulb, Play, TriangleAlert } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  CircleCheck,
+  Info,
+  Lightbulb,
+  ListChecks,
+  PenLine,
+  Play,
+  TriangleAlert,
+} from "lucide-react";
 import { createContext, useContext, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { routes } from "@/config/navigation";
-import { cn, formatDate, slugify } from "@/utils/format";
+import { siteConfig } from "@/config/site";
+import { absoluteUrl, cn, formatDate, slugify } from "@/utils/format";
 import { parseInline } from "@/utils/inlineLinks";
 
 const calloutStyles = {
@@ -11,7 +22,42 @@ const calloutStyles = {
   tip: { icon: Lightbulb, className: "border-gold-300 bg-gold-100/60" },
   warning: { icon: TriangleAlert, className: "border-red-200 bg-red-50" },
   success: { icon: CircleCheck, className: "border-sage-300 bg-sage-100/70" },
+  // The "Key points", "Example" and "Exercise or reflection" boxes.
+  key_points: { icon: ListChecks, className: "border-sage-300 bg-white" },
+  example: { icon: BookOpen, className: "border-charcoal/15 bg-beige/60" },
+  exercise: { icon: PenLine, className: "border-gold-300 bg-ivory" },
 };
+
+/**
+ * Body options for a quote collection: numbered quotes with their attribution, and a
+ * "Save to Pinterest" link (an ordinary share link) under each image.
+ */
+const BodyOptionsContext = createContext({ quotes: false, pinPage: null });
+
+// A quote's attribution at the end of its line: "… — Marcus Aurelius".
+const ATTRIBUTION = /\s[—–]\s*([^—–]{1,160})$/;
+
+function QuoteItem({ text, block }) {
+  const match = ATTRIBUTION.exec(text);
+  if (!match) return <InlineText text={text} block={block} />;
+  return (
+    <>
+      <InlineText text={text.slice(0, match.index)} block={block} />
+      <span className="mt-1 block font-sans text-sm font-medium text-sage-800 not-italic">
+        — <InlineText text={match[1].trim()} block={block} />
+      </span>
+    </>
+  );
+}
+
+function pinterestHref(pinPage, image, description) {
+  const media = absoluteUrl(image.src, siteConfig.url);
+  return (
+    "https://www.pinterest.com/pin/create/button/" +
+    `?url=${encodeURIComponent(pinPage)}&media=${encodeURIComponent(media)}` +
+    `&description=${encodeURIComponent(description || "")}`
+  );
+}
 
 const isInternal = (href) => href?.startsWith("/");
 
@@ -124,7 +170,8 @@ const alignClass = {
   right: "sm:float-right sm:ml-6 sm:mb-3 sm:w-1/2",
 };
 
-function Figure({ image, caption, align = "center" }) {
+function Figure({ image, caption, align = "center", pinDescription }) {
+  const { pinPage } = useContext(BodyOptionsContext);
   const credit = image.credit;
   const sizes =
     align === "full"
@@ -143,6 +190,17 @@ function Figure({ image, caption, align = "center" }) {
           {text}
           {credit && <span className="ml-1 text-xs">({credit})</span>}
         </figcaption>
+      )}
+      {pinPage && image.src && (
+        <a
+          href={pinterestHref(pinPage, image, pinDescription || text || image.alt || image.title)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-sage-800 underline-offset-4 hover:underline"
+        >
+          Save to Pinterest
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
       )}
     </figure>
   );
@@ -189,16 +247,20 @@ function VideoEmbed({ provider, videoId, title, caption }) {
 }
 
 /** Renders structured article blocks as semantic HTML (text only, no raw HTML injection). */
-export function ArticleBody({ blocks, sponsoredLinks }) {
+export function ArticleBody({ blocks, sponsoredLinks, variant = "article", pinPage = null }) {
   const paid = useMemo(() => new Set(sponsoredLinks ?? []), [sponsoredLinks]);
+  const options = useMemo(() => ({ quotes: variant === "quotes", pinPage }), [variant, pinPage]);
   return (
     <SponsoredLinksContext.Provider value={paid}>
-      <ArticleBlocks blocks={blocks} />
+      <BodyOptionsContext.Provider value={options}>
+        <ArticleBlocks blocks={blocks} />
+      </BodyOptionsContext.Provider>
     </SponsoredLinksContext.Provider>
   );
 }
 
 function ArticleBlocks({ blocks }) {
+  const { quotes } = useContext(BodyOptionsContext);
   return (
     <div className="prose-tpa flow-root">
       {blocks.map((block, index) => {
@@ -228,16 +290,26 @@ function ArticleBlocks({ blocks }) {
           }
           case "list": {
             const List = block.ordered ? "ol" : "ul";
+            // In a quote collection, numbered lists are the quotes themselves.
+            const quoteList = quotes && block.ordered;
             return (
               <List
                 key={index}
                 start={block.ordered && block.start > 1 ? block.start : undefined}
                 data-block-uid={block.uid}
                 data-highlightable={block.uid ? "" : undefined}
+                className={quoteList ? "quote-list" : undefined}
               >
                 {block.items.map((item, i) => (
-                  <li key={i}>
-                    <InlineText text={item} block={block} />
+                  <li
+                    key={i}
+                    className={quoteList ? "font-serif text-xl leading-relaxed" : undefined}
+                  >
+                    {quoteList ? (
+                      <QuoteItem text={item} block={block} />
+                    ) : (
+                      <InlineText text={item} block={block} />
+                    )}
                   </li>
                 ))}
               </List>
@@ -306,7 +378,13 @@ function ArticleBlocks({ blocks }) {
             );
           case "image":
             return block.image ? (
-              <Figure key={index} image={block.image} caption={block.caption} align={block.align} />
+              <Figure
+                key={index}
+                image={block.image}
+                caption={block.caption}
+                align={block.align}
+                pinDescription={block.pin_description}
+              />
             ) : null;
           case "gallery":
             return (
@@ -405,7 +483,7 @@ function ArticleBlocks({ blocks }) {
                         />
                       </span>
                       <Link
-                        to={routes.article(a.slug)}
+                        to={routes.content(a)}
                         className="font-serif text-lg leading-snug text-charcoal no-underline hover:text-sage-700"
                       >
                         {a.title}

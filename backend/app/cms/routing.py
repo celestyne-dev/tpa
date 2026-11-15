@@ -77,6 +77,8 @@ OVERRIDABLE_PATHS = frozenset(
         "/partner-with-us",
         "/advertise",
         "/free-resources",
+        # The Quotes landing page (collections themselves are /quotes/<slug>).
+        "/quotes",
         "/privacy-policy",
         "/terms",
         "/affiliate-disclosure",

@@ -34,7 +34,7 @@ function CompactArticleCard({ article, headingLevel: Heading = "h3", showImage =
         <SponsoredLabel sponsorship={article.sponsorship} compact className="mt-1" />
         <Heading className="mt-1.5 text-lg leading-snug font-medium text-balance">
           <Link
-            to={routes.article(article.slug)}
+            to={routes.content(article)}
             className={cn("group-hover:text-sage-800", TITLE_LINK, "after:rounded-xl")}
           >
             {article.title}
@@ -80,7 +80,7 @@ function RowArticleCard({ article, headingLevel: Heading = "h3", title, excerpt,
         <SponsoredLabel sponsorship={article.sponsorship} compact className="mt-1" />
         <Heading className="mt-1.5 text-xl leading-snug font-medium text-balance sm:text-2xl">
           <Link
-            to={routes.article(article.slug)}
+            to={routes.content(article)}
             className={cn("group-hover:text-sage-800", TITLE_LINK, "after:rounded-xl")}
           >
             {title ?? article.title}
@@ -201,7 +201,7 @@ export function ArticleCard({
           )}
         >
           <Link
-            to={routes.article(article.slug)}
+            to={routes.content(article)}
             className={cn("group-hover:text-sage-800", TITLE_LINK)}
           >
             {article.title}

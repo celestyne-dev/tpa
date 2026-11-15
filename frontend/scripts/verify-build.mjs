@@ -127,6 +127,28 @@ for (const { path: route, file } of manifest.pages) {
     fail("sitemap.xml", `lists the ${route} legal draft`);
 }
 
+// Quote collections (CI fixtures): prerendered with their text and continued numbering;
+// only the indexable one (and the landing page) is in the sitemap.
+{
+  const route = "/quotes/ci-fixture-quotes";
+  const entry = manifest.pages.find((p) => p.path === route);
+  if (!entry) fail(route, "quote collection was not prerendered");
+  else {
+    const html = await read(entry.file);
+    if (!html.includes("Fixture quote 7")) fail(route, "quotes are missing from the static HTML");
+    if (!/<ol[^>]*start="6"/.test(html)) fail(route, "continued numbering (start=6) is missing");
+    if (/name="robots" content="noindex/.test(html)) fail(route, "indexable collection is noindex");
+  }
+  if (!sitemap.includes(`<loc>${siteUrl}${route}</loc>`)) fail("sitemap.xml", `no ${route}`);
+  if (!sitemap.includes(`<loc>${siteUrl}/quotes</loc>`)) fail("sitemap.xml", "no /quotes");
+  const hidden = "/quotes/ci-fixture-quotes-draft";
+  if (sitemap.includes(`<loc>${siteUrl}${hidden}</loc>`)) fail("sitemap.xml", `lists ${hidden}`);
+  const hiddenEntry = manifest.pages.find((p) => p.path === hidden);
+  if (hiddenEntry && !/name="robots" content="noindex/.test(await read(hiddenEntry.file)))
+    fail(hidden, "noindex collection is indexable");
+  if ((await read("feed.xml")).includes("/quotes/")) fail("feed.xml", "lists a quote collection");
+}
+
 // feed.xml: summaries of indexable articles only.
 const feed = await read("feed.xml");
 if (!feed.startsWith("<?xml") || !feed.includes('<rss version="2.0"'))

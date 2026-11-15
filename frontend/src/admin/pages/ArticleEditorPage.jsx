@@ -22,6 +22,7 @@ import { cn, formatDateTime } from "@/utils/format";
 import { useAdminApi } from "../adminApiContext";
 import { AdminPageHeader } from "../components/AdminPageHeader";
 import { BlockEditor } from "../components/BlockEditor";
+import { contentKind } from "../contentKinds";
 import { cleanBlocks, countWords, readingMinutes } from "../components/blocks";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { fieldError } from "../components/fieldError";
@@ -60,6 +61,7 @@ const EMPTY = {
   original_url: "",
   original_slug: "",
 };
+const QUOTES_EMPTY = { ...EMPTY, noindex: true };
 const FIELDS = Object.keys(EMPTY);
 const TABS = [
   ["content", "Content"],
@@ -139,7 +141,8 @@ const AUTOSAVE_TEXT = {
   conflict: "Autosave paused (edit conflict)",
 };
 
-export function ArticleEditorPage() {
+export function ArticleEditorPage({ contentType = "article" }) {
+  const kind = contentKind(contentType);
   const { id } = useParams();
   const isNew = !id;
   const api = useAdminApi();
@@ -165,8 +168,10 @@ export function ArticleEditorPage() {
     [id],
   );
 
-  const [form, setForm] = useState(EMPTY);
-  const [saved, setSaved] = useState(EMPTY);
+  // New quote collections start with indexing off (turned on after editorial review).
+  const blank = contentType === "quotes" ? QUOTES_EMPTY : EMPTY;
+  const [form, setForm] = useState(blank);
+  const [saved, setSaved] = useState(blank);
   const [lockVersion, setLockVersion] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -205,8 +210,8 @@ export function ArticleEditorPage() {
   if (routeKey !== lastRoute) {
     setLastRoute(routeKey);
     if (isNew) {
-      setForm(EMPTY);
-      setSaved(EMPTY);
+      setForm(blank);
+      setSaved(blank);
       setLockVersion(null);
     }
   }
@@ -256,10 +261,12 @@ export function ArticleEditorPage() {
     try {
       const payload = toPayload(sent, payloadOptions);
       if (isNew) {
-        const res = await api.articles.create(payload);
+        const res = await api.articles.create(
+          contentType === "quotes" ? { ...payload, content_type: "quotes" } : payload,
+        );
         setSaved(sent);
         notify("Draft created.");
-        navigate(`/admin/articles/${res.data.id}/edit`, { replace: true });
+        navigate(`${kind.base}/${res.data.id}/edit`, { replace: true });
       } else {
         const res = await api.articles.update(id, {
           ...payload,
@@ -300,7 +307,7 @@ export function ArticleEditorPage() {
       if (action === "publishChanges") setMaterialUpdate(false);
       if (action === "remove") {
         notify(message);
-        navigate("/admin/articles", { replace: true });
+        navigate(kind.base, { replace: true });
         return;
       }
       if (res.data?.lock_version) setLockVersion(res.data.lock_version);
@@ -379,11 +386,8 @@ export function ArticleEditorPage() {
   return (
     <>
       <AdminPageHeader
-        title={isNew ? "New article" : form.title || "Untitled article"}
-        breadcrumbs={[
-          { label: "Articles", to: "/admin/articles" },
-          { label: isNew ? "New" : "Edit" },
-        ]}
+        title={isNew ? kind.newTitle : form.title || kind.untitled}
+        breadcrumbs={[{ label: kind.plural, to: kind.base }, { label: isNew ? "New" : "Edit" }]}
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => setPreview(true)}>
@@ -392,7 +396,7 @@ export function ArticleEditorPage() {
             </Button>
             {!isNew && allowed.preview && (
               <ButtonLink
-                to={`/admin/articles/${id}/preview`}
+                to={`${kind.base}/${id}/preview`}
                 variant="ghost"
                 size="sm"
                 target="_blank"
@@ -569,6 +573,7 @@ export function ArticleEditorPage() {
               <div className="rounded-xl border border-charcoal/10 bg-cream/40 p-3 sm:p-5">
                 <BlockEditor
                   blocks={form.body}
+                  contentType={contentType}
                   onChange={set("body")}
                   errors={error?.details?.body}
                   disabled={!canWrite}
@@ -865,8 +870,8 @@ export function ArticleEditorPage() {
               <MediaThumb id={Number(form.featured_image_id)} className="aspect-[16/10] w-full" />
             </section>
           )}
-          <Link to="/admin/articles" className="inline-block text-sm text-sage-700 hover:underline">
-            ← Back to articles
+          <Link to={kind.base} className="inline-block text-sm text-sage-700 hover:underline">
+            {kind.back}
           </Link>
         </aside>
       </div>
@@ -879,12 +884,13 @@ export function ArticleEditorPage() {
         size="lg"
       >
         <article>
-          <h1 className="text-3xl font-medium">{form.title || "Untitled article"}</h1>
+          <h1 className="text-3xl font-medium">{form.title || kind.untitled}</h1>
           {form.subtitle && (
             <p className="mt-2 font-serif text-lg text-muted italic">{form.subtitle}</p>
           )}
           <div className="mt-6">
             <ArticleBody
+              variant={contentType === "quotes" ? "quotes" : "article"}
               blocks={cleanBlocks(form.body).filter(
                 (b) => !["image", "gallery", "related"].includes(b.type),
               )}

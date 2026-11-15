@@ -3,6 +3,7 @@ import { createAdminApi } from "@/services/adminApi";
 import { createContentApi } from "@/services/contentApi";
 import { createShopApi } from "@/services/shopApi";
 import articles from "./slices/articlesSlice";
+import quotes from "./slices/quotesSlice";
 import auth, { sessionExpired } from "./slices/authSlice";
 import authors from "./slices/authorsSlice";
 import courses from "./slices/coursesSlice";
@@ -23,6 +24,7 @@ export const rootReducer = combineReducers({
   site,
   topics,
   articles,
+  quotes,
   authors,
   products,
   courses,

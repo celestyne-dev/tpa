@@ -401,6 +401,9 @@ function BlockFields({ block, index, onChange, errors, files, previous = [] }) {
               { value: "tip", label: "Tip" },
               { value: "warning", label: "Warning" },
               { value: "success", label: "Success" },
+              { value: "key_points", label: "Key points" },
+              { value: "example", label: "Example" },
+              { value: "exercise", label: "Exercise / reflection" },
             ]}
             onChange={(e) => set({ tone: e.target.value })}
           />
@@ -451,6 +454,13 @@ function BlockFields({ block, index, onChange, errors, files, previous = [] }) {
             hint="Leave empty to use the image's alt text from the media library."
             value={block.alt ?? ""}
             onChange={(e) => set({ alt: e.target.value })}
+          />
+          <TextAreaField
+            label="Pinterest description (optional)"
+            hint="Used by “Save to Pinterest” on quote collections; otherwise the caption or alt text is used. Give the image a clear title and credit in the Media Library."
+            rows={2}
+            value={block.pin_description ?? ""}
+            onChange={(e) => set({ pin_description: e.target.value })}
           />
           {error && (
             <p role="alert" className="text-sm text-red-800">
@@ -638,6 +648,7 @@ export function BlockEditor({
   allowed,
   legend = "Content",
   files,
+  contentType = "article",
 }) {
   const update = (index, block) => onChange(blocks.map((b, i) => (i === index ? block : b)));
   const move = (index, delta) => {
@@ -652,11 +663,26 @@ export function BlockEditor({
     onChange(next);
   };
   const remove = (index) => onChange(blocks.filter((_, i) => i !== index));
-  const add = (key) => onChange([...blocks, BLOCK_TEMPLATES[key].make()]);
+  const add = (key) => {
+    if (key === "more_quotes") {
+      // Quote collections: the next numbered quotes, explicitly continuing the last list.
+      const start = continuedStart(blocks);
+      return onChange([
+        ...blocks,
+        { type: "list", ordered: true, items: [""], ...(start > 1 && { start }) },
+      ]);
+    }
+    return onChange([...blocks, BLOCK_TEMPLATES[key].make()]);
+  };
   // ``allowed`` limits the "Add" choices (e.g. email-safe blocks for newsletters).
   const templates = Object.entries(BLOCK_TEMPLATES).filter(([key, t]) =>
     allowed ? allowed.includes(key) : !t.lessonOnly,
   );
+  if (contentType === "quotes" && !allowed && continuedStart(blocks) > 1)
+    templates.unshift([
+      "more_quotes",
+      { label: `More quotes (continue from ${continuedStart(blocks)})` },
+    ]);
 
   return (
     <fieldset disabled={disabled} className="space-y-3">

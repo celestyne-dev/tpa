@@ -80,7 +80,7 @@ export function ArticleDetailPage() {
     );
   if (isLoading || !data) return <ArticleSkeleton />;
 
-  const { article, related, adjacent, sidebar } = data;
+  const { article, related, relatedQuotes = [], adjacent, sidebar } = data;
   const topic = article.topic;
   const crumbs = [
     { name: "Home", href: routes.home },
@@ -198,6 +198,17 @@ export function ArticleDetailPage() {
                   }
                 />
                 <ArticleRows articles={related} className="mt-6" />
+              </section>
+            )}
+
+            {relatedQuotes.length > 0 && (
+              <section aria-labelledby="related-quotes-heading" className="mt-16 max-w-[46rem]">
+                <EditorialHeading
+                  id="related-quotes-heading"
+                  title="Quotes on this topic"
+                  action={{ to: routes.quotes, label: "All quote collections" }}
+                />
+                <ArticleRows articles={relatedQuotes} className="mt-6" />
               </section>
             )}
 

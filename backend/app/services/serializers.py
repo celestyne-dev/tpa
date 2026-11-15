@@ -138,6 +138,8 @@ def public_article(article: Article, *, include_body: bool = True) -> dict[str, 
     ) or FALLBACK_IMAGE
     data: dict[str, Any] = {
         "id": str(article.id),
+        # "quotes" for a quote collection (/quotes/<slug>), else "article".
+        "content_type": article.content_type or "article",
         "slug": article.slug,
         "title": article.title,
         "excerpt": article.excerpt,

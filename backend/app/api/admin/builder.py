@@ -331,10 +331,13 @@ class BuilderOptionsResource(Resource):
     @require_any_permission(*ANY_PAGE_EDIT, P.REUSABLE_SECTIONS_MANAGE)
     def get(self):
         from ...models import Author
-        from ...services.article_service import published_filter
+        from ...services.article_service import published_filter, quotes_published_filter
 
         articles = db.session.scalars(
             select(Article).where(published_filter()).order_by(Article.published_at.desc())
+        )
+        quote_collections = db.session.scalars(
+            select(Article).where(quotes_published_filter()).order_by(Article.published_at.desc())
         )
         topics = db.session.scalars(
             select(Topic).where(Topic.status == "active").order_by(Topic.display_order, Topic.name)
@@ -366,6 +369,9 @@ class BuilderOptionsResource(Resource):
                     for c in collections
                 ],
                 "articles": [{"id": a.id, "title": a.title, "slug": a.slug} for a in articles],
+                "quote_collections": [
+                    {"id": a.id, "title": a.title, "slug": a.slug} for a in quote_collections
+                ],
                 "topics": [
                     {"id": t.id, "name": t.name, "slug": t.slug, "featured": t.featured}
                     for t in topics
@@ -442,9 +448,19 @@ class LinkOptionsResource(Resource):
             stmt = stmt.where(
                 or_(func.lower(Article.title).like(f"%{q}%"), Article.slug.like(f"%{q}%"))
             )
+        stmt = stmt.order_by(Article.published_at.desc())
         articles = [
             {"label": a.title, "url": f"/articles/{a.slug}", "group": "Articles"}
-            for a in db.session.scalars(stmt.order_by(Article.published_at.desc()).limit(20))
+            for a in db.session.scalars(stmt.where(Article.content_type == "article").limit(20))
+        ]
+        # The Quotes landing page and published collections (for menus and buttons).
+        articles += [
+            {"label": label, "url": url, "group": "Quotes"}
+            for label, url in [("Quotes", "/quotes")]
+            if match(label, url)
+        ] + [
+            {"label": a.title, "url": f"/quotes/{a.slug}", "group": "Quotes"}
+            for a in db.session.scalars(stmt.where(Article.content_type == "quotes").limit(20))
         ]
         from ...models import Product, ProductCollection
 

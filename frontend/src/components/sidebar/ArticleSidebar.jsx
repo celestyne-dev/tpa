@@ -302,6 +302,13 @@ function SidebarSection({ section }) {
     case "article_collection":
     case "latest_articles":
       return <StoryList section={section} empty="No published articles to show yet." />;
+    case "quote_collections":
+      return (
+        <StoryList
+          section={{ ...section, data: { ...section.data, articles: section.data.collections } }}
+          empty="No published quote collections to show yet."
+        />
+      );
     case "topics_grid":
       return <SidebarTopics section={section} />;
     case "newsletter_cta":

@@ -8,6 +8,8 @@ from .articles import (
     ArticleListResource,
     AuthorDetailResource,
     AuthorListResource,
+    QuoteDetailResource,
+    QuoteListResource,
     SearchResource,
 )
 from .health import HealthResource, ReadinessResource
@@ -34,6 +36,8 @@ api.add_resource(TopicListResource, "/topics")
 api.add_resource(TopicDetailResource, "/topics/<string:slug>")
 api.add_resource(ArticleListResource, "/articles")
 api.add_resource(ArticleDetailResource, "/articles/<string:slug>")
+api.add_resource(QuoteListResource, "/quotes")
+api.add_resource(QuoteDetailResource, "/quotes/<string:slug>")
 api.add_resource(AuthorListResource, "/authors")
 api.add_resource(AuthorDetailResource, "/authors/<string:slug>")
 api.add_resource(SearchResource, "/search")

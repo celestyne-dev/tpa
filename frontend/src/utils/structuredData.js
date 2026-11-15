@@ -147,7 +147,7 @@ export function articleJsonLd(article) {
   return {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
-    "@id": `${url(routes.article(article.slug))}#article`,
+    "@id": `${url(routes.content(article))}#article`,
     headline: article.title,
     description: article.seo?.description ?? article.excerpt,
     image: images.map(imageObject),
@@ -162,11 +162,33 @@ export function articleJsonLd(article) {
       url: siteConfig.url,
     },
     isPartOf: { "@id": websiteId() },
-    mainEntityOfPage: { "@type": "WebPage", "@id": url(routes.article(article.slug)) },
+    mainEntityOfPage: { "@type": "WebPage", "@id": url(routes.content(article)) },
     ...(cited.length > 0 && { citation: cited }),
     ...(article.topic && { articleSection: article.topic.name }),
     ...(article.tags?.length && { keywords: article.tags.join(", ") }),
     inLanguage: siteConfig.language,
+  };
+}
+
+/** The Quotes landing page: a CollectionPage listing the collections shown on it. */
+export function quoteCollectionsJsonLd(collections, path) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${url(path)}#collections`,
+    name: "Quote collections",
+    url: url(path),
+    isPartOf: { "@id": websiteId() },
+    inLanguage: siteConfig.language,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: collections.map((c, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: url(routes.content(c)),
+        name: c.title,
+      })),
+    },
   };
 }
 

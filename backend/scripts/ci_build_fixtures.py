@@ -73,6 +73,41 @@ def main() -> int:
                     original_slug=slug,
                 )
             )
+        # Quote collections: one indexable (sitemap + prerendered), one left noindex.
+        for slug, noindex in (("ci-fixture-quotes", False), ("ci-fixture-quotes-draft", True)):
+            if db.session.scalar(select(Article.id).where(Article.slug == slug)):
+                continue
+            db.session.add(
+                Article(
+                    content_type="quotes",
+                    title=f"CI fixture quotes {slug[-5:]}",
+                    slug=slug,
+                    excerpt="Fixture quote collection for the build validation.",
+                    body=validate_blocks(
+                        [
+                            {"type": "paragraph", "text": "Why these **quotes** matter."},
+                            {
+                                "type": "list",
+                                "ordered": True,
+                                "items": [f"Fixture quote {n} — Author {n}" for n in range(1, 6)],
+                            },
+                            {"type": "paragraph", "text": "A reflection between the quotes."},
+                            {
+                                "type": "list",
+                                "ordered": True,
+                                "start": 6,
+                                "items": [f"Fixture quote {n} — Author {n}" for n in range(6, 11)],
+                            },
+                        ]
+                    ),
+                    primary_topic=topic,
+                    status="published",
+                    published_at=start,
+                    first_published_at=start,
+                    noindex=noindex,
+                    source="sample",
+                )
+            )
         db.session.commit()
         total = db.session.query(Article).filter(Article.status == "published").count()
         print(f"CI fixtures ready: {total} published articles; author page for {author.slug}.")

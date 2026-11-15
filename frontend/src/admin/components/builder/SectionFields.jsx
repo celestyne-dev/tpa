@@ -442,7 +442,10 @@ function Field({ spec, value, onChange, errors, path, variant, disabled }) {
         <div className={className}>
           <OrderedPicker
             label={spec.label}
-            items={options.articles}
+            // A quote-collection picker lists collections (Admin › Quotes), not articles.
+            items={
+              spec.content_type === "quotes" ? (options.quote_collections ?? []) : options.articles
+            }
             value={value}
             max={spec.max_items ?? 12}
             hint={spec.help}

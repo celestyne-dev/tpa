@@ -80,6 +80,12 @@ export function createFakeApi(overrides = {}) {
         ? { data: { article: fx.articleDetail, related: fx.articles.slice(1) } }
         : notFound(),
     ),
+    // Quote collections: none unless a test provides them.
+    getQuotes: vi.fn(async (params = {}) => ({
+      ...paginate([], params),
+      meta: { ...paginate([], params).meta, topics: [] },
+    })),
+    getQuote: vi.fn(async () => notFound("Quote collection not found.")),
     ...shopContentApi(),
     ...courseContentApi(),
     ...membershipContentApi(),

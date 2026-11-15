@@ -318,10 +318,14 @@ def _resolve_field(loader: _Loader, spec: dict[str, Any], value: Any, now: datet
     if kind == "rich":
         return expand_body(value or [])
     if kind == "articles":
+        # Article pickers hold articles; a quote-collection picker (content_type "quotes")
+        # holds collections. Neither ever shows the other kind.
+        wanted = spec.get("content_type", "article")
         return [
             public_article(loader.articles[i], include_body=False)
             for i in value or []
             if _published(loader.articles.get(i), now)
+            and (loader.articles[i].content_type or "article") == wanted
         ]
     if kind == "topics":
         return [
@@ -450,6 +454,22 @@ def _computed(
             data["articles"] = _shown(loader, _unshown(loader, fetched, False, count))
     elif section_type == "article_collection":
         data["articles"] = _shown(loader, data.get("articles") or [])
+    elif section_type == "quote_collections":
+        from .article_service import list_quote_collections, quote_collections_for_article
+
+        count = content.get("count") or 3
+        mode = content.get("mode") or "latest"
+        if mode == "manual":
+            collections = data.get("collections") or []
+        elif mode == "related" and loader.article:
+            collections = quote_collections_for_article(loader.article, limit=count)
+        else:
+            topic = (data.get("topic") or [None])[0]
+            collections = list_quote_collections(
+                topic=topic and topic["slug"], page=1, page_size=count
+            )[0]
+        data["collections"] = collections[:count]
+        data.pop("topic", None)
     elif section_type == "latest_articles":
         topic = (data.get("topic") or [None])[0]
         data["topic"] = topic

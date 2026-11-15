@@ -93,6 +93,16 @@ async function fetchAllArticles() {
   }
 }
 
+/** Every published quote collection (Admin › Quotes), page by page. */
+async function fetchAllQuotes() {
+  const all = [];
+  for (let page = 1; ; page += 1) {
+    const { data, meta } = await api.getQuotes({ page, page_size: 50 });
+    all.push(...data);
+    if (!meta?.pagination?.has_next) return all;
+  }
+}
+
 const attr = (value) =>
   String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
@@ -219,6 +229,7 @@ const [
   collectionsRes,
   coursesRes,
   authorsRes,
+  quoteCollections,
 ] = await Promise.all([
   api.getTopics(),
   fetchAllArticles(),
@@ -229,6 +240,7 @@ const [
   api.getCollections(),
   api.getCourses(),
   api.getAuthors(),
+  fetchAllQuotes(),
 ]);
 const topics = topicsRes.data;
 const authors = authorsRes.data;
@@ -266,6 +278,11 @@ const pages = [
   ...policyPages.filter((p) => !cmsPaths.has(p.path)).map((p) => ({ path: p.path })),
   // Private customer pages: noindex shells; customer data only ever loads in the browser.
   ...privateRoutes.map((path) => ({ path, private: true })),
+  // Quote collections: the landing page (noindex while empty), its pages and each
+  // collection (images are part of their collection, never pages of their own).
+  ...(cmsPaths.has(routes.quotes) ? [] : [{ path: routes.quotes }]),
+  ...extraPages(quoteCollections.length, (n) => routes.quotesPage(n)),
+  ...quoteCollections.map((c) => ({ path: routes.quote(c.slug) })),
   ...articles.map((a) => ({
     path: routes.article(a.slug),
     priority: 0.8,

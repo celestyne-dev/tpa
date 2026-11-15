@@ -4,8 +4,10 @@ import {
   ARTICLE_LIST_QUERY,
   FEATURED_QUERY,
   LATEST_QUERY,
+  QUOTES_FEATURED_QUERY,
   articleListQuery,
   pageParam,
+  quoteListQuery,
   topicArticlesQuery,
 } from "@/data/queries";
 import { AboutPage } from "@/pages/AboutPage";
@@ -28,6 +30,8 @@ import { policyPage } from "@/pages/policyPages";
 import { PrivacyPolicyPage } from "@/pages/PrivacyPolicyPage";
 import { CollectionPage } from "@/pages/CollectionPage";
 import { ProductPage } from "@/pages/ProductPage";
+import { QuoteCollectionPage } from "@/pages/QuoteCollectionPage";
+import { QuotesPage } from "@/pages/QuotesPage";
 import { ResourceLibraryPage } from "@/pages/ResourceLibraryPage";
 import { SearchPage } from "@/pages/SearchPage";
 import { ShopPage } from "@/pages/ShopPage";
@@ -43,6 +47,7 @@ import { fetchCourse, fetchCourses } from "@/store/slices/coursesSlice";
 import { fetchMediaKit } from "@/store/slices/mediaKitSlice";
 import { fetchMemberships } from "@/store/slices/membershipsSlice";
 import { fetchPage } from "@/store/slices/pagesSlice";
+import { fetchQuoteCollection, fetchQuoteCollections } from "@/store/slices/quotesSlice";
 import { fetchCollection, fetchProduct, fetchProducts } from "@/store/slices/productsSlice";
 import { fetchSite } from "@/store/slices/siteSlice";
 import { fetchTopic, fetchTopics } from "@/store/slices/topicsSlice";
@@ -78,6 +83,36 @@ export const routeTable = [
     path: "/articles/:slug",
     Component: ArticleDetailPage,
     load: ({ slug }) => [fetchArticle({ slug })],
+  },
+  // Quote collections (Admin › Quotes). A CMS page published at /quotes replaces the
+  // built-in landing page; a path under /quotes that isn't a collection falls back to a
+  // CMS page there (or a 404).
+  {
+    path: routes.quotes,
+    Component: withCmsOverride(QuotesPage, routes.quotes),
+    load: () => [
+      fetchPage({ path: routes.quotes }),
+      fetchQuoteCollections(QUOTES_FEATURED_QUERY),
+      fetchQuoteCollections(quoteListQuery(1)),
+      fetchArticles(LATEST_QUERY),
+    ],
+  },
+  {
+    path: "/quotes/page/:page",
+    Component: QuotesPage,
+    load: ({ page }) => [
+      fetchQuoteCollections(QUOTES_FEATURED_QUERY),
+      fetchQuoteCollections(quoteListQuery(pageParam(page) ?? 1)),
+      fetchArticles(LATEST_QUERY),
+    ],
+  },
+  {
+    path: "/quotes/:slug",
+    Component: QuoteCollectionPage,
+    load: ({ slug }, pathname) => [
+      fetchQuoteCollection({ slug }),
+      fetchPage({ path: normalisePath(pathname) }),
+    ],
   },
   // All topics, grouped as in the header menu (/topics#mindset, …).
   { path: routes.topics, Component: TopicsPage, load: () => [fetchTopics()] },

@@ -91,7 +91,7 @@ function ArticleList({ articles }) {
           </p>
           <h3 className="mt-2 text-2xl font-medium">
             <Link
-              to={routes.article(a.slug)}
+              to={routes.content(a)}
               className={cn(
                 "hover:underline hover:underline-offset-4",
                 dark ? "text-ivory" : "hover:text-sage-800",
@@ -224,18 +224,23 @@ function ArticleCollection({ articles, layout, cardStyle }) {
   );
 }
 
-function ArticleSectionBase({ section }) {
+function ArticleSectionBase({
+  section,
+  items,
+  label = "Articles",
+  empty = "No published articles to show yet.",
+}) {
   const { data, variant, key } = section;
   const { preview } = useSectionContext();
-  const articles = data.articles ?? [];
+  const articles = items ?? data.articles ?? [];
   if (articles.length === 0 && !preview) return null;
   const id = `${key}-heading`;
   return (
-    <SectionShell section={section} labelledBy={data.heading ? id : undefined} label="Articles">
+    <SectionShell section={section} labelledBy={data.heading ? id : undefined} label={label}>
       <EditorialHeader id={id} data={data} />
       <div className="mt-8">
         {articles.length === 0 ? (
-          <EmptyPreviewNote>No published articles to show yet.</EmptyPreviewNote>
+          <EmptyPreviewNote>{empty}</EmptyPreviewNote>
         ) : (
           <ArticleCollection
             articles={articles}
@@ -251,6 +256,18 @@ function ArticleSectionBase({ section }) {
 export const FeaturedArticlesSection = ArticleSectionBase;
 export const LatestArticlesSection = ArticleSectionBase;
 export const ArticleCollectionSection = ArticleSectionBase;
+
+/** Quote collections (Admin › Quotes) as cards: grid or carousel; links go to /quotes/…. */
+export function QuoteCollectionsSection({ section }) {
+  return (
+    <ArticleSectionBase
+      section={section}
+      items={section.data.collections ?? []}
+      label="Quote collections"
+      empty="No published quote collections to show yet."
+    />
+  );
+}
 
 /** Most-read articles: a numbered list (numbers are decorative; the list is ordered). */
 function NumberedArticles({ articles }) {
@@ -285,7 +302,7 @@ function NumberedArticles({ articles }) {
             </p>
             <h3 className="mt-1.5 text-xl leading-snug font-medium text-balance">
               <Link
-                to={routes.article(a.slug)}
+                to={routes.content(a)}
                 className={cn(
                   "hover:underline hover:underline-offset-4",
                   dark ? "text-ivory" : "hover:text-sage-800",

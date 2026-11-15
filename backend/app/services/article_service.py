@@ -19,7 +19,21 @@ def _now() -> datetime:
 
 
 def published_filter():
-    return (Article.status == "published") & (Article.published_at <= _now())
+    """Published articles (never quote collections, which have their own pages)."""
+    return (
+        (Article.status == "published")
+        & (Article.published_at <= _now())
+        & (Article.content_type == "article")
+    )
+
+
+def quotes_published_filter():
+    """Published quote collections (/quotes/<slug>)."""
+    return (
+        (Article.status == "published")
+        & (Article.published_at <= _now())
+        & (Article.content_type == "quotes")
+    )
 
 
 def _topic_filter(slug: str):
@@ -303,3 +317,109 @@ def search_articles(query: str, *, page: int = 1, page_size: int = 10) -> dict[s
             "has_next": page < total_pages,
         },
     }
+
+
+# ---- quote collections --------------------------------------------------------------------------
+
+
+def _related_by_topic(source: Article, condition, limit: int) -> list[Article]:
+    """Same primary topic first, then shared secondary topics, then most recent."""
+    own = {t.id for t in source.secondary_topics} | {source.primary_topic_id} - {None}
+    candidates = db.session.scalars(
+        select(Article)
+        .where(condition, Article.id != source.id)
+        .order_by(Article.published_at.desc(), Article.id.desc())
+        .limit(60)
+    ).all()
+
+    def score(other: Article) -> int:
+        if other.primary_topic_id and other.primary_topic_id == source.primary_topic_id:
+            return 2
+        theirs = {t.id for t in other.secondary_topics} | {other.primary_topic_id}
+        return 1 if own & theirs else 0
+
+    return sorted(candidates, key=score, reverse=True)[:limit]
+
+
+def list_quote_collections(
+    *,
+    topic: str | None = None,
+    featured: bool | None = None,
+    q: str | None = None,
+    page: int = 1,
+    page_size: int = 12,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    conditions = [quotes_published_filter()]
+    if topic:
+        conditions.append(_topic_filter(topic))
+    if featured is not None:
+        conditions.append(Article.featured.is_(featured))
+    if q:
+        like = f"%{q.strip()}%"
+        conditions.append(or_(Article.title.ilike(like), Article.excerpt.ilike(like)))
+    total = db.session.scalar(select(func.count(Article.id)).where(*conditions)) or 0
+    stmt = (
+        select(Article)
+        .where(*conditions)
+        .order_by(Article.published_at.desc(), Article.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    items = [public_article(a, include_body=False) for a in db.session.scalars(stmt)]
+    total_pages = max(1, math.ceil(total / page_size))
+    return items, {
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_prev": page > 1,
+    }
+
+
+def quote_topics() -> list[dict[str, Any]]:
+    """Topics that have published quote collections (the landing page's categories)."""
+    counts: dict[int, int] = {}
+    for collection in db.session.scalars(select(Article).where(quotes_published_filter())):
+        for topic_id in {collection.primary_topic_id} | {t.id for t in collection.secondary_topics}:
+            if topic_id:
+                counts[topic_id] = counts.get(topic_id, 0) + 1
+    topics = db.session.scalars(
+        select(Topic)
+        .where(Topic.id.in_(counts or {0}), Topic.status == "active")
+        .order_by(Topic.display_order, Topic.name)
+    )
+    return [{"slug": t.slug, "name": t.name, "collection_count": counts[t.id]} for t in topics]
+
+
+def get_quote_collection(slug: str) -> dict[str, Any]:
+    collection = db.session.scalar(
+        select(Article).where(Article.slug == slug, quotes_published_filter())
+    )
+    if collection is None:
+        raise NotFoundError(f"Quote collection '{slug}' was not found.")
+    return {
+        "collection": public_article(collection),
+        "related_articles": [
+            public_article(a, include_body=False)
+            for a in _related_by_topic(collection, published_filter(), 3)
+        ],
+        "related_collections": [
+            public_article(a, include_body=False)
+            for a in _related_by_topic(collection, quotes_published_filter(), 3)
+        ],
+    }
+
+
+def quote_collections_for_article(slug: str, limit: int = 2) -> list[dict[str, Any]]:
+    """Quote collections sharing a topic with an article (none when no topic matches)."""
+    article = get_article_model(slug)
+    own = {t.id for t in article.secondary_topics} | {article.primary_topic_id} - {None}
+    if not own:
+        return []
+    picks = [
+        c
+        for c in _related_by_topic(article, quotes_published_filter(), limit * 4)
+        if own & ({t.id for t in c.secondary_topics} | {c.primary_topic_id})
+    ]
+    return [public_article(c, include_body=False) for c in picks[:limit]]

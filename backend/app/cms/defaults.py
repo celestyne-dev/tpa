@@ -105,6 +105,8 @@ DEFAULT_MENUS = {
                     {"label": "My Library", "url": "/account/library"},
                 ],
             },
+            # Shown once a quote collection is published (Admin › Quotes).
+            {"label": "Quotes", "url": "/quotes"},
             # On wide screens the header's Newsletter button stands in for this link.
             {"label": "Newsletter", "url": "/newsletter"},
         ],
@@ -123,7 +125,10 @@ DEFAULT_MENUS = {
             {
                 "label": "Explore",
                 "link_type": "heading",
-                "children": [{"label": "Articles", "url": "/articles"}],
+                "children": [
+                    {"label": "Articles", "url": "/articles"},
+                    {"label": "Quotes", "url": "/quotes"},
+                ],
                 "group_links": True,
             },
             {

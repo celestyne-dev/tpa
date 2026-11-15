@@ -58,6 +58,7 @@ class AuthorProfileSchema(AuthorSchema):
 
 class ArticleSummarySchema(Schema):
     id = fields.String()
+    content_type = fields.String()
     slug = fields.String()
     title = fields.String()
     excerpt = fields.String()

@@ -5,6 +5,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { formatDateTime } from "@/utils/format";
 import { useAdminApi } from "../adminApiContext";
+import { contentKind } from "../contentKinds";
 import { AdminPageHeader } from "../components/AdminPageHeader";
 import { DataTable } from "../components/DataTable";
 import { SelectField, TextField } from "../components/Fields";
@@ -28,7 +29,8 @@ const REVIEW_OPTIONS = [
   { value: "approved", label: "Approved" },
 ];
 
-export function ArticlesPage() {
+export function ArticlesPage({ contentType = "article" }) {
+  const kind = contentKind(contentType);
   const api = useAdminApi();
   const { can } = usePermissions();
   const [params, setParams] = useSearchParams();
@@ -44,10 +46,11 @@ export function ArticlesPage() {
         q: q || undefined,
         status: status || undefined,
         review_status: review || undefined,
+        content_type: contentType === "article" ? undefined : contentType,
         page,
         page_size: 20,
       }),
-    [q, status, review, page],
+    [q, status, review, page, contentType],
   );
 
   const update = (next) => {
@@ -64,12 +67,14 @@ export function ArticlesPage() {
       render: (a) => (
         <div>
           <Link
-            to={`/admin/articles/${a.id}/edit`}
+            to={`${kind.base}/${a.id}/edit`}
             className="font-medium text-charcoal hover:text-sage-700"
           >
             {a.title}
           </Link>
-          <p className="text-xs text-muted">/{a.slug}</p>
+          <p className="text-xs text-muted">
+            {contentType === "quotes" ? `/quotes/${a.slug}` : `/${a.slug}`}
+          </p>
         </div>
       ),
     },
@@ -97,18 +102,18 @@ export function ArticlesPage() {
   return (
     <>
       <AdminPageHeader
-        title="Articles"
+        title={kind.plural}
         description={
           can("articles.view")
-            ? "Create, edit and publish editorial content."
-            : "Your articles. Drafts can be edited until they are published."
+            ? kind.description
+            : `Your ${kind.plural.toLowerCase()}. Drafts can be edited until they are published.`
         }
-        breadcrumbs={[{ label: "Articles" }]}
+        breadcrumbs={[{ label: kind.plural }]}
         actions={
           can("articles.create") && (
-            <ButtonLink to="/admin/articles/new" size="sm">
+            <ButtonLink to={`${kind.base}/new`} size="sm">
               <FilePlus2 aria-hidden />
-              New article
+              {kind.newLabel}
             </ButtonLink>
           )
         }
@@ -154,20 +159,25 @@ export function ArticlesPage() {
         </p>
       )}
       {error ? (
-        <ErrorState title="We couldn't load articles" onRetry={reload} />
+        <ErrorState title={`We couldn't load ${kind.plural.toLowerCase()}`} onRetry={reload} />
       ) : (
         <DataTable
-          caption="Articles"
+          caption={kind.plural}
           columns={columns}
           rows={data}
           loading={loading}
           empty={{
             icon: PenSquare,
-            title: q || status || review ? "No matching articles" : "No articles yet",
+            title:
+              q || status || review
+                ? `No matching ${kind.plural.toLowerCase()}`
+                : contentType === "quotes"
+                  ? "No quote collections yet"
+                  : "No articles yet",
             description:
               q || status || review
                 ? "Try a different search or status."
-                : "Your first article will appear here.",
+                : `Your first ${kind.singular} will appear here.`,
           }}
         />
       )}

@@ -6,9 +6,9 @@ from ...auth.permissions import Permission as P
 from ...extensions import db
 from ...models import Author, Tag, Topic
 from ...schemas.admin import (
+    ArticleCreateSchema,
     ArticleQuerySchema,
     ArticleSaveSchema,
-    ArticleWriteSchema,
     AuthorWriteSchema,
     LockSchema,
     PublishChangesSchema,
@@ -26,7 +26,7 @@ from ...utils.responses import success
 from .._validation import load_body, load_query
 
 _article_query = ArticleQuerySchema()
-_article_write = ArticleWriteSchema()
+_article_write = ArticleCreateSchema()
 _publish = PublishSchema()
 _reassign = ReassignSchema()
 
@@ -39,10 +39,14 @@ ARTICLE_ACCESS = (P.ARTICLES_VIEW, P.ARTICLES_CREATE, P.ARTICLES_EDIT_OWN, P.ART
 class ArticleListResource(Resource):
     @require_any_permission(*ARTICLE_ACCESS)
     def get(self):
-        items, pagination = article_admin.list_articles(load_query(_article_query), current_user)
+        args = load_query(_article_query)
+        items, pagination = article_admin.list_articles(args, current_user)
         return success(
             items,
-            {"pagination": pagination, "counts": article_admin.status_counts(current_user)},
+            {
+                "pagination": pagination,
+                "counts": article_admin.status_counts(current_user, args["content_type"]),
+            },
         )
 
     @require_permission(P.ARTICLES_CREATE)

@@ -7,6 +7,7 @@ promises rankings.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
@@ -14,7 +15,13 @@ from urllib.parse import urlparse
 from flask import current_app
 from sqlalchemy import func, select
 
-from ..cms.blocks import blocks_word_count, heading_outline, internal_links, media_ids
+from ..cms.blocks import (
+    blocks_word_count,
+    heading_outline,
+    internal_links,
+    media_ids,
+    strip_inline_links,
+)
 from ..cms.legal_review import PENDING, pending_legal_review
 from ..cms.templates import LEGAL_DOCUMENTS, POLICY_PATHS
 from ..extensions import db
@@ -57,12 +64,12 @@ def _site() -> str:
     return current_app.config.get("SITE_URL", "").rstrip("/")
 
 
-def article_path(slug: str) -> str:
-    return f"/articles/{slug}"
+def article_path(slug: str, content_type: str = "article") -> str:
+    return f"/quotes/{slug}" if content_type == "quotes" else f"/articles/{slug}"
 
 
-def article_url(slug: str) -> str:
-    return f"{_site()}{article_path(slug)}"
+def article_url(slug: str, content_type: str = "article") -> str:
+    return f"{_site()}{article_path(slug, content_type)}"
 
 
 def _check(code: str, severity: str, message: str, field: str | None = None) -> dict[str, Any]:
@@ -73,7 +80,24 @@ def _check(code: str, severity: str, message: str, field: str | None = None) -> 
 
 
 def _known_paths() -> tuple[set[str], set[str], set[str], set[str]]:
-    articles = set(db.session.scalars(select(Article.slug).where(Article.status == "published")))
+    articles = set(
+        db.session.scalars(
+            select(Article.slug).where(
+                Article.status == "published", Article.content_type == "article"
+            )
+        )
+    )
+    quotes = {
+        f"/quotes/{slug}"
+        for slug in db.session.scalars(
+            select(Article.slug).where(
+                Article.status == "published", Article.content_type == "quotes"
+            )
+        )
+    }
+    # The Quotes landing page counts as a page once there is a collection to show
+    # (menus leave the link out until then).
+    quotes |= {"/quotes"} if quotes else set()
     topics = set(db.session.scalars(select(Topic.slug).where(Topic.status == "active")))
     redirects = set(
         db.session.scalars(select(Redirect.source_path).where(Redirect.is_active.is_(True)))
@@ -123,7 +147,13 @@ def _known_paths() -> tuple[set[str], set[str], set[str], set[str]]:
     return (
         # The policy pages answer 200 (as a noindex draft until published), so links to
         # them are not broken.
-        {p for p, _, _ in STATIC_PATHS} | POLICY_PATHS | pages | shop | commerce_pages | courses,
+        {p for p, _, _ in STATIC_PATHS}
+        | POLICY_PATHS
+        | pages
+        | shop
+        | commerce_pages
+        | courses
+        | quotes,
         articles,
         topics,
         redirects,
@@ -322,7 +352,7 @@ def check_values(article: Article, values: dict[str, Any], known=None) -> list[d
         )
 
     canonical = (values.get("canonical_url") or "").strip()
-    own_url = article_url(values.get("slug") or article.slug)
+    own_url = article_url(values.get("slug") or article.slug, article.content_type)
     if canonical and canonical.rstrip("/") != own_url:
         checks.append(
             _check(
@@ -347,7 +377,18 @@ def check_values(article: Article, values: dict[str, Any], known=None) -> list[d
                     "canonical_url",
                 )
             )
-    if values.get("noindex"):
+    if values.get("noindex") and article.content_type == "quotes":
+        checks.append(
+            _check(
+                "noindex",
+                "info",
+                "Indexing is off (the default for new quote collections): it won't appear in "
+                "search results or the sitemap. Turn indexing on in SEO once the quality "
+                "checks below are done.",
+                "noindex",
+            )
+        )
+    elif values.get("noindex"):
         checks.append(
             _check(
                 "noindex",
@@ -357,7 +398,7 @@ def check_values(article: Article, values: dict[str, Any], known=None) -> list[d
                 "noindex",
             )
         )
-    if not values.get("author_id"):
+    if not values.get("author_id") and article.content_type != "quotes":
         checks.append(_check("missing_author", "warning", "No author is set.", "author_id"))
     if not values.get("primary_topic_id"):
         checks.append(
@@ -365,7 +406,8 @@ def check_values(article: Article, values: dict[str, Any], known=None) -> list[d
         )
     redirect = db.session.scalar(
         select(Redirect).where(
-            Redirect.source_path == article_path(values.get("slug") or article.slug),
+            Redirect.source_path
+            == article_path(values.get("slug") or article.slug, article.content_type),
             Redirect.is_active.is_(True),
         )
     )
@@ -378,6 +420,148 @@ def check_values(article: Article, values: dict[str, Any], known=None) -> list[d
                 "slug",
             )
         )
+    if article.content_type == "quotes":
+        checks.extend(quote_quality_checks(article, body))
+    return checks
+
+
+# ---- quote collections: editorial quality checks ---------------------------------------------
+
+_ATTRIBUTION = re.compile(r"\s[—–-]{1,2}\s*\S.{0,120}$")
+
+
+def _quote_key(item: str) -> str:
+    """A quote's words for duplicate checks (no formatting, attribution or punctuation)."""
+    text = _ATTRIBUTION.sub("", strip_inline_links(item))
+    return " ".join(re.sub(r"[^\w\s]", " ", text.lower()).split())
+
+
+def quote_quality_checks(article: Article, body: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The editorial checklist for a quote collection, shown with the SEO checks.
+
+    Guidance for a helpful, original page (not a word count): an introduction, the
+    editor's own reflections, attributions, continuous numbering, image rights and
+    duplicate quotes. Nothing here blocks publishing.
+    """
+    checks: list[dict[str, Any]] = []
+    lists = [(i, b) for i, b in enumerate(body) if b.get("type") == "list" and b.get("ordered")]
+    items = [item for _, b in lists for item in b.get("items") or []]
+    if not lists:
+        return [
+            _check(
+                "quotes_missing",
+                "warning",
+                "Add the quotes as a numbered list (they are numbered on the page).",
+                "body",
+            )
+        ]
+    first = lists[0][0]
+    if not any(b.get("type") == "paragraph" for b in body[:first]):
+        checks.append(
+            _check(
+                "quotes_introduction",
+                "warning",
+                "Start with an original introduction before the quotes: why they matter and "
+                "how readers can use them.",
+                "body",
+            )
+        )
+    commentary = [
+        b
+        for i, b in enumerate(body)
+        if i > first and b.get("type") in ("paragraph", "callout", "heading")
+    ]
+    if not commentary:
+        checks.append(
+            _check(
+                "quotes_commentary",
+                "warning",
+                "Add your own reflections or practical lessons between or after the quotes; a "
+                "list of quotes alone gives readers little that is new.",
+                "body",
+            )
+        )
+    unattributed = [i for i in items if not _ATTRIBUTION.search(strip_inline_links(i))]
+    if unattributed:
+        checks.append(
+            _check(
+                "quotes_attribution",
+                "info",
+                f"{len(unattributed)} of {len(items)} quotes have no attribution. End each "
+                "quote with “— Name” (or “— Unknown”) and check the wording against a "
+                "reliable source.",
+                "body",
+            )
+        )
+    for n, (_, block) in enumerate(lists[1:], start=2):
+        if not block.get("start"):
+            checks.append(
+                _check(
+                    "quotes_numbering",
+                    "info",
+                    f"Numbered list {n} starts again at 1. If it continues the quotes above, "
+                    "use “Continue numbering” in the editor.",
+                    "body",
+                )
+            )
+            break
+    keys = [_quote_key(i) for i in items if _quote_key(i)]
+    repeated = len(keys) - len(set(keys))
+    if repeated:
+        checks.append(
+            _check(
+                "quotes_repeated",
+                "warning",
+                f"{repeated} quote(s) appear more than once in this collection.",
+                "body",
+            )
+        )
+    elsewhere: dict[str, int] = {}
+    own = set(keys)
+    for other in db.session.scalars(
+        select(Article).where(
+            Article.content_type == "quotes",
+            Article.id != (article.id or 0),
+            Article.status != "archived",
+        )
+    ):
+        shared = own & {
+            _quote_key(i)
+            for b in other.body or []
+            if b.get("type") == "list"
+            for i in b.get("items") or []
+        }
+        if shared:
+            elsewhere[other.title] = len(shared)
+    if elsewhere:
+        names = ", ".join(f"“{t}” ({n})" for t, n in sorted(elsewhere.items())[:3])
+        checks.append(
+            _check(
+                "quotes_duplicate_content",
+                "info",
+                f"Some quotes also appear in other collections: {names}. Make sure this "
+                "collection offers readers something new.",
+                "body",
+            )
+        )
+    ids = media_ids(body)
+    if ids:
+        missing = [
+            a
+            for a in db.session.scalars(select(MediaAsset).where(MediaAsset.id.in_(ids)))
+            if not (a.credit or "").strip() and not a.source_url
+        ]
+        if missing:
+            checks.append(
+                _check(
+                    "quotes_image_rights",
+                    "warning",
+                    f"{len(missing)} image(s) have no credit or source in the Media Library. "
+                    "Confirm you may use them (your own design, licensed or public domain) and "
+                    "record the credit.",
+                    "body",
+                )
+            )
     return checks
 
 
@@ -395,7 +579,7 @@ def check_article(article: Article) -> dict[str, Any]:
         },
         "preview": {
             "title": title,
-            "url": article_url(values.get("slug") or article.slug),
+            "url": article_url(values.get("slug") or article.slug, article.content_type),
             "description": description,
             "social_title": (values.get("social_title") or title),
             "social_description": (values.get("social_description") or description),
@@ -403,7 +587,7 @@ def check_article(article: Article) -> dict[str, Any]:
             and (
                 not values.get("canonical_url")
                 or values["canonical_url"].rstrip("/")
-                == article_url(values.get("slug") or article.slug)
+                == article_url(values.get("slug") or article.slug, article.content_type)
             ),
         },
     }
@@ -522,7 +706,9 @@ def page_issues(limit: int = 50) -> list[dict[str, Any]]:
 
 def overview(limit: int = 50) -> dict[str, Any]:
     published = db.session.scalars(
-        select(Article).where(Article.status == "published").order_by(Article.title)
+        select(Article)
+        .where(Article.status == "published", Article.content_type == "article")
+        .order_by(Article.title)
     ).all()
     known = _known_paths()
     rows = []
@@ -739,6 +925,7 @@ def sitemap_entries() -> list[dict[str, Any]]:
                 "images": _image_entries(article),
             }
         )
+    entries.extend(_quote_entries(excluded))
     from .article_service import authors_with_pages
 
     for author, _count in authors_with_pages():
@@ -749,6 +936,43 @@ def sitemap_entries() -> list[dict[str, Any]]:
             )
     entries.extend(_shop_entries(excluded))
     entries.extend(_course_entries(excluded))
+    return entries
+
+
+def _quote_entries(excluded: set[str]) -> list[dict[str, Any]]:
+    """Published quote collections that are indexable (not noindex, own canonical), plus
+    the /quotes landing page once at least one is. Collections start as noindex."""
+    from .article_service import quotes_published_filter
+
+    entries = []
+    for collection in db.session.scalars(
+        select(Article).where(quotes_published_filter()).order_by(Article.published_at.desc())
+    ):
+        path = article_path(collection.slug, "quotes")
+        own = article_url(collection.slug, "quotes")
+        if path in excluded or collection.noindex:
+            continue
+        if collection.canonical_url and collection.canonical_url.rstrip("/") != own:
+            continue
+        entries.append(
+            {
+                "type": "quotes",
+                "path": path,
+                "priority": 0.7,
+                "changefreq": "monthly",
+                "lastmod": iso(
+                    max(
+                        collection.content_modified_at or collection.published_at,
+                        collection.published_at,
+                    )
+                ),
+                "images": _image_entries(collection),
+            }
+        )
+    if entries and "/quotes" not in excluded:
+        entries.insert(
+            0, {"type": "page", "path": "/quotes", "priority": 0.7, "changefreq": "weekly"}
+        )
     return entries
 
 

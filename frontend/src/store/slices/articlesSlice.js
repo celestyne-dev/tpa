@@ -83,6 +83,8 @@ const articlesSlice = createSlice({
         state.bySlug[action.meta.arg.slug] = {
           article: action.payload.article,
           related: action.payload.related,
+          // Quote collections on the article's topic (older APIs: absent).
+          relatedQuotes: action.payload.related_quotes ?? [],
           // Previous/next articles and the article sidebar (older APIs: absent).
           adjacent: action.payload.adjacent ?? null,
           sidebar: action.payload.sidebar ?? [],

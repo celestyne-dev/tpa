@@ -27,6 +27,10 @@ class ArticleListQuerySchema(Schema):
     page_size = fields.Integer(load_default=12, validate=validate.Range(min=1, max=50))
 
 
+class QuoteListQuerySchema(ArticleListQuerySchema):
+    q = fields.String(load_default=None, validate=validate.Length(max=100))
+
+
 class PageQuerySchema(Schema):
     class Meta:
         unknown = EXCLUDE

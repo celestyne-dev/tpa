@@ -21,7 +21,9 @@ from ..utils.errors import ValidationError
 from ..utils.validation import is_https_url, plain_text_problem
 
 MAX_BLOCKS = 300
-CALLOUT_TONES = ("info", "tip", "warning", "success")
+# key_points / example / exercise: the "Key points", "Example" and "Exercise or
+# reflection" boxes (callouts with their own styling), used by articles and quote collections.
+CALLOUT_TONES = ("info", "tip", "warning", "success", "key_points", "example", "exercise")
 IMAGE_ALIGNS = ("center", "wide", "full", "left", "right")
 BUTTON_STYLES = ("primary", "secondary")
 RESOURCE_KINDS = ("resource", "product")  # "product" is reserved for future commerce
@@ -36,7 +38,8 @@ _TEXT_FIELDS: dict[str, dict[str, tuple[bool, int]]] = {
     "callout": {"text": (True, 1000), "title": (False, 120)},
     "list": {},
     "divider": {},
-    "image": {"alt": (False, 300), "caption": (False, 500)},
+    # pin_description: optional text for "Save to Pinterest" (else the caption/alt is used).
+    "image": {"alt": (False, 300), "caption": (False, 500), "pin_description": (False, 500)},
     "gallery": {"caption": (False, 500)},
     "video": {"title": (True, 200), "caption": (False, 500)},
     "button": {"label": (True, 60)},

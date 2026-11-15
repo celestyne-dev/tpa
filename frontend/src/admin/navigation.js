@@ -10,6 +10,7 @@ import {
   Menu,
   Package,
   PenSquare,
+  Quote,
   ScrollText,
   Search,
   Settings,
@@ -83,6 +84,7 @@ export const adminSections = [
     title: "Content",
     items: [
       { label: "Articles", to: "/admin/articles", icon: PenSquare, anyOf: ARTICLE_ACCESS },
+      { label: "Quotes", to: "/admin/quotes", icon: Quote, anyOf: ARTICLE_ACCESS },
       { label: "Topics", to: "/admin/topics", icon: FolderTree, anyOf: TAXONOMY_READ },
       { label: "Tags", to: "/admin/tags", icon: Tags, anyOf: TAXONOMY_READ },
       { label: "Authors", to: "/admin/authors", icon: UserRound, anyOf: TAXONOMY_READ },
