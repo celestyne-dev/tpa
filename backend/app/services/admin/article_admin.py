@@ -304,11 +304,20 @@ def _snapshot(a: Article) -> dict[str, Any]:
     return d
 
 
-def _clean(article: Article | None, data: dict[str, Any], actor: User) -> dict[str, Any]:
+def _clean(
+    article: Article | None, data: dict[str, Any], actor: User, content_type: str | None = None
+) -> dict[str, Any]:
     """Validate a write payload and normalise it to content values (ids, cleaned body)."""
     data = dict(data)
+    kind = content_type or (article.content_type if article is not None else "article")
     if "body" in data:
-        data["body"] = validate_blocks(data["body"])
+        if kind == "quotes":
+            # Quote collections may also use the read-only lesson blocks (key points…).
+            from ..courses.content import validate_editorial_blocks
+
+            data["body"] = validate_editorial_blocks(data["body"])
+        else:
+            data["body"] = validate_blocks(data["body"])
     if article is not None:
         can = capabilities(article, actor)
         current = revisions.working_values(article)
@@ -360,7 +369,7 @@ def create_article(data: dict[str, Any], actor: User) -> Article:
     if content_type == "quotes":
         # Not indexed until an editor has reviewed it (Admin › Quotes quality checks).
         data.setdefault("noindex", True)
-    data = _clean(None, data, actor)
+    data = _clean(None, data, actor, content_type)
     refs = _load_refs(data, None)
     article = Article(
         content_type=content_type,

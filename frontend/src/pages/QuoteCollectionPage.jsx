@@ -1,9 +1,9 @@
 import { ArrowLeft } from "lucide-react";
 import { Link, useParams } from "react-router";
-import { ArticleBody } from "@/components/articles/ArticleBody";
 import { ArticleGrid, ArticleRows } from "@/components/articles/ArticleGrid";
 import { ArticleMeta } from "@/components/articles/ArticleMeta";
 import { ShareLinks } from "@/components/articles/ShareLinks";
+import { LessonBody } from "@/components/courses/LessonBody";
 import { ArticleNewsletterCta } from "@/components/newsletter/ArticleNewsletterCta";
 import { Seo } from "@/components/seo/Seo";
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
@@ -18,7 +18,6 @@ import { useQuoteCollection } from "@/hooks/useContent";
 import { absoluteUrl } from "@/utils/format";
 import { articleJsonLd, breadcrumbJsonLd } from "@/utils/structuredData";
 import { CmsRoute } from "./CmsPage";
-import { NotFoundPage } from "./NotFoundPage";
 
 /**
  * One quote collection (/quotes/:slug): the introduction, the numbered quotes with images
@@ -79,7 +78,12 @@ export function QuoteCollectionView({ collection, relatedArticles = [], relatedC
           </div>
         )}
         <div className="mt-10">
-          <ArticleBody blocks={collection.body ?? []} variant="quotes" pinPage={pinPage} />
+          {/* Article blocks plus the read-only lesson blocks (key points, examples, reflections,
+              further reading); exercises show their prompt only. */}
+          <LessonBody
+            blocks={collection.body ?? []}
+            articleProps={{ variant: "quotes", pinPage }}
+          />
         </div>
         <footer className="mt-14 border-t border-charcoal/10 pt-8">
           <ShareLinks

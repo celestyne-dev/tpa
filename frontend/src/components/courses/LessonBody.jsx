@@ -311,6 +311,7 @@ export function LessonBody({
   onSaveExercise,
   onDownload,
   onToggleChecklist,
+  articleProps,
 }) {
   const groups = [];
   for (const raw of blocks) {
@@ -324,7 +325,8 @@ export function LessonBody({
   return (
     <div className="lesson-body">
       {groups.map((group, index) => {
-        if (group.article) return <ArticleBody key={index} blocks={group.blocks} />;
+        if (group.article)
+          return <ArticleBody key={index} blocks={group.blocks} {...articleProps} />;
         const { block } = group;
         switch (block.type) {
           case "key_points":

@@ -203,6 +203,9 @@ const LINK_HINT = "A site path such as /topics/confidence, or a full https:// ad
 const INLINE_LINK_HINT =
   "Bold: **text** (Ctrl/⌘+B). Italic: *text* (Ctrl/⌘+I). Link: [link text](/topics/confidence) or [link text](https://example.org/page). Bold, italic and links pasted from Google Docs or Word are kept.";
 
+/** Lesson blocks a quote collection can use (rendered read-only on the public page). */
+export const QUOTE_LESSON_BLOCKS = ["key_points", "example", "exercise", "further_reading"];
+
 /** The number a numbered list continues from: the end of the closest earlier one. */
 export function continuedStart(previous) {
   for (let i = previous.length - 1; i >= 0; i -= 1) {
@@ -401,9 +404,6 @@ function BlockFields({ block, index, onChange, errors, files, previous = [] }) {
               { value: "tip", label: "Tip" },
               { value: "warning", label: "Warning" },
               { value: "success", label: "Success" },
-              { value: "key_points", label: "Key points" },
-              { value: "example", label: "Example" },
-              { value: "exercise", label: "Exercise / reflection" },
             ]}
             onChange={(e) => set({ tone: e.target.value })}
           />
@@ -675,8 +675,12 @@ export function BlockEditor({
     return onChange([...blocks, BLOCK_TEMPLATES[key].make()]);
   };
   // ``allowed`` limits the "Add" choices (e.g. email-safe blocks for newsletters).
+  // Quote collections may also use the read-only lesson blocks (key points, examples,
+  // exercises / reflections and further reading); exercises never collect answers there.
   const templates = Object.entries(BLOCK_TEMPLATES).filter(([key, t]) =>
-    allowed ? allowed.includes(key) : !t.lessonOnly,
+    allowed
+      ? allowed.includes(key)
+      : !t.lessonOnly || (contentType === "quotes" && QUOTE_LESSON_BLOCKS.includes(key)),
   );
   if (contentType === "quotes" && !allowed && continuedStart(blocks) > 1)
     templates.unshift([

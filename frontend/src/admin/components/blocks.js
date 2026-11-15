@@ -11,19 +11,6 @@ export const BLOCK_TEMPLATES = {
     label: "Callout",
     make: () => ({ type: "callout", tone: "info", title: "", text: "" }),
   },
-  // Callout presets (the same block with its own style), for articles and quote collections.
-  key_points: {
-    label: "Key points",
-    make: () => ({ type: "callout", tone: "key_points", title: "Key points", text: "" }),
-  },
-  example: {
-    label: "Example / case study",
-    make: () => ({ type: "callout", tone: "example", title: "Example", text: "" }),
-  },
-  exercise: {
-    label: "Exercise / reflection",
-    make: () => ({ type: "callout", tone: "exercise", title: "Try this", text: "" }),
-  },
   image: {
     label: "Image",
     make: () => ({ type: "image", media_id: null, caption: "", alt: "", align: "center" }),
@@ -44,10 +31,6 @@ export const BLOCK_TEMPLATES = {
   related: {
     label: "Related articles",
     make: () => ({ type: "related", title: "", article_ids: [] }),
-  },
-  further_reading: {
-    label: "Further reading",
-    make: () => ({ type: "related", title: "Further reading", article_ids: [] }),
   },
   resource: {
     label: "Resource",

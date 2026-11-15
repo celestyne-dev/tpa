@@ -1,14 +1,4 @@
-import {
-  ArrowRight,
-  BookOpen,
-  CircleCheck,
-  Info,
-  Lightbulb,
-  ListChecks,
-  PenLine,
-  Play,
-  TriangleAlert,
-} from "lucide-react";
+import { ArrowRight, CircleCheck, Info, Lightbulb, Play, TriangleAlert } from "lucide-react";
 import { createContext, useContext, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
@@ -22,10 +12,6 @@ const calloutStyles = {
   tip: { icon: Lightbulb, className: "border-gold-300 bg-gold-100/60" },
   warning: { icon: TriangleAlert, className: "border-red-200 bg-red-50" },
   success: { icon: CircleCheck, className: "border-sage-300 bg-sage-100/70" },
-  // The "Key points", "Example" and "Exercise or reflection" boxes.
-  key_points: { icon: ListChecks, className: "border-sage-300 bg-white" },
-  example: { icon: BookOpen, className: "border-charcoal/15 bg-beige/60" },
-  exercise: { icon: PenLine, className: "border-gold-300 bg-ivory" },
 };
 
 /**

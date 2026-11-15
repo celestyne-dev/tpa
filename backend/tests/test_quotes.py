@@ -31,7 +31,14 @@ def _body(app, *, image=True):
         blocks.append({"type": "image", "media_id": _image_id(app), "pin_description": "Pin me"})
     blocks += [
         {"type": "list", "ordered": True, "start": 6, "items": _quotes(5, 6)},
-        {"type": "callout", "tone": "exercise", "title": "Try this", "text": "Pick *one* quote."},
+        # The existing lesson blocks, read-only here.
+        {
+            "type": "exercise",
+            "title": "Try this",
+            "prompt": "Pick one quote.",
+            "allow_response": True,
+        },
+        {"type": "key_points", "title": "Key points", "items": ["Start small", "Keep going"]},
         {"type": "list", "ordered": True, "start": 11, "items": _quotes(5, 11)},
     ]
     return blocks
@@ -90,6 +97,24 @@ def test_validation_rejects_bad_blocks_and_content_types(seeded, as_role):
         validate_blocks([{"type": "list", "ordered": True, "start": 0, "items": ["x"]}])
     with pytest.raises(ValidationError):
         validate_blocks([{"type": "callout", "tone": "loud", "text": "x"}])
+    # Lesson blocks are for quote collections (and lessons), not articles.
+    res = api.post(
+        ADMIN,
+        {"title": "x", "excerpt": "y", "body": [{"type": "key_points", "items": ["a"]}]},
+    )
+    assert res.status_code == 400
+    res = api.post(
+        ADMIN,
+        {
+            "content_type": "quotes",
+            "title": "x",
+            "excerpt": "y",
+            "body": [
+                {"type": "further_reading", "items": [{"label": "x", "href": "javascript:x"}]}
+            ],
+        },
+    )
+    assert res.status_code == 400
     item = _collection(api, seeded)
     # The content type is fixed once created: a save never turns it into an article.
     res = api.patch(
@@ -136,7 +161,12 @@ def test_public_payload_keeps_formatting_numbering_and_images(seeded, as_role, c
     assert lists[0]["items"][0] == "Quote number 1 is about **courage** — Author 1"
     image = next(b for b in body if b["type"] == "image")
     assert image["image"]["src"] and image["pin_description"] == "Pin me"
-    assert next(b for b in body if b["type"] == "callout")["tone"] == "exercise"
+    exercise = next(b for b in body if b["type"] == "exercise")
+    assert exercise["allow_response"] is False and exercise["required"] is False  # reflection only
+    assert next(b for b in body if b["type"] == "key_points")["items"] == [
+        "Start small",
+        "Keep going",
+    ]
     listing = client.get("/api/v1/quotes").get_json()
     assert [c["slug"] for c in listing["data"]] == ["quotes-for-brave-mornings"]
     assert listing["meta"]["topics"][0]["collection_count"] == 1

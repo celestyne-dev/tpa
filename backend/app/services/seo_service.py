@@ -469,7 +469,9 @@ def quote_quality_checks(article: Article, body: list[dict[str, Any]]) -> list[d
     commentary = [
         b
         for i, b in enumerate(body)
-        if i > first and b.get("type") in ("paragraph", "callout", "heading")
+        if i > first
+        and b.get("type")
+        in ("paragraph", "callout", "heading", "key_points", "example", "exercise")
     ]
     if not commentary:
         checks.append(

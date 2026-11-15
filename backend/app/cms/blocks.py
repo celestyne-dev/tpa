@@ -21,9 +21,7 @@ from ..utils.errors import ValidationError
 from ..utils.validation import is_https_url, plain_text_problem
 
 MAX_BLOCKS = 300
-# key_points / example / exercise: the "Key points", "Example" and "Exercise or
-# reflection" boxes (callouts with their own styling), used by articles and quote collections.
-CALLOUT_TONES = ("info", "tip", "warning", "success", "key_points", "example", "exercise")
+CALLOUT_TONES = ("info", "tip", "warning", "success")
 IMAGE_ALIGNS = ("center", "wide", "full", "left", "right")
 BUTTON_STYLES = ("primary", "secondary")
 RESOURCE_KINDS = ("resource", "product")  # "product" is reserved for future commerce

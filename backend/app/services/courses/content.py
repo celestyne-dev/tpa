@@ -303,6 +303,46 @@ def validate_lesson_blocks(
     return cleaned
 
 
+# ---- quote collections --------------------------------------------------------------------
+
+# Lesson blocks a quote collection (Admin › Quotes) may use. They are shown read-only on
+# the public page: an exercise there is a reflection prompt and never collects answers.
+EDITORIAL_LESSON_BLOCKS = ("key_points", "example", "exercise", "further_reading")
+
+
+def validate_editorial_blocks(blocks: Any) -> list[dict]:
+    """Article blocks plus the read-only lesson blocks, for quote collections."""
+    if not isinstance(blocks, list):
+        raise ValidationError(details={"body": ["Content must be a list of blocks."]})
+    if len(blocks) > MAX_LESSON_BLOCKS:
+        raise ValidationError(details={"body": [f"At most {MAX_LESSON_BLOCKS} blocks."]})
+    cleaned: list[dict[str, Any]] = []
+    problems: dict[str, list[str]] = {}
+    for index, block in enumerate(blocks):
+        kind = block.get("type") if isinstance(block, dict) else None
+        errors: list[str] = []
+        if kind in EDITORIAL_LESSON_BLOCKS:
+            block = {k: v for k, v in block.items() if k != "uid"}
+            if kind == "exercise":
+                block.setdefault("id", f"reflection-{index + 1}")
+                block.update(required=False, allow_response=False)
+            out = _lesson_block(block, errors)
+        else:
+            try:
+                out = validate_blocks([block])[0]
+            except ValidationError as exc:
+                details = exc.details.get("body") if isinstance(exc.details, dict) else None
+                found = details.get("0") if isinstance(details, dict) else details
+                errors.extend(found if isinstance(found, list) else [exc.message])
+                out = {"type": kind}
+        if errors:
+            problems[str(index)] = errors
+        cleaned.append(out)
+    if problems:
+        raise ValidationError("Some content blocks are invalid.", details={"body": problems})
+    return cleaned
+
+
 # ---- plain text (anchors and search) ------------------------------------------------------
 
 

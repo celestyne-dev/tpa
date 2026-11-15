@@ -31,7 +31,8 @@ const collection = {
     },
     { type: "image", image, caption: "Save this one", pin_description: "Brave morning quote" },
     { type: "list", ordered: true, start: 3, items: ["Begin anyway — Unknown"] },
-    { type: "callout", tone: "exercise", title: "Try this", text: "Pick one quote." },
+    { type: "exercise", id: "reflection-5", title: "Try this", prompt: "Pick one quote." },
+    { type: "key_points", title: "Key points", items: ["Start small"] },
   ],
 };
 
@@ -76,7 +77,11 @@ describe("quote collection pages", () => {
     expect(href.searchParams.get("url")).toMatch(/\/quotes\/quotes-for-brave-mornings$/);
     expect(href.searchParams.get("media")).toMatch(/^https?:\/\/.+\/media\/brave\.jpg$/);
     expect(href.searchParams.get("description")).toBe("Brave morning quote");
-    expect(screen.getByText("Try this")).toBeVisible();
+    // The existing lesson blocks, read-only (no answer box on a public page).
+    expect(screen.getByRole("heading", { name: "Try this" })).toBeVisible();
+    expect(screen.getByText("Pick one quote.")).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: /response|answer/i })).toBeNull();
+    expect(screen.getByText("Start small")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Related articles" })).toBeVisible();
     expect(screen.getByRole("link", { name: /Back to all quote collections/ })).toHaveAttribute(
       "href",
