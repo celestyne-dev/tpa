@@ -68,7 +68,7 @@ describe("media kit loading states on /advertise", () => {
       expect(screen.getByText(item)).toBeInTheDocument();
     }
     const inquiry = screen.getAllByRole("link", {
-      name: /Start a partnership inquiry|Partner with us/,
+      name: /Discuss a Partnership|Partner with us/,
     });
     inquiry.forEach((a) =>
       expect(a).toHaveAttribute("href", "/partner-with-us#partnership-inquiry"),
@@ -111,7 +111,7 @@ describe("media kit loading states on /advertise", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: copy.advertise.title }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Start a partnership inquiry/ }).length).toBe(1);
+    expect(screen.getAllByRole("link", { name: /Discuss a Partnership/ }).length).toBe(1);
     await user.click(screen.getByRole("button", { name: copy.advertise.error.retry }));
     expect(await screen.findByText("Practical positivity.")).toBeInTheDocument();
     expect(api.getMediaKit).toHaveBeenCalledTimes(2);
@@ -217,7 +217,7 @@ describe("the built-in pages show the shared copy (the CMS templates use the sam
       copy.advertise.eyebrow,
       copy.advertise.title,
       copy.advertise.intro,
-      copy.advertise.inquiry_action,
+      "Discuss a Partnership",
       ...texts(copy.advertise.pending),
     ]) {
       expect(text).toContain(value);

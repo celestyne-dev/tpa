@@ -141,13 +141,21 @@ function buildManifest(site, base) {
  * Build-wide head tags: the release id (so "which build is live?" is answerable from any
  * page), the RSS feed, and preloads for the two primary font files.
  */
-async function applyBuildHead(template, release) {
+// Site-verification codes are letters, digits, "-" and "_" only (checked again here).
+const VERIFICATION_TOKEN = /^[A-Za-z0-9_-]{8,100}$/;
+
+async function applyBuildHead(template, release, site) {
   const assets = await readdir(path.join(distDir, "assets")).catch(() => []);
   const fonts = ["inter-latin-wght-normal-", "fraunces-latin-opsz-normal-"]
     .map((prefix) => assets.find((f) => f.startsWith(prefix) && f.endsWith(".woff2")))
     .filter(Boolean);
+  const pinterest = site?.seo?.pinterest_verification;
   const tags = [
     `<meta name="tpa-build" content="${attr(release)}" />`,
+    // Pinterest website verification (Admin › Settings › Technical): one tag per page.
+    ...(pinterest && VERIFICATION_TOKEN.test(pinterest)
+      ? [`<meta name="p:domain_verify" content="${attr(pinterest)}" />`]
+      : []),
     `<link rel="alternate" type="application/rss+xml" title="${attr(siteConfig.name)}" href="/feed.xml" />`,
     ...fonts.map(
       (f) =>
@@ -214,6 +222,7 @@ const release = releaseId();
 const template = await applyBuildHead(
   applyBranding(await readFile(path.join(distDir, "index.html"), "utf8"), site),
   release,
+  site,
 );
 for (const marker of ["<!--app-head-->", "<!--app-html-->", "<!--app-state-->"]) {
   if (!template.includes(marker)) fail(`dist/index.html is missing the ${marker} marker.`);

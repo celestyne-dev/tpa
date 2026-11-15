@@ -92,6 +92,33 @@ function MediaKitForm({ initial, published, hasChanges, onSaved }) {
         Status: {published ? "published" : "not published yet"}
         {hasChanges && published ? " · draft has unpublished changes" : ""}.
       </p>
+      {!published && (
+        <p role="note" className="rounded-lg bg-gold-100/60 p-3 text-sm">
+          Until the media kit is published, /advertise shows no “View Our Media Kit” button (unless
+          a media kit file is set in Settings › Partnerships › Media kit URL); “Discuss a
+          Partnership” is always shown.
+        </p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {[
+          ["view_cta_label", "Top button: view the media kit", "View Our Media Kit"],
+          ["partnership_cta_label", "Top button: partnership inquiry", "Discuss a Partnership"],
+        ].map(([key, label, placeholder]) => (
+          <label key={key} className="text-sm font-medium">
+            {label}
+            <input
+              className="mt-1 w-full rounded-lg border px-3 py-2 font-normal"
+              maxLength={60}
+              placeholder={placeholder}
+              value={doc[key] ?? ""}
+              onChange={(e) => set(key, e.target.value)}
+            />
+            {error?.details?.[key] && (
+              <span className="text-xs text-red-800">{error.details[key]}</span>
+            )}
+          </label>
+        ))}
+      </div>
       {TEXT_FIELDS.map(([k, t, h]) => area(k, t, h))}
       {area("content_categories_text", "Content categories (one per line)")}
       {area("formats_text", "Campaign formats (one per line: Name | description)")}

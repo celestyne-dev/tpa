@@ -192,13 +192,43 @@ describe("Advertise", () => {
       await screen.findByRole("heading", { name: "Our media kit is being prepared" }),
     ).toBeInTheDocument();
     const links = screen.getAllByRole("link", {
-      name: /Start a partnership inquiry|Partner with us/,
+      name: /Discuss a Partnership|Partner with us/,
     });
     links.forEach((a) =>
       expect(a.getAttribute("href")).toBe("/partner-with-us#partnership-inquiry"),
     );
+    // Nothing to view yet: no "View Our Media Kit" button (never a broken link).
+    expect(screen.queryByRole("link", { name: /View Our Media Kit/ })).toBeNull();
     expect(screen.queryByText(/Measured/)).toBeNull();
     expectAccessibleBasics();
+  });
+
+  it("links View Our Media Kit to the media kit file until the page is published", async () => {
+    renderApp("/advertise", {
+      api: apiWith({ site: { media_kit_url: "https://cdn.example.com/kit.pdf" } }),
+    });
+    await screen.findByRole("heading", { name: "Our media kit is being prepared" });
+    expect(screen.getByRole("link", { name: /View Our Media Kit/ })).toHaveAttribute(
+      "href",
+      "https://cdn.example.com/kit.pdf",
+    );
+  });
+
+  it("uses the button labels from Partnerships › Media kit", async () => {
+    renderApp("/advertise", {
+      api: apiWith({
+        mediaKit: {
+          ...kit(),
+          view_cta_label: "See the media kit",
+          partnership_cta_label: "Talk to us",
+        },
+      }),
+    });
+    expect(await screen.findByRole("link", { name: /See the media kit/ })).toHaveAttribute(
+      "href",
+      "#media-kit",
+    );
+    expect(screen.getByRole("link", { name: /Talk to us/ })).toBeVisible();
   });
 
   it("splits verified social and website figures and offers the download", async () => {
@@ -212,6 +242,16 @@ describe("Advertise", () => {
     expect(screen.getAllByRole("link", { name: /Download the media kit/ })[0]).toHaveAttribute(
       "href",
       "https://cdn.example.com/kit.pdf",
+    );
+    // At the top: the published media kit on this page, then the partnership inquiry.
+    expect(screen.getByRole("link", { name: /View Our Media Kit/ })).toHaveAttribute(
+      "href",
+      "#media-kit",
+    );
+    expect(document.getElementById("media-kit")).not.toBeNull();
+    expect(screen.getByRole("link", { name: /Discuss a Partnership/ })).toHaveAttribute(
+      "href",
+      "/partner-with-us#partnership-inquiry",
     );
     expect(screen.getByRole("heading", { name: "Sponsored article" })).toBeInTheDocument();
     expectAccessibleBasics();

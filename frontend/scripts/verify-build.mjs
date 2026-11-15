@@ -127,6 +127,20 @@ for (const { path: route, file } of manifest.pages) {
     fail("sitemap.xml", `lists the ${route} legal draft`);
 }
 
+// Pinterest website verification: exactly one tag in the prerendered <head> (homepage and
+// every other page), with a safe value.
+for (const route of ["/", "/articles", "/quotes"]) {
+  const entry = manifest.pages.find((p) => p.path === route);
+  if (!entry) continue;
+  const html = await read(entry.file);
+  const head = html.split("</head>")[0];
+  const tags = head.match(/<meta name="p:domain_verify"[^>]*>/g) ?? [];
+  if (tags.length !== 1)
+    fail(route, `expected one Pinterest verification tag, found ${tags.length}`);
+  else if (!/^<meta name="p:domain_verify" content="[A-Za-z0-9_-]{8,100}" \/>$/.test(tags[0]))
+    fail(route, `unexpected Pinterest verification tag: ${tags[0]}`);
+}
+
 // Quote collections (CI fixtures): prerendered with their text and continued numbering;
 // only the indexable one (and the landing page) is in the sitemap.
 {

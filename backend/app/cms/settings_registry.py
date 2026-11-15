@@ -6,6 +6,7 @@ or arbitrary code). Defaults keep the site working on a fresh installation.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
@@ -51,13 +52,37 @@ class SettingDef:
     label: str
     group: str
     # string | text | email | https_url | path_or_https | boolean | media | choice | path_list
-    # | exchange_rate
+    # | exchange_rate | verification_token
     type: str
     default: Callable[[], Any]
     max_length: int = 200
     help: str = ""
     public: bool = True
     choices: tuple[str, ...] = field(default_factory=tuple)
+
+
+_VERIFICATION_TOKEN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")
+_VERIFICATION_TAG = re.compile(
+    r"""^<meta\s+name=["']p:domain_verify["']\s+content=["']([^"'<>]*)["']\s*/?>$""",
+    re.IGNORECASE,
+)
+
+
+def clean_verification_token(value: str) -> tuple[str | None, str | None]:
+    """A site-verification code: the bare value, or the value taken from a pasted
+    ``<meta name="p:domain_verify" content="…"/>`` tag. Only letters, digits, ``-`` and
+    ``_`` are kept, so nothing else can ever reach the page's <head>."""
+    value = (value or "").strip()
+    if not value:
+        return "", None
+    tag = _VERIFICATION_TAG.match(value)
+    if tag:
+        value = tag.group(1).strip()
+    elif "<" in value or ">" in value:
+        return None, 'Paste only the Pinterest tag (<meta name="p:domain_verify" …/>) or its code.'
+    if not _VERIFICATION_TOKEN.match(value):
+        return None, "The code should be 8 to 100 letters, digits, dashes or underscores."
+    return value, None
 
 
 def _cfg(name: str, fallback: Any = "") -> Callable[[], Any]:
@@ -469,6 +494,18 @@ SETTINGS += [
         "e.g. https://thinkpositivealways.com. Leave empty to use the deployment's SITE_URL.",
     ),
     SettingDef(
+        "seo.pinterest_verification",
+        "Pinterest website verification code",
+        "Technical",
+        "verification_token",
+        _const("b06712ca94d844702b0fee51d1b82b90"),
+        100,
+        "From Pinterest › Settings › Claimed accounts › Claim website › Add HTML tag: paste the "
+        "tag or just its content value. Every page then has "
+        '<meta name="p:domain_verify" …> after the next site rebuild; then choose Verify in '
+        "Pinterest. Leave empty to remove the tag.",
+    ),
+    SettingDef(
         "security.require_admin_mfa",
         "Require two-step sign-in for every administrator",
         "Technical",
@@ -649,6 +686,8 @@ def validate_setting(definition: SettingDef, value: Any) -> tuple[Any, str | Non
     if not isinstance(value, str):
         return None, "Must be text."
     value = value.strip()
+    if definition.type == "verification_token":
+        return clean_verification_token(value)
     if len(value) > definition.max_length:
         return None, f"Must be at most {definition.max_length} characters."
     if not value:

@@ -34,6 +34,20 @@ function Prose({ text }) {
 }
 
 const INQUIRY = `${routes.partner}#partnership-inquiry`;
+// The published media kit starts here, just below the buttons at the top of the page.
+export const MEDIA_KIT_ANCHOR = "media-kit";
+const VIEW_LABEL = "View Our Media Kit";
+const PARTNERSHIP_LABEL = "Discuss a Partnership";
+
+/**
+ * Where "View Our Media Kit" goes: the published media kit on this page (Partnerships ›
+ * Media kit), else the media kit file (Settings › Partnerships › Media kit URL); null when
+ * neither exists, so no button is shown.
+ */
+export function mediaKitDestination(kit, downloadUrl) {
+  if (kit) return `#${MEDIA_KIT_ANCHOR}`;
+  return downloadUrl || null;
+}
 
 function Band({ id, tone = "ivory", children, className }) {
   return (
@@ -75,6 +89,7 @@ export function AdvertisePage() {
   const { data: site } = useSite();
   const email = site?.contact?.partnerships_email;
   const downloadUrl = site?.media_kit_url;
+  const viewHref = mediaKitDestination(kit, downloadUrl);
 
   const hero = (
     <CompanyHero
@@ -86,18 +101,32 @@ export function AdvertisePage() {
         { name: "Advertise", href: routes.advertise },
       ]}
       actions={
-        <>
-          <ActionLink href={INQUIRY}>
-            {copy.inquiry_action}
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+          {viewHref && (
+            <ActionLink href={viewHref} className="w-full justify-center sm:w-auto">
+              <FileText aria-hidden />
+              {kit?.view_cta_label || VIEW_LABEL}
+            </ActionLink>
+          )}
+          <ActionLink
+            href={INQUIRY}
+            variant={viewHref ? "outline" : "primary"}
+            className="w-full justify-center sm:w-auto"
+          >
+            {kit?.partnership_cta_label || PARTNERSHIP_LABEL}
             <ArrowRight aria-hidden />
           </ActionLink>
-          {downloadUrl && (
-            <ActionLink href={downloadUrl} variant="outline">
+          {kit && downloadUrl && (
+            <ActionLink
+              href={downloadUrl}
+              variant="outline"
+              className="w-full justify-center sm:w-auto"
+            >
               <Download aria-hidden />
               {copy.download_action}
             </ActionLink>
           )}
-        </>
+        </div>
       }
     />
   );
@@ -194,6 +223,7 @@ export function AdvertisePage() {
     <>
       <Seo title={copy.seo_title} description={copy.meta_description} path={routes.advertise} />
       {hero}
+      <div id={MEDIA_KIT_ANCHOR} className="scroll-mt-24" aria-hidden />
       {(kit.about || kit.editorial_focus) && (
         <Band id="about-heading">
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">

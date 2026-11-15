@@ -154,6 +154,8 @@ def get_site_settings() -> dict[str, Any]:
             "organization_logo": _media_image(v["seo.organization_logo_media_id"]),
             "allow_indexing": v["seo.allow_indexing"] is not False,
             "canonical_site_url": v["seo.canonical_site_url"] or None,
+            # Rendered once as <meta name="p:domain_verify"> in every prerendered page.
+            "pinterest_verification": v["seo.pinterest_verification"] or None,
             # robots.txt: training crawlers not approved in Admin › Settings › Technical.
             "blocked_training_crawlers": [
                 token

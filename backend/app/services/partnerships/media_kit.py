@@ -15,6 +15,7 @@ from ...cms.blocks import safe_href
 from ...extensions import db
 from ...models import AdPlacement, AudienceMetric, MediaAsset, SiteSetting
 from ...utils.errors import NotFoundError, ValidationError
+from ...utils.validation import plain_text_problem
 from .. import audit_service
 from ..serializers import iso
 from . import common
@@ -44,6 +45,9 @@ EMPTY: dict[str, Any] = {
     "content_categories": [],
     "campaign_formats": [],
     "contact_cta": {"label": "Start a partnership conversation", "href": "/partner-with-us"},
+    # The two buttons at the top of /advertise.
+    "view_cta_label": "View Our Media Kit",
+    "partnership_cta_label": "Discuss a Partnership",
     "brand_asset_ids": [],
     "show_rate_card": False,
     "show_metrics": True,
@@ -99,6 +103,12 @@ def validate(data: dict[str, Any]) -> dict[str, Any]:
     doc["brand_asset_ids"] = assets
     for flag in ("show_rate_card", "show_metrics", "show_placements"):
         doc[flag] = data.get(flag, EMPTY[flag]) is True
+    for key in ("view_cta_label", "partnership_cta_label"):
+        label = data.get(key)
+        label = label.strip() if isinstance(label, str) else ""
+        if len(label) > 60 or plain_text_problem(label):
+            raise ValidationError(details={key: ["Use plain text, at most 60 characters."]})
+        doc[key] = label or EMPTY[key]
     return doc
 
 
