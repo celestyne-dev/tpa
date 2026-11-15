@@ -53,6 +53,7 @@ ESSENTIAL_PATHS = frozenset(
         "/resources/access", "/search", "/feed.xml",
         "/cookie-policy", "/editorial-policy", "/disclaimer", "/advertising-policy",
         "/refund-policy", "/accessibility", "/community-guidelines", "/copyright-policy",
+        "/quotes",
     }
 )  # fmt: skip
 # Client-rendered shells: any path below answers 200 with its own noindex app shell.
@@ -65,7 +66,9 @@ NO_RULE_PREFIXES = (
 )  # fmt: skip
 # Listing pages the prerender generates (/articles/page/2, /topics/<slug>/page/2, ...): an
 # exact-path 410 or 301 rule there would shadow a real page, so none may be placed.
-GENERATED_PAGINATION = re.compile(r"^/(?:articles|topics/[^/]+|authors/[^/]+)/page/[0-9]+/?$")
+GENERATED_PAGINATION = re.compile(
+    r"^/(?:articles|quotes|topics/[^/]+|authors/[^/]+)/page/[0-9]+/?$"
+)
 FORUM_PREFIXES = ("/forums", "/forum", "/community", "/discussions", "/discussion")
 LEGACY_SHOP_PREFIXES = ("/shop", "/store", "/product", "/products", "/cart", "/checkout")
 PREVIOUS_ARTICLE_ROUTES = (

@@ -897,6 +897,211 @@
     }
   },
   {
+    "type": "quote_collections",
+    "label": "Quote collections",
+    "category": "Articles",
+    "description": "Cards linking to quote collections (Admin › Quotes): the latest, a hand-picked selection, or (in the article sidebar) collections on the article's topic. Hidden until there is a published collection to show.",
+    "reusable_only": false,
+    "single_use": false,
+    "sidebar": true,
+    "sidebar_only": false,
+    "variants": [
+      {
+        "value": "grid_3",
+        "label": "Three-column cards"
+      },
+      {
+        "value": "grid_4",
+        "label": "Four-column cards"
+      },
+      {
+        "value": "carousel",
+        "label": "Horizontal scrolling row"
+      }
+    ],
+    "fields": [
+      {
+        "name": "eyebrow",
+        "type": "text",
+        "label": "Small label above the heading",
+        "max": 80,
+        "help": "Optional, e.g. “From the journal”."
+      },
+      {
+        "name": "heading",
+        "type": "text",
+        "label": "Heading",
+        "max": 120,
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "textarea",
+        "label": "Description",
+        "max": 400
+      },
+      {
+        "name": "mode",
+        "type": "select",
+        "label": "Which collections",
+        "choices": [
+          {
+            "value": "latest",
+            "label": "Latest published collections"
+          },
+          {
+            "value": "manual",
+            "label": "Choose collections"
+          },
+          {
+            "value": "related",
+            "label": "On the article's topic (article sidebar; else the latest)"
+          }
+        ],
+        "default": "latest"
+      },
+      {
+        "name": "collections",
+        "type": "articles",
+        "label": "Quote collections",
+        "max_items": 12,
+        "show_for_mode": "manual",
+        "content_type": "quotes",
+        "help": "In this order."
+      },
+      {
+        "name": "topic",
+        "type": "topics",
+        "label": "Only from this topic",
+        "max_items": 1,
+        "show_for_mode": "latest",
+        "help": "Optional."
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "label": "Number of collections",
+        "min": 1,
+        "max": 12,
+        "default": 3
+      },
+      {
+        "name": "cta",
+        "type": "cta",
+        "label": "Link button"
+      }
+    ],
+    "design": [
+      {
+        "name": "background",
+        "label": "Background",
+        "choices": [
+          {
+            "value": "ivory",
+            "label": "Ivory"
+          },
+          {
+            "value": "cream",
+            "label": "Cream"
+          },
+          {
+            "value": "beige",
+            "label": "Warm beige"
+          },
+          {
+            "value": "sage",
+            "label": "Soft sage"
+          },
+          {
+            "value": "sage_dark",
+            "label": "Deep sage"
+          },
+          {
+            "value": "charcoal",
+            "label": "Charcoal"
+          }
+        ]
+      },
+      {
+        "name": "spacing",
+        "label": "Section spacing",
+        "choices": [
+          {
+            "value": "sm",
+            "label": "Compact"
+          },
+          {
+            "value": "md",
+            "label": "Comfortable"
+          },
+          {
+            "value": "lg",
+            "label": "Spacious"
+          }
+        ]
+      },
+      {
+        "name": "card_style",
+        "label": "Card style",
+        "choices": [
+          {
+            "value": "soft",
+            "label": "Soft shadow"
+          },
+          {
+            "value": "outline",
+            "label": "Outline"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      },
+      {
+        "name": "align",
+        "label": "Text alignment",
+        "choices": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "center",
+            "label": "Centred"
+          }
+        ]
+      }
+    ],
+    "defaults": {
+      "variant": "grid_3",
+      "content": {
+        "eyebrow": "",
+        "heading": "Quote collections",
+        "description": "",
+        "mode": "latest",
+        "collections": [],
+        "topic": [],
+        "count": 3,
+        "cta": {
+          "label": "All quote collections",
+          "url": "/quotes",
+          "style": "secondary",
+          "cta_id": null
+        }
+      },
+      "design": {
+        "background": "cream",
+        "spacing": "md"
+      },
+      "visibility": {
+        "devices": "all",
+        "starts_at": null,
+        "ends_at": null
+      }
+    }
+  },
+  {
     "type": "topics_grid",
     "label": "Topic cards",
     "category": "Articles",

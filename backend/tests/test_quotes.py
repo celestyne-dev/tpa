@@ -135,8 +135,10 @@ def test_draft_scheduled_and_published_visibility(seeded, as_role, client):
     when = (datetime.now(UTC) + timedelta(days=2)).isoformat()
     assert _publish(api, item, when)["status"] == "scheduled"
     assert client.get(f"/api/v1/quotes/{slug}").status_code == 404
-    with seeded.app_context():
-        publication_service.publish_due_scheduled(datetime.now(UTC) + timedelta(days=3))
+    with seeded.app_context():  # the scheduled time arrives
+        db.session.get(Article, item["id"]).published_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.session.commit()
+        publication_service.publish_due_scheduled()
         db.session.commit()
     assert client.get(f"/api/v1/quotes/{slug}").status_code == 200
     # Never served or listed as an article.
@@ -294,7 +296,7 @@ def test_quote_collections_homepage_section(seeded, as_role, client):
     assert {q["id"] for q in options["quote_collections"]} == {first["id"], second["id"]}
     assert first["id"] not in {a["id"] for a in options["articles"]}
     home = api.get(HOMEPAGE).get_json()["data"]
-    before = [s["section_type"] for s in _public_home(client)["sections"]]
+    before = [s["type"] for s in _public_home(client)["sections"]]
     section = {
         "name": "Quotes",
         "section_type": "quote_collections",
@@ -380,10 +382,14 @@ def test_default_menu_links_quotes_once_a_collection_is_published(seeded, app, a
 def test_saved_menus_are_left_as_arranged(seeded, as_role, client):
     from .test_navigation_architecture import _nav
 
-    before = _nav(client)["primary"]
+    manager = as_role("website_manager")
+    res = manager.put(
+        "/api/v1/admin/navigation/primary", {"items": [{"label": "Articles", "url": "/articles"}]}
+    )
+    assert res.status_code == 200, res.get_json()
     api = as_role("editor")
     _publish(api, _collection(api, seeded))
-    assert _nav(client)["primary"] == before
+    assert [i["label"] for i in _nav(client)["primary"]] == ["Articles"]
 
 
 # ---- existing behaviour -------------------------------------------------------------------------

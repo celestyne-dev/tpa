@@ -92,6 +92,8 @@ DEFAULT_MENUS = {
                 {"label": label, "link_type": "heading", "topic_group": label, "children": []}
                 for label, _keywords in TOPIC_GROUPS
             ],
+            # Shown once a quote collection is published (Admin › Quotes).
+            {"label": "Quotes", "url": "/quotes"},
             {
                 "label": "Resources",
                 "link_type": "heading",
@@ -105,8 +107,6 @@ DEFAULT_MENUS = {
                     {"label": "My Library", "url": "/account/library"},
                 ],
             },
-            # Shown once a quote collection is published (Admin › Quotes).
-            {"label": "Quotes", "url": "/quotes"},
             # On wide screens the header's Newsletter button stands in for this link.
             {"label": "Newsletter", "url": "/newsletter"},
         ],

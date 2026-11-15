@@ -256,7 +256,12 @@ def test_batch03_upgrade_preserves_content_and_adds_permissions(tmp_path):
         article = db.session.scalar(
             db.select(Article)
             .where(Article.slug == "kept")
-            .options(raiseload(Article.sponsorship), defer(Article.content_modified_at))
+            .options(
+                raiseload(Article.sponsorship),
+                defer(Article.content_modified_at),
+                # articles.content_type arrives with quote collections: don't select it.
+                defer(Article.content_type),
+            )
         )
         assert article.lock_version == 1 and article.pending_changes is None
         assert article.featured_image_id == media_id
