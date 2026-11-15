@@ -649,6 +649,23 @@ export function createAdminApi({ baseURL = `${siteConfig.apiBaseUrl}/admin`, ada
       get: () => get("/affiliate-disclosure"),
       update: (text) => put("/affiliate-disclosure", { text }),
     },
+    // Pinterest / Instagram: connections, posts and Instagram imports. Tokens never reach
+    // the browser; the server holds them encrypted.
+    social: {
+      accounts: () => get("/social/accounts"),
+      connect: (platform) => post(`/social/${platform}/connect`),
+      callback: (platform, body) => post(`/social/${platform}/callback`, body),
+      disconnect: (platform) => del(`/social/${platform}/account`),
+      boards: () => get("/social/pinterest/boards"),
+      posts: (params) => get("/social/posts", params),
+      // Publishing waits for the platform, so these allow more time than other requests.
+      createPost: (body) => data(client.post("/social/posts", body, { timeout: 60000 })),
+      retryPost: (id) => data(client.post(`/social/posts/${id}/retry`, {}, { timeout: 60000 })),
+      cancelPost: (id) => post(`/social/posts/${id}/cancel`),
+      instagramMedia: (after) => get("/social/instagram/media", after ? { after } : undefined),
+      importInstagram: (body) =>
+        data(client.post("/social/instagram/import", body, { timeout: 60000 })),
+    },
     mediaKit: {
       get: () => get("/media-kit"),
       save: (body) => put("/media-kit", body),

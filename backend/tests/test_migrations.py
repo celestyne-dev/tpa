@@ -1703,11 +1703,14 @@ def test_batch104_operations_upgrade_adds_grants_and_permissions(tmp_path):
         assert {"memberships.manage_subscriptions", "memberships.view_reports"} <= keys
         after = db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one()
         assert after == before + 2
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)  # later migrations add the remaining catalogue entries
         assert set(sync_rbac().values()) == {0}
         db.session.rollback()
         db.session.remove()
         downgrade(directory=MIGRATIONS, revision="d4a2f7c9e815")
         assert "membership_grants" not in set(inspect(db.engine).get_table_names())
+
         assert db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one() == before
         db.session.remove()
         upgrade(directory=MIGRATIONS)
@@ -1820,3 +1823,34 @@ def test_collection_only_status_upgrade_keeps_subscribers_and_downgrades_safely(
         ).scalar()
         assert version == "2026-11-collection"
         assert db.session.execute(text("SELECT COUNT(*) FROM subscriber_events")).scalar() == 1
+
+
+def test_social_publishing_upgrade_adds_tables_and_permissions(tmp_path):
+    app = _app(tmp_path, "social.db")
+    tables = {"social_accounts", "social_posts", "social_imports"}
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="e1a4c6b8d920")
+        before = db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one()
+        db.session.remove()
+        upgrade(directory=MIGRATIONS, revision="f2b6d8e0a314")
+        assert tables <= set(inspect(db.engine).get_table_names())
+        rows = dict(
+            db.session.execute(
+                text("SELECT key, is_sensitive FROM permissions WHERE key LIKE 'social.%'")
+            ).all()
+        )
+        assert set(rows) == {"social.view", "social.publish", "social.connect"}
+        assert bool(rows["social.connect"]) and not bool(rows["social.publish"])
+        after = db.session.execute(text("SELECT COUNT(*) FROM permissions")).scalar_one()
+        assert after == before + 3
+        db.session.remove()
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="e1a4c6b8d920")
+        assert not tables & set(inspect(db.engine).get_table_names())
+        left = db.session.execute(
+            text("SELECT COUNT(*) FROM permissions WHERE key LIKE 'social.%'")
+        ).scalar_one()
+        assert left == 0

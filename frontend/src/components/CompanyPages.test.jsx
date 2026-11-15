@@ -220,7 +220,7 @@ describe("Advertise", () => {
         mediaKit: {
           ...kit(),
           view_cta_label: "See the media kit",
-          partnership_cta_label: "Talk to us",
+          partnership_cta_label: "Start a conversation",
         },
       }),
     });
@@ -228,7 +228,7 @@ describe("Advertise", () => {
       "href",
       "#media-kit",
     );
-    expect(screen.getByRole("link", { name: /Talk to us/ })).toBeVisible();
+    expect(screen.getByRole("link", { name: /Start a conversation/ })).toBeVisible();
   });
 
   it("splits verified social and website figures and offers the download", async () => {

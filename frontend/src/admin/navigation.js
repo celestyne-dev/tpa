@@ -45,6 +45,8 @@ import {
   HardDrive,
   ClipboardCheck,
   Library,
+  Plug,
+  Share2,
 } from "lucide-react";
 import {
   ANALYTICS_ACCESS,
@@ -193,6 +195,13 @@ export const adminSections = [
         icon: Gift,
         permission: "lead_magnets.manage",
       },
+    ],
+  },
+  {
+    title: "Social",
+    items: [
+      { label: "Social publishing", to: "/admin/social", icon: Share2, permission: "social.view" },
+      { label: "Integrations", to: "/admin/integrations", icon: Plug, permission: "social.view" },
     ],
   },
   {

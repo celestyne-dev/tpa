@@ -19,6 +19,7 @@ import {
   PARTNERSHIP_ROLES,
   createPartnershipAdminFake,
 } from "./partnershipFake";
+import { createSocialAdminFake } from "./socialFake";
 
 // Mirrors backend/app/auth/permissions.py (available permissions only, plus sensitive ones).
 const ARTICLES = ["articles.view", "articles.create", "articles.edit_own", "articles.edit_any"];
@@ -74,6 +75,9 @@ const ALL = [
   ...COMMERCE_PERMS,
   ...NEWSLETTER_PERMS,
   ...PARTNERSHIP_PERMS,
+  "social.view",
+  "social.publish",
+  "social.connect",
 ];
 
 export const ROLE_PERMS = {
@@ -187,6 +191,7 @@ export const ROLE_PERMS = {
         "payments.configure",
         "refunds.issue",
         "finance.export",
+        "social.connect",
       ].includes(p),
   ),
   product_manager: [
@@ -254,6 +259,8 @@ export const ROLE_PERMS = {
     "publishing.view",
   ],
   marketing_manager: [
+    "social.view",
+    "social.publish",
     "dashboard.view",
     "analytics.view",
     "homepage.view",
@@ -1476,6 +1483,7 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
     ...createMembershipAdminFake(),
     ...createNewsletterAdminFake(() => user),
     ...createPartnershipAdminFake(),
+    ...createSocialAdminFake(),
   };
 }
 

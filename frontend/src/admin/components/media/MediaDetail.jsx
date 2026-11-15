@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatBytes, formatDateTime } from "@/utils/format";
 import { useAdminApi } from "../../adminApiContext";
+import { SocialActions } from "../social/SocialActions";
 import { useAdminQuery } from "../../hooks/useAdminQuery";
 import { usePermissions } from "../../hooks/usePermissions";
 import { ConfirmDialog } from "../ConfirmDialog";
@@ -365,6 +366,9 @@ export function MediaDetail({ mediaId, onClose, onChanged, categories = DEFAULT_
                     Restore
                   </Button>
                 ))}
+              {asset.status !== "archived" && (
+                <SocialActions mediaId={asset.id} className="border-t border-charcoal/10 pt-3" />
+              )}
               {can("media.delete") && asset.managed && (
                 <Button
                   variant="ghost"

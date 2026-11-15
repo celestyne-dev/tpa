@@ -69,6 +69,9 @@ const NewslettersPage = screen("newsletter/NewslettersPage", "NewslettersPage");
 const AffiliateLinksPage = screen("partnerships/AffiliatesPage", "AffiliateLinksPage");
 const AffiliatesPage = screen("partnerships/AffiliatesPage", "AffiliatesPage");
 const MediaKitPage = screen("partnerships/MediaKitPage", "MediaKitPage");
+const IntegrationsPage = screen("social/IntegrationsPage", "IntegrationsPage");
+const IntegrationCallbackPage = screen("social/IntegrationsPage", "IntegrationCallbackPage");
+const SocialPublishingPage = screen("social/SocialPublishingPage", "SocialPublishingPage");
 const PartnersPage = screen("partnerships/PartnersPage", "PartnersPage");
 const PartnershipInquiriesPage = screen("partnerships/PartnersPage", "PartnershipInquiriesPage");
 const PartnershipReportsPage = screen(
@@ -295,6 +298,12 @@ export default function AdminApp() {
             )}
           />
           <Route path="media-kit" element={guarded("media_kit.manage", <MediaKitPage />)} />
+          <Route path="social" element={guarded("social.view", <SocialPublishingPage />)} />
+          <Route path="integrations" element={guarded("social.view", <IntegrationsPage />)} />
+          <Route
+            path="integrations/:platform/callback"
+            element={guarded("social.connect", <IntegrationCallbackPage />)}
+          />
           <Route path="affiliates" element={guarded("affiliates.view", <AffiliatesPage />)} />
           <Route
             path="affiliate-links"

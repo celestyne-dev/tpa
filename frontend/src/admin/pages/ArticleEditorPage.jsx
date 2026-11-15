@@ -574,6 +574,7 @@ export function ArticleEditorPage({ contentType = "article" }) {
                 <BlockEditor
                   blocks={form.body}
                   contentType={contentType}
+                  socialArticleId={isNew ? null : Number(id)}
                   onChange={set("body")}
                   errors={error?.details?.body}
                   disabled={!canWrite}

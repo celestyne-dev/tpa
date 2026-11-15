@@ -7,6 +7,7 @@ import { CheckboxField, SelectField, TextAreaField, TextField } from "./Fields";
 import { inlineFormattingProps } from "./inlineFormatting";
 import { LessonBlockFields } from "./LessonBlockFields";
 import { ImageChooser, MediaThumb } from "./media/ImageChooser";
+import { SocialActions } from "./social/SocialActions";
 import { rememberMedia } from "./media/mediaCache";
 import { MediaPicker } from "./media/MediaPicker";
 
@@ -289,7 +290,7 @@ function SourcesEditor({ block, set, n, error }) {
   );
 }
 
-function BlockFields({ block, index, onChange, errors, files, previous = [] }) {
+function BlockFields({ block, index, onChange, errors, files, previous = [], socialArticleId }) {
   const n = index + 1;
   const set = (patch) => onChange({ ...block, ...patch });
   const error = errors?.join(" ");
@@ -430,6 +431,9 @@ function BlockFields({ block, index, onChange, errors, files, previous = [] }) {
             allowClear={false}
             onChange={(id) => set({ media_id: id })}
           />
+          {socialArticleId && (
+            <SocialActions mediaId={block.media_id} articleId={socialArticleId} newTab />
+          )}
           <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
             <TextField
               label="Caption (optional)"
@@ -649,6 +653,7 @@ export function BlockEditor({
   legend = "Content",
   files,
   contentType = "article",
+  socialArticleId = null,
 }) {
   const update = (index, block) => onChange(blocks.map((b, i) => (i === index ? block : b)));
   const move = (index, delta) => {
@@ -736,6 +741,7 @@ export function BlockEditor({
               onChange={(b) => update(index, b)}
               errors={errors?.[String(index)]}
               files={files}
+              socialArticleId={socialArticleId}
             />
           </li>
         ))}
