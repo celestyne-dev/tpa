@@ -142,6 +142,7 @@ from .partnerships import (
 )
 from .publishing import PublishJob, Redirect
 from .question_banks import BankQuestion, QuestionBank
+from .social import SocialAccount, SocialImport, SocialPost
 from .user import (
     AccountToken,
     PermissionDefinition,
@@ -262,6 +263,9 @@ __all__ = [
     "MediaVariant",
     "PublishJob",
     "Redirect",
+    "SocialAccount",
+    "SocialImport",
+    "SocialPost",
     "AuditLog",
     "PermissionDefinition",
     "role_permissions",

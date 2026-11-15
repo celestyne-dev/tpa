@@ -168,7 +168,20 @@ def _publish_due_locked() -> dict:
             return {"published": [], "failed": [], "skipped": True}
         result = publish_due_scheduled()
         db.session.commit()
+        result["social"] = _social_due()
         return result
+
+
+def _social_due() -> dict:
+    """Send due Pins / Instagram posts and refresh tokens (never breaks content publishing)."""
+    from .services.social.posts import run_due
+
+    try:
+        return run_due()
+    except Exception:  # noqa: BLE001 - logged; the site's own publishing must still succeed
+        db.session.rollback()
+        current_app.logger.exception("social publishing run failed")
+        return {"published": [], "failed": [], "waiting": [], "error": True}
 
 
 @content_cli.command("publish-due")
@@ -190,6 +203,12 @@ def publish_due():
         click.echo("No scheduled articles or pages are due.")
     if result.get("boundary_rebuild"):
         click.echo("A scheduled section or announcement changed visibility; a rebuild was queued.")
+    social = result.get("social") or {}
+    if social.get("published") or social.get("failed"):
+        click.echo(
+            f"Social posts: {len(social.get('published', []))} published, "
+            f"{len(social.get('failed', []))} failed (see Admin › Social Publishing)."
+        )
     if result.get("failed"):
         click.echo(f"{len(result['failed'])} item(s) failed; see the audit log.", err=True)
         sys.exit(1)

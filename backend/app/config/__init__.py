@@ -6,6 +6,7 @@ environment (loaded from backend/.env by python-dotenv in wsgi.py).
 
 from __future__ import annotations
 
+import base64
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -316,6 +317,27 @@ class BaseConfig:
         "RATELIMIT_PARTNERSHIP_INQUIRY", "5 per minute;20 per hour"
     )
 
+    # ---- Social publishing: Pinterest and Instagram (see docs/social-publishing.md) ----
+    # Fernet key(s) that encrypt connected-account tokens at rest. Comma-separated: the first
+    # encrypts, all decrypt (key rotation). Without it the integrations show a setup state.
+    SOCIAL_TOKEN_ENCRYPTION_KEY = os.environ.get("SOCIAL_TOKEN_ENCRYPTION_KEY", "").strip()
+    PINTEREST_CLIENT_ID = os.environ.get("PINTEREST_CLIENT_ID", "").strip()
+    PINTEREST_CLIENT_SECRET = os.environ.get("PINTEREST_CLIENT_SECRET", "").strip()
+    # Empty: {ADMIN_BASE_URL}/admin/integrations/pinterest/callback (register it exactly).
+    PINTEREST_REDIRECT_URI = os.environ.get("PINTEREST_REDIRECT_URI", "").strip()
+    # https://api-sandbox.pinterest.com for Pinterest's sandbox (trial access).
+    PINTEREST_API_BASE = os.environ.get("PINTEREST_API_BASE", "https://api.pinterest.com").rstrip(
+        "/"
+    )
+    INSTAGRAM_CLIENT_ID = os.environ.get("INSTAGRAM_CLIENT_ID", "").strip()
+    INSTAGRAM_CLIENT_SECRET = os.environ.get("INSTAGRAM_CLIENT_SECRET", "").strip()
+    # Empty: {ADMIN_BASE_URL}/admin/integrations/instagram/callback (register it exactly).
+    INSTAGRAM_REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI", "").strip()
+    INSTAGRAM_GRAPH_VERSION = os.environ.get("INSTAGRAM_GRAPH_VERSION", "v27.0").strip()
+    SOCIAL_HTTP_TIMEOUT = _int("SOCIAL_HTTP_TIMEOUT", 20)
+    # Largest image imported from Instagram (bytes).
+    SOCIAL_IMPORT_MAX_BYTES = _int("SOCIAL_IMPORT_MAX_BYTES", 15 * 1024 * 1024)
+
     # ---- SEO / redirects ----
     # Public website origin (matches VITE_SITE_URL); used for canonical checks and sitemaps.
     SITE_URL = os.environ.get("SITE_URL", "http://localhost:5173").rstrip("/")
@@ -388,6 +410,17 @@ class TestingConfig(BaseConfig):
     MEDIA_ROOT = str(INSTANCE_DIR / "test-media")  # tests override with a temp dir
     PRODUCT_FILES_ROOT = str(INSTANCE_DIR / "test-product-files")  # overridden in tests
     PAYSTACK_SECRET_KEY = ""
+    # A fixed test key (never a real one); the external APIs are mocked in tests.
+    SOCIAL_TOKEN_ENCRYPTION_KEY = base64.urlsafe_b64encode(
+        b"tests-only-not-a-real-key-000000"
+    ).decode()
+    PINTEREST_CLIENT_ID = "test-pinterest-app"
+    PINTEREST_CLIENT_SECRET = "test-pinterest-secret"
+    PINTEREST_REDIRECT_URI = ""
+    PINTEREST_API_BASE = "https://api.pinterest.com"
+    INSTAGRAM_CLIENT_ID = "test-instagram-app"
+    INSTAGRAM_CLIENT_SECRET = "test-instagram-secret"
+    INSTAGRAM_REDIRECT_URI = ""
     # The older test suite prices and pays in USD as well as KES; the KES-only policy that
     # production uses is tested in tests/test_kes_pricing_and_guest_checkout.py.
     CHARGE_CURRENCIES = ("USD", "KES")

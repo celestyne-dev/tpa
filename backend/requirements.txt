@@ -16,3 +16,4 @@ gunicorn==26.2.0
 pillow==13.0.0
 pypdf==6.21.4  # structural PDF safety inspection of uploads (app/commerce/pdf_safety.py)
 redis==6.2.0  # shared rate-limit storage for several Gunicorn workers (RATELIMIT_STORAGE_URI)
+cryptography==50.0.1  # encrypts connected social-account tokens at rest (app/services/social/crypto.py)

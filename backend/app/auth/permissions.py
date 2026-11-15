@@ -95,6 +95,9 @@ class Permission(StrEnum):
     ADVERTISING_MANAGE_INVENTORY = "advertising.manage_inventory"
     ADVERTISING_MANAGE_BOOKINGS = "advertising.manage_bookings"
     MEDIA_KIT_MANAGE = "media_kit.manage"
+    SOCIAL_VIEW = "social.view"
+    SOCIAL_PUBLISH = "social.publish"
+    SOCIAL_CONNECT = "social.connect"
     PARTNERSHIP_FINANCE_VIEW = "partnership_finance.view"
     PARTNERSHIP_FINANCE_MANAGE = "partnership_finance.manage"
     PARTNERSHIP_REPORTS_EXPORT = "partnership_reports.export"
@@ -833,6 +836,30 @@ CATALOGUE: list[PermissionDef] = [
         "memberships",
         description="Subscriber counts, renewals, churn and verified membership revenue.",
     ),
+    # Social publishing (appended: catalogue order is the stored sort order).
+    _d(
+        P.SOCIAL_VIEW,
+        "View social publishing",
+        "Social publishing",
+        "social",
+        description="See the connected accounts and scheduled and published posts.",
+    ),
+    _d(
+        P.SOCIAL_PUBLISH,
+        "Publish to Pinterest and Instagram",
+        "Social publishing",
+        "social",
+        description="Create, schedule, retry and cancel Pins and Instagram posts, and import "
+        "your own Instagram images into the Media Library.",
+    ),
+    _d(
+        P.SOCIAL_CONNECT,
+        "Connect social accounts",
+        "Social publishing",
+        "social",
+        sensitive=True,
+        description="Connect and disconnect the Pinterest and Instagram accounts.",
+    ),
 ]
 
 CATALOGUE_BY_KEY: dict[str, PermissionDef] = {d.key.value: d for d in CATALOGUE}
@@ -1360,6 +1387,12 @@ BATCH_10_GRANTS: dict[str, frozenset[str]] = {
 
 
 MEMBERSHIP_OPERATIONS = _set(P.MEMBERSHIPS_MANAGE_SUBSCRIPTIONS, P.MEMBERSHIPS_VIEW_REPORTS)
+# Social publishing (Pinterest, Instagram). Connecting accounts is Super Admin only.
+SOCIAL_GRANTS: dict[str, frozenset[str]] = {
+    "administrator": _set(P.SOCIAL_VIEW, P.SOCIAL_PUBLISH),
+    "marketing_manager": _set(P.SOCIAL_VIEW, P.SOCIAL_PUBLISH),
+    "editor_in_chief": _set(P.SOCIAL_VIEW),
+}
 BATCH_104_GRANTS: dict[str, frozenset[str]] = {
     "administrator": MEMBERSHIP_OPERATIONS,
     "customer_support": _set(P.MEMBERSHIPS_MANAGE_SUBSCRIPTIONS),
@@ -1382,6 +1415,7 @@ def _with_batch_03(spec: RoleSpec) -> RoleSpec:
         | BATCH_092_BANK_GRANTS.get(spec.key, frozenset())
         | BATCH_10_GRANTS.get(spec.key, frozenset())
         | BATCH_104_GRANTS.get(spec.key, frozenset())
+        | SOCIAL_GRANTS.get(spec.key, frozenset())
     )
     if not extra:
         return spec

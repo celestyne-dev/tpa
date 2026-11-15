@@ -15,6 +15,7 @@ from . import (
     roles,
     seo,
     site,
+    social,
     storage,
 )
 
@@ -152,6 +153,7 @@ ADMIN_ROUTES = [
     *commerce.COMMERCE_ROUTES,
     *newsletter.NEWSLETTER_ROUTES,
     *partnerships.PARTNERSHIP_ROUTES,
+    *social.SOCIAL_ROUTES,
     *storage.STORAGE_ROUTES,
     *courses.COURSE_ADMIN_ROUTES,
     *assignments.ASSIGNMENT_ADMIN_ROUTES,
