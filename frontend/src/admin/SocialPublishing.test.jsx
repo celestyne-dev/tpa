@@ -38,6 +38,20 @@ describe("integrations", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows that the Instagram authorisation does not expire and Pinterest's renews", async () => {
+    renderApp("/admin/integrations", { adminApi: createFakeAdminApi() });
+    const instagram = (await screen.findByRole("heading", { level: 2, name: "Instagram" })).closest(
+      "section",
+    );
+    expect(within(instagram).getByText(/Does not expire/)).toBeVisible();
+    expect(within(instagram).getByText("instagram_basic, instagram_content_publish")).toBeVisible();
+    const pinterest = screen
+      .getByRole("heading", { level: 2, name: "Pinterest" })
+      .closest("section");
+    expect(within(pinterest).getByText(/renewed automatically/)).toBeVisible();
+    expect(within(pinterest).getByText(/boards:write/)).toBeVisible();
+  });
+
   it("explains missing server settings instead of failing", async () => {
     const adminApi = createFakeAdminApi();
     adminApi.socialState.accounts = [

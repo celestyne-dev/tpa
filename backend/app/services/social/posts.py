@@ -577,9 +577,9 @@ def _publish_pinterest(post: SocialPost) -> None:
 # Instagram ---------------------------------------------------------------------------------
 
 
-def _find_media(post: SocialPost, token: str) -> dict[str, Any] | None:
+def _find_media(post: SocialPost, ig_id: str, token: str) -> dict[str, Any] | None:
     started = _aware(post.started_at) or _now()
-    for item in instagram.media(token, limit=10)["items"]:
+    for item in instagram.media(ig_id, token, limit=10)["items"]:
         if (item.get("caption") or "").strip() != (post.text or "").strip():
             continue
         try:
@@ -597,7 +597,7 @@ def _publish_instagram(post: SocialPost) -> None:
     account, token = accounts.access_token("instagram")
     details = dict(post.details or {})
     if details.get("checking"):
-        found = _find_media(post, token)
+        found = _find_media(post, account.external_id, token)
         if found:
             _succeed(post, found["id"], found.get("permalink"))
             return
@@ -625,7 +625,7 @@ def _publish_instagram(post: SocialPost) -> None:
             else "The prepared Instagram post expired before it was published. Retry it."
         )
     if status == "PUBLISHED":
-        found = _find_media(post, token)
+        found = _find_media(post, account.external_id, token)
         if found:
             _succeed(post, found["id"], found.get("permalink"))
             return

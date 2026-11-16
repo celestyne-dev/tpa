@@ -23,7 +23,7 @@ const NOTES = {
   },
   instagram: {
     needs:
-      "An Instagram professional (Business or Creator) account and a Meta app using Instagram Login with this redirect address registered.",
+      "An Instagram professional (Business or Creator) account and a Meta app with a Unified Login configuration (Facebook Login for Business) that has this redirect address registered. You sign in through Meta and choose the Instagram account there.",
     does: "Imports your own Instagram images into the Media Library and publishes single-image feed posts. Feed captions cannot contain clickable links.",
   },
 };
@@ -126,10 +126,17 @@ function AccountCard({ item, canConnect, onChanged }) {
               {formatDate(account.connected_at)}
               {account.connected_by ? ` by ${account.connected_by}` : ""}
             </Row>
-            {account.access_expires_at && (
+            {account.access_expires_at ? (
               <Row label="Authorisation renews by">
                 {formatDate(account.access_expires_at)} (renewed automatically while connected)
               </Row>
+            ) : (
+              item.platform === "instagram" && (
+                <Row label="Authorisation">
+                  Does not expire. It ends only if access is removed in Meta or the account is
+                  disconnected here.
+                </Row>
+              )
             )}
             {account.missing_scopes?.length > 0 && (
               <Row label="Missing permissions">

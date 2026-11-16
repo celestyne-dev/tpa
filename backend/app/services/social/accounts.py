@@ -55,6 +55,8 @@ def setup_missing(platform: str) -> list[str]:
     missing = [
         name for name in (f"{prefix}_CLIENT_ID", f"{prefix}_CLIENT_SECRET") if not cfg.get(name)
     ]
+    if platform == "instagram" and not cfg.get("INSTAGRAM_CONFIG_ID"):
+        missing.append("INSTAGRAM_CONFIG_ID")  # the Unified Login configuration
     if crypto.key_problem():
         missing.append("SOCIAL_TOKEN_ENCRYPTION_KEY")
     return missing
@@ -182,12 +184,26 @@ def complete_connect(platform: str, code: str, state: str, user: User) -> dict[s
             scopes = None
         else:
             tokens = instagram.exchange_code(code, redirect_uri(platform))
-            profile = instagram.me(tokens["access_token"])
-            external_id = str(profile.get("user_id") or tokens.get("user_id") or "")
-            username = profile.get("username")
-            account_type = profile.get("account_type")
+            scopes = tokens.get("scopes")
+            if scopes is not None and "instagram_basic" not in scopes:
+                raise SocialError(
+                    "The instagram_basic permission was not granted. Add it to the Unified "
+                    "Login configuration in the Meta app and approve it when connecting.",
+                    permission=True,
+                )
+            existing = get_account(platform)
+            profile = instagram.discover_account(
+                tokens["access_token"],
+                tokens.get("target_ids"),
+                prefer=[
+                    current_app.config.get("INSTAGRAM_ACCOUNT_ID") or "",
+                    existing.external_id if existing else "",
+                ],
+            )
+            external_id = profile["id"]
+            username = profile["username"] or None
+            account_type = None
             profile_url = f"https://www.instagram.com/{username}/" if username else None
-            scopes = tokens.get("permissions") or None
     except SocialError as exc:
         audit_service.record(
             "social.connect_failed", "social_account", platform, actor=user,
@@ -211,7 +227,10 @@ def complete_connect(platform: str, code: str, state: str, user: User) -> dict[s
     account.username = str(username)[:200] if username else None
     account.account_type = str(account_type)[:50] if account_type else None
     account.profile_url = profile_url
-    account.scopes = list(scopes) if scopes else list(_required_scopes(platform))
+    if platform == "instagram":
+        account.scopes = list(scopes or [])  # empty: Meta did not report the permissions
+    else:
+        account.scopes = list(scopes) if scopes else list(_required_scopes(platform))
     account.refresh_token_enc = None if platform == "instagram" else account.refresh_token_enc
     _store_tokens(account, tokens, platform)
     account.last_error = None
@@ -220,7 +239,12 @@ def complete_connect(platform: str, code: str, state: str, user: User) -> dict[s
     db.session.flush()
     audit_service.record(
         "social.account_connected", "social_account", platform, actor=user,
-        details={"username": account.username, "account_type": account.account_type},
+        details={
+            "username": account.username,
+            "account_type": account.account_type,
+            "token": tokens.get("kind") if platform == "instagram" else None,
+            "expires": account.access_expires_at is not None,
+        },
     )  # fmt: skip
     return account_dict(platform)
 
@@ -257,10 +281,26 @@ def _refresh(account: SocialAccount) -> None:
             )
         tokens = pinterest.refresh(crypto.unseal(account.refresh_token_enc))
     else:
-        tokens = instagram.refresh(crypto.unseal(account.access_token_enc))
+        # Only reached for a user token with an expiry; system-user tokens never expire.
+        tokens = instagram.extend(crypto.unseal(account.access_token_enc))
     _store_tokens(account, tokens, account.platform)
     account.status = "connected"
     account.last_error = None
+
+
+def _renew_instagram(account: SocialAccount, expires: datetime) -> None:
+    """Renew an expiring Instagram user token. A failed renewal never blocks a post while
+    the current token is still valid."""
+    if expires <= _now():
+        raise SocialError("The Instagram connection has expired. Reconnect.", reconnect=True)
+    try:
+        _refresh(account)
+    except SocialError as exc:
+        if exc.reconnect:
+            raise
+        account.last_error = f"The connection could not be renewed yet: {exc.message}"[:500]
+        return
+    audit_service.record("social.token_refreshed", "social_account", "instagram")
 
 
 def access_token(platform: str) -> tuple[SocialAccount, str]:
@@ -275,13 +315,13 @@ def access_token(platform: str) -> tuple[SocialAccount, str]:
         )
     try:
         expires = _aware(account.access_expires_at)
+        # No expiry (Instagram system-user tokens): nothing to refresh, ever.
         if expires is not None and expires - _now() < REFRESH_MARGIN[platform]:
-            if expires <= _now() and platform == "instagram":
-                raise SocialError(
-                    "The Instagram connection has expired. Reconnect.", reconnect=True
-                )
-            _refresh(account)
-            audit_service.record("social.token_refreshed", "social_account", platform)
+            if platform == "instagram":
+                _renew_instagram(account, expires)
+            else:
+                _refresh(account)
+                audit_service.record("social.token_refreshed", "social_account", platform)
         return account, crypto.unseal(account.access_token_enc)
     except crypto.TokenKeyError as exc:
         error = SocialError(str(exc), reconnect=True)
