@@ -10,7 +10,9 @@ Documented endpoints used (https://developers.pinterest.com/docs/api/v5/):
 - POST /v5/pins                                   create an image Pin from a public image URL
 - GET  /v5/boards/{board_id}/pins                 recent Pins (duplicate check after a timeout)
 
-Scopes requested: user_accounts:read, boards:read, pins:read, pins:write (nothing else).
+Scopes requested: user_accounts:read, boards:read, boards:write, pins:read, pins:write.
+An account connected before boards:write was added keeps working; it shows the missing
+permission until it is reconnected.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from flask import current_app
 from . import http
 
 AUTHORIZE_URL = "https://www.pinterest.com/oauth/"
-SCOPES = ("user_accounts:read", "boards:read", "pins:read", "pins:write")
+SCOPES = ("user_accounts:read", "boards:read", "boards:write", "pins:read", "pins:write")
 
 
 def _base() -> str:

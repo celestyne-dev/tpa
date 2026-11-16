@@ -23,7 +23,7 @@ API = "/api/v1/admin/social"
 SITE = "https://thinkpositivealways.com"
 PIN_TOKEN = "pina_ACCESS_plaintext_1"
 PIN_REFRESH = "pinr_REFRESH_plaintext_1"
-IG_TOKEN = "IGAA_LONG_plaintext_1"
+IG_TOKEN = "EAAG_SYSTEM_plaintext_1"
 
 
 class Fake:
@@ -58,6 +58,19 @@ class Fake:
         ]
         self.container_status = "FINISHED"
         self.ig_published: list[dict] = []
+        # Meta (graph.facebook.com): a non-expiring system-user token by default.
+        self.fb_app_id = "test-instagram-app"
+        self.fb_token_type = "SYSTEM_USER"
+        self.fb_expires_in = 0
+        self.fb_scopes = ["instagram_basic", "instagram_content_publish"]
+        self.fb_granular: list[dict] = []
+        self.fb_debug = True
+        self.fb_assigned = [{"id": "178", "username": "thinkpositivealways"}]
+        self.fb_pages: list[dict] = []
+        self.fb_profiles = {"178": "thinkpositivealways"}
+        self.fb_redirect_error = False
+        self.fb_token_revoked = False
+        self.fb_extend_status = 200
         self.image = make_photo(1080, 1080)
         self.image_type = "image/jpeg"
 
@@ -86,7 +99,7 @@ class Fake:
                         "refresh_token": PIN_REFRESH,
                         "expires_in": 2592000,
                         "refresh_token_expires_in": 5184000,
-                        "scope": "user_accounts:read boards:read pins:read pins:write",
+                        "scope": "user_accounts:read boards:read boards:write pins:read pins:write",
                     }
                 )  # fmt: skip
             if self.unauthorized:
@@ -104,21 +117,49 @@ class Fake:
                 return ok(self._save_pin(json_body), 201)
             if path.endswith("/pins") and method == "GET":
                 return ok({"items": self.pins})
-        if host == "api.instagram.com":
-            if form["code"] != "good":
-                return ok({"error_type": "OAuthException", "error_message": "bad code"}, 400)
-            return ok({"data": [{"access_token": "IG_SHORT", "user_id": "178",
-                                 "permissions": "instagram_business_basic,"
-                                                "instagram_business_content_publish"}]})  # fmt: skip
-        if host == "graph.instagram.com":
-            if path in ("/access_token", "/refresh_access_token"):
-                return ok({"access_token": IG_TOKEN, "token_type": "bearer",
-                           "expires_in": 5183944})  # fmt: skip
+        if host == "graph.facebook.com":
             tail = path.split("/", 2)[2]
-            if tail == "me":
-                return ok({"user_id": "178", "username": "thinkpositivealways",
-                           "account_type": "BUSINESS"})  # fmt: skip
-            if tail == "me/media":
+            if tail == "oauth/access_token":
+                assert params["client_id"] == "test-instagram-app"
+                assert params["client_secret"] == "test-instagram-secret"
+                if params.get("grant_type") == "fb_exchange_token":
+                    if self.fb_extend_status != 200:
+                        return ok({"error": {"message": "try later", "code": 2}},
+                                  self.fb_extend_status)  # fmt: skip
+                    return ok({"access_token": "EAAG_EXTENDED", "expires_in": 5184000})
+                if self.fb_redirect_error and "redirect_uri" in params:
+                    return ok({"error": {"message": "Error validating verification code. "
+                                         "redirect_uri is not expected", "code": 100}}, 400)  # fmt: skip
+                if params["code"] != "good":
+                    return ok({"error": {"message": "This authorization code has expired.",
+                                         "type": "OAuthException", "code": 100}}, 400)  # fmt: skip
+                body = {"access_token": IG_TOKEN, "token_type": "bearer"}
+                if self.fb_expires_in:
+                    body["expires_in"] = self.fb_expires_in
+                return ok(body)
+            if tail == "debug_token":
+                assert params["access_token"] == "test-instagram-app|test-instagram-secret"
+                if not self.fb_debug:
+                    return ok({"error": {"message": "nope", "code": 100}}, 400)
+                expires_at = (
+                    int(datetime.now(UTC).timestamp()) + self.fb_expires_in
+                    if self.fb_expires_in
+                    else 0
+                )
+                return ok({"data": {"app_id": self.fb_app_id, "type": self.fb_token_type,
+                                    "is_valid": True, "expires_at": expires_at,
+                                    "scopes": self.fb_scopes,
+                                    "granular_scopes": self.fb_granular}})  # fmt: skip
+            if self.fb_token_revoked:
+                return ok({"error": {"message": "Error validating access token",
+                                     "type": "OAuthException", "code": 190}}, 400)  # fmt: skip
+            if tail == "me/assigned_instagram_accounts":
+                return ok({"data": self.fb_assigned})
+            if tail == "me/accounts":
+                return ok({"data": self.fb_pages})
+            if tail in self.fb_profiles and (params or {}).get("fields") == "id,username,name":
+                return ok({"id": tail, "username": self.fb_profiles[tail], "name": "TPA"})
+            if tail == "178/media" and method == "GET":
                 return ok({"data": self.ig_published + self.ig_media, "paging": {}})
             if tail == "178/content_publishing_limit":
                 return ok({"data": [{"quota_usage": 1, "config": {"quota_total": 100}}]})
@@ -136,7 +177,8 @@ class Fake:
             for item in self.ig_media:
                 if tail == item["id"]:
                     return ok(item)
-            return ok({"error": {"message": "Unsupported get request", "code": 100}}, 400)
+            return ok({"error": {"message": "Unsupported get request. Object does not exist "
+                                 "or missing permissions", "code": 100}}, 400)  # fmt: skip
         if host and host.endswith(".cdninstagram.com"):
             return http.Response(200, self.image, {"Content-Type": self.image_type})
         raise AssertionError(f"unexpected call {method} {url}")
@@ -203,7 +245,7 @@ def test_pinterest_oauth_connects_and_stores_encrypted_tokens(fake, app, as_role
     assert url.startswith("https://www.pinterest.com/oauth/?")
     assert query["client_id"] == ["test-pinterest-app"] and query["response_type"] == ["code"]
     assert query["redirect_uri"] == [f"{SITE}/admin/integrations/pinterest/callback"]
-    assert query["scope"] == ["user_accounts:read,boards:read,pins:read,pins:write"]
+    assert query["scope"] == ["user_accounts:read,boards:read,boards:write,pins:read,pins:write"]
     assert "secret" not in url
     state = query["state"][0]
     # CSRF: forged, tampered and cross-platform states are refused.
@@ -465,24 +507,297 @@ def test_an_expired_connection_fails_clearly_and_asks_to_reconnect(fake, app, as
 # ---- Instagram -----------------------------------------------------------------------------
 
 
-def test_instagram_login_connects_with_a_long_lived_token(fake, app, as_role):
-    api = as_role("super_admin")
+def _ig_row():
+    return db.session.scalar(db.select(SocialAccount).where(SocialAccount.platform == "instagram"))
+
+
+def _ig_start(api):
     url = api.post(f"{API}/instagram/connect").get_json()["data"]["authorize_url"]
+    return url, urllib.parse.parse_qs(urllib.parse.urlparse(url).query)["state"][0]
+
+
+def _logged(app):
+    return json.dumps([e.details for e in db.session.scalars(db.select(AuditLog))])
+
+
+def test_instagram_needs_the_unified_login_configuration(seeded, as_role):
+    seeded.config["INSTAGRAM_CONFIG_ID"] = ""
+    api = as_role("super_admin")
+    rows = {a["platform"]: a for a in api.get(f"{API}/accounts").get_json()["data"]}
+    assert rows["instagram"]["setup"] == {"ready": False, "missing": ["INSTAGRAM_CONFIG_ID"]}
+    assert rows["pinterest"]["setup"]["ready"]
+    assert api.post(f"{API}/instagram/connect").status_code == 400
+
+
+def test_instagram_unified_login_connects_with_a_non_expiring_token(fake, app, as_role):
+    api = as_role("super_admin")
+    url, state = _ig_start(api)
     query = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
-    assert url.startswith("https://www.instagram.com/oauth/authorize?")
-    assert query["scope"] == ["instagram_business_basic,instagram_business_content_publish"]
+    assert url.startswith("https://www.facebook.com/v27.0/dialog/oauth?")
+    assert query["client_id"] == ["test-instagram-app"]
+    assert query["config_id"] == ["test-config-id"] and query["response_type"] == ["code"]
+    assert query["redirect_uri"] == [f"{SITE}/admin/integrations/instagram/callback"]
+    assert "scope" not in query and "override_default_response_type" not in query
+    assert "secret" not in url
+    # CSRF: the signed state is still required and bound to the platform.
+    for bad in ("", "forged", state[:-2] + "xx"):
+        res = api.post(f"{API}/instagram/callback", {"code": "good", "state": bad})
+        assert res.status_code == 400, bad
+    assert (
+        api.post(f"{API}/pinterest/callback", {"code": "good", "state": state}).status_code == 400
+    )
+    assert not any("graph.facebook.com" in c[1] for c in fake.calls)
     body = _connect(api, "instagram")
-    assert body["account"]["username"] == "thinkpositivealways"
-    assert body["account"]["scopes"] == [
-        "instagram_business_basic",
-        "instagram_business_content_publish",
-    ]
+    account = body["account"]
+    assert body["connected"] and account["username"] == "thinkpositivealways"
+    assert account["external_id"] == "178" and account["access_expires_at"] is None
+    assert account["scopes"] == ["instagram_basic", "instagram_content_publish"]
+    assert account["missing_scopes"] == []
+    assert body["scopes_requested"] == ["instagram_basic", "instagram_content_publish"]
+    exchange = next(c for c in fake.calls if c[1].endswith("/oauth/access_token"))
+    assert exchange[0] == "GET" and exchange[1].startswith("https://graph.facebook.com/v27.0/")
+    assert exchange[2]["params"]["redirect_uri"] == query["redirect_uri"][0]
+    hosts = {urllib.parse.urlparse(c[1]).hostname for c in fake.calls}
+    assert not hosts & {"graph.instagram.com", "api.instagram.com", "www.instagram.com"}
+    listing = api.get(f"{API}/accounts").get_data(as_text=True)
+    assert IG_TOKEN not in listing and "test-instagram-secret" not in listing
     with app.app_context():
-        row = db.session.scalar(
-            db.select(SocialAccount).where(SocialAccount.platform == "instagram")
+        row = _ig_row()
+        assert IG_TOKEN not in row.access_token_enc
+        assert crypto.unseal(row.access_token_enc) == IG_TOKEN
+        assert row.refresh_token_enc is None and row.access_expires_at is None
+        logged = _logged(app)
+        assert IG_TOKEN not in logged and "test-instagram-secret" not in logged
+        entry = db.session.scalar(
+            db.select(AuditLog).where(AuditLog.action == "social.account_connected")
         )
-        assert crypto.unseal(row.access_token_enc) == IG_TOKEN and row.external_id == "178"
-        assert row.refresh_token_enc is None
+        assert entry.details["grant_type"] == "system_user" and entry.details["expires"] is False
+
+
+def test_the_override_parameter_is_sent_only_when_configured(fake, app, as_role):
+    api = as_role("super_admin")
+    app.config["INSTAGRAM_OVERRIDE_RESPONSE_TYPE"] = True
+    url, _ = _ig_start(api)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+    assert query["override_default_response_type"] == ["true"]
+    assert query["config_id"] == ["test-config-id"]
+
+
+def test_a_non_expiring_instagram_token_is_never_refreshed(fake, app, as_role):
+    api = as_role("super_admin")
+    _connect(api, "instagram")
+    before = len(fake.calls)
+    with app.app_context():
+        assert accounts.refresh_due() == {"refreshed": [], "failed": []}
+        _, token = accounts.access_token("instagram")
+        assert token == IG_TOKEN
+        assert posts.run_due()["tokens"] == {"refreshed": [], "failed": []}
+    assert len(fake.calls) == before  # no refresh or exchange request of any kind
+    assert not any("refresh_access_token" in c[1] for c in fake.calls)
+    assert not any((c[2]["params"] or {}).get("grant_type") for c in fake.calls)
+
+
+def test_an_expiring_user_token_is_extended_and_renewed_with_the_facebook_exchange(
+    fake, app, as_role
+):
+    api = as_role("super_admin")
+    fake.fb_token_type, fake.fb_expires_in = "USER", 3600  # a short-lived user token
+    body = _connect(api, "instagram")
+    assert body["account"]["access_expires_at"] is not None
+    with app.app_context():
+        row = _ig_row()
+        assert crypto.unseal(row.access_token_enc) == "EAAG_EXTENDED"
+        assert accounts._aware(row.access_expires_at) > datetime.now(UTC) + timedelta(days=50)
+        # Close to expiry: renewed through fb_exchange_token, never graph.instagram.com.
+        row.access_token_enc = crypto.seal("EAAG_OLD")
+        row.access_expires_at = datetime.now(UTC) + timedelta(days=2)
+        db.session.commit()
+        assert accounts.refresh_due() == {"refreshed": ["instagram"], "failed": []}
+        db.session.commit()
+        renewal = fake.calls[-1]
+        assert renewal[2]["params"]["fb_exchange_token"] == "EAAG_OLD"
+        assert renewal[1] == "https://graph.facebook.com/v27.0/oauth/access_token"
+        # A renewal that fails for now does not block publishing with the valid token.
+        row = _ig_row()
+        row.access_expires_at = datetime.now(UTC) + timedelta(days=2)
+        db.session.commit()
+        fake.fb_extend_status = 500
+        account, token = accounts.access_token("instagram")
+        db.session.commit()
+        assert token == "EAAG_EXTENDED" and account.status == "connected"
+        # Once it has actually expired the account asks to be reconnected.
+        row = _ig_row()
+        row.access_expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.session.commit()
+        with pytest.raises(http.SocialError) as caught:
+            accounts.access_token("instagram")
+        db.session.commit()
+        assert caught.value.reconnect and _ig_row().status == "expired"
+
+
+def test_instagram_token_exchange_failures_are_reported_without_secrets(fake, app, as_role):
+    api = as_role("super_admin")
+    _, state = _ig_start(api)
+    res = api.post(f"{API}/instagram/callback", {"code": "used-code-123", "state": state})
+    assert res.status_code == 400
+    message = res.get_json()["error"]["message"]
+    assert "Meta refused the authorisation" in message and "expired" in message
+    assert "used-code-123" not in message and "test-instagram-secret" not in message
+    denied = api.post(
+        f"{API}/instagram/callback",
+        {"error": "access_denied", "error_description": "Permissions error", "state": state},
+    )
+    assert denied.status_code == 400
+    with app.app_context():
+        assert _ig_row() is None
+        logged = _logged(app)
+        assert "used-code-123" not in logged and "test-instagram-secret" not in logged
+        actions = set(db.session.scalars(db.select(AuditLog.action)))
+        assert "social.connect_failed" in actions
+
+
+def test_the_exchange_is_retried_without_redirect_uri_when_meta_rejects_it(fake, as_role):
+    api = as_role("super_admin")
+    fake.fb_redirect_error = True
+    assert _connect(api, "instagram")["connected"]
+    exchanges = [c[2]["params"] for c in fake.calls if c[1].endswith("/oauth/access_token")]
+    assert len(exchanges) == 2
+    assert "redirect_uri" in exchanges[0] and "redirect_uri" not in exchanges[1]
+
+
+def test_a_token_for_another_app_is_refused(fake, app, as_role):
+    api = as_role("super_admin")
+    fake.fb_app_id = "some-other-app"
+    _, state = _ig_start(api)
+    res = api.post(f"{API}/instagram/callback", {"code": "good", "state": state})
+    assert res.status_code == 400 and "different Meta app" in res.get_json()["error"]["message"]
+    with app.app_context():
+        assert _ig_row() is None
+
+
+@pytest.mark.parametrize(
+    ("setup", "expected_id"),
+    [
+        ({"fb_assigned": [{"id": "178", "username": "thinkpositivealways"}]}, "178"),
+        # Nothing assigned: the ids named in the token's granular permissions.
+        (
+            {
+                "fb_assigned": [],
+                "fb_granular": [
+                    {"scope": "pages_show_list", "target_ids": ["999"]},
+                    {"scope": "instagram_basic", "target_ids": ["178"]},
+                ],
+            },
+            "178",
+        ),
+        # Nothing assigned or named: an account linked to a Facebook Page.
+        (
+            {
+                "fb_assigned": [],
+                "fb_pages": [{"id": "55"}, {"instagram_business_account": {"id": "178"}}],
+            },
+            "178",
+        ),
+        # Meta lists nothing but an administrator configured the account id.
+        ({"fb_assigned": [], "config": "178"}, "178"),
+        # Several granted: the configured username decides.
+        (
+            {
+                "fb_assigned": [{"id": "400"}, {"id": "178"}],
+                "fb_profiles": {"178": "thinkpositivealways", "400": "another"},
+                "config": "@ThinkPositiveAlways",
+            },
+            "178",
+        ),
+        # Meta's token inspection is unavailable: the account is still found.
+        ({"fb_debug": False}, "178"),
+    ],
+)
+def test_the_instagram_account_is_discovered_and_verified(fake, app, as_role, setup, expected_id):
+    api = as_role("super_admin")
+    setup = dict(setup)
+    app.config["INSTAGRAM_ACCOUNT_ID"] = setup.pop("config", "")
+    for key, value in setup.items():
+        setattr(fake, key, value)
+    body = _connect(api, "instagram")
+    assert body["account"]["external_id"] == expected_id
+    assert body["account"]["username"] == "thinkpositivealways"
+    assert not any(c[1].endswith("/me") for c in fake.calls)  # the old /me shape is not used
+    if not fake.fb_debug:
+        assert body["account"]["scopes"] == [] and body["account"]["missing_scopes"] == []
+
+
+@pytest.mark.parametrize(
+    ("setup", "words"),
+    [
+        # No Instagram professional account was granted.
+        ({"fb_assigned": []}, "did not grant access to an Instagram professional account"),
+        # Listed, but not readable with this token (not eligible / no permission).
+        ({"fb_profiles": {}}, "did not grant access to an Instagram professional account"),
+        # Several accounts and nothing to choose between them.
+        (
+            {
+                "fb_assigned": [{"id": "400"}, {"id": "178"}],
+                "fb_profiles": {"178": "thinkpositivealways", "400": "another"},
+            },
+            "several Instagram accounts (@another, @thinkpositivealways)",
+        ),
+        # The configuration did not include the basic permission.
+        ({"fb_scopes": ["instagram_content_publish"]}, "instagram_basic permission was not"),
+    ],
+)
+def test_ineligible_or_ambiguous_instagram_accounts_are_not_connected(
+    fake, app, as_role, setup, words
+):
+    api = as_role("super_admin")
+    for key, value in setup.items():
+        setattr(fake, key, value)
+    _, state = _ig_start(api)
+    res = api.post(f"{API}/instagram/callback", {"code": "good", "state": state})
+    assert res.status_code == 400, res.get_json()
+    assert words in res.get_json()["error"]["message"]
+    with app.app_context():
+        assert _ig_row() is None
+
+
+def test_a_missing_publish_permission_is_shown_on_the_account(fake, as_role):
+    api = as_role("super_admin")
+    fake.fb_scopes = ["instagram_basic"]
+    body = _connect(api, "instagram")
+    assert body["connected"]
+    assert body["account"]["missing_scopes"] == ["instagram_content_publish"]
+
+
+def test_a_revoked_instagram_token_asks_to_reconnect(fake, app, as_role):
+    api = as_role("super_admin")
+    _connect(api, "instagram")
+    square = _photo(api, 1200, 1200)
+    fake.fb_token_revoked = True
+    assert api.get(f"{API}/instagram/media").status_code == 400
+    res = api.post(
+        f"{API}/posts", {"platform": "instagram", "text": "Hi", "media_asset_id": square}
+    )
+    assert res.status_code == 400  # the account is no longer connected
+    account = api.get(f"{API}/accounts").get_json()["data"][1]
+    assert not account["connected"] and account["account"]["status"] == "expired"
+    fake.fb_token_revoked = False
+    assert _connect(api, "instagram")["connected"]
+    assert api.get(f"{API}/instagram/media").status_code == 200
+
+
+def test_instagram_permissions_are_enforced(fake, as_role):
+    _connect(as_role("super_admin"), "instagram")
+    admin = as_role("administrator")
+    assert admin.get(f"{API}/instagram/media").status_code == 200
+    assert admin.post(f"{API}/instagram/connect").status_code == 403
+    assert (
+        admin.post(f"{API}/instagram/callback", {"code": "good", "state": "x"}).status_code == 403
+    )
+    assert admin.delete(f"{API}/instagram/account").status_code == 403
+    chief = as_role("editor_in_chief")
+    assert chief.get(f"{API}/instagram/media").status_code == 403
+    res = chief.post(f"{API}/posts", {"platform": "instagram", "text": "x", "media_asset_id": 1})
+    assert res.status_code == 403
 
 
 def test_instagram_media_is_listed_and_imported_once(fake, app, as_role):

@@ -333,6 +333,12 @@ class BaseConfig:
     INSTAGRAM_CLIENT_SECRET = os.environ.get("INSTAGRAM_CLIENT_SECRET", "").strip()
     # Empty: {ADMIN_BASE_URL}/admin/integrations/instagram/callback (register it exactly).
     INSTAGRAM_REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI", "").strip()
+    # Unified Login (Facebook Login for Business) configuration id from the Meta app.
+    INSTAGRAM_CONFIG_ID = os.environ.get("INSTAGRAM_CONFIG_ID", "").strip()
+    # Optional: the Instagram account id or username to use if Meta grants several.
+    INSTAGRAM_ACCOUNT_ID = os.environ.get("INSTAGRAM_ACCOUNT_ID", "").strip()
+    # Optional: send override_default_response_type=true on the sign-in address.
+    INSTAGRAM_OVERRIDE_RESPONSE_TYPE = _bool("INSTAGRAM_OVERRIDE_RESPONSE_TYPE", False)
     INSTAGRAM_GRAPH_VERSION = os.environ.get("INSTAGRAM_GRAPH_VERSION", "v27.0").strip()
     SOCIAL_HTTP_TIMEOUT = _int("SOCIAL_HTTP_TIMEOUT", 20)
     # Largest image imported from Instagram (bytes).
@@ -421,6 +427,9 @@ class TestingConfig(BaseConfig):
     INSTAGRAM_CLIENT_ID = "test-instagram-app"
     INSTAGRAM_CLIENT_SECRET = "test-instagram-secret"
     INSTAGRAM_REDIRECT_URI = ""
+    INSTAGRAM_CONFIG_ID = "test-config-id"
+    INSTAGRAM_ACCOUNT_ID = ""
+    INSTAGRAM_OVERRIDE_RESPONSE_TYPE = False
     # The older test suite prices and pays in USD as well as KES; the KES-only policy that
     # production uses is tested in tests/test_kes_pricing_and_guest_checkout.py.
     CHARGE_CURRENCIES = ("USD", "KES")

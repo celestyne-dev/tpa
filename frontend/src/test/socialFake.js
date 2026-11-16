@@ -12,8 +12,8 @@ export function makeSocialAccount(platform, overrides = {}) {
     redirect_uri: `https://thinkpositivealways.com/admin/integrations/${platform}/callback`,
     scopes_requested:
       platform === "pinterest"
-        ? ["user_accounts:read", "boards:read", "pins:read", "pins:write"]
-        : ["instagram_business_basic", "instagram_business_content_publish"],
+        ? ["user_accounts:read", "boards:read", "boards:write", "pins:read", "pins:write"]
+        : ["instagram_basic", "instagram_content_publish"],
     connected: true,
     account: {
       status: "connected",
@@ -23,7 +23,8 @@ export function makeSocialAccount(platform, overrides = {}) {
       profile_url: `https://www.${platform}.com/thinkpositivealways/`,
       scopes: [],
       missing_scopes: [],
-      access_expires_at: "2026-12-15T08:00:00+00:00",
+      // Instagram's Unified Login token does not expire; Pinterest's is renewed monthly.
+      access_expires_at: platform === "pinterest" ? "2026-12-15T08:00:00+00:00" : null,
       refresh_expires_at: null,
       last_error: null,
       connected_at: "2026-11-15T08:00:00+00:00",

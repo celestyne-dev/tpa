@@ -45,7 +45,7 @@ def _imported() -> dict[str, SocialImport]:
 def list_media(after: str | None) -> dict[str, Any]:
     account, token = _account_token()
     try:
-        page = instagram.media(token, after=after)
+        page = instagram.media(account.external_id, token, after=after)
     except SocialError as exc:
         accounts.mark_failure("instagram", exc)
         db.session.commit()
