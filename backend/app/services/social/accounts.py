@@ -242,7 +242,7 @@ def complete_connect(platform: str, code: str, state: str, user: User) -> dict[s
         details={
             "username": account.username,
             "account_type": account.account_type,
-            "token": tokens.get("kind") if platform == "instagram" else None,
+            "grant_type": tokens.get("kind") if platform == "instagram" else None,
             "expires": account.access_expires_at is not None,
         },
     )  # fmt: skip

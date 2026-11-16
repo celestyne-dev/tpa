@@ -571,7 +571,7 @@ def test_instagram_unified_login_connects_with_a_non_expiring_token(fake, app, a
         entry = db.session.scalar(
             db.select(AuditLog).where(AuditLog.action == "social.account_connected")
         )
-        assert entry.details["token"] == "system_user" and entry.details["expires"] is False
+        assert entry.details["grant_type"] == "system_user" and entry.details["expires"] is False
 
 
 def test_the_override_parameter_is_sent_only_when_configured(fake, app, as_role):

@@ -129,7 +129,7 @@ Login**: Facebook Login for Business with a configuration (`config_id`), the
   `/<id>/media`, `/<id>/content_publishing_limit`, `POST /<id>/media`,
   `GET /<container>?fields=status_code`, `POST /<id>/media_publish`.
 - Codes, the App Secret and tokens are never written to logs, the audit log or API
-  responses. The audit log records only the username, the token type and whether it expires.
+  responses. The audit log records only the username, the kind of grant and whether it expires.
 
 An Instagram account connected with the previous Instagram Login flow (if any) stops
 working after this release and shows "Reconnect needed"; reconnect it once.
