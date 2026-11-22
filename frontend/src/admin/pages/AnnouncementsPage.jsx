@@ -13,6 +13,7 @@ import { DataTable } from "../components/DataTable";
 import { fieldError } from "../components/fieldError";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "../components/Fields";
 import { Modal } from "../components/Modal";
+import { SettingsForm } from "../components/SettingsForm";
 import { useNotify } from "../components/notifyContext";
 import { useAdminQuery } from "../hooks/useAdminQuery";
 
@@ -379,6 +380,16 @@ export function AnnouncementsPage() {
         }}
         onCancel={() => setRemoving(null)}
       />
+      <section aria-labelledby="announcement-label-heading" className="mt-10">
+        <h2 id="announcement-label-heading" className="font-sans text-lg font-semibold">
+          Banner label
+        </h2>
+        <p className="mt-1 mb-4 max-w-2xl text-sm text-muted">
+          An optional short label before the message on the website, such as “What&apos;s new”. It
+          applies to every announcement, so leave it empty if it would not suit them all.
+        </p>
+        <SettingsForm groups={["Announcements"]} />
+      </section>
     </BuilderLookups>
   );
 }

@@ -32,6 +32,7 @@ GROUP_PERMISSIONS = {
     "SEO defaults": P.SEO_MANAGE,
     "Branding": P.BRANDING_MANAGE,
     "Header": P.NAVIGATION_MANAGE,
+    "Announcements": P.ANNOUNCEMENTS_MANAGE,
     "Technical": P.SETTINGS_TECHNICAL,
     "Shop": P.PRODUCTS_EDIT,
 }

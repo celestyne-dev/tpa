@@ -387,6 +387,25 @@ describe("site-wide settings", () => {
       ),
     );
   });
+
+  it("sets the optional banner label on the announcements page only", async () => {
+    const user = userEvent.setup();
+    const { adminApi } = renderApp("/admin/announcements", {
+      adminApi: createFakeAdminApi({ role: "marketing_manager" }),
+    });
+    const section = (await screen.findByRole("heading", { name: "Banner label" })).closest(
+      "section",
+    );
+    const field = await within(section).findByLabelText(/^Announcement label/);
+    expect(field).toHaveValue("");
+    await user.type(field, "What's new");
+    await user.click(within(section).getByRole("button", { name: "Save and publish" }));
+    await waitFor(() =>
+      expect(adminApi.settings.save).toHaveBeenCalledWith({ "announcements.label": "What's new" }, [
+        "Announcements",
+      ]),
+    );
+  });
 });
 
 describe("article sidebar builder", () => {

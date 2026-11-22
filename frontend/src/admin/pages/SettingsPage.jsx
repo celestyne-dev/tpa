@@ -3,8 +3,8 @@ import { AdminPageHeader } from "../components/AdminPageHeader";
 import { SettingsForm } from "../components/SettingsForm";
 import { usePermissions } from "../hooks/usePermissions";
 
-// Groups with their own screens (Branding, Footer, Navigation).
-const DEDICATED = ["Branding", "Footer", "Header", "Privacy choices"];
+// Groups with their own screens (Branding, Footer, Navigation, Announcements).
+const DEDICATED = ["Announcements", "Branding", "Footer", "Header", "Privacy choices"];
 
 export function SettingsPage() {
   const { can } = usePermissions();

@@ -213,6 +213,8 @@ def get_site_settings() -> dict[str, Any]:
         "privacy": _privacy(v),
         "navigation": public_navigation(),
         "announcements": public_announcements(),
+        # Optional label shown before every announcement (Admin › Announcements); "" is none.
+        "announcement_label": v.get("announcements.label") or None,
         # Lets the browser hydrate time-limited content exactly as it was rendered.
         "generated_at": iso(datetime.now(UTC)),
         "cms_overrides": overridden_builtin_paths(),
