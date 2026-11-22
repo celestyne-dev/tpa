@@ -4,7 +4,16 @@ import { ButtonLink } from "@/components/ui/Button";
 import { buttonStyles } from "@/components/ui/buttonStyles";
 import { Container } from "@/components/ui/Container";
 import { cn } from "@/utils/format";
-import { BACKGROUNDS, buttonVariant, DEVICES, HEADING_SIZE, isDark, SPACING } from "./design";
+import {
+  BACKGROUNDS,
+  buttonVariant,
+  compactSpacing,
+  compactWidth,
+  DEVICES,
+  HEADING_SIZE,
+  isDark,
+  SPACING,
+} from "./design";
 import { useSectionContext } from "./sectionContext";
 
 /**
@@ -110,7 +119,8 @@ export function CtaButton({ cta, fallback = "primary", size, arrow = false, clas
 
 /**
  * Section wrapper: approved background, spacing, width and device visibility. Dark
- * backgrounds also get `section-dark`, which keeps shared cards and lists readable.
+ * backgrounds also get `section-dark`, which keeps shared cards and lists readable. On
+ * the homepage (`compact`) the spacing presets are the tighter homepage rhythm.
  */
 export function SectionShell({
   section,
@@ -122,23 +132,27 @@ export function SectionShell({
   label,
   id,
 }) {
+  const { compact } = useSectionContext();
   const design = section.design ?? {};
   const background = design.background ?? "ivory";
+  const spacing = compact ? compactSpacing(design.spacing ?? "md", background) : null;
+  const size = width ?? design.width ?? "default";
   return (
     <section
       id={id}
       aria-labelledby={labelledBy}
       aria-label={labelledBy ? undefined : label}
       data-section={section.type}
+      data-bg={spacing?.["data-bg"]}
       className={cn(
         BACKGROUNDS[background] ?? BACKGROUNDS.ivory,
         isDark(background) && "section-dark",
-        SPACING[design.spacing ?? "md"],
+        spacing ? spacing.className : SPACING[design.spacing ?? "md"],
         DEVICES[section.devices ?? "all"],
         className,
       )}
     >
-      <Container size={width ?? design.width ?? "default"} className={containerClassName}>
+      <Container size={compact ? compactWidth(size) : size} className={containerClassName}>
         {children}
       </Container>
     </section>
@@ -147,7 +161,7 @@ export function SectionShell({
 
 /** Eyebrow + heading + description (+ optional link button) used by most sections. */
 export function SectionHeader({ id, data, action, className }) {
-  const { design, dark } = useSectionContext();
+  const { design, dark, compact } = useSectionContext();
   const centered = design.align === "center";
   if (!data.heading && !data.eyebrow && !data.description) return null;
   return (
@@ -163,7 +177,9 @@ export function SectionHeader({ id, data, action, className }) {
         <Eyebrow>{data.eyebrow}</Eyebrow>
         {data.heading && <Heading id={id}>{data.heading}</Heading>}
         {data.description && (
-          <p className={cn("mt-4 text-lg", dark ? "text-sand" : "text-muted")}>
+          <p
+            className={cn(compact ? "mt-3" : "mt-4", "text-lg", dark ? "text-sand" : "text-muted")}
+          >
             {data.description}
           </p>
         )}

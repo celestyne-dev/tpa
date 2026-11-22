@@ -341,6 +341,16 @@ SETTINGS += [
         "A menu link to the same address is hidden on desktop to avoid repetition.",
     ),
     SettingDef(
+        "announcements.label",
+        "Announcement label",
+        "Announcements",
+        "string",
+        _const(""),
+        24,
+        "Optional short label shown before every announcement, e.g. What's new or Now open. "
+        "Leave empty for no label. Plain text; the message itself is unchanged.",
+    ),
+    SettingDef(
         "footer.show_newsletter_link",
         "Show the newsletter invitation",
         "Footer",

@@ -19,13 +19,15 @@ function useSiteName() {
  * header becomes the page's h1; when there is none, a visually hidden h1 keeps
  * the heading outline valid: the page title, or the site name on the homepage
  * (an editorial homepage opens with its lead story, not a banner). Only the
- * first section may load its image eagerly (the likely LCP element).
+ * first section may load its image eagerly (the likely LCP element). The homepage
+ * (and its admin preview) renders its sections compactly; see `sectionContext`.
  */
 export function SectionList({ page, preview = false }) {
   const sections = page?.sections ?? [];
   const titleIndex = sections.findIndex((s) => TITLE_SECTIONS.has(s.type));
   const siteName = useSiteName();
-  const hiddenTitle = page?.path === "/" ? siteName : page?.title;
+  const home = page?.path === "/";
+  const hiddenTitle = home ? siteName : page?.title;
   return (
     <>
       {titleIndex === -1 && hiddenTitle && <h1 className="sr-only">{hiddenTitle}</h1>}
@@ -36,6 +38,7 @@ export function SectionList({ page, preview = false }) {
           level: index === titleIndex ? 1 : 2,
           first: index === 0,
           preview,
+          compact: home,
         });
         return (
           <SectionContext.Provider key={section.key} value={value}>

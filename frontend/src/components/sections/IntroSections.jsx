@@ -2,7 +2,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { Container } from "@/components/ui/Container";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { cn } from "@/utils/format";
-import { BACKGROUNDS, DEVICES, HEADING_SIZE, SPACING } from "./design";
+import { BACKGROUNDS, compactSpacing, DEVICES, HEADING_SIZE, SPACING } from "./design";
 import { HeroArt } from "./HeroArt";
 import { CtaButton, Eyebrow } from "./primitives";
 import { useSectionContext } from "./sectionContext";
@@ -13,10 +13,18 @@ const HERO_SIZE = {
   large: "text-5xl leading-[1.02] sm:text-7xl lg:text-8xl",
 };
 
+// Homepage hero (mobile / tablet / desktop): Small 32/40/48px, Default 36/48/56px,
+// Large 40/52/64px, so the introduction and buttons sit in the first screen.
+const COMPACT_HERO_SIZE = {
+  small: "text-[2rem] leading-[1.12] sm:text-[2.5rem] lg:text-5xl",
+  default: "text-[2.25rem] leading-[1.1] sm:text-5xl sm:leading-[1.08] lg:text-[3.5rem]",
+  large: "text-[2.5rem] leading-[1.08] sm:text-[3.25rem] lg:text-[4rem] lg:leading-[1.05]",
+};
+
 function HeroText({ data, centered, light }) {
-  const { level } = useSectionContext();
+  const { level, design, compact } = useSectionContext();
   const Tag = level === 1 ? "h1" : "h2";
-  const { design } = useSectionContext();
+  const sizes = compact ? COMPACT_HERO_SIZE : HERO_SIZE;
   return (
     <div className={cn(centered && "mx-auto max-w-3xl text-center")}>
       {data.eyebrow && (
@@ -33,8 +41,9 @@ function HeroText({ data, centered, light }) {
       )}
       <Tag
         className={cn(
-          "mt-6 font-medium",
-          HERO_SIZE[design.heading_size ?? "default"],
+          "font-medium",
+          compact ? "mt-4 text-balance" : "mt-6",
+          sizes[design.heading_size ?? "default"],
           light && "text-ivory",
         )}
       >
@@ -51,7 +60,7 @@ function HeroText({ data, centered, light }) {
       {data.body && (
         <p
           className={cn(
-            "mt-7 text-lg sm:text-xl",
+            compact ? "mt-5 text-lg" : "mt-7 text-lg sm:text-xl",
             centered ? "mx-auto max-w-2xl" : "max-w-xl",
             light ? "text-sage-100" : "text-muted",
           )}
@@ -62,7 +71,8 @@ function HeroText({ data, centered, light }) {
       {(data.primary_cta || data.secondary_cta) && (
         <div
           className={cn(
-            "mt-10 flex flex-col gap-3 sm:flex-row sm:items-center",
+            compact ? "mt-7" : "mt-10",
+            "flex flex-col gap-3 sm:flex-row sm:items-center",
             centered && "justify-center",
           )}
         >
@@ -77,17 +87,25 @@ function HeroText({ data, centered, light }) {
 /** Hero banner: split (text + illustration/image), centred, or full-width image. */
 export function HeroSection({ section }) {
   const { data, variant } = section;
-  const { design, dark, first } = useSectionContext();
+  const { design, dark, first, compact } = useSectionContext();
   const background = design.background ?? "ivory";
   const base = cn(
     "relative overflow-hidden",
     BACKGROUNDS[background],
     DEVICES[section.devices ?? "all"],
   );
+  // Homepage: the section carries the compact padding (the container then has none).
+  const spacing = (fallback) =>
+    compact ? compactSpacing(design.spacing ?? fallback, background) : null;
 
   if (variant === "full_width" && data.media) {
+    const shell = spacing("lg");
     return (
-      <section className={cn(base, "isolate")} data-section="hero">
+      <section
+        className={cn(base, "isolate", shell?.className)}
+        data-section="hero"
+        data-bg={shell?.["data-bg"]}
+      >
         <div className="absolute inset-0 -z-10">
           <ContentImage
             image={data.media}
@@ -99,8 +117,12 @@ export function HeroSection({ section }) {
           <div aria-hidden className="absolute inset-0 bg-charcoal/60" />
         </div>
         <Container
-          size="wide"
-          className={cn("relative", SPACING[design.spacing ?? "lg"], "lg:py-36")}
+          size={compact ? "page" : "wide"}
+          className={cn(
+            "relative",
+            !compact && SPACING[design.spacing ?? "lg"],
+            !compact && "lg:py-36",
+          )}
         >
           <HeroText data={data} centered={design.align === "center"} light />
         </Container>
@@ -109,17 +131,30 @@ export function HeroSection({ section }) {
   }
 
   if (variant === "centered") {
+    const shell = spacing("lg");
     return (
-      <section className={base} data-section="hero">
-        <Container size="wide" className={cn("relative", SPACING[design.spacing ?? "lg"])}>
+      <section
+        className={cn(base, shell?.className)}
+        data-section="hero"
+        data-bg={shell?.["data-bg"]}
+      >
+        <Container
+          size={compact ? "page" : "wide"}
+          className={cn("relative", !compact && SPACING[design.spacing ?? "lg"])}
+        >
           <HeroText data={data} centered light={dark} />
         </Container>
       </section>
     );
   }
 
+  const shell = spacing("md");
   return (
-    <section className={base} data-section="hero">
+    <section
+      className={cn(base, shell?.className)}
+      data-section="hero"
+      data-bg={shell?.["data-bg"]}
+    >
       {!dark && (
         <div
           aria-hidden
@@ -127,18 +162,33 @@ export function HeroSection({ section }) {
         />
       )}
       <Container
-        size="wide"
-        className="relative grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:py-28"
+        size={compact ? "page" : "wide"}
+        className={cn(
+          "relative grid items-center",
+          compact
+            ? "gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12"
+            : "gap-12 py-16 sm:py-20 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:py-28",
+        )}
       >
         <HeroText data={data} centered={false} light={dark} />
-        <div className="mx-auto w-full max-w-md lg:max-w-none">
+        {/* Homepage: the same arch image, sized so it never outgrows the text beside it. */}
+        <div
+          className={cn(
+            "mx-auto w-full",
+            compact ? "max-w-[17.5rem] sm:max-w-xs lg:max-w-[27rem]" : "max-w-md lg:max-w-none",
+          )}
+        >
           {data.media ? (
             <div className="relative aspect-[13/14] overflow-hidden rounded-t-[999px] rounded-b-[2rem] bg-beige">
               <ContentImage
                 image={data.media}
                 fill
                 priority={first}
-                sizes="(min-width: 1024px) 560px, 90vw"
+                sizes={
+                  compact
+                    ? "(min-width: 1024px) 432px, (min-width: 640px) 320px, 280px"
+                    : "(min-width: 1024px) 560px, 90vw"
+                }
                 className="object-cover"
               />
             </div>

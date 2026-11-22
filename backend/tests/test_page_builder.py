@@ -686,6 +686,38 @@ def test_announcements_scheduling_and_targeting(seeded, as_role, client):
     assert client.get("/api/v1/site").get_json()["data"]["announcements"] == []
 
 
+def test_announcement_label_is_optional_and_versions_reappear(seeded, as_role, client):
+    """The optional banner label (Admin › Announcements) and per-version dismissal ids."""
+    site = lambda: client.get("/api/v1/site").get_json()["data"]  # noqa: E731
+    assert site()["announcement_label"] is None  # no label unless an editor sets one
+    api = as_role("marketing_manager")  # announcements.manage, not settings.manage
+    res = api.patch("/api/v1/admin/settings", {"values": {"announcements.label": "What's new"}})
+    assert res.status_code == 200, res.get_json()
+    assert site()["announcement_label"] == "What's new"
+    for bad in ("<b>New</b>", "x" * 25):
+        res = api.patch("/api/v1/admin/settings", {"values": {"announcements.label": bad}})
+        assert res.status_code == 400
+    # The new group opens no other setting to this role.
+    res = api.patch("/api/v1/admin/settings", {"values": {"site.name": "Other"}})
+    assert res.status_code == 403
+    assert as_role("editor").patch(
+        "/api/v1/admin/settings", {"values": {"announcements.label": "Hi"}}
+    ).status_code in (400, 403)
+    assert site()["announcement_label"] == "What's new"
+    # Editing an announcement gives it a new public id, so readers who dismissed the old
+    # version see the new one; the stored message is never prefixed with the label.
+    created = api.post(
+        "/api/v1/admin/announcements",
+        {"name": "Journal", "message": "The journal is here.", "is_enabled": True},
+    ).get_json()["data"]
+    first = site()["announcements"][0]
+    assert first["message"] == "The journal is here."
+    api.patch(f"/api/v1/admin/announcements/{created['id']}", {"message": "Now printable."})
+    second = site()["announcements"][0]
+    assert second["message"] == "Now printable." and second["id"] != first["id"]
+    assert second["id"].startswith(f"{created['id']}-")
+
+
 def test_scheduler_rebuilds_when_visibility_window_passes(seeded, as_role):
     api = as_role("website_manager")
     home = api.get(HOMEPAGE).get_json()["data"]

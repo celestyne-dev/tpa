@@ -142,6 +142,25 @@
 }
 
 @layer components {
+  /*
+   * Homepage sections (compact rhythm; see COMPACT_SPACING in components/sections/design.js).
+   * A section directly after another with the same background starts with half its padding,
+   * so consecutive light sections are one gap apart instead of two.
+   */
+  .home-section {
+    padding-block: var(--section-y);
+  }
+  :is(
+    .home-section[data-bg="ivory"] + .home-section[data-bg="ivory"],
+    .home-section[data-bg="cream"] + .home-section[data-bg="cream"],
+    .home-section[data-bg="beige"] + .home-section[data-bg="beige"],
+    .home-section[data-bg="sage"] + .home-section[data-bg="sage"],
+    .home-section[data-bg="sage_dark"] + .home-section[data-bg="sage_dark"],
+    .home-section[data-bg="charcoal"] + .home-section[data-bg="charcoal"]
+  ) {
+    padding-top: calc(var(--section-y) / 2);
+  }
+
   /* Long-form article typography (avoids a typography plugin dependency). */
   .prose-tpa {
     @apply text-lg leading-[1.8] text-ink;

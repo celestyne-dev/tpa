@@ -619,6 +619,20 @@ export function createFakeAdminApi({ role = "super_admin", article = makeArticle
         ],
       },
       {
+        name: "Announcements",
+        settings: [
+          {
+            key: "announcements.label",
+            label: "Announcement label",
+            type: "string",
+            max_length: 24,
+            help: "Optional short label shown before every announcement.",
+            value: "",
+            is_default: true,
+          },
+        ],
+      },
+      {
         name: "Footer",
         settings: [
           {

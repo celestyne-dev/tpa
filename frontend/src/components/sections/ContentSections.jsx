@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { ArticleBody } from "@/components/articles/ArticleBody";
 import { ContentImage, IMAGE_SIZES } from "@/components/ui/ContentImage";
 import { cn } from "@/utils/format";
-import { ASPECT, cardClass } from "./design";
+import { ASPECT, cardClass, headerGap } from "./design";
 import { CtaButton, Eyebrow, Heading, Paragraphs, SectionHeader, SectionShell } from "./primitives";
 import { SECTION_ICONS as ICONS } from "./icons";
 import { useSectionContext } from "./sectionContext";
@@ -26,7 +26,7 @@ function SmartLink({ href, className, children }) {
 
 export function QuoteSection({ section }) {
   const { data, variant } = section;
-  const { design, dark } = useSectionContext();
+  const { design, dark, compact } = useSectionContext();
   const centered = design.align !== "left";
   const quote = (
     <figure className={cn("mx-auto max-w-3xl", centered && "text-center")}>
@@ -56,7 +56,8 @@ export function QuoteSection({ section }) {
       {variant === "highlighted" ? (
         <div
           className={cn(
-            "rounded-[2rem] border-l-4 border-gold-400 p-8 sm:p-12",
+            "rounded-[2rem] border-l-4 border-gold-400",
+            compact ? "p-6 sm:p-8 lg:p-10" : "p-8 sm:p-12",
             cardClass("soft", dark),
           )}
         >
@@ -97,7 +98,7 @@ export function MessageSection({ section }) {
 
 export function ImageTextSection({ section }) {
   const { data, variant, key } = section;
-  const { design, dark } = useSectionContext();
+  const { design, dark, compact } = useSectionContext();
   const id = `${key}-heading`;
   const imageRight = variant === "image_right";
   return (
@@ -105,7 +106,8 @@ export function ImageTextSection({ section }) {
       {/* Without an image (it is optional) the text spans a comfortable reading width. */}
       <div
         className={cn(
-          "grid items-center gap-10 lg:gap-16",
+          "grid items-center",
+          compact ? "gap-8 lg:gap-12" : "gap-10 lg:gap-16",
           data.media ? "lg:grid-cols-2" : "max-w-3xl",
         )}
       >
@@ -128,7 +130,7 @@ export function ImageTextSection({ section }) {
         <div>
           <Eyebrow>{data.eyebrow}</Eyebrow>
           <Heading id={id}>{data.heading}</Heading>
-          <Paragraphs text={data.body} className="mt-6" />
+          <Paragraphs text={data.body} className={compact ? "mt-4" : "mt-6"} />
           {data.bullets?.length > 0 && (
             <ul className="mt-6 space-y-3">
               {data.bullets.map((b) => (
@@ -173,7 +175,7 @@ export function RichTextSection({ section }) {
 
 export function FeatureListSection({ section }) {
   const { data, variant, key } = section;
-  const { design, dark } = useSectionContext();
+  const { design, dark, compact } = useSectionContext();
   const id = `${key}-heading`;
   const items = (
     <ul
@@ -181,7 +183,7 @@ export function FeatureListSection({ section }) {
         "grid gap-10 sm:grid-cols-2",
         variant === "grid_3" && "lg:grid-cols-3",
         variant === "grid_4" && "lg:grid-cols-4",
-        variant !== "sticky_intro" && "mt-12",
+        variant !== "sticky_intro" && headerGap(compact),
       )}
     >
       {(data.items ?? []).map((item) => {
@@ -307,7 +309,7 @@ export function FaqSection({ section }) {
 
 export function ResourceListSection({ section }) {
   const { data, variant, key } = section;
-  const { design, dark } = useSectionContext();
+  const { design, dark, compact } = useSectionContext();
   const id = `${key}-heading`;
   const items = data.items ?? [];
   return (
@@ -315,7 +317,9 @@ export function ResourceListSection({ section }) {
       <SectionHeader id={id} data={data} />
       <ul
         className={cn(
-          "mt-12 grid gap-8",
+          headerGap(compact),
+          "grid",
+          compact ? "gap-5 lg:gap-6" : "gap-8",
           variant === "list" ? "" : "sm:grid-cols-2 lg:grid-cols-3",
         )}
       >
@@ -407,7 +411,7 @@ export function AuthorIntroSection({ section }) {
 
 export function TestimonialsSection({ section }) {
   const { data, variant, key } = section;
-  const { design, dark } = useSectionContext();
+  const { design, dark, compact } = useSectionContext();
   const id = `${key}-heading`;
   const columns = {
     cards_3: "md:grid-cols-2 lg:grid-cols-3",
@@ -421,7 +425,7 @@ export function TestimonialsSection({ section }) {
         className={cn(
           "grid gap-8",
           columns,
-          (data.heading || data.eyebrow) && "mt-12",
+          (data.heading || data.eyebrow) && headerGap(compact),
           variant === "single" && "mx-auto max-w-3xl",
         )}
       >
@@ -469,7 +473,7 @@ export function TestimonialsSection({ section }) {
 
 export function StatisticsSection({ section }) {
   const { data, variant, key } = section;
-  const { design, dark } = useSectionContext();
+  const { design, dark, compact } = useSectionContext();
   const id = `${key}-heading`;
   const items = data.items ?? [];
   return (
@@ -480,7 +484,7 @@ export function StatisticsSection({ section }) {
           "grid gap-8 sm:grid-cols-2",
           items.length >= 3 && "lg:grid-cols-3",
           items.length === 4 && "lg:grid-cols-4",
-          (data.heading || data.eyebrow) && "mt-12",
+          (data.heading || data.eyebrow) && headerGap(compact),
         )}
       >
         {items.map((item) => (
