@@ -125,14 +125,16 @@ describe("homepage appearance on the website", () => {
       api: createFakeApi({ getPage: vi.fn(async () => ({ data: page })) }),
     });
     const featured = await screen.findByRole("region", { name: "Featured stories" });
-    expect(featured).toHaveClass("bg-sage-800", "section-dark", "py-20");
+    // The homepage uses the compact rhythm: "Large" is 40/48/64px (phone/tablet/desktop).
+    expect(featured).toHaveClass("bg-sage-800", "section-dark", "home-section");
+    expect(featured).toHaveClass("lg:[--section-y:4rem]");
     const header = within(featured).getByRole("heading", { name: "Featured stories" });
     expect(header.closest(".border-b")).toHaveClass("text-center");
     const firstCard = within(featured).getByRole("link", { name: "One" }).closest(".card-outline");
     expect(firstCard).not.toBeNull();
 
     const latest = screen.getByRole("region", { name: "Latest articles" });
-    expect(latest).toHaveClass("bg-beige", "py-12");
+    expect(latest).toHaveClass("bg-beige", "home-section", "lg:[--section-y:3rem]"); // "Small"
     expect(latest).not.toHaveClass("section-dark");
     expect(
       within(latest).getByRole("link", { name: "Three" }).closest(".surface-light"),
