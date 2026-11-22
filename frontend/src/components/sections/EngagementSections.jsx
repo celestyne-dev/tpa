@@ -12,22 +12,32 @@ import { siteConfig } from "@/config/site";
 import { ContentImage } from "@/components/ui/ContentImage";
 import { cn } from "@/utils/format";
 import { EmptyPreviewNote } from "./ArticleSections";
-import { ASPECT, BACKGROUNDS, isDark } from "./design";
+import { ASPECT, BACKGROUNDS, headerGap, isDark } from "./design";
 import { CtaButton, Eyebrow, Heading, Paragraphs, SectionHeader, SectionShell } from "./primitives";
 import { SectionContext, useSectionContext } from "./sectionContext";
 
 /** Mission / brand introduction with an optional verified community figure or image. */
 export function BrandIntroSection({ section }) {
   const { data, variant, key } = section;
-  const { design } = useSectionContext();
+  const { design, compact } = useSectionContext();
   const id = `${key}-heading`;
   const aside =
     variant === "with_stat" && data.stat_value ? (
-      <figure className="relative rounded-[2rem] bg-ivory p-8 shadow-soft sm:p-10">
+      <figure
+        className={cn(
+          "relative rounded-[2rem] bg-ivory shadow-soft",
+          compact ? "p-6 sm:p-8" : "p-8 sm:p-10",
+        )}
+      >
         <span className="grid size-12 place-items-center rounded-xl bg-sage-700 text-ivory">
           <LinkedinMark className="size-5" />
         </span>
-        <p className="mt-6 font-serif text-6xl font-medium text-charcoal sm:text-7xl">
+        <p
+          className={cn(
+            "font-serif font-medium text-charcoal",
+            compact ? "mt-5 text-5xl sm:text-6xl" : "mt-6 text-6xl sm:text-7xl",
+          )}
+        >
           {data.stat_value}
         </p>
         {data.stat_caption && (
@@ -53,13 +63,20 @@ export function BrandIntroSection({ section }) {
   return (
     <SectionShell section={section} labelledBy={id}>
       <div
-        className={cn("grid gap-12", aside && "lg:grid-cols-[1.3fr_1fr] lg:items-center lg:gap-20")}
+        className={cn(
+          "grid",
+          compact ? "gap-8" : "gap-12",
+          aside && "lg:grid-cols-[1.3fr_1fr] lg:items-center",
+          aside && (compact ? "lg:gap-12" : "lg:gap-20"),
+        )}
       >
         <div className={cn(!aside && "max-w-3xl")}>
           <Eyebrow>{data.eyebrow}</Eyebrow>
           <Heading id={id}>{data.heading}</Heading>
-          <Paragraphs text={data.body} className="mt-6" />
-          {data.cta && <CtaButton cta={data.cta} fallback="outline" className="mt-8" />}
+          <Paragraphs text={data.body} className={compact ? "mt-4" : "mt-6"} />
+          {data.cta && (
+            <CtaButton cta={data.cta} fallback="outline" className={compact ? "mt-6" : "mt-8"} />
+          )}
         </div>
         {aside}
       </div>
@@ -233,7 +250,7 @@ export function LeadMagnetSection({ section }) {
  */
 export function ProductsSection({ section }) {
   const { data, key } = section;
-  const { dark, preview } = useSectionContext();
+  const { dark, preview, compact } = useSectionContext();
   const { currency } = useDisplayCurrency();
   const id = `${key}-heading`;
   const products = data.products ?? [];
@@ -253,7 +270,9 @@ export function ProductsSection({ section }) {
       )}
       <ul
         className={cn(
-          "mt-12 grid gap-8 sm:grid-cols-2",
+          headerGap(compact),
+          "grid sm:grid-cols-2",
+          compact ? "gap-5 lg:gap-6" : "gap-8",
           products.length >= 4 ? "lg:grid-cols-4" : "lg:grid-cols-3",
         )}
       >
@@ -275,7 +294,7 @@ export function ProductsSection({ section }) {
 export function PromoBannerSection({ section }) {
   const { data, variant, key } = section;
   const context = useSectionContext();
-  const { design } = context;
+  const { design, compact } = context;
   const id = `${key}-heading`;
   const background = design.background ?? "sage_dark";
   const inner = (
@@ -310,7 +329,11 @@ export function PromoBannerSection({ section }) {
       >
         <SectionContext.Provider value={{ ...context, dark: isDark(background) }}>
           <div
-            className={cn("rounded-[2rem] px-6 py-12 sm:px-12 sm:py-16", BACKGROUNDS[background])}
+            className={cn(
+              "rounded-[2rem]",
+              compact ? "px-6 py-9 sm:px-10 sm:py-12" : "px-6 py-12 sm:px-12 sm:py-16",
+              BACKGROUNDS[background],
+            )}
           >
             {inner}
           </div>
@@ -327,11 +350,13 @@ export function PromoBannerSection({ section }) {
 
 export function CtaSection({ section }) {
   const { data, variant, key } = section;
+  const { compact } = useSectionContext();
   const id = `${key}-heading`;
   const buttons = (
     <div
       className={cn(
-        "mt-10 flex flex-col gap-3 sm:flex-row",
+        compact ? "mt-7" : "mt-10",
+        "flex flex-col gap-3 sm:flex-row",
         variant !== "banner" && "justify-center",
       )}
     >
@@ -354,7 +379,10 @@ export function CtaSection({ section }) {
   }
   return (
     <SectionShell section={section} labelledBy={id} containerClassName="text-center">
-      <div aria-hidden className="mx-auto mb-8 flex items-center justify-center gap-3">
+      <div
+        aria-hidden
+        className={cn("mx-auto flex items-center justify-center gap-3", compact ? "mb-6" : "mb-8")}
+      >
         <span className="h-px w-12 bg-gold-400" />
         <span className="size-2 rounded-full bg-gold-400" />
         <span className="h-px w-12 bg-gold-400" />
@@ -362,7 +390,7 @@ export function CtaSection({ section }) {
       <Heading id={id} defaultSizeClass="text-4xl sm:text-5xl">
         {data.heading}
       </Heading>
-      <Paragraphs text={data.body} className="mx-auto mt-6 max-w-xl" />
+      <Paragraphs text={data.body} className={cn("mx-auto max-w-xl", compact ? "mt-4" : "mt-6")} />
       {buttons}
     </SectionShell>
   );

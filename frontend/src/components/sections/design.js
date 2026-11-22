@@ -1,3 +1,5 @@
+import { cn } from "@/utils/format";
+
 /**
  * Approved CMS design presets -> Tailwind classes. Sections never carry CSS:
  * the backend only accepts these token names (app/cms/design.py), so every
@@ -15,6 +17,26 @@ export const BACKGROUNDS = {
 
 export const SPACING = { sm: "py-12 sm:py-16", md: "py-16 sm:py-24", lg: "py-20 sm:py-28" };
 
+/**
+ * The homepage's tighter rhythm, as a `--section-y` padding (mobile / tablet / desktop):
+ * Small 32/40/48px, Medium 36/44/56px, Large 40/48/64px. A section that follows one with
+ * the same background starts with half its padding (`.home-section` in globals.css), so
+ * two light sections in a row are not separated by a double gap.
+ */
+export const COMPACT_SPACING = {
+  sm: "[--section-y:2rem] sm:[--section-y:2.5rem] lg:[--section-y:3rem]",
+  md: "[--section-y:2.25rem] sm:[--section-y:2.75rem] lg:[--section-y:3.5rem]",
+  lg: "[--section-y:2.5rem] sm:[--section-y:3rem] lg:[--section-y:4rem]",
+};
+
+/** Classes and data attribute that give a homepage section its compact padding. */
+export function compactSpacing(spacing, background) {
+  return {
+    className: cn("home-section", COMPACT_SPACING[spacing] ?? COMPACT_SPACING.md),
+    "data-bg": background ?? "ivory",
+  };
+}
+
 export const ASPECT = {
   landscape: "aspect-[3/2]",
   wide: "aspect-video",
@@ -29,6 +51,15 @@ export const HEADING_SIZE = {
 };
 
 export const DEVICES = { all: "", desktop: "hidden md:block", mobile: "md:hidden" };
+
+/** Space between a section's header and its cards: 48px, or 32px on the homepage. */
+export const headerGap = (compact) => (compact ? "mt-8" : "mt-12");
+
+/**
+ * Homepage content width: default and wide sections share one 1200px column (the hero
+ * too), so every section starts on the same left edge. Narrow stays narrow.
+ */
+export const compactWidth = (width) => (width === "narrow" ? "narrow" : "page");
 
 /**
  * What the website renders when a design key is not stored on a section (older sections

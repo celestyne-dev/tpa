@@ -76,11 +76,11 @@ export function EditorialHeader({ id, data, className }) {
 }
 
 function ArticleList({ articles }) {
-  const { dark } = useSectionContext();
+  const { dark, compact } = useSectionContext();
   return (
     <ul className={cn("divide-y", dark ? "divide-ivory/10" : "divide-charcoal/10")}>
       {articles.map((a) => (
-        <li key={a.slug} className="py-6">
+        <li key={a.slug} className={compact ? "py-4" : "py-6"}>
           <p
             className={cn(
               "text-xs font-semibold tracking-[0.14em] uppercase",
@@ -89,7 +89,12 @@ function ArticleList({ articles }) {
           >
             {a.topic?.name ?? "Articles"}
           </p>
-          <h3 className="mt-2 text-2xl font-medium">
+          <h3
+            className={cn(
+              "mt-2 font-medium",
+              compact ? "text-xl leading-snug lg:text-[1.3125rem]" : "text-2xl",
+            )}
+          >
             <Link
               to={routes.content(a)}
               className={cn(
@@ -100,10 +105,19 @@ function ArticleList({ articles }) {
               {a.title}
             </Link>
           </h3>
-          <p className={cn("mt-2 line-clamp-2", dark ? "text-sand" : "text-muted")}>{a.excerpt}</p>
+          <p
+            className={cn(
+              "mt-2 line-clamp-2",
+              compact && "text-[0.9375rem]",
+              dark ? "text-sand" : "text-muted",
+            )}
+          >
+            {a.excerpt}
+          </p>
           <ArticleMeta
             publishedAt={a.published_at}
             readingTimeMinutes={a.reading_time_minutes}
+            size={compact ? "card" : "sm"}
             className="mt-3"
           />
         </li>
@@ -114,22 +128,37 @@ function ArticleList({ articles }) {
 
 /** One large lead story with smaller stories alongside (stacked below on phones). */
 function LeadWithSide({ articles, tone }) {
-  const { first, dark } = useSectionContext();
+  const { first, dark, compact } = useSectionContext();
   const [lead, ...rest] = articles;
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-12">
-      <ArticleCard article={lead} variant="lead" tone={tone} priority={first} />
+    <div
+      className={cn(
+        "grid lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]",
+        compact ? "gap-6 lg:gap-8" : "gap-8 lg:gap-12",
+      )}
+    >
+      <ArticleCard
+        article={lead}
+        variant="lead"
+        tone={tone}
+        priority={first}
+        density={compact ? "compact" : "regular"}
+      />
       {rest.length > 0 && (
         <ul
           className={cn(
-            "divide-y lg:border-l lg:pl-10",
+            "divide-y lg:border-l",
+            compact ? "lg:pl-8" : "lg:pl-10",
             dark
               ? "divide-ivory/10 lg:border-ivory/10"
               : "divide-charcoal/10 lg:border-charcoal/10",
           )}
         >
           {rest.map((article) => (
-            <li key={article.slug} className="py-5 first:pt-0 last:pb-0">
+            <li
+              key={article.slug}
+              className={cn(compact ? "py-4" : "py-5", "first:pt-0 last:pb-0")}
+            >
               <ArticleCard article={article} variant="compact" />
             </li>
           ))}
@@ -145,22 +174,30 @@ function LeadWithSide({ articles, tone }) {
  * (3:2 and 16:9), so nothing shifts while images load.
  */
 function LeadWithTwo({ articles, tone }) {
-  const { first } = useSectionContext();
+  const { first, compact } = useSectionContext();
+  const density = compact ? "compact" : "regular";
   const [lead, ...rest] = articles;
   const secondary = rest.slice(0, 2);
   return (
     <div
       className={cn(
-        "grid gap-8",
-        secondary.length > 0 && "lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-10",
+        "grid",
+        compact ? "gap-5 lg:gap-6" : "gap-8",
+        secondary.length > 0 &&
+          cn("lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]", !compact && "lg:gap-10"),
       )}
     >
-      <ArticleCard article={lead} variant="lead" tone={tone} priority={first} />
+      <ArticleCard article={lead} variant="lead" tone={tone} priority={first} density={density} />
       {secondary.length > 0 && (
-        <ul className="grid gap-8 sm:grid-cols-2 lg:grid-cols-1 lg:grid-rows-2">
+        <ul
+          className={cn(
+            "grid sm:grid-cols-2 lg:grid-cols-1 lg:grid-rows-2",
+            compact ? "gap-5 lg:gap-6" : "gap-8",
+          )}
+        >
           {secondary.map((article) => (
             <li key={article.slug} className="min-h-0">
-              <ArticleCard article={article} variant="secondary" tone={tone} />
+              <ArticleCard article={article} variant="secondary" tone={tone} density={density} />
             </li>
           ))}
         </ul>
@@ -170,21 +207,30 @@ function LeadWithTwo({ articles, tone }) {
 }
 
 function ArticleCollection({ articles, layout, cardStyle }) {
-  const { first } = useSectionContext();
+  const { first, compact } = useSectionContext();
   const tone = CARD_TONE[cardStyle ?? "soft"];
+  const density = compact ? "compact" : "regular";
+  // Homepage grids: 20px gaps on phones and tablets, 24px on desktops.
+  const gap = compact ? "gap-5 lg:gap-6" : "gap-8";
   if (layout === "list") return <ArticleList articles={articles} />;
   if (layout === "lead_with_side") return <LeadWithSide articles={articles} tone={tone} />;
   if (layout === "lead_with_two") return <LeadWithTwo articles={articles} tone={tone} />;
   if (layout === "lead_and_grid") {
     const [lead, ...rest] = articles;
     return (
-      <div className="space-y-8">
-        <ArticleCard article={lead} variant="feature" tone={tone} priority={first} />
+      <div className={compact ? "space-y-5 lg:space-y-6" : "space-y-8"}>
+        <ArticleCard
+          article={lead}
+          variant="feature"
+          tone={tone}
+          priority={first}
+          density={density}
+        />
         {rest.length > 0 && (
-          <ul className="grid gap-8 sm:grid-cols-2">
+          <ul className={cn("grid sm:grid-cols-2", gap)}>
             {rest.map((article) => (
               <li key={article.slug}>
-                <ArticleCard article={article} tone={tone} />
+                <ArticleCard article={article} tone={tone} density={density} />
               </li>
             ))}
           </ul>
@@ -195,13 +241,16 @@ function ArticleCollection({ articles, layout, cardStyle }) {
   if (layout === "carousel") {
     return (
       <ul
-        className="-mx-5 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8"
+        className={cn(
+          "-mx-5 flex snap-x snap-mandatory overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8",
+          compact ? "gap-5" : "gap-6",
+        )}
         aria-label="Articles (scroll sideways for more)"
         tabIndex={0}
       >
         {articles.map((article) => (
           <li key={article.slug} className="w-[80%] shrink-0 snap-start sm:w-[45%] lg:w-[31%]">
-            <ArticleCard article={article} tone={tone} />
+            <ArticleCard article={article} tone={tone} density={density} />
           </li>
         ))}
       </ul>
@@ -214,10 +263,10 @@ function ArticleCollection({ articles, layout, cardStyle }) {
       grid_4: "sm:grid-cols-2 lg:grid-cols-4",
     }[layout] ?? "sm:grid-cols-2 lg:grid-cols-3";
   return (
-    <ul className={cn("grid gap-8", columns)}>
+    <ul className={cn("grid", gap, columns)}>
       {articles.map((article) => (
         <li key={article.slug}>
-          <ArticleCard article={article} tone={tone} />
+          <ArticleCard article={article} tone={tone} density={density} />
         </li>
       ))}
     </ul>
@@ -231,14 +280,14 @@ function ArticleSectionBase({
   empty = "No published articles to show yet.",
 }) {
   const { data, variant, key } = section;
-  const { preview } = useSectionContext();
+  const { preview, compact } = useSectionContext();
   const articles = items ?? data.articles ?? [];
   if (articles.length === 0 && !preview) return null;
   const id = `${key}-heading`;
   return (
     <SectionShell section={section} labelledBy={data.heading ? id : undefined} label={label}>
       <EditorialHeader id={id} data={data} />
-      <div className="mt-8">
+      <div className={compact ? "mt-6" : "mt-8"}>
         {articles.length === 0 ? (
           <EmptyPreviewNote>{empty}</EmptyPreviewNote>
         ) : (
@@ -271,21 +320,23 @@ export function QuoteCollectionsSection({ section }) {
 
 /** Most-read articles: a numbered list (numbers are decorative; the list is ordered). */
 function NumberedArticles({ articles }) {
-  const { dark } = useSectionContext();
+  const { dark, compact } = useSectionContext();
   return (
-    <ol className="grid gap-x-12 gap-y-2 md:grid-cols-2">
+    <ol className={cn("grid gap-y-2 md:grid-cols-2", compact ? "gap-x-10" : "gap-x-12")}>
       {articles.map((a, i) => (
         <li
           key={a.slug}
           className={cn(
-            "flex gap-5 border-b py-5",
+            "flex gap-5 border-b",
+            compact ? "py-4" : "py-5",
             dark ? "border-ivory/10" : "border-charcoal/10",
           )}
         >
           <span
             aria-hidden
             className={cn(
-              "w-12 shrink-0 font-serif text-4xl leading-none tabular-nums",
+              "w-12 shrink-0 font-serif leading-none tabular-nums",
+              compact ? "text-3xl" : "text-4xl",
               dark ? "text-gold-300" : "text-gold-700",
             )}
           >
@@ -300,7 +351,12 @@ function NumberedArticles({ articles }) {
             >
               {a.topic?.name ?? "Articles"}
             </p>
-            <h3 className="mt-1.5 text-xl leading-snug font-medium text-balance">
+            <h3
+              className={cn(
+                "mt-1.5 leading-snug font-medium text-balance",
+                compact ? "text-lg lg:text-xl" : "text-xl",
+              )}
+            >
               <Link
                 to={routes.content(a)}
                 className={cn(
@@ -352,7 +408,7 @@ export function PopularArticlesSection({ section }) {
 /** The latest articles of several topics, each under its topic's name. */
 export function TopicArticlesSection({ section }) {
   const { data, variant, key, design } = section;
-  const { preview, dark } = useSectionContext();
+  const { preview, dark, compact } = useSectionContext();
   const groups = data.groups ?? [];
   if (groups.length === 0 && !preview) return null;
   const id = `${key}-heading`;
@@ -367,10 +423,11 @@ export function TopicArticlesSection({ section }) {
       ) : (
         <div
           className={cn(
-            "mt-8 grid gap-12",
+            "grid",
+            compact ? "mt-6 gap-8 lg:gap-10" : "mt-8 gap-12",
             variant === "rows"
               ? ""
-              : groups.length > 1 && "md:grid-cols-2 lg:grid-cols-3 lg:gap-10",
+              : groups.length > 1 && cn("md:grid-cols-2 lg:grid-cols-3", !compact && "lg:gap-10"),
           )}
         >
           {groups.map(({ topic, articles }) => (
@@ -392,10 +449,20 @@ export function TopicArticlesSection({ section }) {
                 </Link>
               </div>
               {variant === "rows" ? (
-                <ul className="mt-5 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                <ul
+                  className={cn(
+                    "grid sm:grid-cols-2 lg:grid-cols-3",
+                    compact ? "mt-4 gap-5 lg:gap-6" : "mt-5 gap-8",
+                  )}
+                >
                   {articles.map((article) => (
                     <li key={article.slug}>
-                      <ArticleCard article={article} tone={tone} headingLevel="h4" />
+                      <ArticleCard
+                        article={article}
+                        tone={tone}
+                        headingLevel="h4"
+                        density={compact ? "compact" : "regular"}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -428,28 +495,34 @@ export function TopicArticlesSection({ section }) {
 
 export function TopicsSection({ section }) {
   const { data, variant, key } = section;
-  const { preview } = useSectionContext();
+  const { preview, compact } = useSectionContext();
   const topics = data.topics ?? [];
   if (topics.length === 0 && !preview) return null;
   const id = `${key}-heading`;
+  // Homepage: every layout uses the small cards (icon beside the name, a two-line
+  // description), four across on desktops (three for "3 columns"), two on tablets.
+  const small = compact || variant === "compact_4";
   return (
     <SectionShell section={section} labelledBy={data.heading ? id : undefined} label="Topics">
       <EditorialHeader id={id} data={data} />
-      <div className="mt-8">
+      <div className={compact ? "mt-6" : "mt-8"}>
         {topics.length === 0 ? (
           <EmptyPreviewNote>No topics to show yet.</EmptyPreviewNote>
         ) : (
           <ul
             className={cn(
-              "grid sm:grid-cols-2",
-              variant === "compact_4" ? "gap-4 lg:grid-cols-4" : "gap-6",
-              variant === "cards_4" && "lg:grid-cols-4",
-              variant === "cards_3" && "lg:grid-cols-3",
+              "grid",
+              compact
+                ? "grid-cols-2 gap-3 sm:gap-4 lg:gap-5"
+                : cn("sm:grid-cols-2", small ? "gap-4" : "gap-6"),
+              variant === "cards_3"
+                ? "lg:grid-cols-3"
+                : (small || variant === "cards_4") && "lg:grid-cols-4",
             )}
           >
             {topics.map((topic) => (
               <li key={topic.slug}>
-                <TopicCard topic={topic} compact={variant === "compact_4"} />
+                <TopicCard topic={topic} compact={small} clampDescription={compact} />
               </li>
             ))}
           </ul>

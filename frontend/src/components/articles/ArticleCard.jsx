@@ -109,6 +109,10 @@ function RowArticleCard({ article, headingLevel: Heading = "h3", title, excerpt,
  * - `compact`: a small horizontal story (beside a lead, in topic groups, the sidebar).
  * - `row`: a horizontal story with its excerpt (archives, search, author pages).
  * - `secondary`: a picture story beside a lead (16:9 image, title, date; no excerpt).
+ *
+ * `density="compact"` (the homepage) keeps the picture cards short: 16:10 images, less
+ * padding, titles of at most three lines, excerpts of two and the author, date and reading
+ * time in a small line at the foot, so the cards in a row line up. Heights are never fixed.
  */
 export function ArticleCard({
   article,
@@ -119,6 +123,7 @@ export function ArticleCard({
   showImage = true,
   title,
   excerpt,
+  density = "regular",
 }) {
   if (variant === "row") {
     return (
@@ -137,6 +142,21 @@ export function ArticleCard({
   const feature = variant === "feature";
   const lead = variant === "lead";
   const secondary = variant === "secondary";
+  const plain = !feature && !lead && !secondary;
+  if (density === "compact") {
+    return (
+      <CompactDensityCard
+        article={article}
+        Heading={Heading}
+        priority={priority}
+        tone={tone}
+        feature={feature}
+        lead={lead}
+        secondary={secondary}
+        plain={plain}
+      />
+    );
+  }
   return (
     <Card
       interactive
@@ -223,6 +243,114 @@ export function ArticleCard({
           publishedAt={article.published_at}
           readingTimeMinutes={article.reading_time_minutes}
           className="mt-6"
+        />
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * The homepage's shorter picture cards (see `density` above). On phones, grid cards and the
+ * stories beside a lead turn into rows (a small square picture beside the title), so a
+ * grid of six does not become a long column of large pictures; from tablets up they are
+ * picture cards again.
+ */
+function CompactDensityCard({ article, Heading, priority, tone, feature, lead, secondary, plain }) {
+  const row = plain || secondary;
+  return (
+    <Card
+      interactive
+      tone={tone}
+      className={cn(
+        "group flex h-full overflow-hidden",
+        row ? "flex-row sm:flex-col" : "flex-col",
+        feature && "md:grid md:grid-cols-[1.15fr_1fr]",
+      )}
+    >
+      <div
+        className={cn(
+          "relative shrink-0 overflow-hidden bg-beige",
+          row && "w-24 self-start max-sm:m-3 max-sm:rounded-xl sm:w-full",
+          // Beside a lead story the picture crops are wider (16:9 lead, 2:1 stories), so the
+          // two columns end at about the same height; on tablets the lead is 2:1.
+          feature
+            ? "aspect-[16/10] md:aspect-auto md:min-h-full"
+            : secondary
+              ? "aspect-square sm:aspect-[16/9] lg:aspect-[2/1]"
+              : lead
+                ? "aspect-[16/10] sm:aspect-[2/1] lg:aspect-[16/9]"
+                : "aspect-square sm:aspect-[16/10]",
+        )}
+      >
+        <ContentImage
+          image={article.image}
+          fill
+          priority={priority}
+          sizes={
+            feature
+              ? "(min-width: 768px) 55vw, 100vw"
+              : lead
+                ? "(min-width: 1280px) 720px, (min-width: 1024px) 60vw, 100vw"
+                : secondary
+                  ? "(min-width: 1280px) 440px, (min-width: 1024px) 36vw, (min-width: 640px) 50vw, 96px"
+                  : `(max-width: 639px) 96px, ${IMAGE_SIZES.card}`
+          }
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:group-hover:scale-100"
+        />
+        {article.source === "sample" && (
+          <Badge tone="dark" className={cn("absolute top-3 left-3", row && "max-sm:hidden")}>
+            Sample article
+          </Badge>
+        )}
+      </div>
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          row ? "py-3 pr-4 sm:p-5" : "p-5",
+          lead && "sm:p-6 lg:p-7",
+          feature && "md:justify-center md:p-8",
+        )}
+      >
+        <p className="text-xs font-semibold tracking-[0.14em] text-sage-700 uppercase">
+          {article.topic?.name ?? "Articles"}
+        </p>
+        <SponsoredLabel sponsorship={article.sponsorship} compact className="mt-2" />
+        <Heading
+          className={cn(
+            "mt-2 line-clamp-3 font-medium text-balance",
+            lead && "text-2xl leading-tight sm:text-[1.75rem] lg:text-[2rem]",
+            feature && "text-2xl leading-tight lg:text-3xl",
+            secondary && "text-[1.0625rem] leading-snug sm:text-lg lg:text-xl",
+            plain && "text-[1.0625rem] leading-snug sm:text-xl lg:text-[1.3125rem]",
+          )}
+        >
+          <Link
+            to={routes.content(article)}
+            className={cn("group-hover:text-sage-800", TITLE_LINK)}
+          >
+            {article.title}
+          </Link>
+        </Heading>
+        {article.excerpt && (
+          <p
+            className={cn(
+              "mt-2 text-muted",
+              lead
+                ? "line-clamp-2 text-base sm:line-clamp-3 sm:text-[1.0625rem]"
+                : secondary
+                  ? "hidden text-[0.9375rem] leading-relaxed sm:line-clamp-2 lg:hidden"
+                  : "hidden text-[0.9375rem] leading-relaxed sm:line-clamp-2",
+            )}
+          >
+            {article.excerpt}
+          </p>
+        )}
+        <ArticleMeta
+          author={byline(article)}
+          publishedAt={article.published_at}
+          readingTimeMinutes={article.reading_time_minutes}
+          size="card"
+          className={cn("mt-auto", row ? "pt-2 sm:pt-4" : "pt-4")}
         />
       </div>
     </Card>

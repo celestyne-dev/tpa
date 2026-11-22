@@ -2,7 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 import { Card } from "@/components/ui/Card";
 import { routes } from "@/config/navigation";
-import { shortExcerpt } from "@/utils/format";
+import { cn, shortExcerpt } from "@/utils/format";
 import { TopicIcon } from "./TopicIcon";
 
 const LINK =
@@ -11,12 +11,26 @@ const LINK =
 /**
  * A topic card. `compact`: a small card with the icon beside the name and a short excerpt
  * (the first sentence of the topic's description) for the homepage's "Explore by topic".
+ * `clampDescription` (homepage): that excerpt never takes more than two lines. The stored
+ * description is unchanged; the topic page shows it in full.
  */
-export function TopicCard({ topic, compact = false, showCount = false }) {
+export function TopicCard({ topic, compact = false, showCount = false, clampDescription = false }) {
   if (compact) {
     return (
-      <Card interactive className="group flex h-full items-start gap-4 p-5">
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-sage-100 text-sage-700 transition-colors group-hover:bg-sage-700 group-hover:text-ivory">
+      <Card
+        interactive
+        className={cn(
+          "group flex h-full items-start",
+          // Homepage phones: two columns, the icon above the name and no description.
+          clampDescription ? "flex-col gap-3 p-4 sm:flex-row sm:p-5" : "gap-4 p-5",
+        )}
+      >
+        <span
+          className={cn(
+            "grid shrink-0 place-items-center rounded-xl bg-sage-100 text-sage-700 transition-colors group-hover:bg-sage-700 group-hover:text-ivory",
+            clampDescription ? "size-10" : "size-11",
+          )}
+        >
           <TopicIcon name={topic.icon} className="size-5" />
         </span>
         <div className="min-w-0">
@@ -26,7 +40,12 @@ export function TopicCard({ topic, compact = false, showCount = false }) {
             </Link>
           </h3>
           {topic.description && (
-            <p className="mt-1 text-sm leading-relaxed text-muted">
+            <p
+              className={cn(
+                "mt-1 text-sm leading-relaxed text-muted",
+                clampDescription && "hidden sm:line-clamp-2",
+              )}
+            >
               {shortExcerpt(topic.description, 72)}
             </p>
           )}
