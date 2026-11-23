@@ -33,7 +33,6 @@ GROUP_PERMISSIONS = {
     "Branding": P.BRANDING_MANAGE,
     "Header": P.NAVIGATION_MANAGE,
     "Announcements": P.ANNOUNCEMENTS_MANAGE,
-    "Certificates": P.COURSES_PUBLISH,
     "Technical": P.SETTINGS_TECHNICAL,
     "Shop": P.PRODUCTS_EDIT,
 }

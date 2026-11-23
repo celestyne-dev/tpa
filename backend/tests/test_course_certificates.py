@@ -790,3 +790,14 @@ def _course_id(app):
 def _enrollment_id(app):
     with app.app_context():
         return db.session.scalar(db.select(CourseEnrollment.id))
+
+
+def test_only_settings_managers_set_the_certificate_signatory(seeded, as_role):
+    editor = as_role("editor")  # may publish courses, but not change site settings
+    assert editor.get("/api/v1/admin/settings").status_code == 403
+    res = editor.patch(
+        "/api/v1/admin/settings", {"values": {"certificates.signatory_name": "Someone"}}
+    )
+    assert res.status_code == 403
+    groups = as_role("super_admin").get("/api/v1/admin/settings").get_json()["data"]["groups"]
+    assert "Certificates" in {g["name"] for g in groups}

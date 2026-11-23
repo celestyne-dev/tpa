@@ -496,7 +496,8 @@ permission on the server.
 - Each certificate snapshots the name, exact course title and slug, completion date and
   the approved signatory, so later profile, course or settings edits don't change it.
 - **Approved signatory:** _Settings › Certificates_ (`certificates.signatory_name`,
-  `certificates.signatory_title`; editable with `courses.publish`). Without one, the PDF is
+  `certificates.signatory_title`; editable by staff who manage site settings,
+  `settings.manage`). Without one, the PDF is
   signed by the issuing organisation.
 
 ### The PDF
