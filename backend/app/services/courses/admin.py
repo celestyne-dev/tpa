@@ -135,17 +135,27 @@ def readiness(course: Course) -> dict[str, Any]:
             issues.append(f"Assessment “{assessment.title}” has no questions.")
         elif assessment.kind == "quiz" and not any(q.graded for q in assessment.questions):
             issues.append(f"Quiz “{assessment.title}” has no automatically scored questions.")
-    if (
-        course.certificate_enabled
-        and not any(
-            l.completion_required
-            for l in lessons  # noqa: E741
-        )
-        and not any(
-            a.required_for_completion and a.status == "published" for a in course.assessments
-        )
-    ):
-        warnings.append("Nothing is required for completion, so certificates are issued at once.")
+    if course.certificate_enabled:
+        # Certificates follow the completion rules in services/courses/learning.py: without
+        # a published lesson nothing completes; without a lesson marked required, every
+        # published lesson is required.
+        if lessons and not any(lesson.completion_required for lesson in lessons):
+            warnings.append(
+                "No lesson is marked required, so learners must complete every published "
+                "lesson to receive a certificate."
+            )
+        for assessment in course.assessments:
+            if (
+                assessment.status == "published"
+                and assessment.required_for_completion
+                and not assessment.practice
+                and assessment.kind == "quiz"
+                and not (assessment.passing_score or 0)
+            ):
+                warnings.append(
+                    f"Required quiz “{assessment.title}” has a 0% passing score, so any "
+                    "submitted attempt passes. Set a passing score."
+                )
     return {"issues": issues, "warnings": warnings, "publishable": not issues}
 
 

@@ -88,6 +88,18 @@ def create_app(
         g.request_id = incoming if _REQUEST_ID.fullmatch(incoming) else secrets.token_hex(8)
 
     @app.after_request
+    def deliver_certificate_emails(response):
+        # Certificates issued during this request are emailed only after it committed
+        # successfully; a delivery problem never changes the response or the completion.
+        from .services.courses import certificates
+
+        if response.status_code < 400:
+            certificates.send_queued()
+        else:
+            certificates.discard_queued()
+        return response
+
+    @app.after_request
     def security_headers(response):
         from flask import g
 

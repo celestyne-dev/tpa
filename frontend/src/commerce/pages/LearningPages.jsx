@@ -154,21 +154,155 @@ function AccessProblem({ error, courseSlug }) {
 
 // ---- My learning (account area) ---------------------------------------------------------
 
-function CertificateLinks({ certificate, shopApi }) {
-  if (!certificate) return null;
-  if (certificate.revoked) return <p className="text-sm text-muted">Certificate revoked.</p>;
+// The server decides certificate status (services/courses/learning.py certificate_status);
+// older responses without it are read from the certificate fields.
+export function certificateStatusOf(item) {
+  if (item.certificate_status) return item.certificate_status;
+  if (item.certificate) return item.certificate.revoked ? "revoked" : "issued";
+  return item.certificate_available ? "available" : "in_progress";
+}
+
+// Download only for an issued (valid) certificate: a real link to the owner-only PDF.
+function CertificateLinks({ certificate, shopApi, courseTitle }) {
+  if (!certificate || certificate.revoked) return null;
   return (
-    <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
       <a
         href={shopApi.certificatePdfUrl(certificate.code)}
-        className="inline-flex items-center gap-1 font-medium text-sage-800 underline underline-offset-4"
+        download
+        aria-label={
+          courseTitle
+            ? `Download certificate (PDF) for ${courseTitle}`
+            : "Download certificate (PDF)"
+        }
+        className="inline-flex min-h-11 items-center gap-2 rounded-full bg-sage-800 px-4 py-2 font-medium text-white hover:bg-sage-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-800"
       >
-        <Download aria-hidden className="size-4" /> Download certificate (PDF)
+        <Download aria-hidden className="size-4" /> Download certificate
       </a>
-      <Link to={routes.certificate(certificate.code)} className="underline underline-offset-4">
+      <Link
+        to={routes.certificate(certificate.code)}
+        className="inline-flex min-h-11 items-center underline underline-offset-4"
+      >
         Verification page
       </Link>
-    </p>
+    </div>
+  );
+}
+
+function outstandingText(item) {
+  if (item.type === "lesson") return `Lesson: ${item.title}`;
+  if (item.type === "assignment") {
+    return item.state === "not_started" || item.state === "draft"
+      ? `Assignment: ${item.title}`
+      : `Assignment: ${item.title} (awaiting a passing grade)`;
+  }
+  if (item.passing_score) {
+    const best = item.best_percent == null ? "" : `; your best so far is ${item.best_percent}%`;
+    return `${item.title}: pass with ${item.passing_score}% or more${best}`;
+  }
+  return `${item.title}: submit your answers`;
+}
+
+function OutstandingRequirements({ slug, items, limit = 5, linked = true }) {
+  const headingId = useId();
+  if (!items?.length) return null;
+  const shown = items.slice(0, limit);
+  return (
+    <div className="text-sm">
+      <p id={headingId} className="font-medium">
+        Still to do for your certificate
+      </p>
+      <ul aria-labelledby={headingId} className="mt-1 list-disc space-y-1 pl-5">
+        {shown.map((item) => (
+          <li key={`${item.type}-${item.slug ?? item.id}`}>
+            {linked && item.type === "lesson" ? (
+              <Link to={routes.learn(slug, item.slug)} className="underline underline-offset-4">
+                {outstandingText(item)}
+              </Link>
+            ) : linked && item.type === "assignment" ? (
+              <Link
+                to={routes.learnAssignment(slug, item.id)}
+                className="underline underline-offset-4"
+              >
+                {outstandingText(item)}
+              </Link>
+            ) : (
+              outstandingText(item)
+            )}
+          </li>
+        ))}
+      </ul>
+      {items.length > limit ? (
+        <p className="mt-1 text-muted">and {items.length - limit} more</p>
+      ) : null}
+    </div>
+  );
+}
+
+// My learning card: status, what's left and, once issued, the download.
+function CertificateSummary({ item, shopApi }) {
+  const status = certificateStatusOf(item);
+  const slug = item.course.slug;
+  const open = item.access === "active";
+  if (status === "not_offered") return null;
+  if (status === "issued") {
+    return (
+      <div className="space-y-2">
+        <p className="flex items-center gap-2 text-sm font-medium text-sage-800">
+          <Award aria-hidden className="size-4" /> Certificate issued
+          {item.certificate.issued_at ? ` ${formatDate(item.certificate.issued_at)}` : ""}
+        </p>
+        <CertificateLinks
+          certificate={item.certificate}
+          shopApi={shopApi}
+          courseTitle={item.course.title}
+        />
+      </div>
+    );
+  }
+  if (status === "revoked") {
+    return (
+      <p className="text-sm text-muted">
+        Your certificate for this course was revoked. Contact us if you think this is a mistake.
+      </p>
+    );
+  }
+  if (status === "available") {
+    return open ? (
+      <Link
+        to={routes.learn(slug)}
+        className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-sage-800 underline underline-offset-4"
+      >
+        <Award aria-hidden className="size-4" /> Get your certificate
+      </Link>
+    ) : null;
+  }
+  if (status === "requirements_changed") {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-muted">
+          The course requirements have changed since you finished it. Complete what's new to receive
+          your certificate.
+        </p>
+        <OutstandingRequirements slug={slug} items={item.progress?.outstanding} linked={open} />
+      </div>
+    );
+  }
+  if (item.progress && item.progress.has_requirements === false) {
+    return <p className="text-sm text-muted">This course has no lessons to complete yet.</p>;
+  }
+  return (
+    <div className="space-y-2">
+      <p className="flex items-center gap-2 text-sm text-muted">
+        <Award aria-hidden className="size-4" /> Certificate of completion: not issued yet
+      </p>
+      <OutstandingRequirements
+        slug={slug}
+        items={item.progress?.outstanding}
+        limit={3}
+        linked={open}
+      />
+    </div>
   );
 }
 
@@ -318,7 +452,7 @@ function LearningList() {
                   </Link>
                 </p>
               )}
-              <CertificateLinks certificate={item.certificate} shopApi={shopApi} />
+              <CertificateSummary item={item} shopApi={shopApi} />
             </div>
           </li>
         ))}
@@ -352,8 +486,9 @@ function CertificatePanel({ course, data, onIssued }) {
   const shopApi = useShopApi();
   const [name, setName] = useState("");
   const [state, setState] = useState({ busy: false, error: "" });
-  if (!course.certificate_enabled) return null;
-  if (data.certificate) {
+  const status = certificateStatusOf(data);
+  if (status === "not_offered" || (!course.certificate_enabled && !data.certificate)) return null;
+  if (status === "issued") {
     return (
       <section className="rounded-2xl bg-sage-50 p-6" aria-labelledby="certificate-heading">
         <h2 id="certificate-heading" className="flex items-center gap-2 text-xl font-medium">
@@ -364,17 +499,39 @@ function CertificatePanel({ course, data, onIssued }) {
           Certificate ID {data.certificate.code}.
         </p>
         <div className="mt-3">
-          <CertificateLinks certificate={data.certificate} shopApi={shopApi} />
+          <CertificateLinks
+            certificate={data.certificate}
+            shopApi={shopApi}
+            courseTitle={course.title}
+          />
         </div>
       </section>
     );
   }
-  if (!data.certificate_available) {
+  if (status === "revoked") {
     return (
-      <p className="flex items-center gap-2 text-sm text-muted">
-        <Award aria-hidden className="size-5" /> Complete the required lessons and assessments to
-        receive a certificate of completion.
-      </p>
+      <section className="rounded-2xl bg-cream p-6" aria-labelledby="certificate-heading">
+        <h2 id="certificate-heading" className="flex items-center gap-2 text-xl font-medium">
+          <ShieldAlert aria-hidden className="size-6 text-red-800" /> Certificate revoked
+        </h2>
+        <p className="mt-2 text-sm text-muted">
+          Your certificate for this course was revoked and can't be downloaded. Contact us if you
+          think this is a mistake.
+        </p>
+      </section>
+    );
+  }
+  if (status !== "available") {
+    return (
+      <div className="space-y-3">
+        <p className="flex items-center gap-2 text-sm text-muted">
+          <Award aria-hidden className="size-5" />
+          {status === "requirements_changed"
+            ? "The course requirements have changed since you finished it. Complete what's new to receive your certificate."
+            : "Complete the required lessons and assessments to receive a certificate of completion."}
+        </p>
+        <OutstandingRequirements slug={course.slug} items={data.progress?.outstanding} />
+      </div>
     );
   }
   const request = async (event) => {
@@ -1242,6 +1399,71 @@ function AssessmentPage() {
 
 // ---- certificate verification (public) --------------------------------------------------
 
+function CertificateResult({ data }) {
+  if (data.status === "unavailable") {
+    return (
+      <div className="rounded-2xl bg-cream p-6">
+        <p className="flex items-center gap-2 text-lg font-medium">
+          <ShieldAlert aria-hidden className="size-6 text-muted" /> This certificate is no longer
+          available
+        </p>
+        <p className="mt-2 text-muted">
+          The certificate was issued by {data.issuer}, but its details are no longer shown.
+        </p>
+      </div>
+    );
+  }
+  const valid = data.status === "valid";
+  const signer = [data.signatory_name, data.signatory_title].filter(Boolean).join(", ");
+  return (
+    <div className={`rounded-2xl p-6 ${valid ? "bg-sage-50" : "bg-red-50"}`}>
+      <p className="flex items-center gap-2 text-lg font-medium">
+        {valid ? (
+          <>
+            <BadgeCheck aria-hidden className="size-6 text-sage-700" /> Valid certificate
+          </>
+        ) : (
+          <>
+            <ShieldAlert aria-hidden className="size-6 text-red-800" /> This certificate has been
+            revoked
+          </>
+        )}
+      </p>
+      {!valid && data.replaced ? (
+        <p className="mt-2 text-sm">
+          A newer certificate was issued in its place. Ask the holder for its certificate ID.
+        </p>
+      ) : null}
+      <dl className="mt-4 grid gap-2 sm:grid-cols-[10rem_1fr]">
+        <dt className="text-muted">Awarded to</dt>
+        <dd className="font-medium break-words">{data.recipient_name}</dd>
+        <dt className="text-muted">Course</dt>
+        <dd className="font-medium">{data.course_title}</dd>
+        {data.completed_at ? (
+          <>
+            <dt className="text-muted">Completed</dt>
+            <dd>{formatDate(data.completed_at)}</dd>
+          </>
+        ) : null}
+        <dt className="text-muted">Issued</dt>
+        <dd>{formatDate(data.issued_at)}</dd>
+        {!valid && data.revoked_at ? (
+          <>
+            <dt className="text-muted">Revoked</dt>
+            <dd>{formatDate(data.revoked_at)}</dd>
+          </>
+        ) : null}
+        <dt className="text-muted">Issued by</dt>
+        <dd>
+          {data.issuer}
+          {signer ? ` (signed by ${signer})` : ""}
+        </dd>
+      </dl>
+      <p className="mt-4 text-sm text-muted">{data.statement}</p>
+    </div>
+  );
+}
+
 export function CertificatePage() {
   const { code } = useParams();
   const shopApi = useShopApi();
@@ -1260,33 +1482,7 @@ export function CertificatePage() {
               No certificate matches this ID. Check that it was typed exactly as printed.
             </p>
           ) : (
-            <div
-              className={`rounded-2xl p-6 ${state.data.status === "valid" ? "bg-sage-50" : "bg-red-50"}`}
-            >
-              <p className="flex items-center gap-2 text-lg font-medium">
-                {state.data.status === "valid" ? (
-                  <>
-                    <BadgeCheck aria-hidden className="size-6 text-sage-700" /> Valid certificate
-                  </>
-                ) : (
-                  <>
-                    <ShieldAlert aria-hidden className="size-6 text-red-800" /> This certificate has
-                    been revoked
-                  </>
-                )}
-              </p>
-              <dl className="mt-4 grid gap-2 sm:grid-cols-[10rem_1fr]">
-                <dt className="text-muted">Awarded to</dt>
-                <dd className="font-medium">{state.data.recipient_name}</dd>
-                <dt className="text-muted">Course</dt>
-                <dd className="font-medium">{state.data.course_title}</dd>
-                <dt className="text-muted">Issued</dt>
-                <dd>{formatDate(state.data.issued_at)}</dd>
-                <dt className="text-muted">Issued by</dt>
-                <dd>{state.data.issuer}</dd>
-              </dl>
-              <p className="mt-4 text-sm text-muted">{state.data.statement}</p>
-            </div>
+            <CertificateResult data={state.data} />
           )}
         </div>
       </Container>

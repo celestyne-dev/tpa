@@ -206,10 +206,29 @@ def render(template: str, context: dict[str, Any]) -> tuple[str, str]:
             + ("\n\nAccess to the refunded downloads has ended." if context.get("revoked") else "")
             + _signature(),
         )
+    if template in ("certificate_issued", "certificate_reissued"):
+        course = context["course_title"]
+        opening = (
+            f"we have issued a new certificate of completion for {course}. It replaces your "
+            "earlier certificate, which is no longer valid."
+            if template == "certificate_reissued"
+            else f"congratulations on completing {course}. Your certificate of completion is ready."
+        )
+        return (
+            f"Your certificate of completion: {course}",
+            f"Hello {name},\n\n{opening}\n\nDownload your certificate (PDF) from your "
+            f"course page after signing in:\n{context['link']}\n\nAnyone can confirm it is "
+            f"genuine at this address, which is also printed on the certificate:\n"
+            f"{context['verify_url']}\n\nCertificate ID: {context['code']}\n\nThis is a "
+            "platform-issued certificate of completion, not an accredited qualification."
+            + _signature(),
+        )
     raise KeyError(template)
 
 
 TEMPLATES = (
+    "certificate_issued",
+    "certificate_reissued",
     "verify_email",
     "password_reset",
     "order_confirmation",

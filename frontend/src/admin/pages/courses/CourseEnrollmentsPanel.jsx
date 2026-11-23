@@ -21,6 +21,68 @@ const ACCESS_LABEL = {
   ended: "Purchase refunded/revoked",
 };
 
+const COMPLETION_LABEL = {
+  issued: "Certificate issued",
+  revoked: "Certificate revoked",
+  available: "Completed; the learner can request the certificate (no name on their profile)",
+  requirements_changed:
+    "Completed before the current rules and doesn't meet today's requirements; no certificate until they do",
+  in_progress: "Not completed: no certificate yet",
+  not_offered: "This course doesn't issue certificates",
+};
+
+const EMAIL_LABEL = {
+  pending: "Email queued",
+  sending: "Email sending",
+  sent: "Email sent",
+  failed: "Email failed",
+  not_configured: "Email not configured",
+};
+
+function CertificateHistory({ items }) {
+  if (!items || items.length < 2) return null;
+  return (
+    <div className="overflow-x-auto rounded-xl border border-charcoal/10 bg-white">
+      <table className="w-full">
+        <caption className="p-2 text-left font-medium">Certificate history</caption>
+        <thead className="text-left text-muted">
+          <tr>
+            <th className="px-3 py-1.5">Certificate</th>
+            <th className="px-3 py-1.5">Name</th>
+            <th className="px-3 py-1.5">Issued</th>
+            <th className="px-3 py-1.5">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((c) => (
+            <tr key={c.code} className="border-t border-charcoal/5 align-top">
+              <td className="px-3 py-1.5 font-mono text-xs">
+                {c.code}
+                {c.replaces_code ? (
+                  <span className="block font-sans text-muted">
+                    Replaces {c.replaces_code}: {c.reissue_reason}
+                  </span>
+                ) : null}
+              </td>
+              <td className="px-3 py-1.5">{c.recipient_name}</td>
+              <td className="px-3 py-1.5">{formatDateTime(c.issued_at)}</td>
+              <td className="px-3 py-1.5">
+                <StatusBadge
+                  status={c.status === "valid" ? "active" : "disabled"}
+                  label={c.status}
+                />
+                {c.revoked_reason ? (
+                  <span className="block text-muted">{c.revoked_reason}</span>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ReasonForm({ label, onSubmit, children }) {
   const [reason, setReason] = useState("");
   const [extra, setExtra] = useState("");
@@ -74,9 +136,19 @@ function EnrollmentDetail({ course, enrollmentId, onClose, onChanged }) {
   };
   const certificate = async (action, body) => {
     await api.courses.certificateAction(data.certificate.code, action, body);
-    notify("Certificate updated.");
+    notify(
+      action === "reissue"
+        ? "New certificate issued."
+        : action === "resend-email"
+          ? "Certificate email queued."
+          : "Certificate updated.",
+    );
     reload();
+    onChanged();
   };
+  const current = data?.certificate;
+  const replaced = Boolean(current?.replaced_by_code);
+  const completionStatus = data?.completion?.certificate_status;
   return (
     <Modal open onClose={onClose} title={data ? data.learner.email : "Learner"} size="lg">
       {!data ? (
@@ -133,42 +205,107 @@ function EnrollmentDetail({ course, enrollmentId, onClose, onChanged }) {
           <p className="text-xs text-muted">
             Learners' private exercise notes and written reflection answers are not shown here.
           </p>
-          {data.certificate && (
+          {completionStatus && !current ? (
+            <p className="rounded-xl bg-cream p-3">
+              {COMPLETION_LABEL[completionStatus] ?? completionStatus}
+            </p>
+          ) : null}
+          {current && (
             <div className="space-y-3 rounded-xl bg-sage-50 p-4">
               <p>
-                Certificate {data.certificate.code} · issued to {data.certificate.recipient_name} ·{" "}
-                <StatusBadge status={data.certificate.status} />
+                Certificate <span className="font-mono">{current.code}</span> · issued to{" "}
+                {current.recipient_name} · {formatDateTime(current.issued_at)} ·{" "}
+                <StatusBadge
+                  status={current.status === "valid" ? "active" : "disabled"}
+                  label={current.status}
+                />
               </p>
-              {canManage && (
-                <>
-                  <ReasonForm
-                    label="Correct name"
-                    onSubmit={(note, name) =>
-                      certificate("correct", { recipient_name: name, note })
-                    }
+              {current.revoked_reason ? (
+                <p className="text-muted">Revoked: {current.revoked_reason}</p>
+              ) : null}
+              {current.email_status ? (
+                <p className="text-muted">
+                  {EMAIL_LABEL[current.email_status] ?? current.email_status}
+                  {current.emailed_at ? ` ${formatDateTime(current.emailed_at)}` : ""}
+                  {current.email_attempts > 1 ? ` · ${current.email_attempts} attempts` : ""}
+                </p>
+              ) : null}
+              {current.verify_url ? (
+                <p>
+                  <a
+                    href={current.verify_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-4"
                   >
-                    {(name, setName, error) => (
-                      <TextField
+                    Verification page
+                  </a>
+                </p>
+              ) : null}
+              {canManage && current.status !== "unavailable" && (
+                <>
+                  {current.status === "valid" ? (
+                    <>
+                      <ReasonForm
                         label="Correct name"
-                        value={name}
-                        error={fieldError(error, "name")}
-                        onChange={(e) => setName(e.target.value)}
+                        onSubmit={(note, name) =>
+                          certificate("correct", { recipient_name: name, note })
+                        }
+                      >
+                        {(name, setName, error) => (
+                          <TextField
+                            label="Correct name"
+                            value={name}
+                            error={fieldError(error, "name")}
+                            onChange={(e) => setName(e.target.value)}
+                          />
+                        )}
+                      </ReasonForm>
+                      <ReasonForm
+                        label="Revoke certificate"
+                        onSubmit={(reason) => certificate("revoke", { reason })}
                       />
-                    )}
-                  </ReasonForm>
-                  {data.certificate.status === "valid" ? (
-                    <ReasonForm
-                      label="Revoke certificate"
-                      onSubmit={(reason) => certificate("revoke", { reason })}
-                    />
-                  ) : (
+                      {current.email_status !== "sending" ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => certificate("resend-email", {})}
+                        >
+                          Send certificate email again
+                        </Button>
+                      ) : null}
+                    </>
+                  ) : !replaced ? (
                     <ReasonForm
                       label="Reinstate certificate"
                       onSubmit={(reason) => certificate("reinstate", { reason })}
                     />
-                  )}
+                  ) : null}
+                  {!replaced ? (
+                    <ReasonForm
+                      label="Reissue certificate"
+                      onSubmit={(reason, name) =>
+                        certificate("reissue", { reason, recipient_name: name })
+                      }
+                    >
+                      {(name, setName, error) => (
+                        <TextField
+                          label="Name on the new certificate (optional)"
+                          value={name}
+                          error={fieldError(error, "name")}
+                          onChange={(e) => setName(e.target.value)}
+                        />
+                      )}
+                    </ReasonForm>
+                  ) : null}
+                  <p className="text-xs text-muted">
+                    Reissuing revokes this certificate and issues a new one with a new ID; the old
+                    verification page then says it was replaced.
+                  </p>
                 </>
               )}
+              <CertificateHistory items={data.certificates} />
             </div>
           )}
           {canManage &&
@@ -299,6 +436,21 @@ export function CourseEnrollmentsPanel({ course }) {
                 key: "progress",
                 header: "Progress",
                 render: (r) => `${r.progress_percent}%${r.completed_at ? " · completed" : ""}`,
+              },
+              {
+                key: "certificate",
+                header: "Certificate",
+                render: (r) =>
+                  r.certificate ? (
+                    <StatusBadge
+                      status={r.certificate.status === "valid" ? "active" : "disabled"}
+                      label={r.certificate.status}
+                    />
+                  ) : r.completed_at ? (
+                    "Not issued"
+                  ) : (
+                    "—"
+                  ),
               },
               {
                 key: "activity",

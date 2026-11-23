@@ -341,6 +341,26 @@ SETTINGS += [
         "A menu link to the same address is hidden on desktop to avoid repetition.",
     ),
     SettingDef(
+        "certificates.signatory_name",
+        "Signatory name",
+        "Certificates",
+        "string",
+        _const(""),
+        120,
+        "The approved person who signs certificates of completion, as printed (e.g. the "
+        "founder). Leave empty to sign as Think Positive Always. Applies to certificates "
+        "issued from now on; issued certificates keep the name they were issued with.",
+    ),
+    SettingDef(
+        "certificates.signatory_title",
+        "Signatory title",
+        "Certificates",
+        "string",
+        _const(""),
+        120,
+        "Printed under the signatory's name, e.g. Founder, Think Positive Always.",
+    ),
+    SettingDef(
         "announcements.label",
         "Announcement label",
         "Announcements",

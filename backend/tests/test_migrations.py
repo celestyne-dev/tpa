@@ -1405,7 +1405,11 @@ def test_batch092_question_banks_preserve_attempts_and_downgrade_protects_data(t
         from app.models import CourseEnrollment
         from app.services.courses import learning
 
-        state = learning.progress(db.session.get(CourseEnrollment, 1))
+        # completion_snapshot is added by a later revision (c3e9a5f17b42).
+        enrollment = db.session.get(
+            CourseEnrollment, 1, options=[defer(CourseEnrollment.completion_snapshot)]
+        )
+        state = learning.progress(enrollment)
         assert state["required_assessments"] == 1 and state["completed_assessments"] == 1
         db.session.rollback()
 
@@ -1854,3 +1858,87 @@ def test_social_publishing_upgrade_adds_tables_and_permissions(tmp_path):
             text("SELECT COUNT(*) FROM permissions WHERE key LIKE 'social.%'")
         ).scalar_one()
         assert left == 0
+
+
+def test_certificate_completion_awards_upgrade_keeps_certificates_as_they_are(tmp_path):
+    """c3e9a5f17b42 is additive: existing completions and certificates are kept unchanged
+    and never emailed retroactively; one *valid* certificate per enrolment is enforced by
+    a partial unique index, so a revoked certificate and its replacement can coexist."""
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+
+    app = _app(tmp_path, "certificates.db")
+    with app.app_context():
+        upgrade(directory=MIGRATIONS, revision="f2b6d8e0a314")
+        now = "2026-11-01 09:00:00"
+        for sql in (
+            "INSERT INTO customers (id, public_id, email, display_name, password_hash, status, "
+            "is_test_account, support_notes, created_at, updated_at) VALUES "
+            "(1, 'c1', 'reader@example.com', 'Reader', 'x', 'active', 0, '', :n, :n)",
+            "INSERT INTO courses (id, public_id, slug, title, subtitle, summary, description, "
+            "outcomes, prerequisites, audience, level, access_type, availability, "
+            "enrollment_open, certificate_enabled, is_featured, featured_order, noindex, "
+            "status, lock_version, created_at, updated_at) VALUES (1, 'k1', 'kept', 'Kept', "
+            "'', '', '[]', '[]', '[]', '[]', 'all_levels', 'free', 'available', 1, 1, 0, 0, 0, "
+            "'published', 1, :n, :n)",
+            "INSERT INTO course_enrollments (id, customer_id, course_id, source, status, "
+            "enrolled_at, progress_percent, completed_at, revoked_reason) VALUES "
+            "(1, 1, 1, 'free', 'active', :n, 100, :n, '')",
+            "INSERT INTO course_certificates (id, code, enrollment_id, customer_id, course_id, "
+            "recipient_name, course_title, issued_at, revoked_reason, correction_note) VALUES "
+            "(1, 'TPA-AAAA-BBBB-CCCC', 1, 1, 1, 'Reader', 'Kept', :n, '', '')",
+        ):
+            db.session.execute(text(sql), {"n": now})
+        db.session.commit()
+        db.session.remove()
+
+        upgrade(directory=MIGRATIONS, revision="c3e9a5f17b42")
+        row = db.session.execute(
+            text(
+                "SELECT code, recipient_name, course_title, revoked_at, email_status, "
+                "email_attempts, signatory_name, replaces_id, completed_at, course_slug "
+                "FROM course_certificates WHERE id = 1"
+            )
+        ).one()
+        assert tuple(row) == (
+            "TPA-AAAA-BBBB-CCCC",
+            "Reader",
+            "Kept",
+            None,
+            None,
+            0,
+            "",
+            None,
+            None,
+            None,
+        )
+        snapshot, completed = db.session.execute(
+            text("SELECT completion_snapshot, completed_at FROM course_enrollments WHERE id = 1")
+        ).one()
+        assert snapshot is None and completed is not None
+        insert = (
+            "INSERT INTO course_certificates (code, enrollment_id, customer_id, course_id, "
+            "recipient_name, course_title, issued_at, revoked_at, revoked_reason, "
+            "correction_note) VALUES (:code, 1, 1, 1, 'Reader', 'Kept', :n, :revoked, '', '')"
+        )
+        with pytest.raises(IntegrityError):  # a second valid certificate
+            db.session.execute(
+                text(insert), {"code": "TPA-DDDD-EEEE-FFFF", "n": now, "revoked": None}
+            )
+        db.session.rollback()
+        db.session.execute(text(insert), {"code": "TPA-GGGG-HHHH-JJJJ", "n": now, "revoked": now})
+        db.session.commit()
+        db.session.execute(text("DELETE FROM course_certificates WHERE id <> 1"))
+        db.session.commit()
+        db.session.remove()
+
+        upgrade(directory=MIGRATIONS)
+        assert set(sync_rbac().values()) == {0}
+        db.session.rollback()
+        db.session.remove()
+        downgrade(directory=MIGRATIONS, revision="f2b6d8e0a314")
+        assert db.session.execute(text("SELECT code FROM course_certificates")).scalars().all() == [
+            "TPA-AAAA-BBBB-CCCC"
+        ]
+        columns = {c["name"] for c in inspect(db.engine).get_columns("course_certificates")}
+        assert "email_status" not in columns and "replaces_id" not in columns

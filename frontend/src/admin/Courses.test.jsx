@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createFakeAdminApi } from "@/test/adminFake";
 import { preloadAdminApp, renderApp } from "@/test/utils";
 
@@ -205,5 +205,100 @@ describe("courses module", () => {
     const dialog = await screen.findByRole("dialog", { name: /Revisions/ });
     await within(dialog).findByText(/^Original/);
     expect(within(dialog).queryByRole("button", { name: /Restore/ })).not.toBeInTheDocument();
+  });
+
+  it("reviews, reissues and re-sends a learner's certificate", async () => {
+    const user = userEvent.setup();
+    const adminApi = createFakeAdminApi();
+    const certificate = {
+      code: "TPA-AAAA-BBBB-CCCC",
+      status: "valid",
+      recipient_name: "Ada Reader",
+      issued_at: "2026-10-27T10:00:00.000Z",
+      revoked_reason: "",
+      replaces_code: null,
+      replaced_by_code: null,
+      reissue_reason: "",
+      email_status: "failed",
+      email_attempts: 2,
+      emailed_at: null,
+      verify_url: "https://example.com/certificates/TPA-AAAA-BBBB-CCCC",
+    };
+    const row = {
+      id: 5,
+      learner: { id: "c1", email: "ada@example.com", name: "Ada Reader" },
+      source: "free",
+      status: "active",
+      access: "active",
+      enrolled_at: "2026-10-20T10:00:00.000Z",
+      last_activity_at: "2026-10-27T10:00:00.000Z",
+      progress_percent: 100,
+      completed_at: "2026-10-27T10:00:00.000Z",
+      revoked_reason: "",
+      certificate,
+    };
+    adminApi.courses.enrollments = vi.fn(() =>
+      Promise.resolve({ data: [row], meta: { page: 1, page_size: 25, total: 1 } }),
+    );
+    adminApi.courses.enrollment = vi.fn(() =>
+      Promise.resolve({
+        data: {
+          ...row,
+          progress: {
+            percent: 100,
+            completed_lessons: 2,
+            required_lessons: 2,
+            completed_assessments: 0,
+            required_assessments: 0,
+          },
+          lessons: [],
+          assessments: [],
+          completion: { recorded: "at_completion", certificate_status: "issued" },
+          certificates: [
+            {
+              ...certificate,
+              code: "TPA-OLD0-OLD0-OLD0",
+              status: "revoked",
+              revoked_reason: "Typo",
+            },
+            { ...certificate, replaces_code: "TPA-OLD0-OLD0-OLD0", reissue_reason: "Typo" },
+          ],
+        },
+      }),
+    );
+    renderApp("/admin/courses/3/enrollments", { adminApi });
+    const table = await screen.findByRole("table", { name: "Learners" });
+    expect(within(table).getByText("valid")).toBeInTheDocument();
+    await user.click(within(table).getByRole("button", { name: /Ada Reader/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Email failed · 2 attempts/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("table", { name: "Certificate history" })).toBeInTheDocument();
+    expect(within(dialog).getByText(/Replaces TPA-OLD0-OLD0-OLD0: Typo/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Send certificate email again" }));
+    await waitFor(() =>
+      expect(adminApi.courses.certificateAction).toHaveBeenCalledWith(
+        "TPA-AAAA-BBBB-CCCC",
+        "resend-email",
+        {},
+      ),
+    );
+
+    const reissue = within(dialog)
+      .getByRole("button", { name: "Reissue certificate" })
+      .closest("form");
+    await user.type(
+      within(reissue).getByLabelText("Name on the new certificate (optional)"),
+      "Ada R. Reader",
+    );
+    await user.type(within(reissue).getByLabelText("Note (why)"), "Name spelled wrongly");
+    await user.click(within(reissue).getByRole("button", { name: "Reissue certificate" }));
+    await waitFor(() =>
+      expect(adminApi.courses.certificateAction).toHaveBeenCalledWith(
+        "TPA-AAAA-BBBB-CCCC",
+        "reissue",
+        { reason: "Name spelled wrongly", recipient_name: "Ada R. Reader" },
+      ),
+    );
   });
 });
