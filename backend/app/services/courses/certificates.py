@@ -252,7 +252,13 @@ def issue(enrollment: CourseEnrollment, name: str | None = None) -> CourseCertif
     existing = active_for(enrollment.id)
     if existing is not None:
         return existing
-    if history(enrollment.id):
+    # Decide from one read of the history: a certificate issued by a concurrent request
+    # since the check above is valid (returned), not revoked.
+    rows = history(enrollment.id)
+    concurrent = next((c for c in rows if c.revoked_at is None), None)
+    if concurrent is not None:
+        return concurrent
+    if rows:
         raise ConflictError(
             "The certificate for this course was revoked. Contact us if you think this is a "
             "mistake."
