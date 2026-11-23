@@ -292,7 +292,14 @@ export function createCourseShopApi({
     completed_lessons: state.completed ? 1 : 0,
     required_assessments: 0,
     completed_assessments: 0,
+    has_requirements: true,
     complete: false,
+    outstanding: [
+      ...(state.completed
+        ? []
+        : [{ type: "lesson", slug: "notice-the-pause", title: "Notice the pause" }]),
+      { type: "lesson", slug: "breathe", title: "Breathe" },
+    ],
   });
   const lesson = () => ({
     course: { slug: "calm-foundations", title: "Calm Foundations" },
@@ -405,6 +412,7 @@ export function createCourseShopApi({
                   resume: { slug: "notice-the-pause", title: "Notice the pause" },
                   certificate: null,
                   certificate_available: false,
+                  certificate_status: "in_progress",
                 },
               ]
             : [],
@@ -450,6 +458,7 @@ export function createCourseShopApi({
           resume: { slug: "notice-the-pause", title: "Notice the pause" },
           certificate: null,
           certificate_available: false,
+          certificate_status: "in_progress",
           modules: [
             {
               id: 1,

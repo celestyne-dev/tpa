@@ -30,6 +30,14 @@ from .test_courses_admin import (
 LEARN = "/api/v1/account/learning"
 
 
+def _pdf_text(data: bytes) -> str:
+    import io
+
+    from pypdf import PdfReader
+
+    return " ".join(PdfReader(io.BytesIO(data)).pages[0].extract_text().split())
+
+
 def _verified(app, email="reader@example.com"):
     return register_customer(app, email, verify=True)
 
@@ -134,8 +142,10 @@ def test_free_enrolment_progress_completion_and_certificate(seeded, as_role, cli
     assert data["status"] == "valid" and "not an accredited qualification" in data["statement"]
     assert client.get("/api/v1/certificates/TPA-AAAA-BBBB-CCCC").status_code == 404
     pdf = learner.get(f"/api/v1/account/certificates/{code}/pdf")
-    assert pdf.status_code == 200 and pdf.data.startswith(b"%PDF-1.4") and b"Reader" in pdf.data
-    assert b"accredited" in pdf.data
+    assert pdf.status_code == 200 and pdf.data.startswith(b"%PDF-1.4")
+    text = _pdf_text(pdf.data)
+    assert "Reader" in text and "Calm Basics" in text and code in text
+    assert "accredited" in text
     assert (
         _verified(seeded, "other@example.com")
         .get(f"/api/v1/account/certificates/{code}/pdf")
@@ -706,7 +716,8 @@ def test_export_and_account_deletion_cover_learning_records(seeded, as_role, cli
     code = exported["learning"][0]["certificate"]["code"]
     assert learner.post("/api/v1/account/delete", {"password": PASSWORD}).status_code == 200
     check = client.get(f"/api/v1/certificates/{code}").get_json()["data"]
-    assert check["status"] == "revoked" and check["recipient_name"] == "Deleted account"
+    # The name is gone and the page says "unavailable" (not "revoked").
+    assert check["status"] == "unavailable" and check["recipient_name"] is None
     with seeded.app_context():
         enrollment = db.session.scalar(db.select(CourseEnrollment))
         assert enrollment.status == "revoked"

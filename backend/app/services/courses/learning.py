@@ -28,7 +28,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 
 from ...extensions import db
@@ -378,6 +378,8 @@ def requirements(course: Course) -> tuple[list[CourseLesson], list[Assessment]]:
 
 
 def _assessment_done(assessment: Assessment, attempts: list[AssessmentAttempt]) -> bool:
+    if assessment_service.passing_score_problem(assessment):
+        return False
     state = assessment_service.assessment_state(assessment, attempts)
     return state in ("passed", "submitted")
 
@@ -398,22 +400,52 @@ def required_assignments(course: Course) -> list:
     )
 
 
-def _assignments_done(enrollment: CourseEnrollment, assignments: list) -> int:
-    """Required assignments with a released, passing grade (submission ``completed``)."""
+def _assignment_statuses(enrollment: CourseEnrollment, assignments: list) -> dict[int, str]:
+    """Submission status per required assignment (``completed``: released, passing grade)."""
     if not assignments:
-        return 0
+        return {}
     from ...models import AssignmentSubmission
 
-    return int(
-        db.session.scalar(
-            select(func.count(AssignmentSubmission.id)).where(
+    return dict(
+        db.session.execute(
+            select(AssignmentSubmission.assignment_id, AssignmentSubmission.status).where(
                 AssignmentSubmission.enrollment_id == enrollment.id,
                 AssignmentSubmission.assignment_id.in_([a.id for a in assignments]),
-                AssignmentSubmission.status == "completed",
             )
-        )
-        or 0
+        ).all()
     )
+
+
+def _assignments_done(enrollment: CourseEnrollment, assignments: list) -> int:
+    """Required assignments with a released, passing grade (submission ``completed``)."""
+    statuses = _assignment_statuses(enrollment, assignments)
+    return sum(1 for a in assignments if statuses.get(a.id) == "completed")
+
+
+# ---- completion -----------------------------------------------------------------------------
+#
+# Completion rules (calculated here, on the server, from what the learner has done):
+# - Required lessons: published lessons marked "required for completion" (when none is
+#   marked, every published lesson). A course with no published lessons has no meaningful
+#   requirements and never completes, whatever else it contains; enrolment alone never
+#   completes a course.
+# - Required assessments: published quizzes must be passed (at their passing score, which
+#   must be at least 1%: a required quiz at 0% never counts);
+#   reflections and self-assessments must be submitted. Practice exams never count.
+# - Required written assignments: a released, passing grade.
+#
+# The completion award (``completed_at`` and ``completion_snapshot``) is recorded once,
+# atomically, and never undone. Requirements edited later apply to learners who have not
+# completed yet; completed learners keep their completion and certificate. Completions
+# recorded before awards existed are re-checked against the current requirements before a
+# certificate is issued (see certificates.eligibility).
+
+COMPLETION_RULES = 2
+
+
+def _best_percent(attempts: list[AssessmentAttempt]) -> int | None:
+    scores = [a.percent for a in attempts if a.finished and a.percent is not None]
+    return max(scores) if scores else None
 
 
 def progress(enrollment: CourseEnrollment) -> dict[str, Any]:
@@ -422,13 +454,50 @@ def progress(enrollment: CourseEnrollment) -> dict[str, Any]:
     assignments = required_assignments(course)
     rows = _progress_rows(enrollment)
     attempts = _attempts(enrollment)
-    lessons_done = sum(
-        1 for lesson in lessons if rows.get(lesson.id) and rows[lesson.id].completed_at
-    )
-    assessments_done = sum(1 for a in assessments if _assessment_done(a, attempts.get(a.id, [])))
-    assignments_done = _assignments_done(enrollment, assignments)
+    statuses = _assignment_statuses(enrollment, assignments)
+    outstanding: list[dict[str, Any]] = []
+    lessons_done = 0
+    for lesson in lessons:
+        if rows.get(lesson.id) and rows[lesson.id].completed_at:
+            lessons_done += 1
+        else:
+            outstanding.append({"type": "lesson", "slug": lesson.slug, "title": lesson.title})
+    assessments_done = 0
+    for assessment in assessments:
+        state = assessment_service.assessment_state(assessment, attempts.get(assessment.id, []))
+        if assessment_service.passing_score_problem(assessment):
+            # A required quiz with a 0% passing score proves nothing: it never counts until
+            # staff set a real passing score (publishing such a quiz is refused).
+            state = "needs_passing_score"
+        if state in ("passed", "submitted"):
+            assessments_done += 1
+        else:
+            outstanding.append(
+                {
+                    "type": "assessment",
+                    "id": assessment.id,
+                    "title": assessment.title,
+                    "state": state,
+                    "passing_score": assessment.passing_score if assessment.graded else None,
+                    "best_percent": _best_percent(attempts.get(assessment.id, [])),
+                }
+            )
+    assignments_done = 0
+    for assignment in assignments:
+        if statuses.get(assignment.id) == "completed":
+            assignments_done += 1
+        else:
+            outstanding.append(
+                {
+                    "type": "assignment",
+                    "id": assignment.id,
+                    "title": assignment.title,
+                    "state": statuses.get(assignment.id, "not_started"),
+                }
+            )
     total = len(lessons) + len(assessments) + len(assignments)
     done = lessons_done + assessments_done + assignments_done
+    meaningful = bool(lessons)
     return {
         "percent": round(100 * done / total) if total else 0,
         "required_lessons": len(lessons),
@@ -437,28 +506,79 @@ def progress(enrollment: CourseEnrollment) -> dict[str, Any]:
         "completed_assessments": assessments_done,
         "required_assignments": len(assignments),
         "completed_assignments": assignments_done,
-        "complete": bool(total) and done == total,
+        "has_requirements": meaningful,
+        "complete": meaningful and done == total,
+        "outstanding": outstanding[:50],
     }
 
 
-def recompute(enrollment: CourseEnrollment) -> dict[str, Any]:
-    state = progress(enrollment)
-    # Completion is never undone: requirements added later (e.g. a new required
-    # assignment) don't revoke a completed course or its certificate.
-    enrollment.progress_percent = 100 if enrollment.completed_at else state["percent"]
-    if state["complete"] and enrollment.completed_at is None:
-        enrollment.completed_at = _now()
-        audit_service.record(
-            "course.completed",
-            "course",
-            enrollment.course_id,
-            details={"customer_id": enrollment.customer_id, "enrollment_id": enrollment.id},
-        )
-        if enrollment.course.certificate_enabled:
-            from .certificates import issue
+def completion_snapshot(
+    enrollment: CourseEnrollment, state: dict[str, Any], *, recorded: str = "at_completion"
+) -> dict[str, Any]:
+    """What the learner had met when the completion award was recorded."""
+    course = enrollment.course
+    lessons, assessments = requirements(course)
+    attempts = _attempts(enrollment)
+    return {
+        "rules": COMPLETION_RULES,
+        "recorded": recorded,
+        "at": iso(_now()),
+        "lessons": [lesson.id for lesson in lessons],
+        "assessments": [
+            {
+                "id": a.id,
+                "kind": a.kind,
+                "passing_score": a.passing_score if a.graded else None,
+                "best_percent": _best_percent(attempts.get(a.id, [])),
+            }
+            for a in assessments
+        ],
+        "assignments": [a.id for a in required_assignments(course)],
+        "counts": {
+            "lessons": state["required_lessons"],
+            "assessments": state["required_assessments"],
+            "assignments": state["required_assignments"],
+        },
+    }
 
-            if (enrollment.customer.display_name or "").strip():
-                issue(enrollment)
+
+def _award(enrollment: CourseEnrollment, state: dict[str, Any]) -> bool:
+    """Record the completion once (a conditional UPDATE, so concurrent requests can't both
+    award it). Returns True for the request that recorded it."""
+    now = _now()
+    result = db.session.execute(
+        update(CourseEnrollment)
+        .where(CourseEnrollment.id == enrollment.id, CourseEnrollment.completed_at.is_(None))
+        .values(
+            completed_at=now,
+            completion_snapshot=completion_snapshot(enrollment, state),
+            progress_percent=100,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    db.session.refresh(enrollment, ["completed_at", "completion_snapshot", "progress_percent"])
+    if result.rowcount != 1:
+        return False
+    audit_service.record(
+        "course.completed",
+        "course",
+        enrollment.course_id,
+        details={"customer_id": enrollment.customer_id, "enrollment_id": enrollment.id},
+    )
+    return True
+
+
+def recompute(enrollment: CourseEnrollment) -> dict[str, Any]:
+    """Recalculate progress after a change and record the completion award when every
+    requirement is met. Completion is never undone: requirements added later (e.g. a new
+    required lesson or assignment) don't reopen a completed course or revoke its
+    certificate."""
+    state = progress(enrollment)
+    if state["complete"] and enrollment.completed_at is None and _award(enrollment, state):
+        from .certificates import issue_on_completion
+
+        issue_on_completion(enrollment)
+    enrollment.progress_percent = 100 if enrollment.completed_at else state["percent"]
     return state
 
 
@@ -709,17 +829,25 @@ def _resume_dict(
 
 
 def _certificate(enrollment: CourseEnrollment) -> dict[str, Any] | None:
-    certificate = db.session.scalar(
-        select(CourseCertificate).where(CourseCertificate.enrollment_id == enrollment.id)
-    )
-    if certificate is None:
-        return None
-    return {
-        "code": certificate.code,
-        "recipient_name": certificate.recipient_name,
-        "issued_at": iso(certificate.issued_at),
-        "revoked": certificate.revoked_at is not None,
-    }
+    from .certificates import latest_for, learner_dict
+
+    return learner_dict(latest_for(enrollment.id))
+
+
+def certificate_status(
+    enrollment: CourseEnrollment, state: dict[str, Any], certificate: dict[str, Any] | None
+) -> str:
+    """issued | revoked | available (ask for it) | requirements_changed | in_progress |
+    not_offered."""
+    if certificate is not None:
+        return "revoked" if certificate["revoked"] else "issued"
+    if not enrollment.course.certificate_enabled:
+        return "not_offered"
+    if enrollment.completed_at is None:
+        return "in_progress"
+    if enrollment.completion_snapshot is None and not state["complete"]:
+        return "requirements_changed"
+    return "available"
 
 
 def _cover(course: Course) -> dict | None:
@@ -736,6 +864,8 @@ def enrollment_card(enrollment: CourseEnrollment, customer: Customer) -> dict[st
     rows = _progress_rows(enrollment)
     resume = _resume_lesson(course, enrollment, rows)
     state = progress(enrollment)
+    certificate = _certificate(enrollment)
+    status = certificate_status(enrollment, state, certificate)
     return {
         "course": {
             "slug": course.slug,
@@ -753,8 +883,9 @@ def enrollment_card(enrollment: CourseEnrollment, customer: Customer) -> dict[st
         "completed_at": iso(enrollment.completed_at),
         "progress": state,
         "resume": _resume_dict(resume, rows),
-        "certificate": _certificate(enrollment),
-        "certificate_available": course.certificate_enabled and enrollment.completed_at is not None,
+        "certificate": certificate,
+        "certificate_status": status,
+        "certificate_available": status == "available",
     }
 
 
@@ -1056,6 +1187,8 @@ def erase_learner(customer: Customer) -> None:
     for certificate in db.session.scalars(
         select(CourseCertificate).where(CourseCertificate.customer_id == customer.id)
     ):
+        # Every one, including certificates already revoked or replaced, so verification
+        # says "unavailable" and shows no name.
         certificate.recipient_name = "Deleted account"
-        if certificate.revoked_at is None:
-            certificate.revoked_at, certificate.revoked_reason = now, "Account deleted"
+        certificate.revoked_at = certificate.revoked_at or now
+        certificate.revoked_reason = "Account deleted"

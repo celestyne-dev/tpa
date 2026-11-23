@@ -1,0 +1,19 @@
+# /etc/systemd/system/tpa-certificate-emails.service  (example)
+# Certificates of completion: recovers emails left "sending" by a process that stopped
+# mid-send (older than 15 minutes), then retries pending and failed certificate emails
+# (at most 5 attempts each). Never re-sends one already sent; a failed email never undoes
+# a completion or a certificate. Separate from the newsletter and publishing workers.
+[Unit]
+Description=Think Positive Always: send and recover certificate emails
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=tpa
+Group=www-data
+WorkingDirectory=/var/www/tpa/backend
+EnvironmentFile=/var/www/tpa/backend/.env
+Environment=FLASK_CONFIG=production
+ExecStart=/var/www/tpa/backend/.venv/bin/flask --app wsgi courses send-certificate-emails
+NoNewPrivileges=true
+PrivateTmp=true

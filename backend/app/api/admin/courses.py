@@ -519,6 +519,11 @@ class CertificateActionResource(Resource):
             certificates.reinstate(certificate, body.get("reason"), current_user)
         elif action == "correct":
             certificates.correct(certificate, body, current_user)
+        elif action == "reissue":
+            # Revokes this certificate (if valid) and returns the new one.
+            certificate = certificates.reissue(certificate, body, current_user)
+        elif action == "resend-email":
+            certificates.resend_email(certificate, current_user)
         else:
             raise NotFoundError("Unknown action.")
         db.session.commit()

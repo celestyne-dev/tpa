@@ -138,9 +138,10 @@ through a course entitlement when someone enrols; nothing else is unlocked.
   Continue button; `/learn/<course>` shows the outline with completed lessons and
   assessments; `/learn/<course>/<lesson>` is the reader (adjustable text size, previous /
   next, exercises, downloads, inline quizzes, _Mark as complete_).
-- **Completion** is computed from stored records only: every _required_ published lesson
-  completed (or every published lesson if none is marked required) **and** every required
-  published assessment passed (quizzes) or submitted (reflections, self-assessments).
+- **Completion** is computed on the server from stored records only: every _required_
+  published lesson completed (or every published lesson if none is marked required) **and**
+  every required published assessment passed (quizzes) or submitted (reflections,
+  self-assessments) **and** every required written assignment graded as passing. See §23.
 - **Learners tab (admin):** search and filter learners, see progress per lesson and
   assessment results (scores only — private notes and written reflections are not shown),
   enrol an existing customer manually (with a reason), end or restore an enrolment.
@@ -151,17 +152,13 @@ through a course entitlement when someone enrols; nothing else is unlocked.
 
 ## 8. Certificates
 
-- Issued automatically when a learner completes a course with certificates enabled, using
-  their account name; if the account has no name, the learner enters the name to show.
-- Each certificate has a random code (`TPA-XXXX-XXXX-XXXX`). Anyone can check it at
-  `/certificates/<code>` (valid or revoked, name, course, date). Learners download a PDF
-  (US Letter) from My learning.
-- The certificate and the verification page state that it is **a platform-issued
-  certificate of completion, not an accredited qualification**.
-- Staff with _Manage enrolments and certificates_ can correct the name, revoke or reinstate
-  a certificate; each change needs a note and is recorded in the audit log.
-- The PDF uses the standard Helvetica font: names outside Western European characters are
-  transliterated in the PDF (the verification page shows the exact name).
+Automatic certificates of completion (completion rules, PDF, verification, reissuance and
+emails) are described in **§23**. In short: a certificate is issued automatically, once,
+when the server records a learner's completion of a course with certificates enabled;
+anyone can check it at `/certificates/<code>`; staff with _Manage enrolments and
+certificates_ can correct, revoke, reinstate and reissue it (audited, with a reason). The
+certificate and verification page state that it is **a platform-issued certificate of
+completion, not an accredited qualification**.
 
 ## 9. Guest purchases and claiming
 
@@ -235,8 +232,9 @@ permission on the server.
 
 - Exercise notes and written reflections are for the learner; there is no staff marking or
   feedback workflow for subjective answers.
-- Certificates use a fixed design and US Letter size; non-Latin names are transliterated in
-  the PDF.
+- Certificates use a fixed A4 landscape design. Names in scripts that need right-to-left or
+  complex shaping (Arabic, Hebrew, Indic, Thai, CJK) can't be printed exactly; the PDF says
+  the verification page shows the exact name (§23).
 - Course prices follow the product's currencies; there is no currency conversion.
 - Memberships are still planned; `access.grant(source="membership")` already works for
   membership-eligible course products.
@@ -456,3 +454,112 @@ permission on the server.
   read-only, with the same permission and assessor scope as the per-assignment submission
   list, and adds learner name, course and grade status. It is the only backend change in
   phase 3.
+
+## 23. Automatic certificates of completion
+
+### Completion rules (server-side, `services/courses/learning.py`)
+
+- **Required lessons:** published lessons marked _Required for completion_; when none is
+  marked, every published lesson. Optional lessons never count.
+- **Required assessments:** published, required, non-practice assessments. Quizzes must
+  reach their passing score; reflections and self-assessments must be submitted.
+- **Required written assignments:** a released, passing grade.
+- **Enrolment alone never completes a course.** A course with no published lessons has no
+  meaningful requirements and never completes, even if it has required assessments.
+- The **completion award** (`course_enrollments.completed_at` plus `completion_snapshot`:
+  what was required and achieved, the rules version and when) is recorded once, by a
+  conditional update, so repeated or concurrent completion events can't award it twice.
+- **Requirements edited after completion:** a recorded completion is never undone, and its
+  certificate stays valid. Learners who have not completed must meet the current
+  requirements. My learning still shows progress against today's requirements.
+- **Completions recorded before this release** (no `completion_snapshot`) keep their
+  `completed_at`; before a certificate is issued for one, it is re-checked against the
+  current requirements. Existing certificates are never regenerated, changed or emailed.
+- **Meaningful passing scores:** a quiz required for completion needs a passing score of at
+  least 1% (at 0% any submitted attempt would pass). Saving, publishing or making such a
+  quiz required is refused; optional quizzes and practice exams may still use 0%. A
+  required quiz saved at 0% by an earlier release blocks course publication (readiness
+  issue) and **never counts towards completion** — learners see it as "not counted yet"
+  — until staff set a real passing score; attempts that reach the new score then count.
+- **Readiness warning** (course editor): with certificates enabled, no lesson marked
+  required (every published lesson then counts).
+
+### Issuance
+
+- When the completion award is recorded on a course with _Issue certificates of
+  completion_ on, the certificate is issued in the same transaction, using the learner's
+  profile name. Without a profile name the learner enters the name to print on the course
+  page (status _available_).
+- One **valid** certificate per enrolment, enforced by the partial unique index
+  `uq_course_certificates_active` (`revoked_at IS NULL`); concurrent requests return the
+  same certificate.
+- Each certificate snapshots the name, exact course title and slug, completion date and
+  the approved signatory, so later profile, course or settings edits don't change it.
+- **Approved signatory:** _Settings › Certificates_ (`certificates.signatory_name`,
+  `certificates.signatory_title`; editable by staff who manage site settings,
+  `settings.manage`). Without one, the PDF is
+  signed by the issuing organisation.
+
+### The PDF
+
+A4 landscape, Think Positive Always branding: _Certificate of Completion_, the learner's
+name, the exact course title, date of completion (and issue date if different), the
+certificate ID, signatory, the verification URL and a QR code linking to it, and the
+not-accredited statement. Fonts are embedded (DejaVu Serif, licence in
+`backend/app/assets/fonts`), covering Latin (including Vietnamese and other accented
+letters), Greek and Cyrillic. Long names shrink or wrap to two lines. Generated on demand
+by `reportlab` (now a runtime dependency) and served only to the certificate's owner
+(`private, no-store`); a revoked certificate can't be downloaded. No email address or
+account id is printed.
+
+### Verification (`/certificates/<code>`, public, no-store, noindex)
+
+- **valid**, **revoked** (with "a newer certificate was issued in its place" when it was
+  reissued; the new code is not disclosed) or **unavailable** (the learner deleted their
+  account: no name, course or dates are shown).
+- Never shows email addresses, internal ids or private records.
+
+### Revocation and controlled reissuance (`courses.manage_enrollments`, audited)
+
+- _Revoke_ keeps the record; a revoked certificate is never replaced or restored
+  automatically (completing again or asking again doesn't issue a new one).
+- _Reissue_ (reason required, optional corrected name) revokes the current certificate and
+  issues a new one with a new code that records what it replaces; the learner is emailed.
+- _Reinstate_ is explicit and refused once a certificate has been replaced, or when the
+  account was deleted. _Correct name_ applies to valid certificates only.
+- Audit actions: `course.completed`, `course.certificate_issued`,
+  `course.certificate_reissued`, `course.certificate_revoked`,
+  `course.certificate_reinstated`, `course.certificate_corrected`,
+  `course.certificate_email_requested`.
+- The Learners tab shows each learner's certificate status, the completion record, the
+  email status and the full certificate history.
+
+### Email
+
+- After the request that issued the certificate commits, the learner is emailed (template
+  `certificate_issued` / `certificate_reissued`) through the configured mail backend, with
+  a link to the course page to download the PDF and the verification address.
+- The certificate row is claimed (`pending`/`failed` → `sending`) before sending, so
+  retries and parallel workers never send twice. A failed email never undoes the
+  completion or the certificate.
+- **Automatic retry and recovery:** `flask --app wsgi courses send-certificate-emails`, run
+  every 10 minutes by the `tpa-certificate-emails` systemd timer
+  (`deploy/systemd/tpa-certificate-emails.{service,timer}.example`), first recovers emails
+  left in `sending` by a process that stopped mid-send (claimed more than 15 minutes ago,
+  far beyond the 15-second SMTP timeout), then retries pending and failed emails, at most
+  5 attempts each. Recovery is one conditional update per row on the exact claim it was
+  stuck with, so parallel runs can't both recover (or send) it; an email marked `sent` is
+  never sent again. The only possible duplicate is a crash in the instant between the mail
+  server accepting the message and the result being recorded. The newsletter and
+  publishing workers are not involved.
+- Staff can _Send certificate email again_ from the Learners tab (also for an interrupted
+  send, which is shown as such); a send in progress can't be doubled.
+
+### Migration `c3e9a5f17b42` (additive)
+
+Adds `course_enrollments.completion_snapshot` and certificate snapshot, reissue and email
+columns (including `email_claimed_at` for recovering interrupted sends); replaces the unique constraint on `course_certificates.enrollment_id` with the
+partial unique index above. No existing row is changed; existing certificates get
+`email_status` NULL and are never emailed retroactively. The downgrade restores the old
+constraint and fails while an enrolment has a reissued certificate pair.
+

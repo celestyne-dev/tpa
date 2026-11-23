@@ -315,6 +315,29 @@ def learner_assessment(assessment: Assessment, enrollment: CourseEnrollment) -> 
     }
 
 
+# A required quiz must ask for a meaningful score: with a 0% passing score any submitted
+# attempt would pass, so it could never show that the learner met the requirement.
+MIN_REQUIRED_PASSING_SCORE = 1
+
+
+def counts_for_completion(assessment: Assessment) -> bool:
+    return bool(assessment.required_for_completion) and not assessment.practice
+
+
+def passing_score_problem(assessment: Assessment) -> str | None:
+    """Why a required quiz can't count towards completion as configured (or None)."""
+    if (
+        assessment.graded
+        and counts_for_completion(assessment)
+        and (assessment.passing_score or 0) < MIN_REQUIRED_PASSING_SCORE
+    ):
+        return (
+            f"Required quiz “{assessment.title}” needs a passing score of at least "
+            f"{MIN_REQUIRED_PASSING_SCORE}% (it is 0%, so any attempt would pass)."
+        )
+    return None
+
+
 def assessment_state(assessment: Assessment, attempts: list[AssessmentAttempt]) -> str:
     """not_started | submitted (ungraded) | passed | failed (latest graded, none passed).
     Attempts still in progress don't count."""
@@ -412,6 +435,18 @@ def save_assessment(
     required = data.get(
         "required_for_completion", assessment.required_for_completion if assessment else True
     )
+    if (
+        graded
+        and required is True
+        and practice is not True
+        and isinstance(passing, int)
+        and not isinstance(passing, bool)
+        and 0 <= passing < MIN_REQUIRED_PASSING_SCORE
+    ):
+        errors["passing_score"] = [
+            f"A quiz required for completion needs a passing score of at least "
+            f"{MIN_REQUIRED_PASSING_SCORE}%. Set a passing score, or make the quiz optional."
+        ]
     if practice is True and not graded:
         errors["practice"] = ["Only quizzes can be practice exams."]
     elif practice is True and "required_for_completion" in data and required is True:
@@ -490,6 +525,9 @@ def set_assessment_status(course: Course, assessment: Assessment, status: str, a
             or question_banks.selection_has_graded(assessment)
         ):
             raise ValidationError("A quiz needs at least one automatically scored question.")
+        problem = passing_score_problem(assessment)
+        if problem:
+            raise ValidationError(problem, details={"passing_score": [problem]})
     assessment.status = status
     audit_service.record(
         "course.assessment_" + ("published" if status == "published" else "unpublished"),

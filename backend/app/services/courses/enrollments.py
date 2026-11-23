@@ -30,7 +30,8 @@ from ..commerce import access
 from ..serializers import iso
 from . import learning
 from .admin import published_lessons, require
-from .certificates import admin_dict
+from .certificates import admin_dict, learner_dict
+from .certificates import history as certificate_history
 
 
 def get_enrollment(course: Course, enrollment_id: int) -> CourseEnrollment:
@@ -41,14 +42,19 @@ def get_enrollment(course: Course, enrollment_id: int) -> CourseEnrollment:
 
 
 def _certificates(enrollment_ids: list[int]) -> dict[int, CourseCertificate]:
+    """Per enrolment: the valid certificate, otherwise the most recent revoked one."""
     if not enrollment_ids:
         return {}
-    return {
-        c.enrollment_id: c
-        for c in db.session.scalars(
-            select(CourseCertificate).where(CourseCertificate.enrollment_id.in_(enrollment_ids))
-        )
-    }
+    out: dict[int, CourseCertificate] = {}
+    for c in db.session.scalars(
+        select(CourseCertificate)
+        .where(CourseCertificate.enrollment_id.in_(enrollment_ids))
+        .order_by(CourseCertificate.issued_at, CourseCertificate.id)
+    ):
+        current = out.get(c.enrollment_id)
+        if current is None or current.revoked_at is not None:
+            out[c.enrollment_id] = c
+    return out
 
 
 def enrollment_row(
@@ -130,9 +136,21 @@ def enrollment_detail(course: Course, enrollment: CourseEnrollment, actor: User)
     ):
         attempts.setdefault(attempt.assessment_id, []).append(attempt)
     certificate = _certificates([enrollment.id]).get(enrollment.id)
+    state = learning.progress(enrollment)
+    snapshot = enrollment.completion_snapshot or {}
     return {
         **enrollment_row(enrollment, certificate),
-        "progress": learning.progress(enrollment),
+        "progress": state,
+        # How the completion was recorded: "at_completion", "re-checked" (completed before
+        # completion awards existed, verified against current requirements) or None.
+        "completion": {
+            "recorded": snapshot.get("recorded"),
+            "rules": snapshot.get("rules"),
+            "certificate_status": learning.certificate_status(
+                enrollment, state, learner_dict(certificate)
+            ),
+        },
+        "certificates": [admin_dict(c) for c in certificate_history(enrollment.id)],
         "lessons": [
             {
                 "id": lesson.id,

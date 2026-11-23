@@ -432,6 +432,22 @@ def memberships_reconcile(no_provider: bool):
     click.echo("Memberships: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
 
 
+courses_cli = AppGroup("courses", help="Courses: certificates of completion.")
+
+
+@courses_cli.command("send-certificate-emails")
+@click.option("--limit", default=50, show_default=True, help="Certificates to try in this run.")
+def courses_send_certificate_emails(limit):
+    """Send pending or failed certificate emails (never one already sent)."""
+    from .services.courses.certificates import retry_emails
+
+    counts = retry_emails(limit=limit)
+    if not counts:
+        click.echo("No certificate emails waiting.")
+        return
+    click.echo(", ".join(f"{count} {status}" for status, count in sorted(counts.items())))
+
+
 analytics_cli = AppGroup("analytics", help="First-party website analytics.")
 
 
@@ -853,6 +869,7 @@ def register_cli(app: Flask) -> None:
         media_cli,
         commerce_cli,
         memberships_cli,
+        courses_cli,
         analytics_cli,
         newsletter_cli,
         storage_cli,

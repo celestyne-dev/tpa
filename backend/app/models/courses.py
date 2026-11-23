@@ -30,6 +30,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     false,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -411,6 +412,13 @@ class CourseEnrollment(db.Model):
     last_activity_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     progress_percent: Mapped[int] = mapped_column(default=0, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # The completion award: what the learner had met when ``completed_at`` was recorded
+    # (rules version, required lessons, assessments with their scores, assignments). NULL
+    # for completions recorded before automatic certificates; those are re-checked against
+    # the course's current requirements before a certificate is issued.
+    completion_snapshot: Mapped[dict[str, Any] | None] = mapped_column(
+        NullableJSONType, nullable=True
+    )
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     revoked_reason: Mapped[str] = mapped_column(String(300), default="", nullable=False)
     granted_by_id: Mapped[int | None] = mapped_column(
@@ -495,16 +503,34 @@ class AssessmentAttempt(db.Model):
         return self.status != "in_progress"
 
 
+CERTIFICATE_EMAIL_STATUSES = ("pending", "sending", "sent", "failed", "not_configured")
+
+
 class CourseCertificate(db.Model):
-    """A platform-issued certificate of completion (not an accredited qualification)."""
+    """A platform-issued certificate of completion (not an accredited qualification).
+
+    At most one *valid* certificate per enrolment (``uq_course_certificates_active``). A
+    revoked certificate is never changed back silently: a reissue is a new row with a new
+    code that points to the one it replaces. Name, course and signatory are snapshots taken
+    at issuance, so later edits to the profile or course don't change an issued certificate.
+    """
 
     __tablename__ = "course_certificates"
+    __table_args__ = (
+        Index(
+            "uq_course_certificates_active",
+            "enrollment_id",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL"),
+            sqlite_where=text("revoked_at IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # Random, unguessable verification code shown on the certificate.
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     enrollment_id: Mapped[int] = mapped_column(
-        ForeignKey("course_enrollments.id", ondelete="RESTRICT"), unique=True, nullable=False
+        ForeignKey("course_enrollments.id", ondelete="RESTRICT"), index=True, nullable=False
     )
     customer_id: Mapped[int] = mapped_column(
         ForeignKey("customers.id", ondelete="RESTRICT"), index=True, nullable=False
@@ -514,7 +540,31 @@ class CourseCertificate(db.Model):
     )
     recipient_name: Mapped[str] = mapped_column(String(160), nullable=False)
     course_title: Mapped[str] = mapped_column(String(200), nullable=False)
+    course_slug: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # When the learner met every requirement (NULL on certificates issued before this field).
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    signatory_name: Mapped[str] = mapped_column(
+        String(120), default="", server_default="", nullable=False
+    )
+    signatory_title: Mapped[str] = mapped_column(
+        String(120), default="", server_default="", nullable=False
+    )
     issued_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    # Controlled reissuance: the revoked certificate this one replaces.
+    replaces_id: Mapped[int | None] = mapped_column(
+        ForeignKey("course_certificates.id", ondelete="SET NULL"), nullable=True
+    )
+    reissue_reason: Mapped[str] = mapped_column(
+        String(300), default="", server_default="", nullable=False
+    )
+    # Issuance email: NULL for certificates issued before emails existed (never sent
+    # retroactively); "pending" until sent; claimed as "sending" so retries can't duplicate.
+    email_status: Mapped[str | None] = mapped_column(String(20), index=True, nullable=True)
+    email_attempts: Mapped[int] = mapped_column(default=0, server_default="0", nullable=False)
+    emailed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # When the current send claimed the row ("sending"); a claim older than the stale
+    # threshold means the sender died and the row is recovered (see certificates.py).
+    email_claimed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     revoked_reason: Mapped[str] = mapped_column(String(300), default="", nullable=False)
     corrected_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

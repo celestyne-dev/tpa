@@ -242,11 +242,116 @@ describe("learning", () => {
     expect(screen.getByRole("link", { name: "My learning" })).toBeInTheDocument();
   });
 
+  it("shows what's left before the certificate in My learning", async () => {
+    signIn();
+    renderApp("/account/learning", { shopApi: learner({ enrolled: true }) });
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Calm Foundations" }),
+    ).toBeVisible();
+    expect(screen.getByText(/not issued yet/)).toBeInTheDocument();
+    const todo = screen.getByRole("list", { name: "Still to do for your certificate" });
+    expect(within(todo).getByRole("link", { name: "Lesson: Breathe" })).toHaveAttribute(
+      "href",
+      "/learn/calm-foundations/breathe",
+    );
+    expect(screen.queryByRole("link", { name: /Download certificate/ })).not.toBeInTheDocument();
+  });
+
+  it("offers the download only for an issued certificate", async () => {
+    signIn();
+    const shopApi = learner({ enrolled: true });
+    const card = (await shopApi.learning()).data.enrollments[0];
+    const certificate = {
+      code: "TPA-AAAA-BBBB-CCCC",
+      recipient_name: "Ada Reader",
+      issued_at: "2026-10-27T10:00:00.000Z",
+      completed_at: "2026-10-27T10:00:00.000Z",
+      revoked: false,
+      verify_url: "https://example.com/certificates/TPA-AAAA-BBBB-CCCC",
+    };
+    const respond = (extra) =>
+      vi.fn(() =>
+        Promise.resolve({
+          data: {
+            verified: true,
+            enrollments: [{ ...card, completed_at: "2026-10-27T10:00:00.000Z", ...extra }],
+          },
+        }),
+      );
+    shopApi.learning = respond({ certificate, certificate_status: "issued" });
+    const view = renderApp("/account/learning", { shopApi });
+    const download = await screen.findByRole("link", {
+      name: "Download certificate (PDF) for Calm Foundations",
+    });
+    expect(download).toHaveAttribute("href", "/api/v1/account/certificates/TPA-AAAA-BBBB-CCCC/pdf");
+    expect(screen.getByRole("link", { name: "Verification page" })).toHaveAttribute(
+      "href",
+      "/certificates/TPA-AAAA-BBBB-CCCC",
+    );
+    view.unmount();
+
+    shopApi.learning = respond({
+      certificate: { ...certificate, revoked: true },
+      certificate_status: "revoked",
+    });
+    renderApp("/account/learning", { shopApi });
+    expect(await screen.findByText(/certificate for this course was revoked/)).toBeVisible();
+    expect(screen.queryByRole("link", { name: /Download certificate/ })).not.toBeInTheDocument();
+  });
+
   it("verifies certificates publicly", async () => {
     renderApp("/certificates/TPA-AAAA-BBBB-CCCC");
     expect(await screen.findByText("Valid certificate")).toBeVisible();
     expect(screen.getByText("Ada Reader")).toBeInTheDocument();
     expect(screen.getByText(/not an accredited qualification/)).toBeInTheDocument();
+  });
+
+  it("says when a certificate was revoked and replaced", async () => {
+    const shopApi = { ...createFakeShopApi(), ...createCourseShopApi() };
+    shopApi.verifyCertificate = vi.fn(() =>
+      Promise.resolve({
+        data: {
+          code: "TPA-AAAA-BBBB-CCCC",
+          status: "revoked",
+          recipient_name: "Ada Reader",
+          course_title: "Calm Foundations",
+          issued_at: "2026-10-27T10:00:00.000Z",
+          completed_at: "2026-10-26T10:00:00.000Z",
+          revoked_at: "2026-11-01T10:00:00.000Z",
+          issuer: "Think Positive Always",
+          signatory_name: "Celestine N",
+          signatory_title: "Founder",
+          statement: "Not an accredited qualification.",
+          replaced: true,
+        },
+      }),
+    );
+    renderApp("/certificates/TPA-AAAA-BBBB-CCCC", { shopApi });
+    expect(await screen.findByText(/This certificate has been\s+revoked/)).toBeVisible();
+    expect(screen.getByText(/A newer certificate was issued in its place/)).toBeInTheDocument();
+    expect(screen.getByText(/signed by Celestine N, Founder/)).toBeInTheDocument();
+  });
+
+  it("hides the details of an unavailable certificate", async () => {
+    const shopApi = { ...createFakeShopApi(), ...createCourseShopApi() };
+    shopApi.verifyCertificate = vi.fn(() =>
+      Promise.resolve({
+        data: {
+          code: "TPA-AAAA-BBBB-CCCC",
+          status: "unavailable",
+          recipient_name: null,
+          course_title: null,
+          issued_at: null,
+          completed_at: null,
+          issuer: "Think Positive Always",
+          statement: "Not an accredited qualification.",
+          replaced: false,
+        },
+      }),
+    );
+    renderApp("/certificates/TPA-AAAA-BBBB-CCCC", { shopApi });
+    expect(await screen.findByText(/This certificate is no longer\s+available/)).toBeVisible();
+    expect(screen.queryByText("Awarded to")).not.toBeInTheDocument();
   });
 
   it("reports unknown certificate codes", async () => {

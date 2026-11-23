@@ -1,0 +1,14 @@
+# /etc/systemd/system/tpa-certificate-emails.timer  (example)
+# Most certificate emails go out straight after the learner completes the course; this
+# catches the rest (mail outages, a restart mid-send) within about ten minutes.
+[Unit]
+Description=Run tpa-certificate-emails every 10 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
