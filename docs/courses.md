@@ -475,8 +475,14 @@ permission on the server.
 - **Completions recorded before this release** (no `completion_snapshot`) keep their
   `completed_at`; before a certificate is issued for one, it is re-checked against the
   current requirements. Existing certificates are never regenerated, changed or emailed.
-- **Readiness warnings** (course editor): a required quiz with a 0% passing score (any
-  submitted attempt passes) and, with certificates enabled, no lesson marked required.
+- **Meaningful passing scores:** a quiz required for completion needs a passing score of at
+  least 1% (at 0% any submitted attempt would pass). Saving, publishing or making such a
+  quiz required is refused; optional quizzes and practice exams may still use 0%. A
+  required quiz saved at 0% by an earlier release blocks course publication (readiness
+  issue) and **never counts towards completion** — learners see it as "not counted yet"
+  — until staff set a real passing score; attempts that reach the new score then count.
+- **Readiness warning** (course editor): with certificates enabled, no lesson marked
+  required (every published lesson then counts).
 
 ### Issuance
 
@@ -535,14 +541,23 @@ account id is printed.
 - The certificate row is claimed (`pending`/`failed` → `sending`) before sending, so
   retries and parallel workers never send twice. A failed email never undoes the
   completion or the certificate.
-- Retry failed or pending emails (up to 5 attempts each) with
-  `flask --app wsgi courses send-certificate-emails`, optionally from cron. Staff can
-  _Send certificate email again_ from the Learners tab.
+- **Automatic retry and recovery:** `flask --app wsgi courses send-certificate-emails`, run
+  every 10 minutes by the `tpa-certificate-emails` systemd timer
+  (`deploy/systemd/tpa-certificate-emails.{service,timer}.example`), first recovers emails
+  left in `sending` by a process that stopped mid-send (claimed more than 15 minutes ago,
+  far beyond the 15-second SMTP timeout), then retries pending and failed emails, at most
+  5 attempts each. Recovery is one conditional update per row on the exact claim it was
+  stuck with, so parallel runs can't both recover (or send) it; an email marked `sent` is
+  never sent again. The only possible duplicate is a crash in the instant between the mail
+  server accepting the message and the result being recorded. The newsletter and
+  publishing workers are not involved.
+- Staff can _Send certificate email again_ from the Learners tab (also for an interrupted
+  send, which is shown as such); a send in progress can't be doubled.
 
 ### Migration `c3e9a5f17b42` (additive)
 
 Adds `course_enrollments.completion_snapshot` and certificate snapshot, reissue and email
-columns; replaces the unique constraint on `course_certificates.enrollment_id` with the
+columns (including `email_claimed_at` for recovering interrupted sends); replaces the unique constraint on `course_certificates.enrollment_id` with the
 partial unique index above. No existing row is changed; existing certificates get
 `email_status` NULL and are never emailed retroactively. The downgrade restores the old
 constraint and fails while an enrolment has a reissued certificate pair.

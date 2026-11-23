@@ -396,8 +396,13 @@ function AssessmentEditor({ course, assessmentId, onChanged, onClose }) {
           {assessment.kind === "quiz" && (
             <TextField
               label="Passing score (%)"
+              hint={
+                !form.practice && form.required_for_completion
+                  ? "At least 1% for a quiz required for completion."
+                  : undefined
+              }
               type="number"
-              min="0"
+              min={!form.practice && form.required_for_completion ? "1" : "0"}
               max="100"
               value={form.passing_score}
               error={fieldError(error, "passing_score")}

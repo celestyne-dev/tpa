@@ -12,7 +12,8 @@ Additive and backward-compatible; no existing row is changed:
   re-checked against the course's current requirements before a certificate is issued.
 - ``course_certificates``: snapshot columns (course slug, completion date, signatory),
   ``replaces_id`` / ``reissue_reason`` for controlled reissuance, and email delivery state
-  (``email_status`` NULL for existing certificates, so they are never emailed retroactively).
+  (``email_status`` NULL for existing certificates, so they are never emailed retroactively;
+  ``email_claimed_at`` lets a send that died mid-way be recovered).
 - The unique constraint on ``course_certificates.enrollment_id`` (one certificate per
   enrolment, ever) becomes a partial unique index: one *valid* (not revoked) certificate per
   enrolment. A revoked certificate stays as it is and a reissue is a new row with a new code.
@@ -59,6 +60,9 @@ def upgrade():
             sa.Column("email_attempts", sa.Integer(), server_default="0", nullable=False)
         )
         batch_op.add_column(sa.Column("emailed_at", sa.DateTime(timezone=True), nullable=True))
+        batch_op.add_column(
+            sa.Column("email_claimed_at", sa.DateTime(timezone=True), nullable=True)
+        )
         batch_op.create_foreign_key(
             batch_op.f("fk_course_certificates_replaces_id_course_certificates"),
             "course_certificates",
@@ -98,6 +102,7 @@ def downgrade():
             type_="foreignkey",
         )
         for column in (
+            "email_claimed_at",
             "emailed_at",
             "email_attempts",
             "email_status",

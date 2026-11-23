@@ -229,21 +229,125 @@ def test_courses_without_certificates_dont_issue_them(seeded, as_role):
     assert learner.post(f"{LEARN}/no-certificate/certificate", {}).status_code == 201
 
 
-def test_readiness_warns_about_weak_completion_rules(seeded, as_role):
+def test_required_quizzes_need_a_meaningful_passing_score(seeded, as_role):
     editor = as_role("editor")
     course, _, _ = ready_course(editor, "Weak Rules", lessons=1)
     cid = course["id"]
-    quiz = editor.post(
-        f"{COURSES}/{cid}/assessments",
-        {"title": "Anything goes", "kind": "quiz", "passing_score": 0},
-    ).get_json()["data"]
-    editor.post(
-        f"{COURSES}/{cid}/assessments/{quiz['id']}/questions",
-        {"kind": "true_false", "prompt": "Sleep matters.", "correct": [True]},
+    url = f"{COURSES}/{cid}/assessments"
+
+    # A required quiz at 0% is refused when created or edited ...
+    bad = editor.post(url, {"title": "Anything goes", "kind": "quiz", "passing_score": 0})
+    assert bad.status_code == 400
+    assert "at least 1%" in bad.get_json()["error"]["details"]["passing_score"][0]
+    quiz = editor.post(url, {"title": "Check", "kind": "quiz", "passing_score": 50}).get_json()[
+        "data"
+    ]
+    qurl = f"{url}/{quiz['id']}"
+    assert editor.patch(qurl, {"passing_score": 0}).status_code == 400
+    # ... but an optional quiz or a practice exam may use 0% (it never counts).
+    optional = editor.post(
+        url,
+        {
+            "title": "Warm-up",
+            "kind": "quiz",
+            "passing_score": 0,
+            "required_for_completion": False,
+        },
     )
-    editor.post(f"{COURSES}/{cid}/assessments/{quiz['id']}/status", {"status": "published"})
-    warnings = editor.get(f"{COURSES}/{cid}").get_json()["data"]["readiness"]["warnings"]
-    assert any("0% passing score" in w for w in warnings)
+    assert optional.status_code == 201, optional.get_json()
+    assert (
+        editor.post(
+            url, {"title": "Practice", "kind": "quiz", "passing_score": 0, "practice": True}
+        ).status_code
+        == 201
+    )
+    # Making a 0% optional quiz required is refused too.
+    oid = optional.get_json()["data"]["id"]
+    assert editor.patch(f"{url}/{oid}", {"required_for_completion": True}).status_code == 400
+
+
+def test_a_zero_percent_required_quiz_from_before_never_qualifies(seeded, as_role):
+    """Quizzes saved before the rule (passing score 0) can't be published, block course
+    publication and never count towards completion or a certificate."""
+    from app.models import Assessment
+
+    editor = as_role("editor")
+    course, quiz, questions, lessons = _quiz_course(editor)
+    with seeded.app_context():  # what an older release allowed
+        db.session.get(Assessment, quiz["id"]).passing_score = 0
+        db.session.commit()
+    readiness = editor.get(f"{COURSES}/{course['id']}").get_json()["data"]["readiness"]
+    assert any("at least 1%" in issue for issue in readiness["issues"])
+    res = editor.post(
+        f"{COURSES}/{course['id']}/assessments/{quiz['id']}/status", {"status": "draft"}
+    )
+    assert res.status_code == 200
+    res = editor.post(
+        f"{COURSES}/{course['id']}/assessments/{quiz['id']}/status", {"status": "published"}
+    )
+    assert res.status_code == 400 and "at least 1%" in res.get_json()["error"]["message"]
+    with seeded.app_context():
+        db.session.get(Assessment, quiz["id"]).status = "published"
+        db.session.commit()
+
+    learner = _verified(seeded)
+    learner.post(f"{LEARN}/quiz-course/enroll")
+    _complete(learner, "quiz-course", lessons[0])
+    url = f"{LEARN}/quiz-course/assessments/{quiz['id']}/attempts"
+    state = learner.post(url, {"answers": _answers(questions, right=False)}).get_json()["data"]
+    assert state["progress"]["complete"] is False
+    (item,) = state["progress"]["outstanding"]
+    assert item["state"] == "needs_passing_score"
+    state = learner.post(url, {"answers": _answers(questions)}).get_json()["data"]
+    assert state["progress"]["complete"] is False
+    assert learner.post(f"{LEARN}/quiz-course/certificate", {}).status_code == 409
+    assert _card(learner, "quiz-course")["certificate"] is None and _count(seeded) == 0
+
+    # Once staff set a real passing score, the learner's passing attempt counts.
+    assert (
+        editor.patch(
+            f"{COURSES}/{course['id']}/assessments/{quiz['id']}", {"passing_score": 60}
+        ).status_code
+        == 200
+    )
+    state = learner.get(f"{LEARN}/quiz-course").get_json()["data"]["progress"]
+    assert state["complete"] is True
+
+
+def test_certificates_are_never_issued_without_every_requirement(seeded, as_role, client):
+    """Every route to a certificate re-checks the requirements on the server."""
+    from app.services.courses import certificates, learning
+    from app.utils.errors import ConflictError
+
+    editor = as_role("editor")
+    course, quiz, questions, lessons = _quiz_course(editor)
+    support = as_role("customer_support")
+    # Manual enrolment by staff, then everything except passing the quiz.
+    learner = _verified(seeded)
+    res = support.post(
+        f"{COURSES}/{course['id']}/enrollments",
+        {"email": "reader@example.com", "reason": "Scholarship"},
+    )
+    assert res.status_code == 201, res.get_json()
+    assert learner.post(f"{LEARN}/quiz-course/certificate", {}).status_code == 409
+    _complete(learner, "quiz-course", lessons[0])
+    url = f"{LEARN}/quiz-course/assessments/{quiz['id']}/attempts"
+    learner.post(url, {"answers": _answers(questions, right=False)})
+    for name in (None, "Reader"):  # with or without a chosen name
+        body = {} if name is None else {"name": name}
+        assert learner.post(f"{LEARN}/quiz-course/certificate", body).status_code == 409
+    with seeded.app_context():
+        enrollment = db.session.scalar(db.select(CourseEnrollment))
+        assert enrollment.completed_at is None
+        with pytest.raises(ConflictError):
+            certificates.issue(enrollment, "Reader")
+        assert certificates.issue_on_completion(enrollment) is None
+        # Recomputing progress doesn't complete it either.
+        assert learning.recompute(enrollment)["complete"] is False
+        db.session.commit()
+    assert _count(seeded) == 0
+    assert _card(learner, "quiz-course")["certificate_status"] == "in_progress"
+    assert not _certificate_mail()
 
 
 # ---- concurrency --------------------------------------------------------------------------
@@ -570,3 +674,119 @@ def test_customers_cannot_reach_staff_certificate_actions(seeded, as_role, clien
     with seeded.app_context():
         assert db.session.scalar(db.select(CourseCertificate)).revoked_at is None
         assert db.session.scalar(db.select(Customer.display_name)) == "Reader"
+
+
+def test_emails_stuck_sending_are_recovered_once_and_sent_once(seeded, as_role):
+    from datetime import UTC, datetime, timedelta
+
+    from app.services.courses import certificates
+
+    editor = as_role("editor")
+    _, _, lessons = ready_course(editor, "Stuck Course", lessons=1)
+    learner = _verified(seeded)
+    learner.post(f"{LEARN}/stuck-course/enroll")
+    seeded.config["MAIL_BACKEND"] = "none"  # issue it without delivering the email
+    try:
+        _complete(learner, "stuck-course", lessons[0])
+    finally:
+        seeded.config["MAIL_BACKEND"] = "memory"
+    assert not _certificate_mail()
+
+    def stick(minutes_ago):
+        with seeded.app_context():
+            cert = db.session.scalar(db.select(CourseCertificate))
+            cert.email_status = "sending"
+            cert.email_claimed_at = datetime.now(UTC) - timedelta(minutes=minutes_ago)
+            cert.email_attempts = 1
+            db.session.commit()
+            return cert.code
+
+    support = as_role("customer_support")
+
+    # A send in progress (claimed just now) is left alone: no recovery, no second send.
+    code = stick(1)
+    with seeded.app_context():
+        assert certificates.recover_stale_sends() == 0
+        assert certificates.retry_emails() == {}
+    assert support.post(f"{ADMIN_CERTS}/{code}/resend-email", {}).status_code == 409
+    assert not _certificate_mail()
+
+    # A send that died (claimed long ago) is recovered once and sent once.
+    stick(60)
+    detail = support.get(f"{COURSES}/{_course_id(seeded)}/enrollments/{_enrollment_id(seeded)}")
+    assert detail.get_json()["data"]["certificate"]["email_stuck"] is True
+    with seeded.app_context():
+        counts = certificates.retry_emails()
+        assert counts == {"recovered": 1, "sent": 1}
+        assert certificates.retry_emails() == {}  # nothing left; never re-sent
+        assert certificates.recover_stale_sends() == 0
+        cert = db.session.scalar(db.select(CourseCertificate))
+        assert cert.email_status == "sent" and cert.email_attempts == 2
+        assert cert.email_claimed_at is None and cert.emailed_at is not None
+    assert len(_certificate_mail()) == 1
+
+    # Two runners recovering the same stuck row: only the first wins.
+    stick(60)
+    with seeded.app_context():
+        stale = db.session.scalar(db.select(CourseCertificate))
+        claim = stale.email_claimed_at
+        assert certificates.recover_stale_sends() == 1
+        # The second runner saw the same stale claim; its conditional update now misses.
+        db.session.execute(
+            db.update(CourseCertificate)
+            .where(CourseCertificate.id == stale.id)
+            .values(email_status="sending", email_claimed_at=datetime.now(UTC))
+        )
+        db.session.commit()
+        missed = db.session.execute(
+            db.update(CourseCertificate)
+            .where(
+                CourseCertificate.id == stale.id,
+                CourseCertificate.email_status == "sending",
+                CourseCertificate.email_claimed_at == claim,
+            )
+            .values(email_status="failed")
+        )
+        assert missed.rowcount == 0
+        db.session.rollback()
+
+    # Staff may force a resend of a stuck row, once.
+    code = stick(60)
+    assert support.post(f"{ADMIN_CERTS}/{code}/resend-email", {}).status_code == 200
+    assert len(_certificate_mail()) == 2
+
+
+def test_recovery_respects_the_retry_limit(seeded, as_role):
+    from datetime import UTC, datetime, timedelta
+
+    from app.services.courses import certificates
+
+    editor = as_role("editor")
+    _, _, lessons = ready_course(editor, "Limit Course", lessons=1)
+    learner = _verified(seeded)
+    learner.post(f"{LEARN}/limit-course/enroll")
+    seeded.config["MAIL_BACKEND"] = "none"
+    try:
+        _complete(learner, "limit-course", lessons[0])
+    finally:
+        seeded.config["MAIL_BACKEND"] = "memory"
+    with seeded.app_context():
+        cert = db.session.scalar(db.select(CourseCertificate))
+        cert.email_status = "sending"
+        cert.email_attempts = certificates.EMAIL_RETRY_LIMIT
+        cert.email_claimed_at = datetime.now(UTC) - timedelta(hours=2)
+        db.session.commit()
+        assert certificates.retry_emails() == {"recovered": 1}
+        cert = db.session.scalar(db.select(CourseCertificate))
+        assert cert.email_status == "failed"  # visible to staff, not retried endlessly
+    assert not _certificate_mail()
+
+
+def _course_id(app):
+    with app.app_context():
+        return db.session.scalar(db.select(CourseEnrollment.course_id))
+
+
+def _enrollment_id(app):
+    with app.app_context():
+        return db.session.scalar(db.select(CourseEnrollment.id))

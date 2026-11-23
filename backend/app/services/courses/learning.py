@@ -378,6 +378,8 @@ def requirements(course: Course) -> tuple[list[CourseLesson], list[Assessment]]:
 
 
 def _assessment_done(assessment: Assessment, attempts: list[AssessmentAttempt]) -> bool:
+    if assessment_service.passing_score_problem(assessment):
+        return False
     state = assessment_service.assessment_state(assessment, attempts)
     return state in ("passed", "submitted")
 
@@ -427,7 +429,8 @@ def _assignments_done(enrollment: CourseEnrollment, assignments: list) -> int:
 #   marked, every published lesson). A course with no published lessons has no meaningful
 #   requirements and never completes, whatever else it contains; enrolment alone never
 #   completes a course.
-# - Required assessments: published quizzes must be passed (at their passing score);
+# - Required assessments: published quizzes must be passed (at their passing score, which
+#   must be at least 1%: a required quiz at 0% never counts);
 #   reflections and self-assessments must be submitted. Practice exams never count.
 # - Required written assignments: a released, passing grade.
 #
@@ -462,6 +465,10 @@ def progress(enrollment: CourseEnrollment) -> dict[str, Any]:
     assessments_done = 0
     for assessment in assessments:
         state = assessment_service.assessment_state(assessment, attempts.get(assessment.id, []))
+        if assessment_service.passing_score_problem(assessment):
+            # A required quiz with a 0% passing score proves nothing: it never counts until
+            # staff set a real passing score (publishing such a quiz is refused).
+            state = "needs_passing_score"
         if state in ("passed", "submitted"):
             assessments_done += 1
         else:

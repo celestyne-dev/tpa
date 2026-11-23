@@ -358,6 +358,25 @@ rollback). In short:
   new `robots.txt`.
 - **New command:** `flask admin reset-mfa EMAIL` (lost phone and recovery codes).
 
+## Upgrading to automatic certificates of completion
+
+Details: `docs/courses.md` §23. Take a database backup first.
+
+- **Dependency:** `reportlab==5.0.1` is now a runtime requirement
+  (`pip install -r requirements.txt`).
+- **Migration:** `c3e9a5f17b42`. It is additive and changes no existing row. Existing
+  completions and certificates are kept, never regenerated and never emailed.
+- **Check before migrating:** find required quizzes with a 0% passing score. They will
+  stop counting towards completion until a real passing score is set:
+  `SELECT id, course_id, title FROM course_assessments WHERE kind = 'quiz' AND
+  required_for_completion AND NOT practice AND COALESCE(passing_score, 0) < 1;`
+- **New timer:** install `tpa-certificate-emails.{service,timer}` and run
+  `sudo systemctl enable --now tpa-certificate-emails.timer`. It retries and recovers
+  certificate emails and is independent of the email and publishing workers.
+- **Settings:** set _Settings › Certificates_ (signatory name and title).
+- **Rollback:** downgrade to `f2b6d8e0a314`. It fails while an enrolment has a reissued
+  certificate pair, and that has to be resolved by hand first.
+
 ## Frontend build (manual)
 
 ```bash

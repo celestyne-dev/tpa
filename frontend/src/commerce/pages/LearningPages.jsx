@@ -156,7 +156,7 @@ function AccessProblem({ error, courseSlug }) {
 
 // The server decides certificate status (services/courses/learning.py certificate_status);
 // older responses without it are read from the certificate fields.
-export function certificateStatusOf(item) {
+function certificateStatusOf(item) {
   if (item.certificate_status) return item.certificate_status;
   if (item.certificate) return item.certificate.revoked ? "revoked" : "issued";
   return item.certificate_available ? "available" : "in_progress";
@@ -175,7 +175,7 @@ function CertificateLinks({ certificate, shopApi, courseTitle }) {
             ? `Download certificate (PDF) for ${courseTitle}`
             : "Download certificate (PDF)"
         }
-        className="inline-flex min-h-11 items-center gap-2 rounded-full bg-sage-800 px-4 py-2 font-medium text-white hover:bg-sage-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-800"
+        className="inline-flex min-h-11 items-center gap-2 rounded-full bg-sage-700 px-5 py-2 font-semibold text-ivory hover:bg-sage-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage-700"
       >
         <Download aria-hidden className="size-4" /> Download certificate
       </a>
@@ -195,6 +195,9 @@ function outstandingText(item) {
     return item.state === "not_started" || item.state === "draft"
       ? `Assignment: ${item.title}`
       : `Assignment: ${item.title} (awaiting a passing grade)`;
+  }
+  if (item.state === "needs_passing_score") {
+    return `${item.title}: not counted yet (the course team is updating this quiz)`;
   }
   if (item.passing_score) {
     const best = item.best_percent == null ? "" : `; your best so far is ${item.best_percent}%`;

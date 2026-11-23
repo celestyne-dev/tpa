@@ -225,7 +225,9 @@ function EnrollmentDetail({ course, enrollmentId, onClose, onChanged }) {
               ) : null}
               {current.email_status ? (
                 <p className="text-muted">
-                  {EMAIL_LABEL[current.email_status] ?? current.email_status}
+                  {current.email_stuck
+                    ? "Email interrupted; it will be retried automatically"
+                    : (EMAIL_LABEL[current.email_status] ?? current.email_status)}
                   {current.emailed_at ? ` ${formatDateTime(current.emailed_at)}` : ""}
                   {current.email_attempts > 1 ? ` · ${current.email_attempts} attempts` : ""}
                 </p>
@@ -265,7 +267,7 @@ function EnrollmentDetail({ course, enrollmentId, onClose, onChanged }) {
                         label="Revoke certificate"
                         onSubmit={(reason) => certificate("revoke", { reason })}
                       />
-                      {current.email_status !== "sending" ? (
+                      {current.email_status !== "sending" || current.email_stuck ? (
                         <Button
                           type="button"
                           size="sm"

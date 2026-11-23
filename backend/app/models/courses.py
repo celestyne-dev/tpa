@@ -562,6 +562,9 @@ class CourseCertificate(db.Model):
     email_status: Mapped[str | None] = mapped_column(String(20), index=True, nullable=True)
     email_attempts: Mapped[int] = mapped_column(default=0, server_default="0", nullable=False)
     emailed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # When the current send claimed the row ("sending"); a claim older than the stale
+    # threshold means the sender died and the row is recovered (see certificates.py).
+    email_claimed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     revoked_reason: Mapped[str] = mapped_column(String(300), default="", nullable=False)
     corrected_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

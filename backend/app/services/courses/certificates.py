@@ -26,9 +26,14 @@ address, internal id or private record.
 
 Email: one notification per issued certificate, sent after the request's transaction has
 committed (``send_queued``). The certificate row is claimed (``pending``/``failed`` →
-``sending``) before sending, so retries and parallel workers can't send it twice, and an
-email problem never undoes the completion or the certificate. ``flask courses
-send-certificate-emails`` retries failed ones.
+``sending``, with ``email_claimed_at``) before sending, so retries and parallel workers
+can't send it twice, and an email problem never undoes the completion or the certificate.
+``flask courses send-certificate-emails`` (run by the ``tpa-certificate-emails`` timer)
+first recovers rows left in ``sending`` by a process that died mid-send (claim older than
+``STALE_SENDING_AFTER``, recovered by one conditional update so only one runner wins),
+then retries pending and failed ones, at most ``EMAIL_RETRY_LIMIT`` attempts each. The
+only possible duplicate is a crash in the instant after the mail server accepted the
+message and before the result was recorded; no email channel can rule that out.
 
 Certificates are platform-issued certificates of completion, not accredited
 qualifications, and say so.
@@ -38,7 +43,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from flask import current_app, has_request_context, request
@@ -65,6 +70,9 @@ DELETED_ACCOUNT = "Account deleted"
 _ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"  # no 0/O, 1/I/L
 _EMAIL_QUEUE = "tpa_certificate_emails"
 EMAIL_RETRY_LIMIT = 5
+# A send claims its row ("sending") for at most the SMTP timeout (15 s); a claim this old
+# means the process sending it died, so the row is recovered and retried.
+STALE_SENDING_AFTER = timedelta(minutes=15)
 
 
 def _now() -> datetime:
@@ -355,6 +363,8 @@ def admin_dict(certificate: CourseCertificate) -> dict[str, Any]:
         "email_status": certificate.email_status,
         "email_attempts": certificate.email_attempts,
         "emailed_at": iso(certificate.emailed_at),
+        # Left "sending" by a process that died; recovered by the next email run.
+        "email_stuck": certificate.email_status == "sending" and _stale(certificate),
         "verify_url": verify_url(certificate),
     }
 
@@ -468,9 +478,10 @@ def resend_email(certificate: CourseCertificate, actor: User) -> None:
     require(actor, P.COURSES_MANAGE_ENROLLMENTS)
     if certificate.revoked_at is not None:
         raise ConflictError("Revoked certificates aren't emailed.")
-    if certificate.email_status == "sending":
+    if certificate.email_status == "sending" and not _stale(certificate):
         raise ConflictError("The email is being sent right now.")
     certificate.email_status = "pending"
+    certificate.email_claimed_at = None
     audit_service.record(
         "course.certificate_email_requested",
         "course",
@@ -512,6 +523,10 @@ def _queue_email(certificate: CourseCertificate) -> None:
     db.session.info.setdefault(_EMAIL_QUEUE, set()).add(certificate.id)
 
 
+def has_queued() -> bool:
+    return bool(db.session.info.get(_EMAIL_QUEUE))
+
+
 def discard_queued() -> None:
     db.session.info.pop(_EMAIL_QUEUE, None)
 
@@ -548,6 +563,7 @@ def notify(certificate_id: int, *, include_sent: bool = False) -> str | None:
         .values(
             email_status="sending",
             email_attempts=CourseCertificate.email_attempts + 1,
+            email_claimed_at=_now(),
         )
         .execution_options(synchronize_session=False)
     )
@@ -559,6 +575,7 @@ def notify(certificate_id: int, *, include_sent: bool = False) -> str | None:
     customer = db.session.get(Customer, certificate.customer_id)
     if customer is None or not customer.email:
         certificate.email_status = "failed"
+        certificate.email_claimed_at = None
         db.session.commit()
         return "failed"
     context = {
@@ -584,12 +601,60 @@ def notify(certificate_id: int, *, include_sent: bool = False) -> str | None:
         certificate.email_status = "not_configured"
     else:
         certificate.email_status = "failed"
+    certificate.email_claimed_at = None
     db.session.commit()
     return certificate.email_status
 
 
+def _stale(certificate: CourseCertificate, now: datetime | None = None) -> bool:
+    claimed = certificate.email_claimed_at
+    if claimed is not None and claimed.tzinfo is None:
+        claimed = claimed.replace(tzinfo=UTC)
+    return claimed is None or claimed < (now or _now()) - STALE_SENDING_AFTER
+
+
+def recover_stale_sends(now: datetime | None = None) -> int:
+    """Rows stuck in ``sending`` (the sender died): back to ``failed`` so they are retried.
+
+    Each row is released by a conditional update on the claim it was stuck with, so a
+    parallel runner (or a sender that is somehow still alive and records its result) wins
+    at most once and nothing is sent twice by the recovery itself."""
+    cutoff = (now or _now()) - STALE_SENDING_AFTER
+    stuck = db.session.execute(
+        select(CourseCertificate.id, CourseCertificate.email_claimed_at).where(
+            CourseCertificate.email_status == "sending",
+            (CourseCertificate.email_claimed_at.is_(None))
+            | (CourseCertificate.email_claimed_at < cutoff),
+        )
+    ).all()
+    recovered = 0
+    for certificate_id, claimed_at in stuck:
+        claim = (
+            CourseCertificate.email_claimed_at.is_(None)
+            if claimed_at is None
+            else CourseCertificate.email_claimed_at == claimed_at
+        )
+        result = db.session.execute(
+            update(CourseCertificate)
+            .where(
+                CourseCertificate.id == certificate_id,
+                CourseCertificate.email_status == "sending",
+                claim,
+            )
+            .values(email_status="failed", email_claimed_at=None)
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount == 1:
+            recovered += 1
+            logger.warning("certificate email %s was stuck sending; will retry", certificate_id)
+    db.session.commit()
+    return recovered
+
+
 def retry_emails(limit: int = 50) -> dict[str, int]:
-    """Send pending and failed certificate emails (a few attempts each)."""
+    """Recover stuck sends, then send pending and failed certificate emails (a few attempts
+    each; never one already sent)."""
+    recovered = recover_stale_sends()
     ids = list(
         db.session.scalars(
             select(CourseCertificate.id)
@@ -602,7 +667,7 @@ def retry_emails(limit: int = 50) -> dict[str, int]:
             .limit(limit)
         )
     )
-    counts: dict[str, int] = {}
+    counts: dict[str, int] = {"recovered": recovered} if recovered else {}
     for certificate_id in ids:
         result = notify(certificate_id)
         if result:

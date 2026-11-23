@@ -91,12 +91,19 @@ def create_app(
     def deliver_certificate_emails(response):
         # Certificates issued during this request are emailed only after it committed
         # successfully; a delivery problem never changes the response or the completion.
+        # Requests that issued no certificate (nearly all) return at once, without touching
+        # the database session.
         from .services.courses import certificates
 
-        if response.status_code < 400:
-            certificates.send_queued()
-        else:
-            certificates.discard_queued()
+        if not (db.session.registry.has() and certificates.has_queued()):
+            return response
+        try:
+            if response.status_code < 400:
+                certificates.send_queued()
+            else:
+                certificates.discard_queued()
+        except Exception:  # noqa: BLE001 - never affects the response
+            app.logger.exception("certificate email delivery hook failed")
         return response
 
     @app.after_request
